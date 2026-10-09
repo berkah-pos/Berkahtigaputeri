@@ -259,7 +259,12 @@ main() {
       (( FAILURES == 0 )) && { log "Validation gates green; stress and write tests skipped by mode"; return 0; }
       log "Validate-only found $FAILURES failure(s); no DB writes were performed"
     elif (( FAILURES == 0 && STRESS_EXECUTED == 1 )); then
-      if mark_prs_ready; then write_final_verdict; log "ALL GREEN verified"; return 0; fi
+      if mark_prs_ready; then
+        sed -i 's/^status=NOT_ALL_GREEN$/status=ALL_GREEN/' "$ROOT/docs/audit/provenance.txt"
+        write_final_verdict
+        log "ALL GREEN verified"
+        return 0
+      fi
       fail_check 5 "checks passed but PR readiness could not be verified"
     else log "Full attempt found $FAILURES failure(s); no GREEN verdict will be created"; fi
     (( attempt < MAX_ATTEMPTS )) && sleep "$((attempt*2))"
