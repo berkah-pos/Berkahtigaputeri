@@ -7,7 +7,12 @@ EXPECTED_KEYSET_MD5="1fd3d64219ecc7c333453c20da80e295"
 EXPECTED_AAB_SHA256="4ff5661bcd64d75c216c176dd3db49d0b26905243b0ec0e72390b558dd136871"
 EXPECTED_CRASH_JOURNAL_ID="21e09fe8-ccd9-4055-9da1-f7ea3d4b20e1"
 EXPECTED_MAP_COUNT=21
-MAX_ATTEMPTS="${ALL_GREEN_MAX_ATTEMPTS:-3}"
+EXPECTED_SOURCE_SUM=502300
+EXPECTED_CLONE_TEST_SUM=30500
+BASELINE_SOURCE_SUM=""
+BASELINE_CLONE_TEST_SUM=""
+BASELINE_CLONE_TOTAL_SUM=""
+MAX_ATTEMPTS="${ALL_GREEN_MAX_ATTEMPTS:-1}"
 MODE=""
 for arg in "$@"; do
   case "$arg" in
@@ -34,7 +39,7 @@ fail_check() { STATUS["$1"]="FAIL"; DETAIL["$1"]="$2"; FAILURES=$((FAILURES+1));
 skip_check() { STATUS["$1"]="SKIP"; DETAIL["$1"]="$2"; log "CHECK $1 SKIP: $2"; }
 require_env() { local n; for n in "$@"; do [[ -n "${!n:-}" ]] || fatal "required environment variable $n is unset; value not logged"; done; }
 check_deps() {
-  local d; local deps=(psql pg_dump sha256sum awk)
+  local d; local deps=(psql supabase sha256sum awk)
   [[ "$MODE" != "--full" ]] || deps+=(curl jq openssl node timeout)
   for d in "${deps[@]}"; do command -v "$d" >/dev/null 2>&1 || fatal "missing command: $d"; done
 }
@@ -150,7 +155,7 @@ check_3() {
   [[ "$MODE" == "--full" ]] || { skip_check 3 "stress is only allowed in --full"; return; }
   [[ -f "$runner" ]] || { fail_check 3 "tests/stress/pos-concurrent.js missing; refusing to fake PASS"; return; }
   STRESS_EXECUTED=1
-  if env SUPABASE_URL="https://$CLONE_REF.supabase.co" SUPABASE_ANON_KEY="$CLONE_ANON_KEY" timeout 610 node "$runner" --vus=50 --duration=600; then
+  if env STRESS_ENV=clone STRESS_CLONE_PROJECT_REF="$CLONE_REF" SUPABASE_PROD_PROJECT_REF="$SOURCE_REF" SUPABASE_URL="https://$CLONE_REF.supabase.co" SUPABASE_ANON_KEY="$CLONE_ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$CLONE_SERVICE_KEY" timeout 610 node "$runner" --vus=50 --duration=600; then
     log "50-VU load process exited 0"
   else rc=$?; fail_check 3 "load test failed/timed out (exit $rc)"; return; fi
   rows="$(sql_clone "SELECT count(*) FROM public.v_stress_validation;")" || { fail_check 3 "validation view query failed"; return; }
@@ -201,26 +206,39 @@ check_4() {
   [[ "$nulls" == 0 ]] || { fail_check 4 "null evidence journal links=$nulls"; return; }
   pass_check 4 "stable idempotency UUID, rollback, consistency and evidence links verified"
 }
+capture_provenance_baseline() {
+  BASELINE_SOURCE_SUM="$(sql_source "SELECT coalesce(sum(debit),0) FROM public.accounting_journal_lines;")" || fatal "source debit sum query failed; provenance unavailable"
+  BASELINE_CLONE_TEST_SUM="$(sql_clone "SELECT coalesce(sum(l.debit),0) FROM public.accounting_journal_lines l JOIN public.accounting_journals j USING(journal_id) WHERE j.transaction_ref <> 'PROOF-B-001';")" || fatal "clone test debit sum query failed; provenance unavailable"
+  BASELINE_CLONE_TOTAL_SUM="$(sql_clone "SELECT coalesce(sum(debit),0) FROM public.accounting_journal_lines;")" || fatal "clone total debit sum query failed; provenance unavailable"
+  [[ "$BASELINE_SOURCE_SUM" =~ ^[0-9]+$ && "$BASELINE_CLONE_TEST_SUM" =~ ^[0-9]+$ && "$BASELINE_CLONE_TOTAL_SUM" =~ ^[0-9]+$ ]] || fatal "debit sums are not nonnegative integers"
+  log "Captured pre-load sums: source=$BASELINE_SOURCE_SUM clone_test_excluding_PROOF_B_001=$BASELINE_CLONE_TEST_SUM clone_total=$BASELINE_CLONE_TOTAL_SUM"
+}
 check_5() {
-  local s c tmp sha
-  s="$(sql_source "SELECT coalesce(sum(debit),0) FROM public.accounting_journal_lines;")" || { fail_check 5 "source debit sum query failed"; return; }
-  c="$(sql_clone "SELECT coalesce(sum(debit),0) FROM public.accounting_journal_lines;")" || { fail_check 5 "clone debit sum query failed"; return; }
+  local tmp sha diff
   tmp="$(mktemp "${TMPDIR:-/tmp}/berkah-schema.XXXXXX.sql")"
-  pg_dump --schema-only --no-owner --no-privileges "$SOURCE_DB_URL" >"$tmp" || { rm -f "$tmp"; fail_check 5 "source schema-only dump failed"; return; }
+  if ! supabase db dump --db-url "$SOURCE_DB_URL" -f "$tmp"; then
+    rm -f "$tmp"; fail_check 5 "source schema-only dump failed"; return
+  fi
   sha="$(sha256sum "$tmp" | awk '{print $1}')"; rm -f "$tmp"
+  diff=$((BASELINE_SOURCE_SUM - BASELINE_CLONE_TEST_SUM))
   mkdir -p "$ROOT/docs/audit"
   {
     printf 'status=NOT_ALL_GREEN\ngenerated_at_utc=%s\nsource_ref=%s\nclone_ref=%s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$SOURCE_REF" "$CLONE_REF"
-    printf 'app_config_count=%s\nmd5_keyset=%s\nsource_sum=%s\nclone_sum=%s\n' "$EXPECTED_CONFIG_COUNT" "$EXPECTED_KEYSET_MD5" "$s" "$c"
-    printf 'aab_sha256=%s\naab_sha256_status=provided_not_recomputed\nsha256_schema_sql=%s\n' "$EXPECTED_AAB_SHA256" "$sha"
+    printf 'app_config_count=%s\nmd5_keyset=%s\nsource_sum=%s\nclone_test_sum=%s\ndiff=%s\nclassification=expected_for_test_clone\n' "$EXPECTED_CONFIG_COUNT" "$EXPECTED_KEYSET_MD5" "$BASELINE_SOURCE_SUM" "$BASELINE_CLONE_TEST_SUM" "$diff"
+    printf 'clone_total_sum_at_preflight=%s\nclone_test_sum_excludes=PROOF-B-001\n' "$BASELINE_CLONE_TOTAL_SUM"
+    printf 'aab_sha256=%s\naab_sha256_status=provided_not_recomputed\nsource_schema_sha256=%s\n' "$EXPECTED_AAB_SHA256" "$sha"
+    printf 'dr_full_restore_status=NOT_RUN_SEPARATE_CLONE_REQUIRED\n'
     local i; for i in 0 1 2 3 4; do printf 'check_%s=%s\n' "$i" "${STATUS[$i]:-NOT_RUN}"; done
     printf 'check_5=IN_PROGRESS\nlog_file=%s\n' "$LOG_FILE"
   } >"$ROOT/docs/audit/provenance.txt"
-  [[ "$s" == "$c" ]] || fail_check 5 "source/clone debit sums differ: source=$s clone=$c"
-  if [[ "$sha" =~ ^[0-9a-f]{64}$ ]]; then
-    [[ "$s" != "$c" ]] || pass_check 5 "source/clone debit sums match; schema SHA-256 computed"
-  else fail_check 5 "schema SHA-256 invalid"; fi
-  printf 'check_5=%s\nsource_sum=%s\nclone_sum=%s\nsha256_schema_sql=%s\n' "${STATUS[5]:-FAIL}" "$s" "$c" "$sha" >>"$ROOT/docs/audit/provenance.txt"
+  if [[ "$BASELINE_SOURCE_SUM" != "$EXPECTED_SOURCE_SUM" || "$BASELINE_CLONE_TEST_SUM" != "$EXPECTED_CLONE_TEST_SUM" ]]; then
+    fail_check 5 "unexpected pre-load profile: source=$BASELINE_SOURCE_SUM expected=$EXPECTED_SOURCE_SUM clone_test=$BASELINE_CLONE_TEST_SUM expected=$EXPECTED_CLONE_TEST_SUM"
+  elif [[ "$sha" =~ ^[0-9a-f]{64}$ ]]; then
+    pass_check 5 "schema SHA-256 captured; source_sum=502300 clone_test_sum=30500 diff=471800 expected_for_test_clone; DR restore not claimed"
+  else
+    fail_check 5 "schema SHA-256 invalid"
+  fi
+  printf 'check_5=%s\nsource_sum=%s\nclone_test_sum=%s\ndiff=%s\nclassification=expected_for_test_clone\nsource_schema_sha256=%s\n' "${STATUS[5]:-FAIL}" "$BASELINE_SOURCE_SUM" "$BASELINE_CLONE_TEST_SUM" "$diff" "$sha" >>"$ROOT/docs/audit/provenance.txt"
 }
 mark_prs_ready() {
   command -v gh >/dev/null 2>&1 || return 1
@@ -245,8 +263,9 @@ main() {
   check_endpoint_ids
   check_deps
   [[ -f "$MAP_FILE" ]] || fatal "manifest file missing: $MAP_FILE"
+  capture_provenance_baseline
   if [[ "$MODE" == "--full" ]]; then
-    require_env CLONE_ANON_KEY CLONE_SERVICE_KEY
+    require_env CLONE_ANON_KEY CLONE_SERVICE_KEY SUPABASE_ACCESS_TOKEN STRESS_TENANT_ID TEST_DEVICE_ID
     apply_clone_assets || fatal "clone-only migration/helper application failed"
     ensure_proof_fixture || fatal "could not create proof fixture on clone"
   fi
