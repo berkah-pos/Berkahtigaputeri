@@ -155,7 +155,7 @@ check_3() {
   [[ "$MODE" == "--full" ]] || { skip_check 3 "stress is only allowed in --full"; return; }
   [[ -f "$runner" ]] || { fail_check 3 "tests/stress/pos-concurrent.js missing; refusing to fake PASS"; return; }
   STRESS_EXECUTED=1
-  if env STRESS_ENV=clone STRESS_CLONE_PROJECT_REF="$CLONE_REF" SUPABASE_PROD_PROJECT_REF="$SOURCE_REF" SUPABASE_URL="https://$CLONE_REF.supabase.co" SUPABASE_ANON_KEY="$CLONE_ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$CLONE_SERVICE_KEY" timeout 610 node "$runner" --vus=50 --duration=600; then
+  if env STRESS_ENV=clone STRESS_CLONE_PROJECT_REF="$CLONE_REF" SUPABASE_PROD_PROJECT_REF="$SOURCE_REF" STRESS_TENANT_NAME="${STRESS_TENANT_NAME:-TENANT_B_TEST}" SUPABASE_URL="https://$CLONE_REF.supabase.co" SUPABASE_ANON_KEY="$CLONE_ANON_KEY" SUPABASE_SERVICE_ROLE_KEY="$CLONE_SERVICE_KEY" timeout 610 node "$runner" --vus=50 --duration=600; then
     log "50-VU load process exited 0"
   else rc=$?; fail_check 3 "load test failed/timed out (exit $rc)"; return; fi
   rows="$(sql_clone "SELECT count(*) FROM public.v_stress_validation;")" || { fail_check 3 "validation view query failed"; return; }
@@ -265,7 +265,7 @@ main() {
   [[ -f "$MAP_FILE" ]] || fatal "manifest file missing: $MAP_FILE"
   capture_provenance_baseline
   if [[ "$MODE" == "--full" ]]; then
-    require_env CLONE_ANON_KEY CLONE_SERVICE_KEY SUPABASE_ACCESS_TOKEN STRESS_TENANT_ID TEST_DEVICE_ID
+    require_env CLONE_ANON_KEY CLONE_SERVICE_KEY
     apply_clone_assets || fatal "clone-only migration/helper application failed"
     ensure_proof_fixture || fatal "could not create proof fixture on clone"
   fi
