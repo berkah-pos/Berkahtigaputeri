@@ -18,13 +18,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - name: Verify system Python (Fedora 44 runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v python3
+          python3 --version
+          python3 - <<'PY'
+          import sys
+          if sys.version_info < (3, 11):
+              raise SystemExit(f"Python >= 3.11 required, got {sys.version.split()[0]}")
+          PY
 
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check openpyxl requests
+      - name: Create isolated Python environment and install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV_PATH="${RUNNER_TEMP}/berkah-pos-sync-venv"
+          python3 -m venv "${VENV_PATH}"
+          "${VENV_PATH}/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          echo "${VENV_PATH}/bin" >> "${GITHUB_PATH}"
 
       - name: Verify config asset exists
         shell: bash
