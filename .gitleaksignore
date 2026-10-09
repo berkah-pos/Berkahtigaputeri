@@ -22,3 +22,6 @@ d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_11_P0_SECURITY_VERIF
 001cdad7926e48f909a82ada4617915390d8485f:docs/permanent/DOC_11_P0_SECURITY_VERIFICATION_20261008.md:generic-api-key:32
 # Reviewed generic-api-key false positive: a Git commit SHA quoted in a historical audit report.
 ab48416096c0517f110ea180542f016274244ee6:P1-01-rekonsiliasi-pajak-report.md:generic-api-key:135
+
+# Reviewed generic-api-key false positive: fixed app_config keyset MD5 integrity checksum, not a credential.
+0916ed8a3eeb8648adde77ab9d7d58ae76248dea:scripts/all-green-loop.sh:generic-api-key:6
