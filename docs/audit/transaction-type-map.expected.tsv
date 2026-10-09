@@ -1,0 +1,22 @@
+p_transaction_type	expected_ref	accounting_rule
+JUAL_TUNAI	pos_sale	debit Kas credit Penjualan
+JUAL_KREDIT	pos_sale_credit	debit Piutang credit Penjualan
+RETUR_JUAL	sales_return	debit Retur Penjualan credit Kas/Piutang
+TERIMA_PIUTANG	ar_collection	debit Kas credit Piutang Usaha
+TERIMA_PIUTANG_PPH23	ar_pph23_receipt	debit Kas debit PPh23 Dibayar Dimuka credit Piutang
+PPH23_15_ACCRUAL	pph23_15_accrual	debit Beban PPh23 credit Hutang PPh23
+BAYAR_PPH23_15	pph23_15_pay	debit Hutang PPh23 credit Kas
+BELI_TUNAI	purchase	debit Persediaan credit Kas
+BELI_KREDIT	purchase_credit	debit Persediaan credit Hutang Usaha
+RETUR_BELI	purchase_return	debit Kas/Hutang credit Persediaan
+BAYAR_HUTANG	ap_payment	debit Hutang Usaha credit Kas
+BIAYA_OPERASIONAL	opex	debit Beban Operasional credit Kas
+GAJI_BULANAN	salary_accrual	debit Beban Gaji credit Hutang Gaji
+BAYAR_GAJI	salary_pay	debit Hutang Gaji credit Kas
+SETOR_PAJAK	tax_pay	debit Hutang Pajak credit Kas
+ATUR_CADANGAN_PIUTANG	ar_reserve	debit Beban Cadangan credit Cadangan Piutang
+DISKON_PENJUALAN	sales_discount	debit Diskon Penjualan credit Piutang/Kas
+PENYESUAIAN_STOK	stock_adjustment	debit HPP/Persediaan credit Persediaan/HPP
+TRANSFER_KAS	cash_transfer	debit Kas Tujuan credit Kas Sumber
+SETOR_MODAL	capital_in	debit Kas credit Modal
+TARIK_MODAL	capital_out	debit Prive credit Kas
