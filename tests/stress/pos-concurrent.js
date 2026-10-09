@@ -440,53 +440,53 @@ async function main() {
   const errors = [];
   let succeeded = 0;
   let failed = 0;
-  let waves = 0;
 
-  while (performance.now() < deadline) {
-    waves += 1;
-    const wave = Array.from({ length: VUS }, () => {
-      if (performance.now() >= deadline) return null;
-      const ref = 'STRESS-' + crypto.randomUUID();
+  async function runVU(vuId) {
+    while (performance.now() < deadline) {
+      const ref = 'STRESS-' + vuId + '-' + crypto.randomUUID();
       allRefs.push(ref);
-      return (async () => {
-        const started = performance.now();
-        try {
-          const { error } = await anonClient.rpc('create_auto_journal', {
-            p_tenant_id: tenant.tenant_id,
-            p_transaction_type: 'JUAL_TUNAI',
-            p_transaction_ref: ref,
-            p_business_date: businessDate,
-            p_facts: {
-              lines: [{
-                qty: 1,
-                kind: 'SERVICE',
-                amount: 10000,
-                line_key: ref,
-                service_profile_id: serviceProfileId
-              }]
-            },
-            p_device_id: deviceId,
-            p_app_version: 'stress-harness/2',
-            p_reason: '50-VU acceptance stress'
-          });
-          if (error) {
-            failed += 1;
-            if (errors.length < 20) errors.push({ code: error.code || 'RPC_ERROR', message: error.message || 'RPC failed' });
-          } else {
-            succeeded += 1;
-            successfulRefs.push(ref);
-            successfulLatencies.push(performance.now() - started);
-          }
-        } catch (error) {
+      const started = performance.now();
+      try {
+        const { error } = await anonClient.rpc('create_auto_journal', {
+          p_tenant_id: tenant.tenant_id,
+          p_transaction_type: 'JUAL_TUNAI',
+          p_transaction_ref: ref,
+          p_business_date: businessDate,
+          p_facts: {
+            lines: [{
+              qty: 1,
+              kind: 'SERVICE',
+              amount: 10000,
+              line_key: ref,
+              service_profile_id: serviceProfileId
+            }]
+          },
+          p_device_id: deviceId,
+          p_app_version: 'stress-harness/2',
+          p_reason: '50-VU acceptance stress'
+        });
+        if (error) {
           failed += 1;
-          if (errors.length < 20) errors.push({ code: error.code || 'REQUEST_ERROR', message: error.message || String(error) });
-        } finally {
-          allLatencies.push(performance.now() - started);
+          if (errors.length < 20) errors.push({ code: error.code || 'RPC_ERROR', message: error.message || 'RPC failed' });
+        } else {
+          succeeded += 1;
+          successfulRefs.push(ref);
+          successfulLatencies.push(performance.now() - started);
         }
-      })();
-    }).filter(Boolean);
-    await Promise.all(wave);
+      } catch (error) {
+        failed += 1;
+        if (errors.length < 20) errors.push({ code: error.code || 'REQUEST_ERROR', message: error.message || String(error) });
+      } finally {
+        allLatencies.push(performance.now() - started);
+      }
+
+      if (performance.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 150));
+      }
+    }
   }
+
+  await Promise.all(Array.from({ length: VUS }, (_, index) => runVU(index + 1)));
 
   const elapsed = (performance.now() - startClock) / 1000;
   let duplicates = null;
@@ -526,7 +526,7 @@ async function main() {
     '',
     '- **Status:** ' + (passed ? 'PASS' : 'FAIL'),
     '- **Target:** clone project ref ' + projectRef + '; test tenant ' + tenant.name + ' (user/device identifiers omitted)',
-    '- **Profile:** ' + VUS + ' concurrent RPCs per wave; configured ' + DURATION_SECONDS + 's; elapsed ' + elapsed.toFixed(2) + 's; waves ' + waves,
+    '- **Profile:** ' + VUS + ' persistent virtual users; configured ' + DURATION_SECONDS + 's; elapsed ' + elapsed.toFixed(2) + 's',
     '- **Started / finished UTC:** ' + startedAt.toISOString() + ' / ' + finishedAt.toISOString(),
     '- **RPC attempts:** ' + attempts + '; successful ' + succeeded + '; failed ' + failed + '; failure rate ' + (failureRate * 100).toFixed(3) + '%',
     '- **Latency, all outcomes:** p95 ' + ms(p95) + '; p99 ' + ms(p99) + '; samples ' + attempts,
