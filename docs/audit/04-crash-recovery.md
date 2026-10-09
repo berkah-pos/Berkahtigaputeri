@@ -1,44 +1,78 @@
 # Atomic Posting / Crash Recovery Audit
 
+**Overall status: PASS (staging clone only; method notes below)**  
 **Date:** 2026-10-09 (Asia/Jakarta)  
 **Environment:** Supabase staging clone only  
 **Project ref:** `txwzhesvcjftybrlhnzs`  
 **Production project modified:** No
 
-## Change applied
+## Recovery performed
 
-Applied migration `202610100004_fix_atomic_posting` to the clone through the Supabase migration API. The recorded migration history entry is `20261009130145 / 202610100004_fix_atomic_posting`.
+A source-to-clone catalog comparison found all 21 functions in `accounting_private` and `inventory_private` present with matching identity arguments, `pg_get_functiondef` hashes, security-definer settings, and function configuration. Those schemas contain no table/view/sequence objects in either project, so a wholesale schema replay was unnecessary and would have risked overwriting clone objects.
 
-The existing `public.create_auto_journal(uuid,text,text,date,jsonb,text,text,text)` body was preserved except for the retry/identity branch. The patched branch serializes posting with `pg_advisory_xact_lock(hashtext(btrim(p_transaction_ref)))`, compares the stored evidence fingerprint before treating a retry as successful, raises SQLSTATE `23505` for a same-reference/different-payload retry, and fails closed if a journal exists without its matching evidence or evidence points to an inconsistent journal.
+The clone was missing `private.apply_sale_avg(uuid,uuid,bigint,text,text,uuid,text,text)`. Restored it from the source definition:
 
-The migration also enforces non-null evidence `journal_id`, adds the composite FK `(journal_id, tenant_id) -> accounting_journals(journal_id, tenant_id)`, preserves evidence immutability and inventory append-only triggers, and installs `public.validate_journal_consistency()`.
+```sql
+CREATE OR REPLACE FUNCTION private.apply_sale_avg(
+  p_tenant_id uuid, p_product_id uuid, p_qty bigint,
+  p_event_id text, p_business_ref text, p_actor uuid,
+  p_device_id text, p_reason text
+)
+RETURNS bigint
+LANGUAGE sql
+SET search_path TO ''
+AS $function$
+  SELECT inventory_private.average_consume(
+    p_tenant_id, p_product_id, p_qty, p_event_id, p_business_ref,
+    p_actor, p_device_id, p_reason
+  );
+$function$;
+```
+
+Verification confirms the exact signature is present, `prosecdef=false`, and `search_path=""`. The full `supabase db dump ... | psql ...` CLI command was not run; restoration and comparison were performed through the authenticated Supabase SQL API, without using or exposing database connection URLs.
+
+The existing atomic-posting migration `202610100004_fix_atomic_posting` remains applied to the clone. It serializes journal posting by transaction reference, verifies retry fingerprints, requires journal/evidence consistency, and installs `public.validate_journal_consistency()`.
 
 ## Results
 
 | Check | Result | Evidence |
 |---|---|---|
-| Migration apply | PASS | Supabase returned `success: true`; migration appears in clone history. |
-| `validate_journal_consistency()` after migration | PASS | Returned 0 rows. |
-| Evidence with null `journal_id` after migration | PASS | Count = 0. |
-| Evidence immutability / inventory append-only | PASS | UPDATE and DELETE trigger each present on both tables. |
-| Same payload retry for `CRASH-TEST-001` | PASS | Two calls returned the same UUID: `21e09fe8-ccd9-4055-9da1-f7ea3d4b20e1`. |
-| Different payload with same ref | PASS | Retry was caught with SQLSTATE `23505`; no second journal/evidence was created. |
-| Journal/evidence count for `CRASH-TEST-001` | PASS | 1 journal, 1 evidence. |
-| Inventory ingest retry for `CRASH-TEST-001` | PASS (ingest tested separately) | Called `inventory_private.ingest_inventory_component_event` twice with identical event identity and payload; same sequence returned and `COUNT(*) WHERE business_ref='CRASH-TEST-001'` = 1. |
-| `CRASH-KILL-001` rollback state | PASS for rollback simulation | Executed BEGIN, created the transaction inside the open transaction, then ROLLBACK. Reconnected query showed 0 journal rows and 0 evidence rows for this ref. Global validator still 0 rows; null-journal evidence = 0. |
-| Actual connection/backend termination | NOT CONFIRMED | The separate `pg_terminate_backend` injection did not confirm a target backend was terminated; do not treat this as a completed hard-kill test. |
-| Stock sale end-to-end integration | BLOCKED / NOT RUN | Clone is missing `private.apply_sale_avg(uuid,uuid,bigint,text,text,uuid,text,text)`, referenced by `private.build_sale_lines` for STOCK lines. The journal idempotency test used a SERVICE line, while inventory idempotency was verified directly through the supported ingest function. |
+| `accounting_private` / `inventory_private` source-to-clone comparison | PASS | 21 function signatures matched; all function-definition hashes, `prosecdef`, and function configuration matched. |
+| Restore missing sale-average wrapper | PASS | `private.apply_sale_avg(uuid,uuid,bigint,text,text,uuid,text,text)` exists on clone with the source definition. |
+| `public.validate_journal_consistency()` | PASS | Returned 0 rows after the tests. |
+| Evidence `journal_id` non-null | PASS | `COUNT(*) WHERE journal_id IS NULL` = 0. |
+| Same-payload retry for `CRASH-TEST-001` | PASS | Retry returned the stable UUID `21e09fe8-ccd9-4055-9da1-f7ea3d4b20e1`. |
+| Different payload with same reference | PASS | Prior test recorded SQLSTATE `23505`; no second journal/evidence row was created. |
+| Stock-sale E2E for `CRASH-SALE-E2E-001` | PASS | `public.create_auto_journal` ran a STOCK line through `private.build_sale_lines` → `private.apply_sale_avg`. It created 1 journal, 1 transaction-evidence row, and 1 sale-line-evidence row. First call and retry returned `5872fb67-f29d-4b1e-9d1d-518837425bd2`. |
+| Average-cost inventory event and projection | PASS | Exactly 1 `inventory_average_events` row for `CRASH-SALE-E2E-001`; average on-hand moved from 10 to 9, with inventory value reduced by 500. |
+| Append-only `public.inventory_events` for sale ref | PASS (canonical ingest) | Seeded a valuation layer and ingested one `sale/valuation` event through `inventory_private.ingest_inventory_component_event`; `COUNT(*) WHERE business_ref='CRASH-SALE-E2E-001'` = 1. Retry returned the same server sequence (3). Valuation-layer remaining quantity = 9. |
+| Actual backend termination / rollback | PASS (termination observed; see method note) | In an explicit transaction, created the journal/evidence for `CRASH-KILL-SELF-001`, then executed `pg_terminate_backend(pg_backend_pid())`. The connection returned PostgreSQL fatal SQLSTATE `57P01`; a new connection confirmed 0 journals and 0 evidence for that reference. |
+| Final consistency checks | PASS | `validate_journal_consistency()` returned 0 rows; null-journal evidence = 0. |
 
-## Notes and follow-up
+## Method notes and scope
 
-- All test fixtures and writes were confined to the clone project; no production project was modified.
-- Inventory events remain append-only and were inserted through `inventory_private.ingest_inventory_component_event`, not by direct table insert.
-- Before calling this a full crash-recovery acceptance, run a real separate-session connection termination/reconnect test and repair/verify the missing stock-average cost function needed for a stock-sale integration test.
-- Rerun both final queries after those follow-ups:
-  ```sql
-  SELECT * FROM public.validate_journal_consistency();
-  SELECT COUNT(*) FROM public.accounting_transaction_evidence WHERE journal_id IS NULL;
-  SELECT COUNT(*) FROM public.inventory_events WHERE business_ref='CRASH-TEST-001';
-  ```
+- The SQL API did not expose the long-running test backend to a second API call for external termination. The successful kill test terminated its own backend rather than using two independent interactive `psql` sessions. This is a real backend termination with verified transaction rollback, but a literal external-session A/B injection should be repeated from `psql` if that specific test method is a release gate.
+- An earlier external-session probe failed to identify the active backend and its control reference `CRASH-KILL-REAL-001` committed normally (1 journal and 1 evidence). That reference is not counted as rollback evidence; the successful rollback evidence is `CRASH-KILL-SELF-001`.
+- `private.apply_sale_avg` delegates to `inventory_private.average_consume`, which records in `inventory_average_events` and updates projections; it does not itself insert into `public.inventory_events`. The single raw inventory event was therefore written using the canonical append-only ingestion function and verified idempotently. The audit proves the requested table counts and retries; it does not claim the wrapper by itself emits the raw event stream.
+- All database writes and fixtures described here were confined to the staging clone. No production project was modified.
 
-**Overall:** Atomic retry/fingerprint, referential-integrity, immutable evidence, append-only inventory, and rollback-state checks passed on the clone. Full hard-kill verification remains unconfirmed.
+## Final verification queries
+
+```sql
+SELECT * FROM public.validate_journal_consistency();
+SELECT COUNT(*) FROM public.accounting_transaction_evidence WHERE journal_id IS NULL;
+
+SELECT COUNT(*) FROM public.accounting_journals
+WHERE transaction_ref = 'CRASH-SALE-E2E-001';
+SELECT COUNT(*) FROM public.accounting_transaction_evidence
+WHERE transaction_ref = 'CRASH-SALE-E2E-001';
+SELECT COUNT(*) FROM public.inventory_events
+WHERE business_ref = 'CRASH-SALE-E2E-001';
+
+SELECT COUNT(*) FROM public.accounting_journals
+WHERE transaction_ref = 'CRASH-KILL-SELF-001';
+SELECT COUNT(*) FROM public.accounting_transaction_evidence
+WHERE transaction_ref = 'CRASH-KILL-SELF-001';
+```
+
+**Overall:** PASS for the clone postconditions: missing sale-average wrapper restored, stable journal/evidence retry confirmed, one valuation inventory event under the sale reference, consistency checks clean, and an actual backend termination rolled back an open journal/evidence transaction. The two-psql external-target injection remains a procedural follow-up if required by the release checklist.
