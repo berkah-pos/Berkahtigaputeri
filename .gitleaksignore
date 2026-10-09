@@ -9,3 +9,16 @@
 # Supabase publishable key is intentionally public/client-side by design
 31f7e6cd6ff16089189efe57cb3966b5cbc48568:btp-admin/auth.js:generic-api-key:4
 e448a95b297b14e52dca1049ddb53371c5752d2e:pos-app/tool/staging.public.json:generic-api-key:3
+
+# Reviewed generic-api-key false positives: keyset MD5 digest literals, not credentials.
+eb3d2035619dcfe6f3f4617135508eecb92b1b49:scripts/dr-backup-restore.sh:generic-api-key:8
+ae8bc49f5897b21c052cf10a44bca066b6218aeb:docs/permanent/DOC_00_MASTER_ROADMAP.md:generic-api-key:26
+299e334e9dbdf63155edab6382c84274048c2ba0:AGENTS.md:generic-api-key:38
+d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql:generic-api-key:29
+d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql:generic-api-key:90
+323f72631d712963233db27e6de4bbf04f1bef15:docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql:generic-api-key:29
+ea0e2016b95f612c10ee184d71ea05dbc314436e:docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql:generic-api-key:90
+d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_11_P0_SECURITY_VERIFICATION_20261008.md:generic-api-key:32
+001cdad7926e48f909a82ada4617915390d8485f:docs/permanent/DOC_11_P0_SECURITY_VERIFICATION_20261008.md:generic-api-key:32
+# Reviewed generic-api-key false positive: a Git commit SHA quoted in a historical audit report.
+ab48416096c0517f110ea180542f016274244ee6:P1-01-rekonsiliasi-pajak-report.md:generic-api-key:135
