@@ -343,16 +343,20 @@ async function exactDuplicateCount(admin) {
   return count;
 }
 
-async function validateBalances(admin, tenantId, everyRef, successfulRefs) {
+async function validateBalances(admin, tenantId, runPrefix, successfulRefs) {
   const rows = [];
-  const refs = [...new Set(everyRef)];
-  for (let i = 0; i < refs.length; i += 100) {
+  const pageSize = 1000;
+  for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await admin.from('accounting_journals')
       .select('tenant_id,transaction_ref,total_debit,total_credit')
       .eq('tenant_id', tenantId)
-      .in('transaction_ref', refs.slice(i, i + 100));
+      .like('transaction_ref', runPrefix + '%')
+      .order('transaction_ref', { ascending: true })
+      .range(offset, offset + pageSize - 1);
     failQuery('Journal balance query failed', error);
-    rows.push(...(data || []));
+    const page = data || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
   }
   const found = new Set(rows.map((row) => row.transaction_ref));
   const unbalanced = rows.filter((row) =>
@@ -435,7 +439,7 @@ async function main() {
   const deadline = startClock + DURATION_SECONDS * 1000;
   const allLatencies = [];
   const successfulLatencies = [];
-  const allRefs = [];
+  const runPrefix = 'STRESS-' + crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase() + '-';
   const successfulRefs = [];
   const errors = [];
   let succeeded = 0;
@@ -443,8 +447,7 @@ async function main() {
 
   async function runVU(vuId) {
     while (performance.now() < deadline) {
-      const ref = 'STRESS-' + vuId + '-' + crypto.randomUUID();
-      allRefs.push(ref);
+      const ref = runPrefix + vuId + '-' + crypto.randomUUID();
       const started = performance.now();
       try {
         const { error } = await anonClient.rpc('create_auto_journal', {
@@ -495,7 +498,7 @@ async function main() {
   let validationError = null;
   try {
     duplicates = await exactDuplicateCount(admin);
-    balance = await validateBalances(admin, tenant.tenant_id, allRefs, successfulRefs);
+    balance = await validateBalances(admin, tenant.tenant_id, runPrefix, successfulRefs);
     consistencyIssues = await validateConsistency(admin);
   } catch (error) {
     validationError = error.message || String(error);
