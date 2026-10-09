@@ -16,7 +16,7 @@ Example environment variables (set values from the clone's local secret store; n
     export SUPABASE_URL='https://txwzhesvcjftybrlhnzs.supabase.co'
     export STRESS_CLONE_PROJECT_REF='txwzhesvcjftybrlhnzs'
     export SUPABASE_ANON_KEY='<clone-anon-or-publishable-key>'
-    export SUPABASE_SERVICE_ROLE_KEY='<clone-service-role-key-for-validation-only>'
+    export SUPABASE_SERVICE_ROLE_KEY='<clone-service-role-key-for-fixture-setup-and-validation>'
     export SUPABASE_PROD_PROJECT_REF='cztlmwzfrhyafgawphgw' # protected read-only source ref
     export STRESS_TENANT_NAME='TENANT_B_TEST' # or STRESS_TEST_TENANT
     node tests/stress/pos-concurrent.js --vus=50 --duration=600
