@@ -35,4 +35,26 @@ The harness defaults to 50 concurrent calls for 600 seconds. STRESS_VUS and STRE
 - **Constraint:** chk_balance present on public.accounting_journals.
 - **Load-test status:** NOT RUN. This clone currently has 0 auth users, 0 device rows, 0 active POS memberships, and 0 active accounting memberships. A valid bound test identity/device fixture must be provisioned before RPC load can be sent.
 - **p95 / p99:** N/A (no RPC samples). **RPC errors:** N/A (no requests attempted). Load acceptance remains pending; do not interpret empty-database preflight checks as a successful stress test.
+
+---
+
+## Run 2026-10-10T02:00:33.849Z
+
+- **Status:** FAIL
+- **Target:** clone project ref txwzhesvcjftybrlhnzs; test tenant TENANT_B_TEST (user/device identifiers omitted)
+- **Profile:** 50 persistent virtual users; configured 600s; elapsed 614.97s
+- **Started / finished UTC:** 2026-10-10T02:00:33.849Z / 2026-10-10T02:11:02.364Z
+- **RPC attempts:** 27766; successful 27266; failed 500; failure rate 1.801%
+- **Latency, all outcomes:** p95 2308.34 ms; p99 30001.51 ms; samples 27766
+- **Latency, successful RPCs:** p95 1238.70 ms; p99 6648.29 ms; samples 27266
+- **Duplicate groups in v_stress_validation:** VALIDATION ERROR
+- **Balance validation:** checked rows N/A; missing refs N/A; unbalanced rows N/A
+- **validate_journal_consistency issues:** N/A
+- **Validation error:** v_stress_validation query failed: [object Object]
+- **RPC error samples (maximum 5 shown):**
+- RPC_ERROR: TimeoutError: The operation was aborted due to timeout
+- RPC_ERROR: TimeoutError: The operation was aborted due to timeout
+- RPC_ERROR: TimeoutError: The operation was aborted due to timeout
+- RPC_ERROR: TimeoutError: The operation was aborted due to timeout
+- RPC_ERROR: TimeoutError: The operation was aborted due to timeout
 <!-- STRESS_METRICS_END -->
