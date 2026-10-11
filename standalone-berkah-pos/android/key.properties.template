@@ -1,4 +1,6 @@
-storePassword=CHANGE_ME
-keyPassword=CHANGE_ME
+# Copy to android/key.properties and replace values with the real upload-keystore credentials.
+# Never commit android/key.properties or any .jks / .keystore file.
+storePassword=REPLACE_WITH_KEYSTORE_PASSWORD
+keyPassword=REPLACE_WITH_KEY_PASSWORD
 keyAlias=berkahpos
 storeFile=../berkahpos-release.jks
