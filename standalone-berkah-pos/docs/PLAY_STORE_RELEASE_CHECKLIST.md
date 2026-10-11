@@ -15,7 +15,8 @@ This checklist distinguishes repository configuration from steps that only the o
 - [x] Manifest currently declares Internet and network-state permissions only.
 - [x] Local inventory/sales database and checkout smoke-level formatter test are present.
 - [x] Gradle wrapper scripts and JAR are checked in.
-- [ ] Rebuild and verify the clean Flutter CI workflow after the workflow reset; queued or cancelled historical runs do not count as passing results.
+- [x] A single purpose-specific Android CI workflow exists at `.github/workflows/berkah-pos-android-ci.yml` with path filters scoped to the standalone Flutter app.
+- [ ] The new CI run must finish successfully; queued, pending, cancelled or artifact-free historical runs do not count as passing results.
 - [ ] CI run must finish successfully. A queued run is not a passing result.
 - [ ] Add/retain tests for product create/edit/delete, checkout stock invariants, duplicate product names, and persistence after app restart.
 - [ ] Device acceptance test on the supported Android range, including a small-screen physical device, offline behavior, app restart, and update-over-existing-install.
