@@ -39,3 +39,39 @@ The staging project reported 138 applied migrations, while the repository tracks
 4. Enable leaked-password protection through reviewed Auth configuration change after testing rollout impact.
 5. Add covering indexes only after explain/query-plan review and test migration against a disposable database.
 6. Keep deployment target explicit; do not deploy from this PR directly to the read-only staging project or to production.
+
+
+## Additional read-only review — RPC authorization and audit logging
+
+Catalog inspection was performed against the staging project using function definitions and ACL metadata only. No function was invoked to alter data, no secret values were selected, and no SQL writes were issued.
+
+### Subscription RPC protections observed
+
+- `public.apply_midtrans_payment` is **not SECURITY DEFINER**; execute ACL showed only `postgres` and `service_role`. It validates allowed states and provider check time, locks by owner and row, checks provider and order ID, ignores stale provider reads, requires the stored amount/duration snapshot, enforces exact amount and transaction-ID consistency, and avoids granting additional periods for repeated paid notifications.
+- `public.apply_play_subscription` is **not SECURITY DEFINER**; execute ACL showed only `postgres` and `service_role`. It locks updates per user, checks linked-token ownership, relies on unique purchase-token constraints for competing requests, and only replaces rows owned by the same user with a newer provider timestamp.
+- `public.get_license_private_key` is SECURITY DEFINER with an empty `search_path`, but its ACL permits execution only to `postgres` and `service_role`; it reads the decrypted signing key from Vault. Never call it in client/JWT contexts or select its return value during audits.
+- `public.get_effective_config` is SECURITY DEFINER with empty `search_path`, executable by `authenticated` and `service_role` (not anon). It validates tenant/device association and verifies ownership by the authenticated UID or canonical super-admin before merging config.
+- `public.get_runtime_tax_snapshot` is SECURITY DEFINER with empty `search_path` and ACL limited to `postgres`/ `service_role`. It validates date and required tax rules and fails closed on overlapping active tax rules or missing required rules.
+- Subscription database uniqueness was confirmed for `subscriptions.midtrans_order_id`, `subscriptions.play_purchase_token`, and `subscription_events.event_key`. This is valuable defense-in-depth for webhook idempotency.
+
+### Critical endpoint boundary still requires a decision
+
+The deployed `licence-check` source uses the server-side administrative key to query/update records from a request body. The inspected handler validates that `device_id` is present and checks the licence row, but does not itself validate a signed device credential or an authenticated user's tenant membership. Platform JWT verification is enabled for this function, but it is not safe to assume that a publishable/anon key identifies an authorized device. The Flutter app in the tracked repo did not show a call to this endpoint, so expected production callers are currently unclear.
+
+Before making any authorization change, identify the real clients (current production app, legacy installs, admin, scheduled service). Then implement a backward-compatible device credential or user/membership proof, add replay protection, bind heartbeat updates to authenticated identity, and only then test rollout against staging. Do not treat a caller-provided `device_id`, `last_transaction_id`, `sales_today`, or `hardware_mode` as trusted evidence.
+
+### pgaudit configuration
+
+The `pgaudit` extension is installed, but effective settings read from PostgreSQL were:
+- `pgaudit.log = none`
+- `pgaudit.log_catalog = on`
+- `pgaudit.log_parameter = off`
+- `log_statement = ddl`
+- `log_min_duration_statement = -1`
+
+Therefore the extension's presence does not equal useful audit logging. Define a reviewed audit policy for DDL/role/security-relevant writes, ensure log retention and access are controlled, monitor log volume, and avoid logging sensitive parameter contents. This configuration was **not changed** on the audited project.
+
+### Definer-function warnings
+
+The advisory reported 45 SECURITY DEFINER function findings for authenticated execution (the broader catalog query found 49 callable by authenticated users across `public` and `private`; query scope/count semantics should be reconciled before treating the number as an invariant). A catalog query found zero SECURITY DEFINER functions executable by `anon`. Review bodies and grants function-by-function. Do not apply broad `REVOKE EXECUTE` without identifying each intended API RPC and updating caller contracts/tests.
+
