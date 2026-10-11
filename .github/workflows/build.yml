@@ -107,6 +107,14 @@ jobs:
         if: github.event_name == 'pull_request'
         run: flutter build appbundle --release
 
+      - name: Build unsigned split APKs for pull-request validation
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          flutter build apk --release --split-per-abi
+          test -s build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          test -s build/app/outputs/flutter-apk/app-x86_64-release.apk
+
       - name: Release signing preflight
         id: release_signing
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -172,7 +180,7 @@ jobs:
               "keyAlias": os.environ["ANDROID_KEY_ALIAS"],
               "keyPassword": os.environ["ANDROID_KEY_PASSWORD"],
           }
-          target = Path("android/key.properties")
+          target = Path("pos-app/android/key.properties")
           target.write_text(
               "".join(f"{key}={escape(value)}\\n" for key, value in values.items()),
               encoding="utf-8",
@@ -183,13 +191,13 @@ jobs:
 
       - name: Build signed release app bundle
         if: steps.release_signing.outputs.ready == 'true'
-        run: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols/aab
 
       - name: Build signed split APKs
         if: steps.release_signing.outputs.ready == 'true'
         run: |
           set -euo pipefail
-          flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols
+          flutter build apk --release --split-per-abi --obfuscate --split-debug-info=build/symbols/apk
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/app-arm64.apk
           cp build/app/outputs/flutter-apk/app-x86_64-release.apk build/app/outputs/flutter-apk/app-x86_64.apk
 
