@@ -1,0 +1,32 @@
+name: Berkah POS Standalone Flutter CI
+
+on:
+  push:
+    paths:
+      - "standalone-berkah-pos/**"
+      - ".github/workflows/berkah-pos-standalone-ci.yml"
+  pull_request:
+    paths:
+      - "standalone-berkah-pos/**"
+      - ".github/workflows/berkah-pos-standalone-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: standalone-berkah-pos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - run: flutter build appbundle --release

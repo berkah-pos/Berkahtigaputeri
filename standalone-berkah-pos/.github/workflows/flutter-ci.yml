@@ -1,0 +1,2 @@
+# CI is configured at repository root in .github/workflows/berkah-pos-standalone-ci.yml.
+# This in-project workflow file is intentionally disabled to avoid nested workflow discovery confusion.
