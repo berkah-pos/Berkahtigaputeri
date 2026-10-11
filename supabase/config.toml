@@ -1,0 +1,15 @@
+# Supabase CLI project configuration for Berkah POS local development.
+# Link/deploy targets must be chosen explicitly (staging clone vs production).
+project_id = "berkahtigaputeri-pos"
+
+# subscription-api hosts provider webhooks and user-authenticated routes.
+# Endpoint handlers explicitly validate user access tokens, Midtrans signatures,
+# and Google Pub/Sub OIDC. Do not remove these application-level checks.
+[functions.subscription-api]
+verify_jwt = false
+
+[functions.licence-check]
+verify_jwt = true
+
+[functions.coretax-adapter]
+verify_jwt = true
