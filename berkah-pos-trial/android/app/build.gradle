@@ -10,6 +10,8 @@ def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 def hasReleaseSigning = keystorePropertiesFile.exists() && keystoreProperties.getProperty("storeFile") && keystoreProperties.getProperty("storePassword") && keystoreProperties.getProperty("keyAlias") && keystoreProperties.getProperty("keyPassword")
+// Explicit opt-in for CI smoke builds only. The normal local release build stays fail-closed.
+def allowDebugReleaseSigning = project.findProperty("allowDebugReleaseSigning") == "true"
 
 android {
     namespace = "id.co.berkahtigaputeri.berkahpos"
@@ -47,7 +49,7 @@ android {
 flutter { source = "../.." }
 
 tasks.configureEach {
-    if (name == "bundleRelease" && !hasReleaseSigning) {
-        doFirst { throw new GradleException("Release signing missing. Copy android/key.properties.template to android/key.properties and configure your private keystore.") }
+    if (name == "bundleRelease" && !hasReleaseSigning && !allowDebugReleaseSigning) {
+        doFirst { throw new GradleException("Release signing missing. Copy android/key.properties.template to android/key.properties and configure your private keystore. To build a non-production smoke AAB only, explicitly set ORG_GRADLE_PROJECT_allowDebugReleaseSigning=true.") }
     }
 }
