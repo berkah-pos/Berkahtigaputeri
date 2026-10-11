@@ -34,7 +34,11 @@ android {
     }
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // Allow CI to compile without secrets. Configure key.properties locally
+            // or via a protected release workflow before publishing to Google Play.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             shrinkResources false
         }
