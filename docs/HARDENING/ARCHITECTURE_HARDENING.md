@@ -10,6 +10,8 @@
 
 ## Outstanding
 - The Android scaffold is generated during CI if missing; the manifest and wrapper are not tracked in the inspected tree. This makes the build dependent on runtime generation rather than a fully reviewed committed Android project.
+- Added `.github/workflows/supabase-functions.yml` on the follow-up branch to run Gitleaks, Deno lint/type checks, and provider-state/webhook unit tests on `supabase/**` changes. Do not merge until its first CI run is green.
+- Supabase deployed functions had drifted from the checked-in tree; the follow-up branch snapshots the active staging sources and adds `supabase/config.toml`, without deploying them.
 - `final-pos-sync.yml` performs a dry-run sync only. Confirm that this is the intended behavior; it should not be treated as a production migration/deployment pipeline.
 - Host checks not possible here: systemd unit enabled/active, Restart=always, runner ownership, SELinux labels, linger, reboot recovery, disk/RAM/swap, runner version and labels.
 - The workflow does not currently build split APKs or use obfuscation/debug-symbol output.
