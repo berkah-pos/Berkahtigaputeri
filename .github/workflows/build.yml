@@ -182,7 +182,7 @@ jobs:
           }
           target = Path("pos-app/android/key.properties")
           target.write_text(
-              "".join(f"{key}={escape(value)}\\n" for key, value in values.items()),
+              "".join(f"{key}={escape(value)}\n" for key, value in values.items()),
               encoding="utf-8",
           )
           os.chmod(target, 0o600)
