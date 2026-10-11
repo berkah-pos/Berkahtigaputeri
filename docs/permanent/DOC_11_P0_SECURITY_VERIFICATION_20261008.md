@@ -29,7 +29,7 @@ Verified live after migration:
 
 ```text
 app_config rows = 352
-keyset MD5     = 1fd3d64219ecc7c333453c20da80e295
+keyset MD5     = 1fd3d64219ecc7c333453c20da80e295  # gitleaks:allow -- deterministic integrity checksum, not a credential
 ```
 
 Breakdown remains canonical:
