@@ -1,25 +1,23 @@
-name: berkahtigaputeri_pos
-description: POS dan akuntansi Berkah Tiga Puteri.
+name: berkah_pos_trial
+description: Berkah POS trial offline untuk PT Berkah Tiga Puteri.
 publish_to: "none"
-version: 1.0.0+2
+version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flutter_riverpod: ^2.6.1
+  http: ^1.2.2
   path: ^1.9.1
   sqflite: ^2.4.2
-  shared_preferences: ^2.2.2
-  supabase: ^2.6.3
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
-  sqflite_common_ffi: ^2.3.6
 
 flutter:
   uses-material-design: true
