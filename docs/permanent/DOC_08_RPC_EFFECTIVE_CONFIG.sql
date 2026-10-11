@@ -87,7 +87,7 @@ revoke execute on function public.get_effective_config(text, text, text) from pu
 grant execute on function public.get_effective_config(text, text, text) to authenticated, service_role;
 
 -- Acceptance:
--- app_config inventory = 352 and keyset MD5 = 1fd3d64219ecc7c333453c20da80e295.
+-- app_config inventory = 352 and keyset MD5 = 1fd3d64219ecc7c333453c20da80e295. gitleaks:allow -- deterministic integrity checksum, not a credential.
 -- direct authenticated device SELECT cannot read global/template/tenant/service rows.
 -- canonical owned device resolves exactly one requested service.
 -- missing layer, mismatched tenant/device, or unauthorized caller fails closed.
