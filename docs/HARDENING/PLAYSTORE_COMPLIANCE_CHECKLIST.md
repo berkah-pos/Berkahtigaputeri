@@ -14,8 +14,8 @@
 - [ ] Confirm target/compile SDK against the Play Console requirements at submission time.
 - [ ] Review all permissions; justify any media, location, contacts, background or broad storage permission.
 - [ ] Confirm no cleartext HTTP; test network security config and endpoints.
-- [ ] Configure production signing with a protected keystore and GitHub Secrets/secure files; never commit keystore or key.properties.
-- [ ] Confirm app bundle signature, package ID, version code increment, 64-bit ABI support and bundle size.
+- [x] Add Gradle signing-config support sourced from ignored `android/key.properties`; CI creates it from protected secrets and never commits the file or keystore.\n- [ ] Configure `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` in GitHub Actions secrets and verify a new signed build.
+- [ ] Confirm signature verification, package ID, version code increment, 64-bit ABI support and bundle size on the new signed AAB and split APK build. The last retrieved AAB was unsigned.
 - [ ] Verify Play Billing only if selling digital app features/subscriptions subject to Play policy; distinguish physical POS payments.
 - [ ] Complete privacy policy, Data safety form, account deletion disclosures if applicable, data retention/vendor disclosures and SDK inventory.
 - [ ] Run Play Console pre-launch report and internal-track install/upgrade tests.
