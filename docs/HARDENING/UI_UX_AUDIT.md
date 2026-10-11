@@ -19,3 +19,8 @@
 
 ## Not run
 Lighthouse >90, XSS payload suite, mobile viewport/device testing, keyboard/accessibility checks, printer tests and Flutter widget tests. Do not claim compliance or a Lighthouse score without reports.
+## Static Pages CSP follow-up (2026-10-11)
+
+A transitional meta CSP was added to each current `btp-admin/*.html` page. It restricts script execution sources to same-origin and the Supabase SDK CDN, constrains connections to same-origin/Supabase domains, disallows plugin objects, restricts the document base URI, and upgrades mixed content. The legacy template page additionally depends on Google Fonts; the shared policy allows `fonts.googleapis.com` for styles and `fonts.gstatic.com` for font data.
+
+**Residual risk:** existing inline scripts and inline CSS require `'unsafe-inline'` in this transitional policy. Move inline code to reviewed external assets and then tighten `script-src` using nonces/hashes. CSP meta tags cannot supply every response-header directive (for example, `frame-ancestors`); stronger framing controls require response headers from the hosting layer or a compatible reverse proxy. Validate every admin page and authentication recovery flow in a browser preview before promoting.
