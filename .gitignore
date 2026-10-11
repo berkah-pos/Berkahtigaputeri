@@ -1,2 +1,43 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+
+# Flutter / Dart generated files
+**/.dart_tool/
+**/.packages
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/coverage/
+
+# Android / Gradle machine-local configuration
+**/.gradle/
+**/local.properties
+**/key.properties
+
+# Signing material must never be committed
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+
+# Local secrets and environment files (templates remain trackable)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Supabase local state
+supabase/.temp/
+supabase/.branches/
+
+# JavaScript dependencies / generated output
+node_modules/
+
+# Local IDE and OS state
+.idea/
+.vscode/
+.DS_Store
+*.log
