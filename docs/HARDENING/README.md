@@ -8,7 +8,7 @@
 
 ## Inventory
 
-The tracked tree contained 97 files at inspection time. Three workflows are present:
+The tracked tree contained 97 files at inspection time. The uploaded 2026-10-08 ZIP contains 96 files; every path in the ZIP is already present on current `main`, and `pos-app/README.md` is present on `main` but absent from the ZIP. See [MERGE_INVENTORY.md](MERGE_INVENTORY.md). Three workflows are present:
 - `.github/workflows/build.yml`
 - `.github/workflows/pages.yml`
 - `.github/workflows/final-pos-sync.yml`
@@ -40,4 +40,4 @@ Not found in the tracked tree:
 6. Review CORS, request authentication, rate limiting and abuse controls for `licence-check`.
 7. Resolve missing AI subsystem evidence: do not claim AI features are hardened when no AI implementation was found.
 
-No secrets, database changes, production configuration changes, or source-code behavior were changed by this audit report branch.
+The branch also hardens root `.gitignore` to exclude generated Flutter/Gradle output, local signing/configuration files, `.env` files (while allowing `.env.example`), Supabase local state, dependencies and local IDE/OS artifacts. No secrets, database changes, production configuration changes, or application source-code behavior were changed by this audit report branch.
