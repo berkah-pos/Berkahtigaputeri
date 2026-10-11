@@ -4,9 +4,9 @@
 [![Supabase RLS](https://img.shields.io/badge/Supabase-RLS%20authenticated-3ecf8e)](docs/permanent/DOC_03_RLS_AUTH.sql)
 [![Atomic Versioning](https://img.shields.io/badge/versioning-atomic%20RPC-8a2be2)](docs/permanent/DOC_06_ATOMIC_VERSIONING_RPC.sql)
 
-# Berkahtigaputeri - Final Pos
+# Berkahtigaputeri — Berkah POS
 
-Berkah Tiga Puteri POS is a multi-tenant POS + accounting platform built around one canonical Final Pos configuration model.
+Berkah Tiga Puteri maintains the Final Pos configuration/admin and backend tooling. The current Google Play Flutter candidate is the independent local-first app in `standalone-berkah-pos/` (package `id.co.berkahtigaputeri.berkahpos`). The previous Flutter application under `pos-app/` and its UAT build workflow are retired from the active tree; restore them only from Git history if the organization explicitly reverses this decision.
 
 ## Canonical architecture
 
@@ -22,7 +22,7 @@ The only supported configuration inheritance is:
 GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 ```
 
-All Admin, Flutter, Supabase RPC, synchronization, tests and verification documents must implement that same precedence.
+Admin, backend RPC, synchronization, tests and verification documents for the Final Pos configuration model must implement that same precedence. The standalone local-first Google Play candidate is not currently integrated with this multi-tenant configuration model.
 
 ## Canonical configuration source
 
@@ -90,7 +90,9 @@ global
 - Main Admin path: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 - Sync script: `scripts/sync_excel_to_supabase.py`
 - Sync workflow: `.github/workflows/final-pos-sync.yml`
-- Flutter app: `pos-app/`
+- Current Google Play Flutter candidate: `standalone-berkah-pos/`
+- Retired Flutter source: `pos-app/` removed from the active tree; previous commits remain in Git history
+- Current app release gate: `standalone-berkah-pos/docs/PLAY_STORE_RELEASE_CHECKLIST.md`
 - Permanent architecture/verification docs: `docs/permanent/`
 
 ## Engineering rules
