@@ -1,7 +1,7 @@
 (function(){
   const ALLOWED_EMAIL='berkahtigaputeri@gmail.com';
   const DEFAULT_URL='https://cztlmwzfrhyafgawphgw.supabase.co';
-  const DEFAULT_KEY='sb_publishable_LlsIisir66_TWiRRQ43l6A_yqoUDH13';
+  const DEFAULT_KEY='sb_publishable_LlsIisir66_TWiRRQ43l6A_yqoUDH13'; // gitleaks:allow -- public Supabase publishable key, not a secret
   const URL_KEY='btp:connUrl', ANON_KEY='btp:connKey';
   let cached=null, cachedUrl='', cachedKey='';
   function cfg(){return {url:localStorage.getItem(URL_KEY)||DEFAULT_URL,key:localStorage.getItem(ANON_KEY)||DEFAULT_KEY};}
