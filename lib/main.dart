@@ -488,8 +488,13 @@ class LocalStore {
     }
   }
 
-  Future<void> deleteProduct(int id) async =>
-      (await database).delete('products', where: 'id = ?', whereArgs: [id]);
+  Future<void> deleteProduct(int id) async {
+    await (await database).delete(
+      'products',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
   Future<List<Sale>> sales() async =>
       (await (await database).query('sales', orderBy: 'id DESC'))
