@@ -32,7 +32,7 @@ Not found in the tracked tree:
 
 ## Must close before production
 
-1. Implement or formally scope out subscription/payment-gateway billing; no gateway/webhook integration was found.
+1. Server-side Midtrans/Google Play subscription handling was found in the read-only staging project and synced into a review branch; confirm Flutter client integration and pass provider-sandbox/DB idempotency tests before production.
 2. Run actual database RLS/catalog/policy review and `supabase db lint` against the intended project.
 3. Add and run adversarial multi-tenant tests against a disposable database.
 4. Commit a reviewed Android scaffold/manifest, configure secure release signing, and verify both AAB and split APK outputs.
