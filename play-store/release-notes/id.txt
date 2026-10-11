@@ -1,1 +1,0 @@
-Final Pos UAT — pemilihan tenant/device, verifikasi sinkronisasi Supabase, dan pratinjau konfigurasi efektif. HomeScreen saat ini belum membuka alur kasir, transaksi QRIS, atau laporan PPN.

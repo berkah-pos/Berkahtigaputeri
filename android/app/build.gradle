@@ -1,0 +1,60 @@
+import java.util.Properties
+
+plugins {
+    id 'com.android.application'
+    id 'kotlin-android'
+    id 'dev.flutter.flutter-gradle-plugin'
+}
+
+def appCompileSdk = (project.findProperty('compileSdkVersion') ?: '36').toInteger()
+def appTargetSdk = (project.findProperty('targetSdkVersion') ?: '36').toInteger()
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('key.properties')
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
+android {
+    namespace 'id.co.berkahtigaputeri.berkahpos'
+    compileSdk appCompileSdk
+
+    defaultConfig {
+        applicationId 'id.co.berkahtigaputeri.berkahpos'
+        minSdk 24
+        targetSdk appTargetSdk
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile keystoreProperties['storeFile']
+                    ? file(keystoreProperties['storeFile'])
+                    : null
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions { jvmTarget = '17' }
+}
+
+flutter { source '../..' }
