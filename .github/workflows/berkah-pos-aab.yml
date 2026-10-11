@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build:
     name: Validate Flutter and build Android App Bundle
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Fedora]
     timeout-minutes: 60
     defaults:
       run:
