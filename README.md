@@ -1,6 +1,5 @@
 [![Final Pos](https://img.shields.io/badge/Final%20Pos-352%20canonical%20keys-2ea44f)](docs/permanent/DOC_07_FINAL_VERIFICATION_CURRENT_HEAD.md)
 [![Architecture](https://img.shields.io/badge/config-GLOBAL%E2%86%92TEMPLATE%E2%86%92TENANT%E2%86%92SERVICE%E2%86%92DEVICE-0969da)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
-[![Final Pos Sync](https://github.com/berkah-ajb-dev/Berkahtigaputeri/actions/workflows/final-pos-sync.yml/badge.svg?branch=main)](https://github.com/berkah-ajb-dev/Berkahtigaputeri/actions/workflows/final-pos-sync.yml)
 [![Supabase RLS](https://img.shields.io/badge/Supabase-RLS%20authenticated-3ecf8e)](docs/permanent/DOC_03_RLS_AUTH.sql)
 [![Atomic Versioning](https://img.shields.io/badge/versioning-atomic%20RPC-8a2be2)](docs/permanent/DOC_06_ATOMIC_VERSIONING_RPC.sql)
 
@@ -89,7 +88,7 @@ global
 - Template Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/final-pos-template-admin.html
 - Main Admin path: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 - Sync script: `scripts/sync_excel_to_supabase.py`
-- Sync workflow: `.github/workflows/final-pos-sync.yml`
+- Workflow reset log: `docs/WORKFLOW_RESET.md`
 - Current Google Play Flutter candidate: `standalone-berkah-pos/`
 - Retired Flutter source: `pos-app/` removed from the active tree; previous commits remain in Git history
 - Current app release gate: `standalone-berkah-pos/docs/PLAY_STORE_RELEASE_CHECKLIST.md`

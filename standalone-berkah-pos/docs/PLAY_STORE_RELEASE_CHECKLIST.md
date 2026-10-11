@@ -14,7 +14,8 @@ This checklist distinguishes repository configuration from steps that only the o
 - [x] Android cleartext traffic is disabled; backup is disabled.
 - [x] Manifest currently declares Internet and network-state permissions only.
 - [x] Local inventory/sales database and checkout smoke-level formatter test are present.
-- [x] Gradle wrapper scripts and JAR are checked in; CI is configured to analyze, test, and build Android artifacts.
+- [x] Gradle wrapper scripts and JAR are checked in.
+- [ ] Rebuild and verify the clean Flutter CI workflow after the workflow reset; queued or cancelled historical runs do not count as passing results.
 - [ ] CI run must finish successfully. A queued run is not a passing result.
 - [ ] Add/retain tests for product create/edit/delete, checkout stock invariants, duplicate product names, and persistence after app restart.
 - [ ] Device acceptance test on the supported Android range, including a small-screen physical device, offline behavior, app restart, and update-over-existing-install.

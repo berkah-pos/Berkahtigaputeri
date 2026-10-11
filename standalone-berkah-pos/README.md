@@ -38,7 +38,7 @@ Output: `build/app/outputs/bundle/release/app-release.aab`.
 
 For a Play upload, use a private organization-controlled upload keystore and Play App Signing. Copy `android/key.properties.template` to `android/key.properties`, set the real values, and place the keystore at the configured path. **Never commit `android/key.properties`, passwords, or a `.jks`/keystore file.** Rotate the upload key if it is ever exposed.
 
-The GitHub Actions build produces **unsigned CI validation artifacts** only. They prove build compilation, not Play readiness; do not upload those artifacts to Play Console.
+All existing GitHub Actions workflow files are intentionally removed during the reset. No automated CI/build should be assumed active until the clean standalone workflow is rebuilt, reviewed and observed passing. Any validation artifact from a future CI pipeline must be treated as unsigned unless proven otherwise.
 
 ## Google Play release gate
 
