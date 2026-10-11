@@ -1,106 +1,51 @@
-[![Final Pos](https://img.shields.io/badge/Final%20Pos-352%20canonical%20keys-2ea44f)](docs/permanent/DOC_07_FINAL_VERIFICATION_CURRENT_HEAD.md)
-[![Architecture](https://img.shields.io/badge/config-GLOBAL%E2%86%92TEMPLATE%E2%86%92TENANT%E2%86%92SERVICE%E2%86%92DEVICE-0969da)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
-[![Supabase RLS](https://img.shields.io/badge/Supabase-RLS%20authenticated-3ecf8e)](docs/permanent/DOC_03_RLS_AUTH.sql)
-[![Atomic Versioning](https://img.shields.io/badge/versioning-atomic%20RPC-8a2be2)](docs/permanent/DOC_06_ATOMIC_VERSIONING_RPC.sql)
+# Berkah POS — PT Berkah Tiga Puteri
 
-# Berkahtigaputeri — Berkah POS
+Fresh Flutter Android POS project. Package ID: `id.co.berkahtigaputeri.berkahpos`.
 
-Berkah Tiga Puteri maintains the Final Pos configuration/admin and backend tooling. The current Google Play Flutter candidate is the independent local-first app in `standalone-berkah-pos/` (package `id.co.berkahtigaputeri.berkahpos`). The previous Flutter application under `pos-app/` and its UAT build workflow are retired from the active tree; restore them only from Git history if the organization explicitly reverses this decision.
+## Features
+- Email login, free 14-day local trial fallback when the status API cannot be reached.
+- GET `https://api.berkahtigaputeri.co.id/check-status` for access status.
+- If the service returns `inactive`, `expired` or `suspended`, show “Akun Belum Aktif, hubungi tim Berkah POS untuk aktivasi” with external WhatsApp contact; no payment CTA.
+- Dashboard, offline SQLite product CRUD, cart/checkout, stock validation and local sales reports.
+- Privacy and account deletion open the requested URLs externally.
+- WhatsApp opens external `wa.me`; no WebView or payment SDK is used.
+- No Billing, Midtrans or Xendit dependency. Manifest contains only INTERNET and ACCESS_NETWORK_STATE; unused camera/Bluetooth permissions are omitted.
 
-## Canonical architecture
+## Android
+- applicationId / namespace: `id.co.berkahtigaputeri.berkahpos`
+- minSdk 24; compileSdk 36; targetSdk 36
+- versionCode 1; versionName 1.0.0
+- JDK 17; Gradle wrapper 8.14.3
 
-Read first:
+**Target API note:** you requested API 35, but Google Play's rule effective 31 August 2026 requires new phone/tablet apps and updates to target API 36 or higher. This project uses API 36 to meet that gate. Official policy: https://support.google.com/googleplay/android-developer/answer/11926878?hl=en.
 
-```text
-docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
+## Build
+```bash
+flutter doctor -v
+flutter pub get
+dart format lib test
+flutter analyze
+flutter test
 ```
 
-The only supported configuration inheritance is:
-
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
+Create a private upload key:
+```bash
+keytool -genkey -v -keystore android/berkahpos-upload-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias berkahpos
 ```
 
-Admin, backend RPC, synchronization, tests and verification documents for the Final Pos configuration model must implement that same precedence. The standalone local-first Google Play candidate is not currently integrated with this multi-tenant configuration model.
-
-## Canonical configuration source
-
-Workbook:
-
-```text
-config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
+Copy `android/key.properties.template` to `android/key.properties` and fill in:
+```properties
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=berkahpos
+storeFile=../berkahpos-upload-key.jks
 ```
 
-Workbook structure and `APP_CONFIG_EXPORT` are validated by:
-
-```text
-scripts/sync_excel_to_supabase.py
+Build the AAB:
+```bash
+flutter build appbundle --release
 ```
 
-Expected canonical inventory:
+Expected output: `build/app/outputs/bundle/release/app-release.aab`. Never commit the keystore, `key.properties`, or passwords. CI artifacts are unsigned validation artifacts, not ready for Play upload.
 
-```text
-1   global
-3   templates
-100 tenants
-140 services
-108 devices
----
-352 app_config keys
-```
-
-Canonical templates:
-
-```text
-BASIC
-PRO
-ENTERPRISE
-```
-
-Supabase configuration shape:
-
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-Canonical key forms:
-
-```text
-global
-template:<TEMPLATE_ID>
-tenant:<tenant_id>
-tenant:<tenant_id>:service:<service>
-device:<device_id>
-```
-
-For one effective-config request, only the requested service row is merged:
-
-```text
-global
--> template:<tenant.template_id>
--> tenant:<tenant_id>
--> tenant:<tenant_id>:service:<service>
--> device:<device_id>
-```
-
-## Final Pos tooling
-
-- Template Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/final-pos-template-admin.html
-- Main Admin path: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
-- Sync script: `scripts/sync_excel_to_supabase.py`
-- Active Flutter CI: `.github/workflows/berkah-pos-android-ci.yml`
-- Workflow reset log: `docs/WORKFLOW_RESET.md`
-- Current Google Play Flutter candidate: `standalone-berkah-pos/`
-- Retired Flutter source: `pos-app/` removed from the active tree; previous commits remain in Git history
-- Current app release gate: `standalone-berkah-pos/docs/PLAY_STORE_RELEASE_CHECKLIST.md`
-- Permanent architecture/verification docs: `docs/permanent/`
-
-## Engineering rules
-
-- Work through branches and pull requests; do not push implementation changes directly to `main`.
-- Do not restore an inheritance model that omits TEMPLATE.
-- Do not merge POS and Akuntansi service rows into one effective configuration.
-- Do not restore the legacy `app_config(device_id, key, value)` schema.
-- When documentation conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the architecture decision is authoritative and the conflicting document must be corrected.
-
-Service rows derived from a template may remain present for audit/export. Template-inherited values remain inherited until an explicit lower-layer override is defined, so a template change can propagate without duplicating the same setting into every tenant.
+Google Play approval cannot be guaranteed by source code. Verify the live company-owned privacy/deletion/API URLs, Organization account verification, Data safety declarations, backend deletion behavior, signed bundle and real-device tests before submission.

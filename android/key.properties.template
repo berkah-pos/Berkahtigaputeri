@@ -1,0 +1,6 @@
+# Copy to android/key.properties and add your real local credentials.
+# Never commit android/key.properties or any keystore file.
+storePassword=REPLACE_WITH_KEYSTORE_PASSWORD
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+keyAlias=berkahpos
+storeFile=../berkahpos-upload-key.jks
