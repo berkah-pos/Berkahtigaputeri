@@ -2,6 +2,8 @@ name: Berkah POS Android CI
 
 on:
   push:
+    branches:
+      - "fix/clone-atomic-posting-20261010"
     paths:
       - "standalone-berkah-pos/**"
       - ".github/workflows/berkah-pos-android-ci.yml"
@@ -15,7 +17,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: berkah-pos-android-ci-${{ github.ref }}
+  group: berkah-pos-android-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
