@@ -1,6 +1,6 @@
 # Berkah POS — PT Berkah Tiga Puteri
 
-Flutter Android POS app for small businesses. This project is kept in `standalone-berkah-pos/` so it does not overwrite the existing `pos-app/` application.
+Flutter Android POS app for small businesses. This is the only active Flutter app candidate in the repository. The previous `pos-app/` source tree and legacy UAT workflow were retired on the current release branch.
 
 ## Android identity
 
@@ -38,7 +38,7 @@ Output: `build/app/outputs/bundle/release/app-release.aab`.
 
 For a Play upload, use a private organization-controlled upload keystore and Play App Signing. Copy `android/key.properties.template` to `android/key.properties`, set the real values, and place the keystore at the configured path. **Never commit `android/key.properties`, passwords, or a `.jks`/keystore file.** Rotate the upload key if it is ever exposed.
 
-All existing GitHub Actions workflow files are intentionally removed during the reset. No automated CI/build should be assumed active until the clean standalone workflow is rebuilt, reviewed and observed passing. Any validation artifact from a future CI pipeline must be treated as unsigned unless proven otherwise.
+The legacy workflows were removed and replaced with one focused Android workflow: `.github/workflows/berkah-pos-android-ci.yml`. It checks Dart formatting, dependencies, analysis, tests, and builds an **unsigned CI validation APK/AAB**. A queued, pending, cancelled, or failed run is not a passing build; never upload these unsigned artifacts to Play Console.
 
 ## Google Play release gate
 
