@@ -2,10 +2,14 @@ name: 02 · UAT Infinix Release APK
 
 on:
   push:
+    branches:
+      - "fix/clone-atomic-posting-20261010"
     paths:
       - "pos-app/**"
       - ".github/workflows/build.yml"
   pull_request:
+    branches:
+      - "fix/clone-atomic-posting-20261010"
     paths:
       - "pos-app/**"
       - ".github/workflows/build.yml"
@@ -53,7 +57,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: zulu
-          java-version: '17'
+          java-version: "17"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4

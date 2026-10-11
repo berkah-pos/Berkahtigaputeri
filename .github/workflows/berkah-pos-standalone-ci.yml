@@ -2,10 +2,14 @@ name: Berkah POS Standalone Flutter CI
 
 on:
   push:
+    branches:
+      - "fix/clone-atomic-posting-20261010"
     paths:
       - "standalone-berkah-pos/**"
       - ".github/workflows/berkah-pos-standalone-ci.yml"
   pull_request:
+    branches:
+      - "fix/clone-atomic-posting-20261010"
     paths:
       - "standalone-berkah-pos/**"
       - ".github/workflows/berkah-pos-standalone-ci.yml"
