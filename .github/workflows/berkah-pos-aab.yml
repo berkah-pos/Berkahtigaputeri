@@ -139,3 +139,7 @@ jobs:
           path: berkah-pos-trial/build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
+
+      - name: Remove temporary signing material
+        if: always()
+        run: rm -f android/key.properties android/app/berkah-pos-upload.jks
