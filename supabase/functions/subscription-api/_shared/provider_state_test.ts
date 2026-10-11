@@ -6,11 +6,11 @@ function assert(condition: unknown, message: string): asserts condition {
 
 Deno.test("Google Play active and cancelled purchases are normalized from provider state", () => {
   const active = normalizeGoogleSubscription({
-    startTime: "2026-10-01T00:00:00Z",
+    startTime: new Date(Date.now() - 60_000).toISOString(),
     subscriptionState: "SUBSCRIPTION_STATE_ACTIVE",
     lineItems: [{
       productId: "pos_pro_monthly",
-      expiryTime: "2026-11-01T00:00:00Z",
+      expiryTime: new Date(Date.now() + 30 * 86_400_000).toISOString(),
       autoRenewingPlan: { autoRenewEnabled: true },
     }],
   }, "pos_pro_monthly");
@@ -18,9 +18,9 @@ Deno.test("Google Play active and cancelled purchases are normalized from provid
   assert(active.autoRenewing, "auto-renewing flag should be preserved");
 
   const cancelled = normalizeGoogleSubscription({
-    startTime: "2026-10-01T00:00:00Z",
+    startTime: new Date(Date.now() - 60_000).toISOString(),
     subscriptionState: "SUBSCRIPTION_STATE_CANCELED",
-    lineItems: [{ productId: "pos_pro_monthly", expiryTime: "2026-11-01T00:00:00Z" }],
+    lineItems: [{ productId: "pos_pro_monthly", expiryTime: new Date(Date.now() + 30 * 86_400_000).toISOString() }],
   }, "pos_pro_monthly");
   assert(cancelled.status === "cancelled", "canceled provider state should be retained until expiry");
 });
@@ -28,13 +28,13 @@ Deno.test("Google Play active and cancelled purchases are normalized from provid
 Deno.test("Google Play hold and expired periods do not grant active access", () => {
   const hold = normalizeGoogleSubscription({
     subscriptionState: "SUBSCRIPTION_STATE_ON_HOLD",
-    lineItems: [{ productId: "pos_basic", expiryTime: "2026-11-01T00:00:00Z" }],
+    lineItems: [{ productId: "pos_basic", expiryTime: new Date(Date.now() + 30 * 86_400_000).toISOString() }],
   }, "pos_basic");
   assert(hold.status === "expired", "on-hold must fail closed");
 
   const expired = normalizeGoogleSubscription({
     subscriptionState: "SUBSCRIPTION_STATE_ACTIVE",
-    lineItems: [{ productId: "pos_basic", expiryTime: "2026-10-01T00:00:00Z" }],
+    lineItems: [{ productId: "pos_basic", expiryTime: new Date(Date.now() - 30 * 86_400_000).toISOString() }],
   }, "pos_basic");
   assert(expired.status === "expired", "provider active state with expired period must not grant access");
 });
@@ -44,7 +44,7 @@ Deno.test("Google Play product mismatch is rejected", () => {
   try {
     normalizeGoogleSubscription({
       subscriptionState: "SUBSCRIPTION_STATE_ACTIVE",
-      lineItems: [{ productId: "other-product", expiryTime: "2026-11-01T00:00:00Z" }],
+      lineItems: [{ productId: "other-product", expiryTime: new Date(Date.now() + 30 * 86_400_000).toISOString() }],
     }, "expected-product");
   } catch {
     rejected = true;
