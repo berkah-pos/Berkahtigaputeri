@@ -110,15 +110,15 @@ jobs:
           {
             echo "### Berkah POS App Bundle"
             echo ""
-            echo "- Package: `id.co.berkahtigaputeri.berkahpos`"
+            echo "- Package: id.co.berkahtigaputeri.berkahpos"
             echo "- Target SDK: 35 (kept as explicitly requested)"
-            echo "- Output: `build/app/outputs/bundle/release/app-release.aab`"
+            echo "- Output: build/app/outputs/bundle/release/app-release.aab"
             if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
               echo "- Signing: publisher upload key"
-              echo "- Artifact name: `berkah-pos-release-aab`"
+              echo "- Artifact name: berkah-pos-release-aab"
             else
               echo "- Signing: Android debug key (testing only; not for Play Console submission)"
-              echo "- Artifact name: `berkah-pos-test-aab-debug-signed`"
+              echo "- Artifact name: berkah-pos-test-aab-debug-signed"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
