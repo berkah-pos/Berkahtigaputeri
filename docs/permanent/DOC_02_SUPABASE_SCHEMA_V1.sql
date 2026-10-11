@@ -26,7 +26,7 @@
 --
 -- Canonical inventory:
 --   1 global + 3 templates + 100 tenants + 140 services + 108 devices = 352 keys
---   keyset MD5 = 1fd3d64219ecc7c333453c20da80e295
+--   keyset MD5 = 1fd3d64219ecc7c333453c20da80e295 (gitleaks:allow: deterministic config checksum, not a credential)
 --
 -- Canonical merge order:
 --   GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
