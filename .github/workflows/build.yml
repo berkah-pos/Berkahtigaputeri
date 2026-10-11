@@ -1,6 +1,15 @@
 name: 02 · UAT Infinix Release APK
 
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - "pos-app/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    paths:
+      - "pos-app/**"
+      - ".github/workflows/build.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
