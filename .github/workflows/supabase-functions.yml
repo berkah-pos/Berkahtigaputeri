@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: [self-hosted, Fedora]
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
       # Non-secret dummy values satisfy module-level required configuration for unit tests.
@@ -40,9 +40,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
-          export XDG_RUNTIME_DIR="${RUNNER_TEMP}/xdg-runtime"
-          install -d -m 700 "$XDG_RUNTIME_DIR"
-          podman run --rm -v "$PWD:/repo:Z" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 detect --source . --log-opts="--all" --redact -v
+          docker run --rm -v "$PWD:/repo:ro" -w /repo ghcr.io/gitleaks/gitleaks:v8.30.1 detect --source . --log-opts="--all" --redact -v
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
