@@ -88,6 +88,7 @@ global
 - Template Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/final-pos-template-admin.html
 - Main Admin path: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 - Sync script: `scripts/sync_excel_to_supabase.py`
+- Active Flutter CI: `.github/workflows/berkah-pos-android-ci.yml`
 - Workflow reset log: `docs/WORKFLOW_RESET.md`
 - Current Google Play Flutter candidate: `standalone-berkah-pos/`
 - Retired Flutter source: `pos-app/` removed from the active tree; previous commits remain in Git history
