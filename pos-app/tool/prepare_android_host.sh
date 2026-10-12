@@ -63,22 +63,8 @@ fi
 # The current app Gradle file uses the legacy Kotlin Gradle Plugin/Groovy DSL.
 # Keep those compatibility modes explicit unless this file is migrated as a
 # reviewed architecture change. Never override a user's explicit "true" value.
-if grep -q '^android.builtInKotlin=true
-grep -q 'namespace = "com.berkahtigaputeri.pos"' "$android_dir/app/build.gradle"
-test -s "$android_dir/app/src/main/kotlin/com/berkahtigaputeri/pos/MainActivity.kt"
-test -s "$android_dir/gradlew"
-test -s "$android_dir/gradle/wrapper/gradle-wrapper.jar"
-
-echo "Android host is present for com.berkahtigaputeri.pos. Existing app Gradle config and app identity were preserved."
- "$android_dir/gradle.properties" ||
-   grep -q '^android.newDsl=true
-grep -q 'namespace = "com.berkahtigaputeri.pos"' "$android_dir/app/build.gradle"
-test -s "$android_dir/app/src/main/kotlin/com/berkahtigaputeri/pos/MainActivity.kt"
-test -s "$android_dir/gradlew"
-test -s "$android_dir/gradle/wrapper/gradle-wrapper.jar"
-
-echo "Android host is present for com.berkahtigaputeri.pos. Existing app Gradle config and app identity were preserved."
- "$android_dir/gradle.properties"; then
+if grep -q '^android.builtInKotlin=true' "$android_dir/gradle.properties" ||
+   grep -q '^android.newDsl=true' "$android_dir/gradle.properties"; then
   echo "The Android host enables built-in Kotlin/new DSL but pos-app still uses the legacy Groovy/KGP app build. Migrate the app build files first." >&2
   exit 1
 fi
