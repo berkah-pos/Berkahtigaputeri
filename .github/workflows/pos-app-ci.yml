@@ -25,7 +25,7 @@ jobs:
   validate:
     name: Analyze, test, and Android compile-check
     # Use a disposable GitHub-hosted runner for repeatable validation.
-    # Never run untrusted fork code on a privileged self-hosted runner.
+    # Fork pull requests are excluded from this repository-scoped validation job.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 45
