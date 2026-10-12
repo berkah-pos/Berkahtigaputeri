@@ -34,7 +34,7 @@ The canonical development source is `pos-app/`. It combines the day-to-day produ
 
 The package ID differs deliberately from `id.co.berkahtigaputeri.berkahpos`, the older trial application. Android will install these as separate applications. Do not tell users to expect an in-place update or automatic transfer of private app data.
 
-The existing trial project and its release workflow are not to be altered by this hardening PR; the new app uses `.github/workflows/berkah-pos-new-app-aab.yml`. The new app has its own release workflow and uses a separate set of signing-secret names.
+The older installable application's package identity, release signing secrets, and signing safeguards remain separate from the new standalone app. The repository-wide runner cleanup does update CI execution configuration for the legacy AAB and trial CI workflows; all four active workflows now use GitHub-hosted Ubuntu 24.04 rather than a persistent Fedora/workstation runner. The new app keeps its own `.github/workflows/berkah-pos-new-app-aab.yml` and separate signing-secret names.
 
 ## 2. Architecture retained by the combined app
 
@@ -85,7 +85,7 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 5. **Imported-data safety:** for a future explicit legacy import, old sales are archived instead of being misrepresented as tax-complete/accounting-posted transactions; legacy opening quantity is not active stock until physical reconciliation; unreviewed tax classifications are blocked from checkout.
 6. **Android manifest minimization:** the app manifest retains INTERNET access, disables cleartext traffic, and disables Android backup. Unused camera/Bluetooth permissions were removed from this screen-driven build. Add permissions back only with a required and reviewed feature.
 7. **Build-host script hardening:** the Android host preparation script fills missing generated files while preserving the reviewed Groovy `app/build.gradle`; it removes a conflicting generated `app/build.gradle.kts` only when that file was absent before generation. This change was based on the Kotlin-DSL templates introduced by newer Flutter versions and still requires an actual CI build.
-8. **Signing separation:** `.github/workflows/berkah-pos-aab.yml` is restored to its `main` version and is unchanged in this PR. The new `.github/workflows/berkah-pos-new-app-aab.yml` workflow expects `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64`, `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS` and `BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD`. Do not reuse the old release workflow's secrets by accident.
+8. **Signing separation:** the legacy `.github/workflows/berkah-pos-aab.yml` keeps its existing package identity, signing secrets, fail-closed cloud-configuration check, and debug-only fallback semantics, while its execution environment has been migrated from the former Fedora self-hosted runner to GitHub-hosted Ubuntu 24.04. The new `.github/workflows/berkah-pos-new-app-aab.yml` workflow expects `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64`, `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS` and `BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD`. Do not reuse the old release workflow's secrets by accident.
 9. **CI workflow:** `.github/workflows/pos-app-ci.yml` runs dependency resolution, Dart analysis, Flutter tests, host preparation, package/secret checks, and a debug-only Android App Bundle compile check.
 10. **Release workflow:** `.github/workflows/berkah-pos-new-app-aab.yml` targets the new package and hosted Ubuntu runner. If the new app's release signing secrets are missing, it produces a debug-signed test artifact only; that artifact is not for Play Console submission.
 11. **Documentation:** `pos-app/README.md` documents the new package, local/offline boundary, data-transfer limitation, and separate release-secret names. Root `AGENTS.md` requires this current report before coding.
@@ -273,3 +273,23 @@ The new preflight therefore has **not** executed; this latest run created no job
 The old release workflow `.github/workflows/berkah-pos-aab.yml` was rechecked: its blob SHA on `main` and this hardening branch is the same, `8faf5381d031d976b4c68cd4b40b66056731c611`. It remains unchanged.
 
 **Acceptance remains BLOCKED / NOT GREEN.** Do not retry repeatedly or claim validation success from a zero-job run. Keep PR #22 draft and unmerged. The next required action is administrative diagnosis/recovery for the repository's Actions startup blocker; after jobs can be created, run the shell preflight, Flutter dependency resolution, analyzer/tests, Android compile/build, and AAB identity/signing checks.
+
+## 12. Repository-wide GitHub Actions runner migration
+
+**Checked:** 2026-10-13  
+**Scope:** every workflow file in `.github/workflows/` on `hardening/unified-pos-new-app-green-ci`.
+
+The entire active workflow directory was enumerated via the Git tree API. All four workflow definitions now use GitHub-hosted Ubuntu 24.04:
+
+| Workflow | Runner after change | Setup behavior |
+|---|---|---|
+| `.github/workflows/berkah-pos-aab.yml` | `ubuntu-24.04` | Flutter downloaded from official stable release metadata/archive with SHA-256 verification; hosted Android SDK located and configured |
+| `.github/workflows/berkah-pos-new-app-aab.yml` | `ubuntu-24.04` | Same verified Flutter bootstrap and hosted Android SDK setup; new-app signing-secret names remain separate |
+| `.github/workflows/berkah-pos-trial-ci.yml` | `ubuntu-24.04` | Flutter downloaded from official stable release metadata/archive with SHA-256 verification |
+| `.github/workflows/pos-app-ci.yml` | `ubuntu-24.04` | Same verified Flutter bootstrap and hosted Android SDK setup; changes to any workflow file now trigger canonical PR CI |
+
+No active workflow requires `runs-on: [self-hosted, Fedora]`, the old Fedora runner label, or an always-on workstation. All build jobs use the hosted runner's clean environment; no host systemd service or runner registration is part of the build architecture. The legacy app's package ID and signing-secret namespace were preserved. Third-party Flutter/Android setup actions were removed so these workflows remain compatible with an Actions policy allowing GitHub-authored actions only; GitHub-authored checkout, Java setup, and artifact upload actions remain.
+
+**Static/source verification:** all four workflow files were re-fetched after the edits and inspected. Each has a `runs-on: ubuntu-24.04` declaration; no `self-hosted`, Fedora runner label, `subosito/flutter-action`, or `android-actions/setup-android` reference remains in active workflow files.
+
+**Runtime verification:** still BLOCKED / NOT VERIFIED until GitHub creates actual jobs. The latest prior current-head run ended in `startup_failure` with `jobs: []`, so these new workflow steps have not been demonstrated to execute. Do not call the milestone green based on static YAML inspection alone. Keep PR #22 open and unmerged until canonical CI (analysis, tests, Android debug compile-check) and the new-app AAB build/artifact verification have successful run records.
