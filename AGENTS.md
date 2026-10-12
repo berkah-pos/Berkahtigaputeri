@@ -8,7 +8,8 @@ Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`
 2. `docs/permanent/DOC_00_MASTER_ROADMAP.md`
 3. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` - mandatory overall SaaS/database/offline architecture, milestone gates, scoped-agent rules, and evidence-reporting contract.
-4. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` - current evidence report for canonical app integration, preserved package identity, legacy data migration, and verified/unverified gates.
+4. `docs/permanent/DOC_14_UNIFIED_POS_APP_HARDENING_AND_VALIDATION.md` - current hardening decision, standalone package identity, data boundaries, validation evidence, and release gates.
+5. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` - historical record of the original integration; superseded where it conflicts with DOC_14.
 5. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` - legacy filename; content is the Final Pos contract.
 6. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`
 7. `docs/permanent/DOC_03_RLS_AUTH.sql`
@@ -18,7 +19,7 @@ If any later or older document conflicts with the canonical architecture decisio
 
 ## Mandatory agent evidence report
 
-Every agent must follow the scoped execution and evidence-reporting contract in `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` and review the current integration status in `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md`. Completion reports must distinguish source-verified facts, document assertions, tests actually executed, staging/production verification, proposed design, and unresolved risks. Do not claim a test, deployment, signing result, or tenant-isolation result without evidence.
+Every agent must follow the scoped execution and evidence-reporting contract in `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` and review the current hardening/validation status in `docs/permanent/DOC_14_UNIFIED_POS_APP_HARDENING_AND_VALIDATION.md`. DOC_13 is historical and must not override DOC_14. Completion reports must distinguish source-verified facts, document assertions, tests actually executed, staging/production verification, proposed design, and unresolved risks. Do not claim a test, deployment, signing result, or tenant-isolation result without evidence.
 
 Agents must perform only the work relevant to their assigned scope. Record out-of-scope findings as risks/follow-ups instead of making unrelated changes. Continue to use feature/fix/documentation branches and PRs, never direct writes to `main`.
 
