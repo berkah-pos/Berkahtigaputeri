@@ -71,6 +71,8 @@ jobs:
           grep -q 'applicationId = "com.berkahtigaputeri.pos"' android/app/build.gradle
           grep -q 'namespace = "com.berkahtigaputeri.pos"' android/app/build.gradle
           grep -q 'targetSdk = 35' android/app/build.gradle
+          grep -q 'versionCode = 1' android/app/build.gradle
+          grep -q 'versionName = "1.0.0"' android/app/build.gradle
           if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|DATABASE_URL=.*PASSWORD' lib; then
             echo "Privileged server/database credentials must not be embedded in the Flutter app." >&2
             exit 1
@@ -89,10 +91,10 @@ jobs:
         id: signing
         shell: bash
         env:
-          KEYSTORE_BASE64: ${{ secrets.BERKAH_UPLOAD_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.BERKAH_UPLOAD_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.BERKAH_UPLOAD_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.BERKAH_UPLOAD_KEY_PASSWORD }}
+          KEYSTORE_BASE64: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           if [[ -n "$KEYSTORE_BASE64" && -n "$STORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]; then
@@ -143,8 +145,8 @@ jobs:
       - name: Verify generated AAB and report certificate fingerprint
         shell: bash
         env:
-          STORE_PASSWORD: ${{ secrets.BERKAH_UPLOAD_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.BERKAH_UPLOAD_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS }}
         run: |
           set -euo pipefail
           test -s build/app/outputs/bundle/release/app-release.aab
