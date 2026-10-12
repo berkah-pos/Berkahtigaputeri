@@ -10,6 +10,8 @@ fi
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 android_dir="$root/android"
+had_app_build_gradle_kts=0
+[[ -f "$android_dir/app/build.gradle.kts" ]] && had_app_build_gradle_kts=1
 temp_dir="$(mktemp -d)"
 had_gradle_properties=0
 [[ -f "$android_dir/gradle.properties" ]] && had_gradle_properties=1
@@ -31,6 +33,14 @@ mkdir -p "$android_dir"
 # Copy only missing host files. Existing files (including the canonical app
 # Gradle config, manifest overrides, and signing setup) are not overwritten.
 cp -a -n "$temp_dir/seed/android/." "$android_dir/"
+
+# Flutter 3.29+ creates Kotlin-DSL app scripts by default. This project
+# intentionally keeps a reviewed Groovy app/build.gradle (signing guard and
+# package identity). Do not let a generated app/build.gradle.kts shadow it.
+if [[ -f "$android_dir/app/build.gradle" && "$had_app_build_gradle_kts" -eq 0 ]]; then
+  rm -f "$android_dir/app/build.gradle.kts"
+fi
+
 chmod +x "$android_dir/gradlew"
 
 if [[ "$had_gradle_properties" -eq 0 ]]; then
