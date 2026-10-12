@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Generate a disposable Android host for the new app identity without
-# overwriting the canonical app Gradle file or signing configuration.
+# Fill missing Android host files for the new app identity without overwriting
+# the canonical Gradle app file or signing configuration. CI uses a disposable checkout.
 if ! command -v flutter >/dev/null 2>&1; then
   echo "Flutter SDK is required to prepare the Android host." >&2
   exit 1
@@ -54,6 +54,9 @@ android.useAndroidX=true
 android.enableJetifier=true
 org.gradle.workers.max=2
 org.gradle.parallel=false
+# Keep the reviewed Groovy/KGP app build compatible with newer Flutter/AGP templates.
+android.builtInKotlin=false
+android.newDsl=false
 EOF
 fi
 
