@@ -21,6 +21,10 @@ if [[ ! -f "$android_dir/app/build.gradle" ]]; then
   echo "Canonical pos-app/android/app/build.gradle is missing; refusing to invent app identity." >&2
   exit 1
 fi
+if [[ "$had_app_build_gradle_kts" -eq 1 ]]; then
+  echo "Both app/build.gradle and app/build.gradle.kts exist. Resolve this native-build conflict manually; refusing to choose one automatically." >&2
+  exit 1
+fi
 
 flutter create \
   --platforms=android \
@@ -37,7 +41,7 @@ cp -a -n "$temp_dir/seed/android/." "$android_dir/"
 # Flutter 3.29+ creates Kotlin-DSL app scripts by default. This project
 # intentionally keeps a reviewed Groovy app/build.gradle (signing guard and
 # package identity). Do not let a generated app/build.gradle.kts shadow it.
-if [[ -f "$android_dir/app/build.gradle" && "$had_app_build_gradle_kts" -eq 0 ]]; then
+if [[ -f "$android_dir/app/build.gradle.kts" ]]; then
   rm -f "$android_dir/app/build.gradle.kts"
 fi
 
