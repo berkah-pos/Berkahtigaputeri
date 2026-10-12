@@ -215,3 +215,17 @@ The hardening branch now has additional workflow changes, culminating in commit 
 Because GitHub created zero jobs, the Flutter archive download, checksum check, Dart analyzer, Flutter tests, Android SDK installation, and Android bundle compile were **not executed** in this run. This remains an Actions startup/dispatch blocker; it is not a passing or failing result for app source code. The policy-compatible workflow edits are source-verified, but remain runtime-unverified until GitHub creates a job.
 
 The official GitHub Status page has reported a recent Actions-related incident and now lists Actions as operational. That alone does not establish the cause of this run's `startup_failure`. Do not merge PR #22 or mark the app green until a new run creates jobs and the analyzer, tests, and Android build complete successfully. Avoid repetitive dispatch attempts while the zero-job startup failure persists; escalate the run ID and empty jobs result to GitHub support/administrator troubleshooting if it continues.
+
+## 9. Current-head recheck (run #206)
+
+**Checked:** 2026-10-13
+
+- Hardening head checked: `3f026010d6f704cb54d722765527ec60b9134194`
+- Latest PR-triggered workflow reported for that head: [Canonical POS App CI #206](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38307212057)
+- Run ID: `38307212057`
+- Conclusion: `startup_failure`
+- Workflow-jobs API: `jobs: []`
+- Combined commit statuses: no status entries returned.
+- Official GitHub Status checked at https://www.githubstatus.com/: Actions was listed as Operational; the Oct 12 incident affecting Actions, Pull Requests, and Issues was listed as resolved.
+
+The current branch head therefore **does have a run record**, so no new run was dispatched. The empty job result and startup failure remain unresolved even while the public service status is operational. This is a GitHub Actions/account/repository-level blocker unless further administrative evidence identifies another cause. Do not classify it as an app test failure. Keep PR #22 open and unmerged. When an administrator or GitHub Support confirms recovery or supplies a diagnostic, re-check the then-current head and runs before taking one new validation attempt. Required validation remains analyzer + Flutter tests + Android compile-check + AAB artifact verification.
