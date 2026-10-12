@@ -5,6 +5,7 @@
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Base revision:** `main` at `d44eb2655f1bb6b0f580dd8ff12de3c6ce8d748c`  
 **Hardening branch:** `hardening/unified-pos-new-app-green-ci`  
+**Pull request:** [#22 — hardening: validate unified POS as a new standalone app](https://github.com/berkah-pos/Berkahtigaputeri/pull/22)  
 **Scope:** New standalone Android client, local persistence/data boundaries, release workflow separation, CI repeatability, and security hardening.
 
 This is the authoritative current hardening report and supersedes the historical implementation status in DOC_13 wherever they conflict. It is not a statement that code has compiled, tests have passed, or a production system has been certified.
@@ -82,7 +83,7 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 5. **Imported-data safety:** for a future explicit legacy import, old sales are archived instead of being misrepresented as tax-complete/accounting-posted transactions; legacy opening quantity is not active stock until physical reconciliation; unreviewed tax classifications are blocked from checkout.
 6. **Android manifest minimization:** the app manifest retains INTERNET access, disables cleartext traffic, and disables Android backup. Unused camera/Bluetooth permissions were removed from this screen-driven build. Add permissions back only with a required and reviewed feature.
 7. **Build-host script hardening:** the Android host preparation script fills missing generated files while preserving the reviewed Groovy `app/build.gradle`; it removes a conflicting generated `app/build.gradle.kts` only when that file was absent before generation. This change was based on the Kotlin-DSL templates introduced by newer Flutter versions and still requires an actual CI build.
-8. **Signing separation:** the new release workflow expects `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64`, `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS` and `BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD`. Do not reuse the old release workflow's secrets by accident.
+8. **Signing separation:** `.github/workflows/berkah-pos-aab.yml` is restored to its `main` version and is unchanged in this PR. The new `.github/workflows/berkah-pos-new-app-aab.yml` workflow expects `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64`, `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS` and `BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD`. Do not reuse the old release workflow's secrets by accident.
 9. **CI workflow:** `.github/workflows/pos-app-ci.yml` runs dependency resolution, Dart analysis, Flutter tests, host preparation, package/secret checks, and a debug-only Android App Bundle compile check.
 10. **Release workflow:** `.github/workflows/berkah-pos-new-app-aab.yml` targets the new package and hosted Ubuntu runner. If the new app's release signing secrets are missing, it produces a debug-signed test artifact only; that artifact is not for Play Console submission.
 11. **Documentation:** `pos-app/README.md` documents the new package, local/offline boundary, data-transfer limitation, and separate release-secret names. Root `AGENTS.md` requires this current report before coding.
@@ -106,15 +107,16 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 
 ### GitHub Actions evidence
 
-The repository's latest reported `Canonical POS App CI` run observed during this report was:
+The latest reported `Canonical POS App CI` run observed during this report was:
 
-- **Run ID:** `38300880560`
-- **Revision:** `8453c5372fa819ec56e98addfdccd88190ef7327`
+- **Run ID:** `38301548637` (push validation)
+- **Revision:** `3ab6eb4105244550b2b8fc1776b7d690dff816c7`
 - **Conclusion:** `startup_failure`
-- **Jobs returned by the GitHub jobs endpoint:** zero
-- **Run URL:** https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38300880560
+- **Run URL:** https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301548637
 
-Earlier runs for the same workflow also returned `startup_failure` before creating a job. This is **not a Dart/analyzer/test failure result**: no job started, so no Flutter command output is available. The same repository has shown startup failures on multiple revisions and workflow attempts, including when configured for GitHub-hosted Ubuntu runners. The root cause has not been determined from the available job evidence.
+The latest PR-triggered run inspected was `38301499948` on revision `56da91f11bc3823b9c6cf0a1c2ae37e655cef527`, also with conclusion `startup_failure`: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301499948. GitHub's jobs endpoint returned an empty list for these runs. An attempted rerun was rejected with HTTP 403 because GitHub said the run cannot be retried.
+
+These are **not Dart/analyzer/test failure results**: no job started, so no Flutter command output is available. The same repository has shown startup failures on multiple revisions and workflow attempts, including with GitHub-hosted Ubuntu runners. The root cause has not been determined from the available job evidence; the repository's Actions configuration/availability needs administrator-level inspection.
 
 ### Commands/tests
 
