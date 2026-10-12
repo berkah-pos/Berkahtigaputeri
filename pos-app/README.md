@@ -26,7 +26,7 @@ The trial app's email-only activation-status lookup is intentionally not used as
 
 ## Android package and trial-data migration
 
-The combined app is a **new standalone Android app** using application ID `com.berkahtigaputeri.pos`, version name `1.0.0`, version code `1`, and target SDK `35`. It installs separately from `berkah-pos-trial`; do not present it as an update to that app. Android app data is sandboxed per application ID, so it does not automatically read the old app's `berkah_pos.db`. Any transfer must use a future explicit export/import flow with validation; the old app and its data remain untouched.
+The combined app is a **new standalone Android app** using application ID `com.berkahtigaputeri.pos`, version name `1.0.0`, version code `1`, and target SDK `36`. It installs separately from `berkah-pos-trial`; do not present it as an update to that app. Android app data is sandboxed per application ID, so it does not automatically read the old app's `berkah_pos.db`. Any transfer must use a future explicit export/import flow with validation; the old app and its data remain untouched.
 
 The repository retains a legacy-database importer utility (its tests are present but not yet executed successfully in CI) for a future explicit file-transfer workflow, but the new app does **not** discover or read the old app's private database automatically. If an owner later provides an authorized database export through a dedicated import UI, products will require tax/data review, stock will stay out of live inventory until reconciled, and historic sales will remain archived because the old schema cannot reconstruct tax, discounts, payment method, FIFO cost layers, or accounting journals. No accounting entries are fabricated.
 
