@@ -31,7 +31,7 @@ The canonical development source is `pos-app/`. It combines the day-to-day produ
 
 The package ID differs deliberately from `id.co.berkahtigaputeri.berkahpos`, the older trial application. Android will install these as separate applications. Do not tell users to expect an in-place update or automatic transfer of private app data.
 
-The existing trial project, its release workflow and its data are not to be altered by this hardening PR. The new app has its own release workflow and uses a separate set of signing-secret names.
+The existing trial project and its release workflow are not to be altered by this hardening PR; the new app uses `.github/workflows/berkah-pos-new-app-aab.yml`. The new app has its own release workflow and uses a separate set of signing-secret names.
 
 ## 2. Architecture retained by the combined app
 
@@ -84,7 +84,7 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 7. **Build-host script hardening:** the Android host preparation script fills missing generated files while preserving the reviewed Groovy `app/build.gradle`; it removes a conflicting generated `app/build.gradle.kts` only when that file was absent before generation. This change was based on the Kotlin-DSL templates introduced by newer Flutter versions and still requires an actual CI build.
 8. **Signing separation:** the new release workflow expects `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_BASE64`, `BERKAH_POS_NEWAPP_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_POS_NEWAPP_UPLOAD_KEY_ALIAS` and `BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD`. Do not reuse the old release workflow's secrets by accident.
 9. **CI workflow:** `.github/workflows/pos-app-ci.yml` runs dependency resolution, Dart analysis, Flutter tests, host preparation, package/secret checks, and a debug-only Android App Bundle compile check.
-10. **Release workflow:** `.github/workflows/berkah-pos-aab.yml` targets the new package and hosted Ubuntu runner. If the new app's release signing secrets are missing, it produces a debug-signed test artifact only; that artifact is not for Play Console submission.
+10. **Release workflow:** `.github/workflows/berkah-pos-new-app-aab.yml` targets the new package and hosted Ubuntu runner. If the new app's release signing secrets are missing, it produces a debug-signed test artifact only; that artifact is not for Play Console submission.
 11. **Documentation:** `pos-app/README.md` documents the new package, local/offline boundary, data-transfer limitation, and separate release-secret names. Root `AGENTS.md` requires this current report before coding.
 
 ## 4. Evidence found in the repository
