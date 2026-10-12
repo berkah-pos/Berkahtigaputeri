@@ -19,7 +19,7 @@ jobs:
   build:
     name: Validate unified Flutter app and build Android App Bundle
     # This new app uses a separate GitHub-hosted build, isolated from the existing release workflow.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:
       run:
