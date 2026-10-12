@@ -2,6 +2,10 @@ name: Berkah POS New App AAB Build
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "pos-app/**"
+      - ".github/workflows/berkah-pos-new-app-aab.yml"
   push:
     branches: ["main"]
     paths:
@@ -161,7 +165,10 @@ jobs:
           KEY_PASSWORD: ${{ secrets.BERKAH_POS_NEWAPP_UPLOAD_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -n "$KEYSTORE_BASE64" && -n "$STORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]; then
+          if [[ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]]; then
+            echo "mode=debug" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pull-request validation always builds a debug-signed test AAB; publisher signing is reserved for trusted release triggers."
+          elif [[ -n "$KEYSTORE_BASE64" && -n "$STORE_PASSWORD" && -n "$KEY_ALIAS" && -n "$KEY_PASSWORD" ]]; then
             printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/berkah-pos-upload.jks
             chmod 600 android/app/berkah-pos-upload.jks
             {
