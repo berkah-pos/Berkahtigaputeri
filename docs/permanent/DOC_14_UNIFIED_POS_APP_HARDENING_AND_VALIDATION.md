@@ -229,3 +229,23 @@ The official GitHub Status page has reported a recent Actions-related incident a
 - Official GitHub Status checked at https://www.githubstatus.com/: Actions was listed as Operational; the Oct 12 incident affecting Actions, Pull Requests, and Issues was listed as resolved.
 
 The current branch head therefore **does have a run record**, so no new run was dispatched. The empty job result and startup failure remain unresolved even while the public service status is operational. This is a GitHub Actions/account/repository-level blocker unless further administrative evidence identifies another cause. Do not classify it as an app test failure. Keep PR #22 open and unmerged. When an administrator or GitHub Support confirms recovery or supplies a diagnostic, re-check the then-current head and runs before taking one new validation attempt. Required validation remains analyzer + Flutter tests + Android compile-check + AAB artifact verification.
+
+## 10. Single fresh validation attempt after GitHub showed Actions operational
+
+**Checked:** 2026-10-13
+
+Following the prior zero-job startup failures and the official GitHub Status page showing Actions Operational, one focused workflow commit was made on the existing hardening branch:
+
+- Commit: [`bdc237db3f747019a147943576676ccf7dc11f28`](https://github.com/berkah-pos/Berkahtigaputeri/commit/bdc237db3f747019a147943576676ccf7dc11f28)
+- Workflow change: use `ubuntu-24.04` for stable hosted-runner selection and run feature-branch CI via pull_request rather than duplicating a push run; main and manual dispatch remain available.
+
+The resulting single fresh PR validation attempt is:
+
+- Workflow: Canonical POS App CI
+- Run ID: `38311802207` (run #209)
+- Conclusion: `startup_failure`
+- Jobs API result: `jobs: []`
+- Combined commit statuses: no status entries returned.
+- Run URL: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38311802207
+
+The attempt again created zero jobs, so none of the Flutter/Dart/Android steps executed. Because GitHub's public status currently lists Actions operational and this branch head now has a fresh run record, no further retries or synthetic workflow changes should be made without a new actionable diagnosis. The current blocker requires investigation of repository/organization Actions policy or availability, hosted-runner entitlement/limits, and/or GitHub Support using this run ID and the empty jobs response. Keep PR #22 open and unmerged. After the owner/support resolves the startup blocker, verify the then-current head and run state before issuing one new validation attempt.
