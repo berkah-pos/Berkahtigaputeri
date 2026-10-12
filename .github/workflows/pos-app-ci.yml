@@ -71,7 +71,7 @@ jobs:
           grep -q 'namespace = "com.berkahtigaputeri.pos"' android/app/build.gradle
           grep -q 'versionCode = 1' android/app/build.gradle
           grep -q 'versionName = "1.0.0"' android/app/build.gradle
-          grep -q 'targetSdk = 35' android/app/build.gradle
+          grep -q 'targetSdk = 36' android/app/build.gradle
           if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|DATABASE_URL=.*PASSWORD' lib; then
             echo "Privileged server/database credentials must not be embedded in the Flutter app." >&2
             exit 1
