@@ -70,6 +70,7 @@ At the correction-program baseline, `pos-app/lib/core/config/config_service.dart
 ## Engineering constraints
 
 - Make changes on a branch and merge through a PR; do not push implementation changes directly to `main`.
+- All active GitHub Actions workflows must use GitHub-hosted runners (currently `ubuntu-24.04`). Do not add a `self-hosted` runner label or a dependency on a developer/workstation runner; keep CI disposable and reproducible.
 - Do not restore any architecture that omits TEMPLATE.
 - Do not restore `app_config(device_id, key, value)`.
 - Keep the official Admin under `btp-admin/`; do not create a duplicate root `complete-settings.html` implementation.
