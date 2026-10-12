@@ -189,3 +189,29 @@ Every follow-up agent must:
 ## Current acceptance
 
 **PARTIAL / BLOCKED.** The hardening branch has source-level fixes for package identity, cross-app data access assumptions, Android permissions, app signing separation and build-host preparation. A successful analyzer/test/build run has not been obtained because GitHub Actions is failing before jobs start, and no local Flutter SDK is available. Continue until real test/build evidence is attached; only then can the app be called green.
+
+## 8. Follow-up CI recheck after hosted-runner and action-policy cleanup
+
+**Follow-up date:** 2026-10-13
+
+The hardening branch now has additional workflow changes, culminating in commit `ed4bf72b9c563d23e87a0b3f3497a7a8f3ea6368`:
+
+- `.github/workflows/pos-app-ci.yml` no longer uses the third-party `subosito/flutter-action` or `android-actions/setup-android` actions.
+- `.github/workflows/berkah-pos-new-app-aab.yml` uses the same GitHub-hosted Ubuntu toolchain approach.
+- Flutter is downloaded from the official Flutter stable release metadata/archive, with SHA-256 verification before extraction.
+- The workflows locate the Android SDK command-line tools on the hosted runner and install the compile platforms.
+- The SDK license pipeline avoids treating the `yes` producer's expected broken-pipe exit as an SDK failure.
+- The new-app AAB artifact upload names now match their step-summary labels.
+
+**Latest observed GitHub evidence after these changes:**
+
+- Workflow: Canonical POS App CI
+- Run ID: `38307087460` (run #205)
+- Commit: `ed4bf72b9c563d23e87a0b3f3497a7a8f3ea6368`
+- Conclusion: `startup_failure`
+- Jobs API result: `jobs: []`
+- Run: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38307087460
+
+Because GitHub created zero jobs, the Flutter archive download, checksum check, Dart analyzer, Flutter tests, Android SDK installation, and Android bundle compile were **not executed** in this run. This remains an Actions startup/dispatch blocker; it is not a passing or failing result for app source code. The policy-compatible workflow edits are source-verified, but remain runtime-unverified until GitHub creates a job.
+
+The official GitHub Status page has reported a recent Actions-related incident and now lists Actions as operational. That alone does not establish the cause of this run's `startup_failure`. Do not merge PR #22 or mark the app green until a new run creates jobs and the analyzer, tests, and Android build complete successfully. Avoid repetitive dispatch attempts while the zero-job startup failure persists; escalate the run ID and empty jobs result to GitHub support/administrator troubleshooting if it continues.
