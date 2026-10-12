@@ -24,7 +24,7 @@ The canonical development source is `pos-app/`. It combines the day-to-day produ
 | Namespace | `com.berkahtigaputeri.pos` |
 | Version name | `1.0.0` |
 | Version code | `1` |
-| Target SDK | `35` |
+| Target SDK | `36` |
 | Canonical Flutter directory | `pos-app/` |
 | Local database file | `berkahtigaputeri_pos.db` |
 
@@ -76,7 +76,7 @@ Do not present the current combined app as fully operational multi-tenant SaaS u
 
 The following are repository changes on `hardening/unified-pos-new-app-green-ci`, not yet merged into `main`.
 
-1. **New package identity:** app metadata uses `com.berkahtigaputeri.pos`, version `1.0.0+1`, target SDK 35.
+1. **New package identity:** app metadata uses `com.berkahtigaputeri.pos`, version `1.0.0+1`, target SDK 36.
 2. **No implicit cross-app database import:** `PosDatabase.openDefault()` opens only the new app's own database. A separate Android package cannot automatically access another app's private `berkah_pos.db`; the previous assumption of startup auto-import was removed.
 3. **Legacy importer remains an explicit future utility:** its schema/archive and tests remain available for a future user-supplied/exported database file, but the app does not discover the old application's private database automatically. No old data or installation is deleted.
 4. **Stock ownership is ledger-based:** product edit/upsert must never overwrite a fresh stock quantity with a stale form value. The SQL upsert omits `stock_qty` from its conflict-update clause; a test covers this invariant.
