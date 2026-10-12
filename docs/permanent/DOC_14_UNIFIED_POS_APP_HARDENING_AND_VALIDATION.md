@@ -249,3 +249,27 @@ The resulting single fresh PR validation attempt is:
 - Run URL: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38311802207
 
 The attempt again created zero jobs, so none of the Flutter/Dart/Android steps executed. Because GitHub's public status currently lists Actions operational and this branch head now has a fresh run record, no further retries or synthetic workflow changes should be made without a new actionable diagnosis. The current blocker requires investigation of repository/organization Actions policy or availability, hosted-runner entitlement/limits, and/or GitHub Support using this run ID and the empty jobs response. Keep PR #22 open and unmerged. After the owner/support resolves the startup blocker, verify the then-current head and run state before issuing one new validation attempt.
+
+
+## 11. Current source audit and Android host-script repair
+
+**Checked:** 2026-10-13
+
+The next source audit found a concrete issue in `pos-app/tool/prepare_android_host.sh`: an earlier edit had left malformed, duplicated `grep` fragments in the compatibility guard for `android.builtInKotlin` and `android.newDsl`. The shell block was repaired in commit [`470c4f963dc4551d7ee6d9cb048c3e30f1295fea`](https://github.com/berkah-pos/Berkahtigaputeri/commit/470c4f963dc4551d7ee6d9cb048c3e30f1295fea). The corrected guard rejects either explicit `true` setting, fills absent settings with `false`, and retains the package/host-file checks.
+
+The CI workflow now includes an early `bash -n pos-app/tool/prepare_android_host.sh` preflight in commit [`e944602358b07653503583775961aebe2010f569`](https://github.com/berkah-pos/Berkahtigaputeri/commit/e944602358b07653503583775961aebe2010f569), before downloading Flutter and Android tools.
+
+**Latest observed PR-triggered run on the current head:**
+
+- Workflow: Canonical POS App CI
+- Run ID: `38314800396`
+- Revision: `e944602358b07653503583775961aebe2010f569`
+- Conclusion: `startup_failure`
+- Jobs API: `jobs: []`
+- Run URL: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38314800396
+
+The new preflight therefore has **not** executed; this latest run created no jobs. The shell repair is source-inspected but not runtime-verified. In this working environment, neither Flutter nor Dart is installed and outbound name resolution for GitHub/Flutter distribution is unavailable, so the actual `bash -n`, Dart analysis, tests, and Android build have still not been executed locally.
+
+The old release workflow `.github/workflows/berkah-pos-aab.yml` was rechecked: its blob SHA on `main` and this hardening branch is the same, `8faf5381d031d976b4c68cd4b40b66056731c611`. It remains unchanged.
+
+**Acceptance remains BLOCKED / NOT GREEN.** Do not retry repeatedly or claim validation success from a zero-job run. Keep PR #22 draft and unmerged. The next required action is administrative diagnosis/recovery for the repository's Actions startup blocker; after jobs can be created, run the shell preflight, Flutter dependency resolution, analyzer/tests, Android compile/build, and AAB identity/signing checks.
