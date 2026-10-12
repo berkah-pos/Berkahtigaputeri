@@ -4,14 +4,14 @@ on:
   pull_request:
     paths:
       - "pos-app/**"
-      - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/**"
   # Feature branches are validated by pull_request to avoid duplicate runs.
   # Push validation remains enabled for main and manual workflow dispatch.
   push:
     branches: ["main"]
     paths:
       - "pos-app/**"
-      - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
