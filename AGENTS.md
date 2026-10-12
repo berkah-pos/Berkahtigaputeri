@@ -10,10 +10,10 @@ Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 3. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` - mandatory overall SaaS/database/offline architecture, milestone gates, scoped-agent rules, and evidence-reporting contract.
 4. `docs/permanent/DOC_14_UNIFIED_POS_APP_HARDENING_AND_VALIDATION.md` - current hardening decision, standalone package identity, data boundaries, validation evidence, and release gates.
 5. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` - historical record of the original integration; superseded where it conflicts with DOC_14.
-5. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` - legacy filename; content is the Final Pos contract.
-6. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`
-7. `docs/permanent/DOC_03_RLS_AUTH.sql`
-8. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`
+6. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` - legacy filename; content is the Final Pos contract.
+7. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`
+8. `docs/permanent/DOC_03_RLS_AUTH.sql`
+9. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`
 
 If any later or older document conflicts with the canonical architecture decision, follow the decision and correct the stale document in the same change set.
 
