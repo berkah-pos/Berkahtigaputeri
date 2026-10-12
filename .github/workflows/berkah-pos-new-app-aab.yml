@@ -12,13 +12,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: berkah-pos-aab-${{ github.ref }}
+  group: berkah-pos-new-app-aab-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   build:
     name: Validate unified Flutter app and build Android App Bundle
-    # The registered Fedora runner is retained for the existing release process.
+    # This new app uses a separate GitHub-hosted build, isolated from the existing release workflow.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
