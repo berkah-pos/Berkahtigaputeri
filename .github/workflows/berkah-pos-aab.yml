@@ -19,7 +19,7 @@ jobs:
   build:
     name: Validate unified Flutter app and build Android App Bundle
     # The registered Fedora runner is retained for the existing release process.
-    runs-on: [self-hosted, Fedora]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     defaults:
       run:
@@ -68,8 +68,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'applicationId = "id.co.berkahtigaputeri.berkahpos"' android/app/build.gradle
-          grep -q 'namespace = "id.co.berkahtigaputeri.berkahpos"' android/app/build.gradle
+          grep -q 'applicationId = "com.berkahtigaputeri.pos"' android/app/build.gradle
+          grep -q 'namespace = "com.berkahtigaputeri.pos"' android/app/build.gradle
           grep -q 'targetSdk = 35' android/app/build.gradle
           if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|DATABASE_URL=.*PASSWORD' lib; then
             echo "Privileged server/database credentials must not be embedded in the Flutter app." >&2
@@ -108,7 +108,7 @@ jobs:
             echo "mode=release" >> "$GITHUB_OUTPUT"
           else
             echo "mode=debug" >> "$GITHUB_OUTPUT"
-            echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
+            echo "::warning::Publisher signing secrets are absent; the AAB is debug-signed and is for testing only, not Play Console submission."
           fi
 
       - name: Require cloud configuration for publisher-signed release
@@ -158,16 +158,16 @@ jobs:
           {
             echo "### Berkah POS Unified App Bundle"
             echo ""
-            echo "- Package: id.co.berkahtigaputeri.berkahpos"
-            echo "- Version: 1.1.0 (versionCode 2)"
+            echo "- Package: com.berkahtigaputeri.pos"
+            echo "- Version: 1.0.0 (versionCode 1)"
             echo "- Target SDK: 35"
             echo "- Output: pos-app/build/app/outputs/bundle/release/app-release.aab"
             if [[ "${{ steps.signing.outputs.mode }}" == "release" ]]; then
               echo "- Signing: configured publisher upload key; compare certificate SHA-256 with the previous accepted release before publishing"
-              echo "- Artifact name: berkah-pos-unified-release-aab"
+              echo "- Artifact name: berkah-pos-new-app-release-aab"
             else
               echo "- Signing: Android debug key (testing only; not for Play Console submission)"
-              echo "- Artifact name: berkah-pos-unified-test-aab-debug-signed"
+              echo "- Artifact name: berkah-pos-new-app-test-aab-debug-signed"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
