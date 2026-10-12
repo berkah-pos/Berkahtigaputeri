@@ -30,6 +30,8 @@ The canonical development source is `pos-app/`. It combines the day-to-day produ
 
 **SOURCE-VERIFIED:** `pos-app/android/app/build.gradle`, `pos-app/pubspec.yaml`, `pos-app/lib/core/database/pos_database.dart`.
 
+**Play submission policy gate:** Google Play's policy effective 2026-08-31 requires new standard Android apps and app updates to target Android 16 / API level 36 or higher. This branch now sets target SDK 36. See the [official target API policy](https://support.google.com/googleplay/android-developer/answer/11926878).
+
 The package ID differs deliberately from `id.co.berkahtigaputeri.berkahpos`, the older trial application. Android will install these as separate applications. Do not tell users to expect an in-place update or automatic transfer of private app data.
 
 The existing trial project and its release workflow are not to be altered by this hardening PR; the new app uses `.github/workflows/berkah-pos-new-app-aab.yml`. The new app has its own release workflow and uses a separate set of signing-secret names.
@@ -107,14 +109,15 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 
 ### GitHub Actions evidence
 
-The latest reported `Canonical POS App CI` run observed during this report was:
+The latest PR-triggered `Canonical POS App CI` run observed during this report was:
 
-- **Run ID:** `38301548637` (push validation)
-- **Revision:** `3ab6eb4105244550b2b8fc1776b7d690dff816c7`
+- **Run ID:** `38301703820` (pull request)
+- **Revision:** `0754893c9115c241a84c96aa70afbc3d8f5e778e`
 - **Conclusion:** `startup_failure`
-- **Run URL:** https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301548637
+- **Jobs returned by the GitHub jobs endpoint:** zero
+- **Run URL:** https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301703820
 
-The latest PR-triggered run inspected was `38301499948` on revision `56da91f11bc3823b9c6cf0a1c2ae37e655cef527`, also with conclusion `startup_failure`: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301499948. GitHub's jobs endpoint returned an empty list for these runs. An attempted rerun was rejected with HTTP 403 because GitHub said the run cannot be retried.
+The latest push run inspected was `38301693919` on revision `bccad901a695f304d191a3c23490590ffc908f7d`, also with conclusion `startup_failure`: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38301693919. GitHub's jobs endpoint returned an empty list. An attempted rerun was rejected with HTTP 403 because GitHub said the prior run cannot be retried.
 
 These are **not Dart/analyzer/test failure results**: no job started, so no Flutter command output is available. The same repository has shown startup failures on multiple revisions and workflow attempts, including with GitHub-hosted Ubuntu runners. The root cause has not been determined from the available job evidence; the repository's Actions configuration/availability needs administrator-level inspection.
 
@@ -158,7 +161,7 @@ bash tool/prepare_android_host.sh
 flutter build appbundle --debug --no-pub
 ```
 
-Verify the actual generated AAB package ID is `com.berkahtigaputeri.pos`, version code 1/version name 1.0.0, and target SDK 35. Verify the release-signing task fails closed when signing is absent unless the debug-only flag is explicitly supplied.
+Verify the actual generated AAB package ID is `com.berkahtigaputeri.pos`, version code 1/version name 1.0.0, and target SDK 36. Verify the release-signing task fails closed when signing is absent unless the debug-only flag is explicitly supplied.
 
 ### Gate D — Functional/data-safety validation
 
