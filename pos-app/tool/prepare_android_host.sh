@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Generate missing Android host files without overwriting existing project
-# files, app identity, signing configuration, or user-owned native changes.
+# Generate a disposable Android host for the new app identity without
+# overwriting the canonical app Gradle file or signing configuration.
 if ! command -v flutter >/dev/null 2>&1; then
   echo "Flutter SDK is required to prepare the Android host." >&2
   exit 1
@@ -22,8 +22,8 @@ fi
 
 flutter create \
   --platforms=android \
-  --project-name berkahpos \
-  --org id.co.berkahtigaputeri \
+  --project-name pos \
+  --org com.berkahtigaputeri \
   --overwrite \
   "$temp_dir/seed"
 
@@ -43,10 +43,10 @@ org.gradle.parallel=false
 EOF
 fi
 
-grep -q 'applicationId = "id.co.berkahtigaputeri.berkahpos"' "$android_dir/app/build.gradle"
-grep -q 'namespace = "id.co.berkahtigaputeri.berkahpos"' "$android_dir/app/build.gradle"
-test -s "$android_dir/app/src/main/kotlin/id/co/berkahtigaputeri/berkahpos/MainActivity.kt"
+grep -q 'applicationId = "com.berkahtigaputeri.pos"' "$android_dir/app/build.gradle"
+grep -q 'namespace = "com.berkahtigaputeri.pos"' "$android_dir/app/build.gradle"
+test -s "$android_dir/app/src/main/kotlin/com/berkahtigaputeri/pos/MainActivity.kt"
 test -s "$android_dir/gradlew"
 test -s "$android_dir/gradle/wrapper/gradle-wrapper.jar"
 
-echo "Android host is present for id.co.berkahtigaputeri.berkahpos. Existing app Gradle config and app identity were preserved."
+echo "Android host is present for com.berkahtigaputeri.pos. Existing app Gradle config and app identity were preserved."
