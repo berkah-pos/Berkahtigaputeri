@@ -5,8 +5,10 @@ on:
     paths:
       - "pos-app/**"
       - ".github/workflows/pos-app-ci.yml"
+  # Feature branches are validated by pull_request to avoid duplicate runs.
+  # Push validation remains enabled for main and manual workflow dispatch.
   push:
-    branches: ["**"]
+    branches: ["main"]
     paths:
       - "pos-app/**"
       - ".github/workflows/pos-app-ci.yml"
@@ -25,7 +27,7 @@ jobs:
     # Use a disposable GitHub-hosted runner for repeatable validation.
     # Never run untrusted fork code on a privileged self-hosted runner.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout repository
