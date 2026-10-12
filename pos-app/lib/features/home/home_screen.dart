@@ -220,16 +220,6 @@ class _DashboardScreenState extends State<_DashboardScreen> {
     }
   }
 
-  Future<void> _retryLegacyImport() async {
-    setState(() => _loading = true);
-    try {
-      await widget.database.retryLegacyTrialImport();
-    } catch (_) {
-      // The database stores the error and the UI keeps the recovery warning.
-    }
-    await _reload();
-  }
-
   int _number(String key) => (_summary[key] as num?)?.toInt() ?? 0;
 
   String _money(int amount) {
@@ -297,26 +287,6 @@ class _DashboardScreenState extends State<_DashboardScreen> {
               ),
             ),
           ),
-          if (widget.database.legacyImportError != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                title: const Text('Impor data trial belum selesai'),
-                subtitle: Text(
-                  'Database lama tidak dihapus. Jangan menghapus data aplikasi. '
-                  'Periksa penyebab lalu coba lagi. Detail: ' +
-                  widget.database.legacyImportError!,
-                ),
-                isThreeLine: true,
-                trailing: IconButton(
-                  tooltip: 'Coba impor lagi',
-                  onPressed: _retryLegacyImport,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ),
-            ),
-          ],
           const SizedBox(height: 12),
           Wrap(
             spacing: 12,

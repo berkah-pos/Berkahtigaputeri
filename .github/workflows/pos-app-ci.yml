@@ -4,12 +4,14 @@ on:
   pull_request:
     paths:
       - "pos-app/**"
-      - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/**"
+  # Feature branches are validated by pull_request to avoid duplicate runs.
+  # Push validation remains enabled for main and manual workflow dispatch.
   push:
-    branches: ["**"]
+    branches: ["main"]
     paths:
       - "pos-app/**"
-      - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
@@ -23,26 +25,65 @@ jobs:
   validate:
     name: Analyze, test, and Android compile-check
     # Use a disposable GitHub-hosted runner for repeatable validation.
-    # Never run untrusted fork code on a privileged self-hosted runner.
+    # Fork pull requests are excluded from this repository-scoped validation job.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Catch shell syntax errors before spending time downloading Flutter/Android toolchains.
+      - name: Validate Android host preparation script syntax
+        run: bash -n pos-app/tool/prepare_android_host.sh
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-          cache: gradle
 
-      - name: Set up Flutter stable
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+      - name: Install Flutter stable from official distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/flutter-sdk.tar.xz"
+          python3 - "$archive" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import shutil
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          destination = pathlib.Path(sys.argv[1])
+          metadata_url = "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json"
+          request = urllib.request.Request(metadata_url, headers={"User-Agent": "berkah-pos-ci"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              metadata = json.load(response)
+          stable = [release for release in metadata["releases"] if release.get("channel") == "stable"]
+          if not stable:
+              raise SystemExit("No stable Flutter release was listed by the official release metadata.")
+          release = max(stable, key=lambda item: item.get("release_date", ""))
+          archive_path = release.get("archive", "")
+          expected_sha256 = release.get("sha256", "").lower()
+          if not archive_path.startswith("stable/linux/flutter_linux_") or not archive_path.endswith("-stable.tar.xz"):
+              raise SystemExit(f"Unexpected Flutter archive path: {archive_path!r}")
+          if len(expected_sha256) != 64:
+              raise SystemExit("Official Flutter release metadata did not include a SHA-256 checksum.")
+          archive_url = urllib.parse.urljoin("https://storage.googleapis.com/flutter_infra_release/releases/", archive_path)
+          request = urllib.request.Request(archive_url, headers={"User-Agent": "berkah-pos-ci"})
+          with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as output:
+              shutil.copyfileobj(response, output)
+          actual_sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+          if actual_sha256 != expected_sha256:
+              raise SystemExit(f"Flutter archive checksum mismatch: expected {expected_sha256}, got {actual_sha256}")
+          print(f"Verified official Flutter stable {release.get('version', 'unknown')} ({actual_sha256})")
+          PY
+          tar -xf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version
 
       - name: Resolve packages
         working-directory: pos-app
@@ -63,14 +104,56 @@ jobs:
         working-directory: pos-app
         run: bash tool/prepare_android_host.sh
 
-      - name: Install Android SDK platforms
-        uses: android-actions/setup-android@v3
+      - name: Verify new application identity and client-secret boundary
+        working-directory: pos-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'applicationId = "com.berkahtigaputeri.pos"' android/app/build.gradle
+          grep -q 'namespace = "com.berkahtigaputeri.pos"' android/app/build.gradle
+          grep -q 'versionCode = 1' android/app/build.gradle
+          grep -q 'versionName = "1.0.0"' android/app/build.gradle
+          grep -q 'targetSdk = 36' android/app/build.gradle
+          if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|DATABASE_URL=.*PASSWORD' lib; then
+            echo "Privileged server/database credentials must not be embedded in the Flutter app." >&2
+            exit 1
+          fi
+
+      - name: Locate Android SDK command-line tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" ]]; then
+            sdk_root="$ANDROID_HOME"
+          elif [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
+            sdk_root="$ANDROID_SDK_ROOT"
+          else
+            sdk_root="/usr/local/lib/android/sdk"
+          fi
+          if [[ ! -d "$sdk_root/cmdline-tools" ]]; then
+            echo "::error::Android command-line tools were not found under $sdk_root." >&2
+            exit 1
+          fi
+          sdkmanager_path="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          if [[ -z "$sdkmanager_path" ]]; then
+            echo "::error::sdkmanager was not found in the hosted runner Android SDK." >&2
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          echo "$(dirname "$sdkmanager_path")" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$sdkmanager_path" --version
 
       - name: Accept SDK licenses and install compile platforms
         shell: bash
         run: |
           set -euo pipefail
+          # sdkmanager is the final command in this pipe; avoid treating `yes`'s
+          # expected SIGPIPE after sdkmanager exits as a license-acceptance failure.
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
           sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
 
       - name: Build debug Android App Bundle

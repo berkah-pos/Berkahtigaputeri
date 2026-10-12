@@ -6,6 +6,11 @@
 **Implementation branch:** `feat/unified-pos-local-first-app`  
 **Pull request:** [#21 — unify trial POS flows with modular local-first app](https://github.com/berkah-pos/Berkahtigaputeri/pull/21)
 
+> **HISTORICAL SNAPSHOT — SUPERSEDED BY DOC_14_UNIFIED_POS_APP_HARDENING_AND_VALIDATION.md.**
+> This report records the original integration PR (#21) and its then-current decisions. Its statements about retaining the old application ID and automatically attempting legacy DB import are not the current plan. The hardening branch defines the new standalone package `com.berkahtigaputeri.pos`, disables cross-package automatic import, and keeps validation status NOT VERIFIED until real jobs/tests complete.
+>
+> The Fedora runner mention in §3 records the workflow as it existed for this historical integration. It is not current operating guidance: the repository-wide CI change recorded in DOC_14 replaces all active workflow runner requirements with GitHub-hosted Ubuntu 24.04.
+
 This is an evidence report, not a production certification. Apply the mandatory report standard in `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`.
 
 ## 1. Integration decision

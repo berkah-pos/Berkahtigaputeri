@@ -4,7 +4,7 @@
 
 ## Verdict
 
-**NOT PRODUCTION-READY / NOT ALL GREEN.** This is a source inventory and evidence-based preliminary audit, not a completed penetration test. The connected GitHub interface can inspect repository files and workflow metadata, but cannot execute commands on the Fedora runner, run Supabase CLI against the project, query live database policies, install the app on a device, or access Play Console/signing credentials. Those checks are explicitly marked unverified rather than reported as passing.
+**NOT PRODUCTION-READY / NOT ALL GREEN.** This is a source inventory and evidence-based preliminary audit, not a completed penetration test. At the time of this 2026-10-11 audit, the connected GitHub interface could not execute commands on the then-configured Fedora runner, run Supabase CLI against the project, query live database policies, install the app on a device, or access Play Console/signing credentials. The Fedora runner reference is historical: the repository-wide workflow migration now uses GitHub-hosted Ubuntu 24.04 runners. Those checks are explicitly marked unverified rather than reported as passing.
 
 ## Inventory
 

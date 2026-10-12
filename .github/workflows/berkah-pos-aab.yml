@@ -18,8 +18,8 @@ concurrency:
 jobs:
   build:
     name: Validate unified Flutter app and build Android App Bundle
-    # The registered Fedora runner is retained for the existing release process.
-    runs-on: [self-hosted, Fedora]
+    # Use a clean GitHub-hosted runner; no persistent workstation runner is required.
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     defaults:
       run:
@@ -47,19 +47,86 @@ jobs:
           java-version: "17"
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK platforms
+      - name: Locate Android SDK command-line tools
+        shell: bash
         run: |
+          set -euo pipefail
+          if [[ -n "${ANDROID_HOME:-}" ]]; then
+            sdk_root="$ANDROID_HOME"
+          elif [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
+            sdk_root="$ANDROID_SDK_ROOT"
+          else
+            sdk_root="/usr/local/lib/android/sdk"
+          fi
+          if [[ ! -d "$sdk_root/cmdline-tools" ]]; then
+            echo "::error::Android command-line tools were not found under $sdk_root." >&2
+            exit 1
+          fi
+          sdkmanager_path="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          if [[ -z "$sdkmanager_path" ]]; then
+            echo "::error::sdkmanager was not found in the hosted runner Android SDK." >&2
+            exit 1
+          fi
+          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
+          echo "$(dirname "$sdkmanager_path")" >> "$GITHUB_PATH"
+          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
+          "$sdkmanager_path" --version
+
+      - name: Accept SDK licenses and install compile platforms
+        shell: bash
+        run: |
+          set -euo pipefail
+          # sdkmanager is the final command in this pipe; avoid treating `yes`'s
+          # expected SIGPIPE after sdkmanager exits as a license-acceptance failure.
+          set +o pipefail
           yes | sdkmanager --licenses >/dev/null
+          set -o pipefail
           sdkmanager "platforms;android-35" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
 
-      - name: Set up Flutter stable
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+
+      - name: Install Flutter stable from official distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/flutter-sdk.tar.xz"
+          python3 - "$archive" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import shutil
+          import sys
+          import urllib.parse
+          import urllib.request
+
+          destination = pathlib.Path(sys.argv[1])
+          metadata_url = "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json"
+          request = urllib.request.Request(metadata_url, headers={"User-Agent": "berkah-pos-ci"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              metadata = json.load(response)
+          stable = [release for release in metadata["releases"] if release.get("channel") == "stable"]
+          if not stable:
+              raise SystemExit("No stable Flutter release was listed by the official release metadata.")
+          release = max(stable, key=lambda item: item.get("release_date", ""))
+          archive_path = release.get("archive", "")
+          expected_sha256 = release.get("sha256", "").lower()
+          if not archive_path.startswith("stable/linux/flutter_linux_") or not archive_path.endswith("-stable.tar.xz"):
+              raise SystemExit(f"Unexpected Flutter archive path: {archive_path!r}")
+          if len(expected_sha256) != 64:
+              raise SystemExit("Official Flutter release metadata did not include a SHA-256 checksum.")
+          archive_url = urllib.parse.urljoin("https://storage.googleapis.com/flutter_infra_release/releases/", archive_path)
+          request = urllib.request.Request(archive_url, headers={"User-Agent": "berkah-pos-ci"})
+          with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as output:
+              shutil.copyfileobj(response, output)
+          actual_sha256 = hashlib.sha256(destination.read_bytes()).hexdigest()
+          if actual_sha256 != expected_sha256:
+              raise SystemExit(f"Flutter archive checksum mismatch: expected {expected_sha256}, got {actual_sha256}")
+          print(f"Verified official Flutter stable {release.get('version', 'unknown')} ({actual_sha256})")
+          PY
+          tar -xf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version
+
 
       - name: Prepare canonical Android host
         run: bash tool/prepare_android_host.sh

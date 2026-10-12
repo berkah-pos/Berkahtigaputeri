@@ -11,16 +11,13 @@
 ## Outstanding
 - The Android scaffold is generated during CI if missing; the manifest and wrapper are not tracked in the inspected tree. This makes the build dependent on runtime generation rather than a fully reviewed committed Android project.
 - `final-pos-sync.yml` performs a dry-run sync only. Confirm that this is the intended behavior; it should not be treated as a production migration/deployment pipeline.
-- Host checks not possible here: systemd unit enabled/active, Restart=always, runner ownership, SELinux labels, linger, reboot recovery, disk/RAM/swap, runner version and labels.
+- Historical host checks for the former Fedora Actions runner are obsolete. The repository CI migration now uses GitHub-hosted Ubuntu 24.04 runners; no runner service, SELinux label, linger, reboot recovery, or workstation availability is required for CI.
 - The workflow does not currently build split APKs or use obfuscation/debug-symbol output.
 - Need pin all third-party actions to reviewed immutable SHAs according to repository policy; the source mixes a pinned Android setup action with version tags for others.
 - Workflow YAML parser validation and actual five-push queue test were not run here.
 
-## Required commands on Fedora
-```bash
-sudo systemctl is-enabled actions.runner.new-berkah.btp-fedora44-01.service
-sudo systemctl is-active actions.runner.new-berkah.btp-fedora44-01.service
-systemctl show actions.runner.new-berkah.btp-fedora44-01.service -p Restart -p User
-gh api repos/new-berkah/Berkahtigaputeri/actions/runners --jq '.runners[] | {name,status,busy}'
-```
-Then run YAML validation, controlled push concurrency test, reboot recovery and log-secret review. Do not report host configuration as verified from GitHub workflow source alone.
+## Required validation after runner migration
+
+The Fedora systemd-service instructions above have been retired. All four active workflow definitions in `.github/workflows/` are now configured for GitHub-hosted Ubuntu 24.04 runners. Validate through actual Actions run/job records and job logs instead of maintaining an always-on runner machine.
+
+Required gates remain: workflow YAML validation, a real job start, Dart analysis, Flutter tests, Android compile/build, and artifact verification. A run marked `startup_failure` with an empty Jobs API response is an infrastructure/startup blocker, not evidence that code tests passed or failed.

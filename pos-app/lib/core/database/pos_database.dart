@@ -3,7 +3,6 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
-import 'legacy_trial_importer.dart';
 
 /// SQLite database for the local-first POS.
 ///
@@ -11,34 +10,23 @@ import 'legacy_trial_importer.dart';
 class PosDatabase {
   PosDatabase._(this.database);
 
-  String? _legacyTrialPath;
-  String? _legacyImportError;
-
-  String? get legacyImportError => _legacyImportError;
-
   static const int schemaVersion = 3;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
 
+  /// Opens a fresh app-owned database. A separate Android package cannot
+  /// access another app's private database directory, so legacy transfer must
+  /// be an explicit user-mediated export/import flow rather than a guessed path.
   static Future<PosDatabase> openDefault({
     DatabaseFactory? factory,
   }) async {
     final root = await getDatabasesPath();
     final selectedFactory = factory ?? databaseFactory;
-    final target = await openAt(
+    return openAt(
       p.join(root, fileName),
       factory: selectedFactory,
     );
-    target._legacyTrialPath = p.join(root, 'berkah_pos.db');
-    // Keep the POS shell available if legacy import needs attention, but
-    // expose an explicit warning. The old file is never deleted or modified.
-    try {
-      await target.retryLegacyTrialImport(factory: selectedFactory);
-    } catch (_) {
-      // retryLegacyTrialImport retains the user-visible error on this object.
-    }
-    return target;
   }
 
   static Future<PosDatabase> openAt(
@@ -64,26 +52,6 @@ class PosDatabase {
     Future<T> Function(Transaction transaction) action,
   ) {
     return database.transaction<T>(action, exclusive: true);
-  }
-
-  /// Retries the one-time import from the older trial database. Errors are
-  /// rethrown to the caller and also retained for display in the UI.
-  Future<void> retryLegacyTrialImport({
-    DatabaseFactory? factory,
-  }) async {
-    final path = _legacyTrialPath;
-    if (path == null) return;
-    try {
-      await LegacyTrialImporter.importIfPresent(
-        target: database,
-        legacyPath: path,
-        factory: factory,
-      );
-      _legacyImportError = null;
-    } catch (error) {
-      _legacyImportError = error.toString();
-      rethrow;
-    }
   }
 
   Future<void> close() => database.close();
