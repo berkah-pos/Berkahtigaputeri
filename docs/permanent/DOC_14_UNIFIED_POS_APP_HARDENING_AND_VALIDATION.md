@@ -89,6 +89,7 @@ The following are repository changes on `hardening/unified-pos-new-app-green-ci`
 9. **CI workflow:** `.github/workflows/pos-app-ci.yml` runs dependency resolution, Dart analysis, Flutter tests, host preparation, package/secret checks, and a debug-only Android App Bundle compile check.
 10. **Release workflow:** `.github/workflows/berkah-pos-new-app-aab.yml` targets the new package and hosted Ubuntu runner. If the new app's release signing secrets are missing, it produces a debug-signed test artifact only; that artifact is not for Play Console submission.
 11. **Documentation:** `pos-app/README.md` documents the new package, local/offline boundary, data-transfer limitation, and separate release-secret names. Root `AGENTS.md` requires this current report before coding.
+12. **Actions-policy compatibility:** the new-app CI and AAB workflows avoid third-party Marketplace setup Actions, bootstrap Flutter from the official stable archive with SHA-256 verification, and use the hosted runner's Android SDK. This matches the organization's current GitHub-authored-actions-only policy. SDK-license handling is also made robust against the `yes` pipeline's expected broken-pipe exit.
 
 ## 4. Evidence found in the repository
 
