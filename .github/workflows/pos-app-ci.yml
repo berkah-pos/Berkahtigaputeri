@@ -64,7 +64,7 @@ jobs:
         run: bash tool/prepare_android_host.sh
 
       - name: Install Android SDK platforms
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Accept SDK licenses and install compile platforms
         shell: bash
