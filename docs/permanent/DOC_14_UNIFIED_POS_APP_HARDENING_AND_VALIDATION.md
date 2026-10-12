@@ -293,3 +293,33 @@ No active workflow requires `runs-on: [self-hosted, Fedora]`, the old Fedora run
 **Static/source verification:** all four workflow files were re-fetched after the edits and inspected. Each has a `runs-on: ubuntu-24.04` declaration; no `self-hosted`, Fedora runner label, `subosito/flutter-action`, or `android-actions/setup-android` reference remains in active workflow files.
 
 **Runtime verification:** still BLOCKED / NOT VERIFIED until GitHub creates actual jobs. The latest prior current-head run ended in `startup_failure` with `jobs: []`, so these new workflow steps have not been demonstrated to execute. Do not call the milestone green based on static YAML inspection alone. Keep PR #22 open and unmerged until canonical CI (analysis, tests, Android debug compile-check) and the new-app AAB build/artifact verification have successful run records.
+
+## 13. Latest complete workflow-directory audit
+
+**Checked:** 2026-10-13  
+**Current hardening head at check:** `64985e6e7494af1f1b8f10297252c8bb023dea1d`
+
+The entire `.github/workflows/` directory was enumerated from the current branch tree; it contains four active workflow files. Each file was re-fetched and checked after the migration:
+
+| Workflow | Runner | PR behavior |
+|---|---|---|
+| `.github/workflows/berkah-pos-aab.yml` | `ubuntu-24.04` | Legacy release flow remains push-to-main/manual only; release identity/signing semantics preserved |
+| `.github/workflows/berkah-pos-new-app-aab.yml` | `ubuntu-24.04` | Pull requests now run a test-only debug-signed AAB; publisher signing is reserved for trusted release triggers |
+| `.github/workflows/berkah-pos-trial-ci.yml` | `ubuntu-24.04` | Trial app CI |
+| `.github/workflows/pos-app-ci.yml` | `ubuntu-24.04` | Canonical PR validation; workflow-file changes are included in the path filter |
+
+**Repository source check:** no active workflow declares `self-hosted`, the Fedora runner label, `subosito/flutter-action`, or `android-actions/setup-android`. All workflows use the official Flutter stable distribution with SHA-256 verification where Flutter is needed; Android workflows locate the hosted SDK tools. Root `AGENTS.md` now prohibits reintroducing workstation/self-hosted runner dependencies. Historical documentation is labelled or updated so old Fedora service commands are not active operating instructions. The generic DOC_12 discussion of potentially self-hosting a future stateful cloud service is unrelated to GitHub Actions runners.
+
+### Actual Actions evidence after migration
+
+The latest PR-head runs for the current head are:
+
+- [Canonical POS App CI #220](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38319272057) — `startup_failure`; Jobs API returned `jobs: []`.
+- [Berkah POS New App AAB Build #1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38319272911) — `startup_failure`; Jobs API returned `jobs: []`.
+- [Berkah POS Flutter CI #17](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38319271098) — `startup_failure`; Jobs API returned `jobs: []`.
+
+Official GitHub Status currently lists all systems, including Actions, as Operational and marks the Oct 12 Actions/Pull Requests/Issues incident resolved at 20:16 UTC: https://www.githubstatus.com/. These zero-job failures therefore remain unexplained by the public status page and need repository/organization Actions entitlement/policy inspection or GitHub Support diagnostics.
+
+**No app validation ran:** none of the above runs created jobs; Dart analysis, Flutter tests, Android compile-check, or AAB artifact production/verification have not executed in these runs.
+
+**Branch scope:** these runner changes are in PR #22's hardening branch. The default `main` branch remains unchanged until this PR is merged; it still has the previous legacy AAB workflow. PR #22 must stay draft/unmerged while its real analyzer, tests, Android compile, and AAB validation results remain unverified. Do not dispatch repeated runs while each latest attempt still creates zero jobs.
