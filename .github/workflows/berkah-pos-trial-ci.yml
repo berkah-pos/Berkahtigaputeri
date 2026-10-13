@@ -81,24 +81,22 @@ jobs:
       - name: Run widget tests
         run: flutter test
 
-      - name: Locate Android SDK command-line tools
+      - name: Install Android SDK command-line tools
+        uses: android-actions/setup-android@v3
+      - name: Verify Android SDK and locate sdkmanager
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" ]]; then
-            sdk_root="$ANDROID_HOME"
-          elif [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
-            sdk_root="$ANDROID_SDK_ROOT"
-          else
-            sdk_root="/usr/local/lib/android/sdk"
-          fi
-          if [[ ! -d "$sdk_root/cmdline-tools" ]]; then
-            echo "::error::Android command-line tools were not found under $sdk_root." >&2
+          sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [[ -z "$sdk_root" || ! -d "$sdk_root" ]]; then
+            echo "::error::Android SDK root is missing or does not exist." >&2
+            env | grep -E '^(ANDROID_HOME|ANDROID_SDK_ROOT)=' || true
             exit 1
           fi
-          sdkmanager_path="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          sdkmanager_path="$(find "$sdk_root" -type f -name sdkmanager -print -quit)"
           if [[ -z "$sdkmanager_path" ]]; then
-            echo "::error::sdkmanager was not found in the hosted runner Android SDK." >&2
+            echo "::error::sdkmanager not found under $sdk_root after setup-android." >&2
+            find "$sdk_root" -maxdepth 4 -type d -print | head -100
             exit 1
           fi
           echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
