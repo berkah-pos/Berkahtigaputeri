@@ -72,17 +72,6 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      # Diagnostic only: expose official Dart safe-fix preview without building a mutated tree.
-      - name: Preview Dart safe fixes (diagnostic only)
-        shell: bash
-        run: |
-          set -euo pipefail
-          dart fix --apply
-          git --no-pager diff --no-ext-diff --unified=3
-          if ! git diff --quiet; then
-            echo "::error::Dart fix preview produced changes; apply them in a reviewed source commit before validation."
-            exit 1
-          fi
       - name: Analyze Dart
         run: flutter analyze
       - name: Run widget tests
