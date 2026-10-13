@@ -204,8 +204,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _money(int amount) => 'Rp $amount';
-
   @override
   Widget build(BuildContext context) {
     if (_loading) {
