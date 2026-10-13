@@ -12,7 +12,6 @@ void main() {
       'test-publishable-key',
       authOptions: const AuthClientOptions(autoRefreshToken: false),
     );
-    addTearDown(client.dispose);
 
     await tester.pumpWidget(
       MaterialApp(

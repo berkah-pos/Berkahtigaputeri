@@ -35,7 +35,8 @@ chmod +x "$android_dir/gradlew"
 
 if [[ "$had_gradle_properties" -eq 0 ]]; then
   cat > "$android_dir/gradle.properties" <<'EOF'
-org.gradle.jvmargs=-Xmx2G -XX:MaxMetaspaceSize=1G -XX:+HeapDumpOnOutOfMemoryError
+# Jetifier transforms Flutter engine artifacts; 2G exhausted the hosted runner heap.
+org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=1G -XX:+HeapDumpOnOutOfMemoryError
 android.useAndroidX=true
 android.enableJetifier=true
 org.gradle.workers.max=2
