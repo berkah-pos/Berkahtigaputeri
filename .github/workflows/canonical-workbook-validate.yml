@@ -1,0 +1,50 @@
+name: Canonical Workbook Validation
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/sync_excel_to_supabase.py"
+      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+      - ".github/workflows/canonical-workbook-validate.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "AGENTS.md"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/sync_excel_to_supabase.py"
+      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+      - ".github/workflows/canonical-workbook-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: canonical-workbook-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate 352-key workbook contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install isolated Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/final-pos-venv"
+          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+
+      - name: Validate canonical workbook without network writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352
