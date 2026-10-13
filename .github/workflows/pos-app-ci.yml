@@ -85,6 +85,20 @@ jobs:
         working-directory: pos-app
         run: flutter pub get
 
+      # Diagnostic only: preview official Dart fixes from the pinned analyzer environment.
+      # Fail intentionally when a patch is produced so we never build an uncommitted tree.
+      - name: Preview Dart safe fixes (diagnostic only)
+        working-directory: pos-app
+        shell: bash
+        run: |
+          set -euo pipefail
+          dart fix --apply
+          git --no-pager diff --no-ext-diff --unified=3
+          if ! git diff --quiet; then
+            echo "::error::Dart fix preview produced changes; apply them in a reviewed source commit before validation."
+            exit 1
+          fi
+
       - name: Analyze Dart
         working-directory: pos-app
         run: flutter analyze --no-pub
