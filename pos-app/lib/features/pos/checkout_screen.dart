@@ -4,7 +4,6 @@ import '../products/models/product.dart';
 import '../products/repositories/sqlite_product_repository.dart';
 import 'cart/sale_calculator.dart';
 import 'checkout/payment_service.dart';
-import 'checkout/sqlite_sale_repository.dart';
 
 /// Cashier UI powered by the modular atomic payment/inventory/accounting layer.
 class CheckoutScreen extends StatefulWidget {
@@ -94,8 +93,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Tinjau klasifikasi PPN produk ' + product.nameId +
-            ' sebelum checkout.',
+            'Tinjau klasifikasi PPN produk ${product.nameId} sebelum checkout.',
           ),
         ),
       );
@@ -111,8 +109,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Stok lokal ' + product.nameId + ' hanya ' +
-              product.stockQty.toString() + '.',
+              'Stok lokal ${product.nameId} hanya ${product.stockQty}.',
             ),
           ),
         );
@@ -124,7 +121,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_cart.isEmpty || _processing) return;
     setState(() => _processing = true);
     final transactionId =
-        'TRX-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+        'TRX-${DateTime.now().toUtc().microsecondsSinceEpoch}';
     try {
       final result = await widget.paymentService.process(
         PaymentRequest(
@@ -159,9 +156,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             children: <Widget>[
               const Icon(Icons.check_circle, color: Colors.green, size: 44),
               const SizedBox(height: 12),
-              Text('ID: ' + result.saleId),
-              Text('Total: ' + _money(result.grandTotal)),
-              Text('PPN: ' + _money(result.ppnAmount)),
+              Text('ID: ${result.saleId}'),
+              Text('Total: ${_money(result.grandTotal)}'),
+              Text('PPN: ${_money(result.ppnAmount)}'),
               const SizedBox(height: 12),
               const Text(
                 'Tersimpan di perangkat. Sinkronisasi cloud belum aktif '
@@ -195,7 +192,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       }
       buffer.write(digits[index]);
     }
-    return 'Rp ' + buffer.toString();
+    return 'Rp ${buffer.toString()}';
   }
 
   @override
@@ -214,7 +211,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ? ListView(
                   padding: const EdgeInsets.all(24),
                   children: <Widget>[
-                    Text('Produk gagal dimuat: ' + _error!),
+                    Text('Produk gagal dimuat: $_error'),
                     TextButton(
                       onPressed: _reload,
                       child: const Text('Coba lagi'),
@@ -231,7 +228,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              'Keranjang (' + _cart.length.toString() + ' produk)',
+                              'Keranjang (${_cart.length} produk)',
                               style: Theme.of(context).textTheme.titleLarge,
                             ),
                             const SizedBox(height: 8),
@@ -244,8 +241,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 contentPadding: EdgeInsets.zero,
                                 title: Text(product.nameId),
                                 subtitle: Text(
-                                  _money(product.price) + ' × ' +
-                                  entry.value.toString(),
+                                  '${_money(product.price)} × ${entry.value}',
                                 ),
                                 leading: IconButton(
                                   tooltip: 'Kurangi',
@@ -280,7 +276,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ),
                             const Divider(),
                             DropdownButtonFormField<PaymentMethod>(
-                              value: _method,
+                              initialValue: _method,
                               decoration: const InputDecoration(
                                 labelText: 'Metode pembayaran',
                                 border: OutlineInputBorder(),
@@ -355,9 +351,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         child: ListTile(
                           title: Text(product.nameId),
                           subtitle: Text(
-                            product.sku + ' · ' + _money(product.price) +
-                            ' · Stok ' + product.stockQty.toString() +
-                            (product.requiresReview ? ' · PERLU TINJAU PPN' : ''),
+                            "${product.sku} · ${_money(product.price)} · Stok ${product.stockQty}${product.requiresReview ? ' · PERLU TINJAU PPN' : ''}",
                           ),
                           trailing: IconButton(
                             tooltip: 'Tambahkan ke keranjang',

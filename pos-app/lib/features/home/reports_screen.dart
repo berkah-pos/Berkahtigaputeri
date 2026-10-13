@@ -109,7 +109,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       if (index > 0 && (digits.length - index) % 3 == 0) buffer.write('.');
       buffer.write(digits[index]);
     }
-    return 'Rp ' + buffer.toString();
+    return 'Rp ${buffer.toString()}';
   }
 
   @override
@@ -121,7 +121,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
-          Text('Laporan gagal dimuat: ' + _error!),
+          Text('Laporan gagal dimuat: $_error'),
           TextButton(onPressed: _reload, child: const Text('Coba lagi')),
         ],
       );
@@ -218,8 +218,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   leading: const Icon(Icons.history),
                   title: Text('TRIAL-$originalId'),
                   subtitle: Text(
-                    (sale['created_at'] ?? '').toString() +
-                    ' · $itemCount item · arsip trial',
+                    "${(sale['created_at'] ?? '').toString()} · $itemCount item · arsip trial",
                   ),
                   trailing: Text(_money(amount)),
                 ),
@@ -247,7 +246,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 leading: const Icon(Icons.receipt_long),
                 title: Text((sale['transaction_id'] ?? '').toString()),
                 subtitle: Text(
-                  (sale['business_date'] ?? '').toString() + ' · ' + payment,
+                  "${(sale['business_date'] ?? '').toString()} · $payment",
                 ),
                 trailing: Text(_money(amount)),
               ),

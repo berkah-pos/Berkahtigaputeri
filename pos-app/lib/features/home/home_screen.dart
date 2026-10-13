@@ -101,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: <Widget>[
             const Text('Berkah Tiga Puteri POS'),
             Text(
-              _titles[_selectedIndex] + ' · Data lokal',
+              '${_titles[_selectedIndex]} · Data lokal',
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ],
@@ -240,7 +240,7 @@ class _DashboardScreenState extends State<_DashboardScreen> {
       if (index > 0 && (digits.length - index) % 3 == 0) output.write('.');
       output.write(digits[index]);
     }
-    return 'Rp ' + output.toString();
+    return 'Rp ${output.toString()}';
   }
 
   @override
@@ -250,7 +250,7 @@ class _DashboardScreenState extends State<_DashboardScreen> {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
-          Text('Dashboard gagal dimuat: ' + _error!),
+          Text('Dashboard gagal dimuat: $_error'),
           TextButton(onPressed: _reload, child: const Text('Coba lagi')),
         ],
       );
@@ -306,8 +306,7 @@ class _DashboardScreenState extends State<_DashboardScreen> {
                 title: const Text('Impor data trial belum selesai'),
                 subtitle: Text(
                   'Database lama tidak dihapus. Jangan menghapus data aplikasi. '
-                  'Periksa penyebab lalu coba lagi. Detail: ' +
-                  widget.database.legacyImportError!,
+                  'Periksa penyebab lalu coba lagi. Detail: ${widget.database.legacyImportError!}',
                 ),
                 isThreeLine: true,
                 trailing: IconButton(
@@ -524,7 +523,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
       setState(() {
         _status = 'Konfigurasi cloud tidak dapat diverifikasi. Periksa '
             'session autentikasi, enrollment device, dan konfigurasi environment. '
-            'Detail: ' + error.toString();
+            'Detail: ${error.toString()}';
         _loading = false;
       });
     }
@@ -552,14 +551,8 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                     'otorisasi server.',
                   ),
                   const SizedBox(height: 12),
-                  SelectableText('Tenant: ' +
-                      (widget.identityStore.tenantId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.tenantId)),
-                  SelectableText('Device: ' +
-                      (widget.identityStore.deviceId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.deviceId)),
+                  SelectableText("Tenant: ${widget.identityStore.tenantId.isEmpty ? 'Belum terdaftar' : widget.identityStore.tenantId}"),
+                  SelectableText("Device: ${widget.identityStore.deviceId.isEmpty ? 'Belum terdaftar' : widget.identityStore.deviceId}"),
                 ],
               ),
             ),
@@ -599,16 +592,12 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                   ],
                   if (_features != null) ...<Widget>[
                     const Divider(height: 24),
-                    Text('POS aktif: ' + (_features!.pos ? 'Ya' : 'Tidak')),
-                    Text('Akuntansi aktif: ' +
-                        (_features!.akuntansi ? 'Ya' : 'Tidak')),
+                    Text("POS aktif: ${_features!.pos ? 'Ya' : 'Tidak'}"),
+                    Text("Akuntansi aktif: ${_features!.akuntansi ? 'Ya' : 'Tidak'}"),
                   ],
                   if (_configuration != null) ...<Widget>[
                     const SizedBox(height: 8),
-                    Text('MDR efektif POS: ' +
-                        (_configuration!['mdr'] ??
-                                _configuration!['qris_mdr'] ?? '-')
-                            .toString()),
+                    Text("MDR efektif POS: ${(_configuration!['mdr'] ?? _configuration!['qris_mdr'] ?? '-').toString()}"),
                   ],
                 ],
               ),
