@@ -593,8 +593,8 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                   ],
                   if (_features != null) ...<Widget>[
                     const Divider(height: 24),
-                    Text('POS aktif: ${_features!.pos ? 'Ya' : 'Tidak}'),
-                    Text('Akuntansi aktif: ${_features!.akuntansi ? 'Ya' : 'Tidak}'),
+                    Text("POS aktif: ${_features!.pos ? 'Ya' : 'Tidak'}"),
+                    Text("Akuntansi aktif: ${_features!.akuntansi ? 'Ya' : 'Tidak'}"),
                   ],
                   if (_configuration != null) ...<Widget>[
                     const SizedBox(height: 8),
