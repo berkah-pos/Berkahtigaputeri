@@ -1,3 +1,5 @@
+import 'dart:ui' show Size;
+
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
