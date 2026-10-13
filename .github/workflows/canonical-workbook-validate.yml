@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - "AGENTS.md"
+      - "README.md"
+      - ".cursor/rules/**"
+      - ".github/ASD_PROMPT.md"
+      - ".github/muse-instructions.md"
+      - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/sync_excel_to_supabase.py"
       - "scripts/sync_excel_to_supabase_legacy.py"
@@ -13,6 +18,11 @@ on:
     branches: ["**"]
     paths:
       - "AGENTS.md"
+      - "README.md"
+      - ".cursor/rules/**"
+      - ".github/ASD_PROMPT.md"
+      - ".github/muse-instructions.md"
+      - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/sync_excel_to_supabase.py"
       - "scripts/sync_excel_to_supabase_legacy.py"
