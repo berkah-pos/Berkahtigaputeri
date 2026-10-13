@@ -234,7 +234,7 @@ class _PosPageState extends State<PosPage> {
     final activeProducts = products.where((x) => x.stock > 0).toList();
     return Column(children: [
       const Padding(padding: EdgeInsets.all(12), child: Text('Pilih produk untuk keranjang')),
-      Expanded(child: activeProducts.isEmpty ? empty('Stok kosong', 'Tambahkan produk atau perbarui stok.') : ListView(children: activeProducts.map((x) => Card(child: ListTile(title: Text(x.name), subtitle: Text(money(x.price) + ' • Stok ' + x.stock.toString()), trailing: IconButton(onPressed: (cart[x.id] ?? 0) >= x.stock ? null : () => setState(() => cart[x.id] = (cart[x.id] ?? 0) + 1), icon: const Icon(Icons.add_circle_outline)))).toList())),
+      Expanded(child: activeProducts.isEmpty ? empty('Stok kosong', 'Tambahkan produk atau perbarui stok.') : ListView(children: activeProducts.map((x) => Card(child: ListTile(title: Text(x.name), subtitle: Text(money(x.price) + ' • Stok ' + x.stock.toString()), trailing: IconButton(onPressed: (cart[x.id] ?? 0) >= x.stock ? null : () => setState(() => cart[x.id] = (cart[x.id] ?? 0) + 1), icon: const Icon(Icons.add_circle_outline))))).toList())),
       Card(margin: const EdgeInsets.all(12), child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
         Row(children: [const Expanded(child: Text('Total')), Text(money(total), style: const TextStyle(fontWeight: FontWeight.bold))]),
         ...cart.entries.where((e) => products.any((x) => x.id == e.key)).map((e) {
