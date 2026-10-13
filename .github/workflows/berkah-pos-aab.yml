@@ -240,7 +240,7 @@ jobs:
 
       - name: Upload publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: berkah-pos-unified-release-aab
           path: pos-app/build/app/outputs/bundle/release/app-release.aab
@@ -249,7 +249,7 @@ jobs:
 
       - name: Upload test-only AAB
         if: steps.signing.outputs.mode == 'debug'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: berkah-pos-unified-test-aab-debug-signed
           path: pos-app/build/app/outputs/bundle/release/app-release.aab
