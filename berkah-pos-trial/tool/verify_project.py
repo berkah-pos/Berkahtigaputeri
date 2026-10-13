@@ -39,6 +39,16 @@ wrapper = wrapper_path.read_text(encoding="utf-8")
 settings_path = ROOT / "android/settings.gradle"
 settings = settings_path.read_text(encoding="utf-8")
 agp_match = re.search(r'id\s+"com\.android\.application"\s+version\s+"(\d+)\.(\d+)\.(\d+)"', settings)
+kotlin_match = re.search(r'id\s+"org\.jetbrains\.kotlin\.android"\s+version\s+"(\d+)\.(\d+)\.(\d+)"', settings)
+if not kotlin_match:
+    errors.append("Unable to determine Kotlin Gradle Plugin version")
+else:
+    kotlin_version = tuple(int(part) for part in kotlin_match.groups())
+    if kotlin_version < (2, 2, 21):
+        errors.append(
+            f"Kotlin Gradle Plugin {'.'.join(map(str, kotlin_version))} is below "
+            "the version selected for compatibility with AGP 8.11.1 and Gradle 8.14"
+        )
 if not agp_match:
     errors.append("Unable to determine Android Gradle Plugin version")
 else:
