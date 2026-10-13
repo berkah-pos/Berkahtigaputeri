@@ -105,8 +105,7 @@ class _ProductScreenState extends State<ProductScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Hapus produk?'),
         content: Text(
-          'Produk ' + product.nameId +
-          ' hanya dapat dihapus jika belum memiliki riwayat atau persediaan terkait.',
+          'Produk ${product.nameId} hanya dapat dihapus jika belum memiliki riwayat atau persediaan terkait.',
         ),
         actions: <Widget>[
           TextButton(
@@ -156,7 +155,7 @@ class _ProductScreenState extends State<ProductScreen> {
                     children: <Widget>[
                       const Icon(Icons.error_outline, size: 44),
                       const SizedBox(height: 12),
-                      Text('Gagal membaca produk: ' + _error!),
+                      Text('Gagal membaca produk: ${_error!}'),
                       TextButton(
                         onPressed: _reload,
                         child: const Text('Coba lagi'),
@@ -201,8 +200,7 @@ class _ProductScreenState extends State<ProductScreen> {
                               ),
                               title: Text(product.nameId),
                               subtitle: Text(
-                                product.sku + ' · Stok ' +
-                                product.stockQty.toString() + expiry + review,
+                                '${product.sku} · Stok ${product.stockQty}$expiry$review',
                               ),
                               trailing: PopupMenuButton<String>(
                                 onSelected: (value) {
@@ -305,7 +303,7 @@ class _ProductEditorState extends State<_ProductEditor> {
       context,
       Product(
         id: existing?.id ??
-            'product-' + DateTime.now().microsecondsSinceEpoch.toString(),
+            'product-${DateTime.now().microsecondsSinceEpoch}',
         sku: _sku.text.trim(),
         barcode: _barcode.text.trim().isEmpty ? null : _barcode.text.trim(),
         nameId: _name.text.trim(),
@@ -415,7 +413,7 @@ class _ProductEditorState extends State<_ProductEditor> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Minimal sisa masa simpan'),
                     subtitle: Text(
-                      _minimumShelfLife.text + ' hari (tetap untuk lot yang ada)',
+                      '${_minimumShelfLife.text} hari (tetap untuk lot yang ada)',
                     ),
                   ),
                 if (widget.existing == null)
