@@ -35,8 +35,8 @@ main = main_path.read_text(encoding="utf-8")
 required_settings = {
     "applicationId": r'applicationId\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
     "namespace": r'namespace\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
-    "compileSdk": r'compileSdk\s*=\s*35',
-    "targetSdk": r'targetSdk\s*=\s*35',
+    "compileSdk": r'compileSdk\s*=\s*36',
+    "targetSdk": r'targetSdk\s*=\s*36',
     "minSdk": r'minSdk\s*=\s*24',
     "versionCode": r'versionCode\s*=\s*1',
     "versionName": r'versionName\s*=\s*"1\.0\.0"',
