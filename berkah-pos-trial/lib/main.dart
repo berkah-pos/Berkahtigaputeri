@@ -67,7 +67,7 @@ class Store {
         final matches = await txn.query('products', where: 'id=?', whereArgs: [row.key], limit: 1);
         if (matches.isEmpty) throw StateError('Produk tidak ditemukan.');
         final product = Product.fromMap(matches.first);
-        if (row.value < 1 || row.value > product.stock) throw StateError('Stok ' + product.name + ' tidak mencukupi.');
+        if (row.value < 1 || row.value > product.stock) throw StateError('Stok ${product.name} tidak mencukupi.');
         items.add(product);
       }
       final total = items.fold<double>(0, (sum, x) => sum + x.price * cart[x.id]!);
@@ -114,10 +114,10 @@ Future<void> openWhatsApp(BuildContext context) async {
   final phone = salesNumber.replaceAll(RegExp('[^0-9]'), '');
   final link = phone.isEmpty
     ? Uri.https('wa.me', '/', {'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.'})
-    : Uri.https('wa.me', '/' + phone, {'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.'});
+    : Uri.https('wa.me', '/$phone', {'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.'});
   await openExternal(context, link.toString());
 }
-String money(num n) => 'Rp ' + n.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+String money(num n) => 'Rp ${n.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.')}';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -207,7 +207,7 @@ class _PosPageState extends State<PosPage> {
   Widget metric(String label, String value) => SizedBox(width: 160, child: Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label), const SizedBox(height: 6), Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold))]))));
   Widget empty(String title, String message) => Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.inventory_2_outlined, size: 44), Text(title, style: Theme.of(context).textTheme.titleMedium), Text(message, textAlign: TextAlign.center)])));
   Widget dashboard() => RefreshIndicator(onRefresh: refresh, child: ListView(padding: const EdgeInsets.all(16), children: [
-    Text('Selamat datang, ' + widget.email, style: Theme.of(context).textTheme.titleLarge),
+    Text('Selamat datang, ${widget.email}', style: Theme.of(context).textTheme.titleLarge),
     const SizedBox(height: 12),
     Wrap(spacing: 10, runSpacing: 10, children: [
       metric('Jenis Produk', products.length.toString()),
@@ -224,7 +224,7 @@ class _PosPageState extends State<PosPage> {
       FilledButton.icon(onPressed: () => editProduct(), icon: const Icon(Icons.add), label: const Text('Tambah')),
     ])),
     Expanded(child: loading ? const Center(child: CircularProgressIndicator()) : products.isEmpty ? empty('Belum ada produk', 'Tambahkan produk pertama untuk mulai berjualan.') : ListView(children: products.map((x) => Card(child: ListTile(
-      title: Text(x.name), subtitle: Text((x.sku.isEmpty ? 'Tanpa SKU' : x.sku) + ' • Stok ' + x.stock.toString()),
+      title: Text(x.name), subtitle: Text('${x.sku.isEmpty ? 'Tanpa SKU' : x.sku} • Stok ${x.stock}'),
       leading: CircleAvatar(child: Text(x.name[0].toUpperCase())),
       trailing: PopupMenuButton<String>(onSelected: (v) async { if (v == 'edit') await editProduct(x); if (v == 'delete') { await widget.store.remove(x.id); await refresh(); } }, itemBuilder: (_) => const [PopupMenuItem(value: 'edit', child: Text('Edit')), PopupMenuItem(value: 'delete', child: Text('Hapus'))]),
     ))).toList())),
@@ -234,12 +234,12 @@ class _PosPageState extends State<PosPage> {
     final activeProducts = products.where((x) => x.stock > 0).toList();
     return Column(children: [
       const Padding(padding: EdgeInsets.all(12), child: Text('Pilih produk untuk keranjang')),
-      Expanded(child: activeProducts.isEmpty ? empty('Stok kosong', 'Tambahkan produk atau perbarui stok.') : ListView(children: activeProducts.map((x) => Card(child: ListTile(title: Text(x.name), subtitle: Text(money(x.price) + ' • Stok ' + x.stock.toString()), trailing: IconButton(onPressed: (cart[x.id] ?? 0) >= x.stock ? null : () => setState(() => cart[x.id] = (cart[x.id] ?? 0) + 1), icon: const Icon(Icons.add_circle_outline))))).toList())),
+      Expanded(child: activeProducts.isEmpty ? empty('Stok kosong', 'Tambahkan produk atau perbarui stok.') : ListView(children: activeProducts.map((x) => Card(child: ListTile(title: Text(x.name), subtitle: Text('${money(x.price)} • Stok ${x.stock}'), trailing: IconButton(onPressed: (cart[x.id] ?? 0) >= x.stock ? null : () => setState(() => cart[x.id] = (cart[x.id] ?? 0) + 1), icon: const Icon(Icons.add_circle_outline))))).toList())),
       Card(margin: const EdgeInsets.all(12), child: Padding(padding: const EdgeInsets.all(12), child: Column(children: [
         Row(children: [const Expanded(child: Text('Total')), Text(money(total), style: const TextStyle(fontWeight: FontWeight.bold))]),
         ...cart.entries.where((e) => products.any((x) => x.id == e.key)).map((e) {
           final x = products.firstWhere((x) => x.id == e.key);
-          return ListTile(dense: true, title: Text(x.name), subtitle: Text(e.value.toString() + ' × ' + money(x.price)), trailing: IconButton(onPressed: () => setState(() { if (e.value <= 1) { cart.remove(e.key); } else { cart[e.key] = e.value - 1; } }), icon: const Icon(Icons.remove_circle_outline)));
+          return ListTile(dense: true, title: Text(x.name), subtitle: Text('${e.value} × ${money(x.price)}'), trailing: IconButton(onPressed: () => setState(() { if (e.value <= 1) { cart.remove(e.key); } else { cart[e.key] = e.value - 1; } }), icon: const Icon(Icons.remove_circle_outline)));
         }),
         FilledButton.icon(onPressed: cart.isEmpty || saving ? null : () async {
           setState(() => saving = true);
@@ -247,7 +247,7 @@ class _PosPageState extends State<PosPage> {
             final id = await widget.store.checkout(Map<int, int>.from(cart), widget.email);
             cart.clear();
             await refresh();
-            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Transaksi #' + id.toString() + ' tersimpan.')));
+            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Transaksi #$id tersimpan.')));
           } catch (e) {
             if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
           }
@@ -265,8 +265,8 @@ class _PosPageState extends State<PosPage> {
     const Text('Transaksi terbaru', style: TextStyle(fontWeight: FontWeight.bold)),
     ...(stats['recent'] as List<Map<String, Object?>>).map((s) => Card(child: ListTile(
       title: Text(money(s['total'] as num)),
-      subtitle: Text(s['item_count'].toString() + ' item • ' + (s['created'] as String).replaceFirst('T', ' ')),
-      trailing: Text('#' + s['id'].toString()),
+      subtitle: Text('${s['item_count']} item • ${(s['created'] as String).replaceFirst('T', ' ')}'),
+      trailing: Text('#${s['id']}'),
     ))),
   ]));
   Widget settings() => ListView(padding: const EdgeInsets.all(14), children: [
