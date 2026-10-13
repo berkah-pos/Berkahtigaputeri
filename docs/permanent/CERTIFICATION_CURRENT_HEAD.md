@@ -5,7 +5,7 @@
 **Repository:** `berkah-pos/Berkahtigaputeri` (the requested `berkah-ajb-dev/Berkahtigaputeri` path did not resolve directly through the connected GitHub API)  
 **Audited base:** `main` at `fb460b7415d546ce6ff8a23430a56c683f6ffb5a`  
 **Fix branch:** `audit/phase-1-canonical-architecture-20261013`  
-**Pull request:** to be recorded after the branch PR is opened  
+**Pull request:** [#24 — Phase 1 canonical architecture and audit evidence](https://github.com/berkah-pos/Berkahtigaputeri/pull/24)  
 **Audit date:** 2026-10-13
 
 ## 1. Canonical contract — SOURCE-VERIFIED
@@ -24,7 +24,7 @@ The roadmap's Phase 1 acceptance criteria are documented in `docs/permanent/DOC_
 
 ## 2. Findings and Phase 1 dispositions
 
-The line references below identify the inspected base revision (`main@fb460b7`), before the branch edits. The corresponding fixes are on `audit/phase-1-canonical-architecture-20261013`; the PR number is to be added once GitHub creates it.
+The line references below identify the inspected base revision (`main@fb460b7`), before the branch edits. The corresponding fixes are on `audit/phase-1-canonical-architecture-20261013` in [PR #24](https://github.com/berkah-pos/Berkahtigaputeri/pull/24).
 
 | Finding | Base evidence | Phase 1 correction |
 |---|---|---|
