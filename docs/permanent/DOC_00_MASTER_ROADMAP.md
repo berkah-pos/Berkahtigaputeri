@@ -116,5 +116,5 @@ The correction program must not break these already-aligned contracts:
 
 - FEFO physical allocation and FIFO financial costing are intentionally different.
 - COA `1-1040` is Inventory and `5-5010` is COGS.
-- Flutter version `1.1.0+2` remains aligned with Android `versionName 1.0.0` / `versionCode 2` unless intentionally version-bumped.
+- Flutter version `1.1.0+2` remains aligned with Android `versionName 1.1.0` / `versionCode 2` unless intentionally version-bumped.
 - GitHub Pages continues to publish `btp-admin/`.
