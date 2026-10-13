@@ -1,9 +1,7 @@
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
-import 'package:berkahtigaputeri_pos/features/home/home_screen.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
 import 'package:berkahtigaputeri_pos/main.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
