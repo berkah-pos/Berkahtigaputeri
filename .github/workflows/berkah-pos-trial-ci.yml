@@ -77,12 +77,3 @@ jobs:
         run: flutter test
       - name: Build debug APK
         run: flutter build apk --debug
-      - name: Build release AAB + APK
-        run: |
-          flutter build appbundle --release
-          flutter build apk --release
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: berkah-trial
-          path: berkah-pos-trial/build/app/outputs/flutter-apk/app-debug.apk
