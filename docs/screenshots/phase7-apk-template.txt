@@ -1,0 +1,3 @@
+Artifact: berkahtigaputeri-pos-debug-aab from run 38373824842 71M
+Template check: grep -r "template:" pos-app/lib/core/config -n shows BASIC PRO ENTERPRISE merge
+Inheritance: GLOBAL->TEMPLATE->TENANT->SERVICE->DEVICE verified in effective-config
