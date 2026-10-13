@@ -32,10 +32,46 @@ if found != expected:
 gradle = gradle_path.read_text(encoding="utf-8")
 pubspec = pubspec_path.read_text(encoding="utf-8")
 main = main_path.read_text(encoding="utf-8")
+
+wrapper_path = ROOT / "android/gradle/wrapper/gradle-wrapper.properties"
+wrapper = wrapper_path.read_text(encoding="utf-8")
+
+settings_path = ROOT / "android/settings.gradle"
+settings = settings_path.read_text(encoding="utf-8")
+agp_match = re.search(r'id\s+"com\.android\.application"\s+version\s+"(\d+)\.(\d+)\.(\d+)"', settings)
+kotlin_match = re.search(r'id\s+"org\.jetbrains\.kotlin\.android"\s+version\s+"(\d+)\.(\d+)\.(\d+)"', settings)
+if not kotlin_match:
+    errors.append("Unable to determine Kotlin Gradle Plugin version")
+else:
+    kotlin_version = tuple(int(part) for part in kotlin_match.groups())
+    if kotlin_version < (2, 2, 21):
+        errors.append(
+            f"Kotlin Gradle Plugin {'.'.join(map(str, kotlin_version))} is below "
+            "the version selected for compatibility with AGP 8.11.1 and Gradle 8.14"
+        )
+if not agp_match:
+    errors.append("Unable to determine Android Gradle Plugin version")
+else:
+    agp_version = tuple(int(part) for part in agp_match.groups())
+    if agp_version < (8, 11, 1):
+        errors.append(
+            f"Android Gradle Plugin {'.'.join(map(str, agp_version))} is below "
+            "Flutter stable's supported minimum of 8.11.1"
+        )
+wrapper_version = re.search(r"distributionUrl=.*gradle-(\d+)\.(\d+)(?:\.(\d+))?-", wrapper)
+if not wrapper_version:
+    errors.append("Unable to determine Gradle wrapper version")
+else:
+    gradle_version = tuple(int(part or 0) for part in wrapper_version.groups())
+    if gradle_version < (8, 14, 0):
+        errors.append(
+            f"Gradle wrapper {'.'.join(map(str, gradle_version))} is below "
+            "Flutter stable's supported minimum of 8.14.0"
+        )
 required_settings = {
     "applicationId": r'applicationId\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
     "namespace": r'namespace\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
-    "compileSdk": r'compileSdk\s*=\s*35',
+    "compileSdk": r'compileSdk\s*=\s*36',
     "targetSdk": r'targetSdk\s*=\s*35',
     "minSdk": r'minSdk\s*=\s*24',
     "versionCode": r'versionCode\s*=\s*1',

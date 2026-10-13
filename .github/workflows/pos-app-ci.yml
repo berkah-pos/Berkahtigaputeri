@@ -85,6 +85,7 @@ jobs:
         working-directory: pos-app
         run: flutter pub get
 
+
       - name: Analyze Dart
         working-directory: pos-app
         run: flutter analyze --no-pub

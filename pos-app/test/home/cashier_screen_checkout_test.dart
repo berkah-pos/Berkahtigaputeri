@@ -1,12 +1,11 @@
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
-import 'package:berkahtigaputeri_pos/features/home/home_screen.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
 import 'package:berkahtigaputeri_pos/main.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../helpers/pump_until_found.dart';
 import '../helpers/test_database.dart';
 
 void main() {
@@ -48,17 +47,17 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('Lanjutkan sebagai kasir lokal'));
-      await tester.pumpAndSettle();
+      await pumpUntilFound(tester, find.text('Buka kasir'));
       await tester.tap(find.text('Kasir'));
-      await tester.pumpAndSettle();
+      await pumpUntilFound(tester, find.text('Katalog produk'));
 
       expect(find.text('Kopi Integrasi'), findsOneWidget);
       await tester.tap(find.byTooltip('Tambahkan ke keranjang'));
-      await tester.pumpAndSettle();
+      await pumpUntilFound(tester, find.text('Keranjang (1 produk)'));
 
       expect(find.text('Selesaikan checkout'), findsOneWidget);
       await tester.tap(find.text('Selesaikan checkout'));
-      await tester.pumpAndSettle();
+      await pumpUntilFound(tester, find.text('Transaksi tersimpan'));
 
       expect(find.text('Transaksi tersimpan'), findsOneWidget);
       expect(

@@ -15,7 +15,7 @@ def allowDebugReleaseSigning = project.findProperty("allowDebugReleaseSigning") 
 
 android {
     namespace = "id.co.berkahtigaputeri.berkahpos"
-    compileSdk = 35
+    compileSdk = 36
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

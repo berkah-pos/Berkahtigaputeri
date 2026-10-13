@@ -119,8 +119,6 @@ class LegacyTrialImporter {
             usedSkus.add(sku);
 
             final originalName = old['name']?.toString().trim() ?? '';
-            final originalQuantity =
-                _nonNegativeInt(old['stock']) ?? 0;
             await transaction.insert(
               'products',
               <String, Object?>{
