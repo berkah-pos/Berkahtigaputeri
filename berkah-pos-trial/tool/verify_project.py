@@ -71,7 +71,7 @@ else:
 required_settings = {
     "applicationId": r'applicationId\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
     "namespace": r'namespace\s*=\s*"id\.co\.berkahtigaputeri\.berkahpos"',
-    "compileSdk": r'compileSdk\s*=\s*35',
+    "compileSdk": r'compileSdk\s*=\s*36',
     "targetSdk": r'targetSdk\s*=\s*35',
     "minSdk": r'minSdk\s*=\s*24',
     "versionCode": r'versionCode\s*=\s*1',
