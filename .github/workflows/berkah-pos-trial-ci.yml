@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "berkah-pos-trial/**"
+      - "pos-app/**"
       - ".github/workflows/berkah-pos-trial-ci.yml"
   push:
     branches: ["**"]
     paths:
       - "berkah-pos-trial/**"
+      - "pos-app/**"
       - ".github/workflows/berkah-pos-trial-ci.yml"
   workflow_dispatch:
 

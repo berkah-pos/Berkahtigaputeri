@@ -5,11 +5,13 @@ on:
     paths:
       - "pos-app/**"
       - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/berkah-pos-trial-ci.yml"
   push:
     branches: ["**"]
     paths:
       - "pos-app/**"
       - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/berkah-pos-trial-ci.yml"
   workflow_dispatch:
 
 permissions:
