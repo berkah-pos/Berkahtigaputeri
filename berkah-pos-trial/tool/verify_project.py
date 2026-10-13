@@ -35,6 +35,19 @@ main = main_path.read_text(encoding="utf-8")
 
 wrapper_path = ROOT / "android/gradle/wrapper/gradle-wrapper.properties"
 wrapper = wrapper_path.read_text(encoding="utf-8")
+
+settings_path = ROOT / "android/settings.gradle"
+settings = settings_path.read_text(encoding="utf-8")
+agp_match = re.search(r'id\s+"com\.android\.application"\s+version\s+"(\d+)\.(\d+)\.(\d+)"', settings)
+if not agp_match:
+    errors.append("Unable to determine Android Gradle Plugin version")
+else:
+    agp_version = tuple(int(part) for part in agp_match.groups())
+    if agp_version < (8, 11, 1):
+        errors.append(
+            f"Android Gradle Plugin {'.'.join(map(str, agp_version))} is below "
+            "Flutter stable's supported minimum of 8.11.1"
+        )
 wrapper_version = re.search(r"distributionUrl=.*gradle-(\d+)\.(\d+)(?:\.(\d+))?-", wrapper)
 if not wrapper_version:
     errors.append("Unable to determine Gradle wrapper version")
