@@ -17,6 +17,7 @@ mkdir -p "$root/android/gradle/wrapper"
 cp "$tmp/seed/android/gradlew" "$root/android/gradlew"
 cp "$tmp/seed/android/gradlew.bat" "$root/android/gradlew.bat"
 cp "$tmp/seed/android/gradle/wrapper/gradle-wrapper.jar" "$root/android/gradle/wrapper/gradle-wrapper.jar"
+cp "$tmp/seed/android/gradle/wrapper/gradle-wrapper.properties" "$root/android/gradle/wrapper/gradle-wrapper.properties"
 chmod +x "$root/android/gradlew"
 
-echo "Gradle wrapper files prepared. Existing Gradle wrapper properties remain unchanged."
+echo "Gradle wrapper files and version properties prepared from the current Flutter scaffold."
