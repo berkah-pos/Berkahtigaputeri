@@ -1,0 +1,15 @@
+APK Verification includes TEMPLATE - PHASE 7
+
+Run: 38373824842 - berkahtigaputeri-pos-debug-aab - app-debug.aab 71M
+Run: 38414046177 - Canonical POS App CI - SUCCESS
+Run: 38414046299 - Canonical Workbook Validation - 352 keys SUCCESS
+
+Template inheritance:
+- Keys: template:BASIC, template:PRO, template:ENTERPRISE = 3
+- Merge order in pos-app/lib/core/config/config_service.dart: GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
+- Tenant assignment via tenants.template_id / app_config tenant:<id> template field
+- Protected: only service_role or super admin can change template assignment per update_app_config_atomic check
+
+FEFO vs FIFO protected contract: physical allocation FEFO, financial costing FIFO - intentionally different, must not be broken
+
+Evidence: grep TEMPLATE in config_service.dart shows merge logic
