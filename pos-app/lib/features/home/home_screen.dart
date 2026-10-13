@@ -160,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _DashboardScreen extends StatefulWidget {
   const _DashboardScreen({
+    super.key,
     required this.database,
     required this.onOpenProducts,
     required this.onOpenCheckout,

@@ -204,8 +204,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return RefreshIndicator(
       onRefresh: _reload,
       child: _loading
-          ? const ListView(
-              children: <Widget>[
+          ? ListView(
+              children: const <Widget>[
                 SizedBox(height: 180),
                 Center(child: CircularProgressIndicator()),
               ],

@@ -5,7 +5,7 @@ import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../../../helpers/test_database.dart';
+import '../../helpers/test_database.dart';
 
 void main() {
   test('checkout rejects product with unreviewed tax classification', () async {

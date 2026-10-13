@@ -144,8 +144,8 @@ class _ProductScreenState extends State<ProductScreen> {
       body: RefreshIndicator(
         onRefresh: _reload,
         child: _loading
-            ? const ListView(
-                children: <Widget>[
+            ? ListView(
+                children: const <Widget>[
                   SizedBox(height: 180),
                   Center(child: CircularProgressIndicator()),
                 ],
