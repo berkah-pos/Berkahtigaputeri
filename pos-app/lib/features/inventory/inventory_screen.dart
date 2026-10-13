@@ -114,7 +114,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
 
     setState(() => _saving = true);
-    final lotId = 'LOT-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+    final lotId = 'LOT-${DateTime.now().toUtc().microsecondsSinceEpoch}';
     final batch = _batchNo.text.trim().isEmpty ? lotId : _batchNo.text.trim();
     try {
       await widget.repository.addInventoryLot(
@@ -201,12 +201,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String _dateText(DateTime? date) {
     if (date == null) return 'Tidak ditentukan';
-    return date.year.toString().padLeft(4, '0') + '-' +
-        date.month.toString().padLeft(2, '0') + '-' +
-        date.day.toString().padLeft(2, '0');
+    return '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _money(int amount) => 'Rp ' + amount.toString();
+  String _money(int amount) => 'Rp $amount';
 
   @override
   Widget build(BuildContext context) {
@@ -217,7 +215,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       return ListView(
         padding: const EdgeInsets.all(24),
         children: <Widget>[
-          Text('Persediaan gagal dimuat: ' + _error!),
+          Text('Persediaan gagal dimuat: ${_error!}'),
           TextButton(
             onPressed: _reload,
             child: const Text('Coba lagi'),
@@ -248,7 +246,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       const Text('Tambahkan produk terlebih dahulu.')
                     else
                       DropdownButtonFormField<Product>(
-                        value: _selected,
+                        initialValue: _selected,
                         isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Produk',
@@ -259,8 +257,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               (product) => DropdownMenuItem<Product>(
                                 value: product,
                                 child: Text(
-                                  product.nameId + ' — stok ' +
-                                  product.stockQty.toString(),
+                                  '${product.nameId} — stok ${product.stockQty}',
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -311,7 +308,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ? null
                           : _chooseExpiryDate,
                       icon: const Icon(Icons.event),
-                      label: Text('Kedaluwarsa: ' + _dateText(_expiryDate)),
+                      label: Text('Kedaluwarsa: ${_dateText(_expiryDate)}'),
                     ),
                     if (_selected?.trackExpiry == true)
                       const Padding(
@@ -374,8 +371,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         contentPadding: EdgeInsets.zero,
                         title: Text(name),
                         subtitle: Text(
-                          'Stok lama: ' + original.toString() +
-                          ' · Stok aktif: ' + current.toString(),
+                          'Stok lama: $original · Stok aktif: $current',
                         ),
                         trailing: IconButton(
                           tooltip: 'Rekonsiliasi stok lama',
@@ -403,8 +399,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 leading: const Icon(Icons.inventory_2_outlined),
                 title: Text(product.nameId),
                 subtitle: Text(
-                  product.sku + ' · ' +
-                  (product.trackExpiry ? 'FEFO' : 'Tanpa pelacakan expiry'),
+                  '${product.sku} · ${product.trackExpiry ? 'FEFO' : 'Tanpa pelacakan expiry'}',
                 ),
                 trailing: Text(
                   product.stockQty.toString(),
