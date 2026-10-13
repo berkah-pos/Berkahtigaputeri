@@ -1,11 +1,16 @@
 # Copilot Instructions - Berkah POS Final Pos
 
-Before any code change, read:
+Before any code change, read `AGENTS.md` and follow this repository-mandated order:
 
-- `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`
-- `docs/permanent/DOC_00_MASTER_ROADMAP.md`
-- `docs/permanent/DOC_01_3_LAYER_CONFIG.md` (legacy filename; Final Pos content)
-- `scripts/sync_excel_to_supabase.py` when working with workbook/config synchronization
+1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole configuration-inheritance authority.
+2. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — phase gates in sequence.
+3. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — scoped work and evidence-reporting rules.
+4. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — current integration evidence and unresolved gates.
+5. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; Final Pos contract.
+6. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`.
+7. `docs/permanent/DOC_03_RLS_AUTH.sql`.
+8. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`.
+9. `scripts/sync_excel_to_supabase.py` — canonical workbook validator and 352-key inventory; do not inspect the binary workbook through GitHub's text API.
 
 ## Canonical architecture
 

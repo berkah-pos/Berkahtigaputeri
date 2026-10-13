@@ -1,4 +1,8 @@
-# DOC_02 VERIFICATION - PRIORITAS 1
+> **Do not execute the checklist below against the current Final Pos system.** It describes a historical five-row pilot, the retired three-layer model, and obsolete UI instructions. The current contract is in `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`; current schema/auth paths are `DOC_02_SUPABASE_SCHEMA_V1.sql` and `DOC_03_RLS_AUTH.sql`. The canonical workbook validator requires 352 keys. This historical file is retained for traceability only.
+
+---
+
+# HISTORICAL / SUPERSEDED — DOC_02 VERIFICATION (RETIRED 3-LAYER PILOT)
 
 ## Tujuan
 Memverifikasi fondasi 3 layer + 2 layanan pada tabel LIVE `app_config(key PRIMARY KEY, value JSONB, updated_at)`.

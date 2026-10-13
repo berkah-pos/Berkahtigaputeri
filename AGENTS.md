@@ -13,6 +13,7 @@ Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 6. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`
 7. `docs/permanent/DOC_03_RLS_AUTH.sql`
 8. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`
+9. `scripts/sync_excel_to_supabase.py` — workbook structure, the canonical 352-key inventory, and dry-run validation. Do not try to inspect the binary workbook through GitHub's text API.
 
 If any later or older document conflicts with the canonical architecture decision, follow the decision and correct the stale document in the same change set.
 

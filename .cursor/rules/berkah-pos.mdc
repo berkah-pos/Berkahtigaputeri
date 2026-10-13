@@ -1,7 +1,9 @@
 # Cursor Rules - Berkah POS Final Pos
 
-- Read `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` first.
-- Then read `docs/permanent/DOC_00_MASTER_ROADMAP.md` and execute correction phases in order.
+- Before any implementation change, read `AGENTS.md` and follow its mandatory read order in sequence.
+- `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` is the sole authority for configuration inheritance; read it and the roadmap before changing architecture or code.
+- Read DOC_12 and DOC_13 as required by `AGENTS.md`, then the scoped contract docs through DOC_04.
+- Read `scripts/sync_excel_to_supabase.py` before changing workbook/config synchronization; its canonical inventory is 352 keys.
 - Canonical config inheritance: `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
 - Canonical keys: `global`, `template:<TEMPLATE_ID>`, `tenant:<tenant_id>`, `tenant:<tenant_id>:service:<service>`, `device:<device_id>`.
 - Resolve one requested service at a time; do not merge POS and Akuntansi service rows together.

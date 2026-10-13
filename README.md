@@ -1,4 +1,4 @@
-[![Final Pos](https://img.shields.io/badge/Final%20Pos-352%20canonical%20keys-2ea44f)](docs/permanent/DOC_07_FINAL_VERIFICATION_CURRENT_HEAD.md)
+[![Final Pos](https://img.shields.io/badge/Final%20Pos-352%20canonical%20keys-2ea44f)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
 [![Architecture](https://img.shields.io/badge/config-GLOBAL%E2%86%92TEMPLATE%E2%86%92TENANT%E2%86%92SERVICE%E2%86%92DEVICE-0969da)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
 [![Final Pos Sync](https://github.com/berkah-ajb-dev/Berkahtigaputeri/actions/workflows/final-pos-sync.yml/badge.svg?branch=main)](https://github.com/berkah-ajb-dev/Berkahtigaputeri/actions/workflows/final-pos-sync.yml)
 [![Supabase RLS](https://img.shields.io/badge/Supabase-RLS%20authenticated-3ecf8e)](docs/permanent/DOC_03_RLS_AUTH.sql)

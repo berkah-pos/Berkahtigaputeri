@@ -1,3 +1,7 @@
+> **HISTORICAL AUDIT SNAPSHOT — BASELINE 2026-10-05.** This issue table was recorded against an older revision and is retained for traceability. Its rows are candidates to re-check, not proof that the same issues remain open or fixed on current main. Before execution, follow `AGENTS.md`, use `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` as the configuration authority, and verify each finding against the current source and roadmap phase.
+
+---
+
 # Audit 18 Issues - main@68826ec - Full Report
 Source: 16m43s audit, 17 branches, 4 workflows green
 

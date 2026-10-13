@@ -322,6 +322,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Validate workbook and relational payloads without credentials or writes.",
     )
     parser.add_argument(
+        "--expect-keys",
+        type=int,
+        default=None,
+        help="Require this exact canonical app_config key count in addition to workbook validation.",
+    )
+    parser.add_argument(
         "--force-version",
         action="store_true",
         help=(
@@ -338,6 +344,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         payloads = legacy.load_workbook_payloads()
         legacy._print_inventory(payloads)
+        if args.expect_keys is not None:
+            if args.expect_keys < 1:
+                raise ValueError("--expect-keys must be a positive integer")
+            actual_count = len(payloads.app_config)
+            if actual_count != args.expect_keys:
+                raise ValueError(
+                    f"Expected {args.expect_keys} app_config keys; got {actual_count}"
+                )
+            print(f"EXPECTED KEY COUNT VERIFIED: {actual_count}")
     except (FileNotFoundError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

@@ -1,5 +1,7 @@
-# DOC_00_ASD_MISSION - PERSISTENT MISSION FOR TRIGGER "asd"
-> **TRIGGER:** User says "asd" | "ASD" | "lanjut misi" => YOU MUST READ THIS FILE AND CONTINUE MISSION TILL END. DO NOT ASK.
+# HISTORICAL ISSUE INVENTORY — ASD MISSION (BASELINE 2026-10-05)
+> **TRIGGER ROUTING:** When the user says "asd", "ASD", or "lanjut misi", read this file only as a historical issue inventory. First follow root `AGENTS.md` and the mandatory preflight. Revalidate each listed item against the current branch/HEAD before acting.
+
+> **Historical notice:** The base SHA, branch counts, CI summary, checked boxes, and issue descriptions below were recorded on 2026-10-05. They are not a current backlog, current-head certification, or proof that any test passed on today's revision. The canonical configuration authority is `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`; execution follows `AGENTS.md` and `DOC_00_MASTER_ROADMAP.md`.
 
 **Repo:** berkah-ajb-dev/Berkahtigaputeri
 **Base HEAD audited:** 68826ec66e220b82f40c022bc27fa9a3f24b0f2b (17 branches, CI 7/7 green)
@@ -44,19 +46,19 @@
 - [ ] LOW-17 build.yml Flutter channel: stable not pinned
 - [ ] LOW-18 main.dart hardcoded SUPABASE defaults, no.env.example / dart-define
 
-### EXECUTION PROTOCOL FOR "asd"
-1. cd ~/Berkahtigaputeri && git fetch --prune && git checkout main && git pull
-2. Read DOC_00_ASD_MISSION.md + DOC_08_AUDIT_18_ISSUES.md + DOC_07
-3. Pick first unchecked [ ] from P0 -> P1 -> P2 -> P3
-4. Fix CODE + DOCS + WORKFLOW together (systemic)
-5. Update this file [x] + add log below with new SHA
-6. Commit + push to main via PR admin merge
-7. Verify gh run list --branch main 7/7 green
-8. LOOP until all [x]
+### Current execution protocol for the "asd" trigger
+
+1. Read root `AGENTS.md` and all files in its mandatory order, including the canonical decision, roadmap, DOC_12, DOC_13, scoped schema/auth/Admin contracts, and workbook validator.
+2. Confirm the repository, current default branch/HEAD, open PRs, and recent Actions runs. Do not treat the 2026-10-05 snapshot below as current.
+3. Re-check candidate findings against current source and current roadmap phase. Record only findings reproduced on the revision being changed.
+4. Make scoped changes on a feature/fix/documentation branch and submit a PR. Never write implementation changes directly to `main`.
+5. Run available validation and report exact evidence. If a tool, credential, local checkout, or live environment is unavailable, mark that check NOT RUN / NOT VERIFIED; do not assert a target such as "7/7 green" without current run evidence.
+6. Active workflows must use GitHub-hosted `ubuntu-24.04` runners. Do not use or add a self-hosted workstation runner dependency.
+7. Update the issue inventory only when a finding has been verified as fixed on the relevant branch; include its path, line, commit/PR, and test evidence.
 
 ### STATE LOG
 - 2026-10-05 00:22Z main@68826ec audit 18 issues, 27->17 branches cleaned, CI green
 - 2026-10-05 P0 mission doc created - next: P0-1 auth
 
-### DONE CRITERIA
-All [ ] -> [x], fresh DB rebuild passes, fresh APK auth->config, Admin toggle == APK, DOC_07 recertified, CI 7/7 green.
+### Historical done criteria (not current acceptance)
+The old checklist is not sufficient for release approval. Use the current acceptance gates in `docs/permanent/DOC_00_MASTER_ROADMAP.md` and the mandatory evidence report in DOC_12. Phase 7 requires fresh current-head certification and executed evidence.

@@ -1,13 +1,15 @@
-# DOC_07 — FINAL VERIFICATION CURRENT HEAD
+# HISTORICAL SNAPSHOT — DOC_07 FINAL VERIFICATION (LEGACY FILENAME)
 
-Status: **FINAL RE-CERTIFIED / PHASE 7 / 2026-10-04**
+Status: **HISTORICAL — snapshot dated 2026-10-04; not verified against current main**
+
+> The filename's former “CURRENT HEAD” wording is stale. The branch/SHA, run IDs, green matrix, and verification statements below describe the 2026-10-04 snapshot only; they are not evidence of current CI, staging, or production behavior. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` remains the sole configuration-inheritance authority. The Phase 1 audit is documented separately in `CERTIFICATION_CURRENT_HEAD.md` and is not a full Phase 7 recertification.
 
 Repository: `berkah-ajb-dev/Berkahtigaputeri`  
 Branch: `fix/final-pos-canonical-sync`  
 Certified implementation HEAD entering Phase 7: `49c39ae3c55cc9a930948defefe69d0a93ff41fc` (`fix: phase 6 atomic versioning rpc`)  
 Phase 7 commit: `fix: phase 7 re-certification current head + release docs + PR` (the commit containing this document).
 
-This file is the active Final Pos verification authority. The historical a19cb3f / 3-layer verification is retained only as `DOC_07_FINAL_VERIFICATION_HISTORICAL_a19cb3f.md`.
+This file is a historical Final Pos verification snapshot, not the active implementation certification. The older a19cb3f / 3-layer snapshot is retained separately as `DOC_07_FINAL_VERIFICATION_HISTORICAL_a19cb3f.md`.
 
 ## Final architecture
 
@@ -147,7 +149,7 @@ RPC version conflict tests
 → stale second writer: SQLSTATE 40001
 ```
 
-## Final certification matrix
+## Historical certification matrix (claims recorded in the 2026-10-04 snapshot)
 
 | Area | Result |
 |---|---|
@@ -160,4 +162,4 @@ RPC version conflict tests
 | Version integrity | 🟢 GREEN |
 | Release-note accuracy | 🟢 GREEN |
 
-**FINAL POS CURRENT HEAD IS RE-CERTIFIED FOR THE 352-KEY TEMPLATE ARCHITECTURE.**
+**Historical snapshot conclusion only:** the 2026-10-04 document claimed recertification for the 352-key template architecture. That claim has not been re-executed against current main by this file.
