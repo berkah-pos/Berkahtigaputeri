@@ -1,51 +1,33 @@
 # Google Play Data Safety — Berkah Tiga Puteri POS
 
-Dokumen ini adalah jawaban kerja untuk build Final Pos UAT yang saat ini membuka `HomeScreen` konfigurasi/verification, bukan alur kasir produksi. Jawaban final Play Console harus tetap dicocokkan dengan AAB yang benar-benar dirilis dan SDK yang terkandung di dalamnya.
+**Status: DRAFT. Re-verify against the exact AAB, deployed Laravel API, permissions and SDK inventory before submitting a release.**
 
-## Build yang dicakup
+## Build scope
 
-UI yang saat ini reachable menyediakan:
+The Flutter app includes local-first product, inventory, checkout and report modules. Feature code existing in the repository does not prove every flow is reachable or that cloud synchronization is active. A release declaration must reflect the precise app build and deployed API reviewed at submission time.
 
-- pemilihan tenant/device;
-- status sumber konfigurasi/Supabase;
-- refresh konfigurasi;
-- preview MDR efektif POS;
-- status ketersediaan POS/Akuntansi.
+## Data processed
 
-HomeScreen saat ini tidak membuka checkout kasir, transaksi QRIS, atau laporan PPN. Dokumen ini tidak mengklaim flow tersebut sebagai UI rilis yang aktif.
+Depending on the activated build/runtime, the app may process:
+- account identifier and authentication token needed to sign in;
+- tenant and device identifiers for server-side authorization;
+- effective configuration and service availability;
+- product, stock, sale, sale-item and accounting data created by a tenant;
+- durable outbox and synchronization status when a cloud sync endpoint is implemented and activated;
+- app/device diagnostics needed to troubleshoot service availability.
 
-## Data yang dapat diproses build UAT
+Local POS transactions are stored in the device's SQLite database. Cloud transmission must occur only through the authenticated Laravel Central API and the server-authorized tenant context. Repository source alone does not establish that cloud sales sync is live.
 
-- tenant ID dan device ID;
-- konfigurasi efektif dan feature/service availability;
-- status sinkronisasi/config source;
-- data autentikasi Supabase jika sesi perangkat diprovisikan (misalnya user ID/identifier akun yang diperlukan untuk otorisasi).
+## Backend and access controls
 
-Data aplikasi yang lebih luas dapat ada di modul repository, tetapi deklarasi Play Console harus mengikuti data yang benar-benar dikumpulkan oleh build yang dirilis.
+The target backend is Laravel Central API, Laravel Auth/Sanctum and MariaDB with a separate database per tenant. The mobile app must not contain database passwords, the Laravel application key, Redis secrets, payment secrets or privileged backend credentials. A client-supplied tenant/device ID is not authorization.
 
-## Keamanan dan akses cloud
+Transport must use HTTPS/TLS for remote data. Tenant boundaries, token revocation, server authorization and tenant A/B isolation must be verified on the deployed service before production claims are made.
 
-Final Pos menggunakan Supabase melalui HTTPS/TLS. Service-role key tidak boleh berada di APK atau browser client.
+## Sharing / sale
 
-Model akses Final Pos saat ini:
+The project policy is not to sell user/business data or share it for third-party advertising. Any service provider processing needed to operate the platform must be described accurately in the final release disclosures and contractual privacy policy.
 
-- `anon` tidak mempunyai direct SELECT pada `tenants`, `devices`, `licences`, `app_config`, atau `tenant_services`;
-- `anon` tidak dapat menjalankan `get_effective_config(...)`;
-- cloud effective-config access memerlukan sesi `authenticated`;
-- caller perangkat normal dibatasi oleh `devices.user_id = auth.uid()`;
-- RPC juga memvalidasi bahwa device benar-benar milik tenant yang diminta;
-- `service_role` hanya untuk proses server/CI/admin yang dipercaya.
+## Release gate
 
-Publishable key bukan izin untuk membaca data secara anonim.
-
-## Sharing / selling
-
-Data tidak dijual dan tidak dibagikan untuk periklanan atau pemasaran. Supabase dapat memproses data sebagai penyedia layanan backend sejauh diperlukan untuk fungsi aplikasi.
-
-## Encryption
-
-Data yang dikirim ke Supabase menggunakan koneksi HTTPS/TLS.
-
-## Sebelum submit Play Console
-
-Sebelum submit, cocokkan kembali dokumen ini dengan AAB produksi, sesi autentikasi yang benar-benar dipakai, permission Android, serta seluruh SDK analytics/crash/payment/ads yang benar-benar disertakan. Jika build mulai membuka cashier, QRIS, PPN, atau pengumpulan transaksi, Data Safety harus diperbarui sebelum rilis tersebut.
+Before Play Console submission, compare this draft with the signed AAB, Android permissions, actual SDK/dependency inventory, deployed API endpoints, current privacy URL, deletion/correction contact process, retention policy and real data flows. Update the declaration before releasing any build that changes transaction sync, billing, payment, analytics, crash reporting, ads or third-party SDKs.
