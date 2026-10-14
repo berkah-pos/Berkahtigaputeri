@@ -1,17 +1,18 @@
-# Cursor Rules - Berkah POS Final Pos
+# Cursor Rules — Berkah POS KVM2
 
-- Before any implementation change, read `AGENTS.md` and follow its mandatory read order in sequence.
-- `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` is the sole authority for configuration inheritance; read it and the roadmap before changing architecture or code.
-- Read DOC_12 and DOC_13 as required by `AGENTS.md`, then the scoped contract docs through DOC_04.
-- Read `scripts/sync_excel_to_supabase.py` before changing workbook/config synchronization; its canonical inventory is 352 keys.
-- Canonical config inheritance: `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
-- Canonical keys: `global`, `template:<TEMPLATE_ID>`, `tenant:<tenant_id>`, `tenant:<tenant_id>:service:<service>`, `device:<device_id>`.
-- Resolve one requested service at a time; do not merge POS and Akuntansi service rows together.
-- `app_config` schema: `key TEXT PRIMARY KEY, value JSONB, updated_at`.
+- Read root `AGENTS.md`, then follow its mandatory read order without skipping documents.
+- Runtime source of truth: `AGENTS.md` and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+- Logical config source of truth: `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
+- Runtime: Laravel 11 / PHP 8.3 / Filament 3 / Sanctum / stancl/tenancy v3 / MariaDB 11; one central DB and physically isolated database per tenant on the same private DB server.
+- Active client code must not use Supabase SDK/Auth/RPC/Edge Functions, Supabase-hosted runtime config, RLS, or old Supabase sync tooling.
+- Canonical config precedence is `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
 - Canonical workbook: `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`.
-- Read `scripts/sync_excel_to_supabase.py` for workbook structure; expected inventory is 352 keys = 1 global + 3 templates + 100 tenants + 140 services + 108 devices.
-- Official Admin path: `btp-admin/`.
-- Do not restore an inheritance model that omits TEMPLATE.
-- Do not restore the legacy `(device_id, key, value)` app_config schema.
-- Use branches and pull requests; do not push implementation changes directly to `main`.
-- Historical verification cannot override the canonical architecture decision.
+- Run `python3 scripts/export_workbook_for_laravel.py --validate-only`; it must validate all 352 keys and the canonical hash before import.
+- Do not merge POS and Akuntansi service rows.
+- Central config tables are `global_configs`, `templates`, and `tenant_configs`; device overrides are in a tenant database's `device_configs`.
+- Runtime cloud config uses the authenticated Laravel Central API, never direct mobile reads of configuration backing tables.
+- Keep SQLite checkout writes and the local outbox atomic; do not claim cloud sync works until Laravel sync acceptance, acknowledgement, retry and conflict behavior are implemented and tested.
+- Keep `btp-admin/` as a retired legacy/static notice only. New Admin is Filament at `/central/admin`, after a verified deployment.
+- All changes through feature/fix/docs branches and reviewed PRs; no implementation commits directly to `main`.
+- GitHub Actions use GitHub-hosted `ubuntu-24.04`.
+- Do not claim staging/production readiness without executed evidence. Legacy hosted resources are deleted only after backup, reconciliation, cutover, retention review and explicit authorization.
