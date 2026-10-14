@@ -1,63 +1,52 @@
-# DOC_00 - CANONICAL ARCHITECTURE DECISION
+# DOC_00 — Canonical Final Pos Configuration Decision
 
-Status: **ACCEPTED / AUTHORITATIVE**  
-Repository: `berkah-ajb-dev/Berkahtigaputeri`  
-Baseline for this correction program: `46ffd869c7ddb5e83b3a732b4e311bf2921f8a26`
+**Status:** AUTHORITATIVE for logical configuration inheritance and the workbook contract.
+**Runtime architecture authority:** `AGENTS.md` and `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+**Date:** 2026-10-15
 
-## Decision
+## 1. Canonical inheritance
 
-There is exactly one canonical Final Pos configuration inheritance model:
+There is exactly one logical Final Pos configuration inheritance model:
 
 ```text
 GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 ```
 
-Later layers override earlier layers only for keys they explicitly define. Unspecified values continue to inherit from the previous layer.
+Later layers override earlier layers only for keys they explicitly define. Unspecified values continue to inherit.
 
-This document is the architecture authority for configuration inheritance. Any documentation, agent instruction, Admin implementation, Flutter implementation, SQL/RPC, test, workflow, or release verification that describes a different inheritance order is stale and must be corrected.
+This document governs the logical configuration model. It no longer designates Supabase, an `app_config` table or a Supabase RPC as active runtime authority. The current runtime persistence and API are defined by DOC_14 and root `AGENTS.md`.
 
-## Canonical workbook and key inventory
+## 2. Canonical workbook and inventory
 
-The canonical production configuration workbook is:
+Workbook:
+`config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`
 
+Expected sheets, in order:
+- `README_PRODUCTION`
+- `TEMPLATES`
+- `GLOBAL`
+- `TENANTS_MASTER`
+- `DEVICES`
+- `SERVICES`
+- `APP_CONFIG_EXPORT`
+
+Exact logical inventory:
 ```text
-config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
-```
-
-The workbook contract is validated by `scripts/sync_excel_to_supabase.py`. Its expected sheets are:
-
-```text
-README_PRODUCTION
-TEMPLATES
-GLOBAL
-TENANTS_MASTER
-DEVICES
-SERVICES
-APP_CONFIG_EXPORT
-```
-
-`APP_CONFIG_EXPORT` contains exactly **352 canonical `app_config` keys**:
-
-```text
-1   global
-3   templates
+1 global
+3 templates
 100 tenants
-140 services
+140 tenant/service rows
 108 devices
 ---
-352 total
+352 keys total
 ```
 
-The canonical templates are:
+Sorted canonical keys joined by a single LF have MD5:
+`1fd3d64219ecc7c333453c20da80e295`.
 
-```text
-BASIC
-PRO
-ENTERPRISE
-```
+Canonical templates: `BASIC`, `PRO`, `ENTERPRISE`.
 
-## Canonical `app_config` key forms
-
+Key syntax in the source workbook/manifest:
 ```text
 global
 template:<TEMPLATE_ID>
@@ -66,65 +55,35 @@ tenant:<tenant_id>:service:<service>
 device:<device_id>
 ```
 
-Examples:
+These key names are source/import identifiers, not a requirement to reproduce the legacy SQL table at runtime.
 
-```text
-template:PRO
-tenant:tenant_001
-tenant:tenant_001:service:pos
-device:infinix_001_410
-```
+## 3. Runtime ownership after KVM2 migration
 
-`app_config` uses:
+- Global values: central `global_configs`.
+- Template defaults: central `templates`.
+- Tenant base and service overrides: central `tenant_configs`, with distinct base scope and `pos` / `akuntansi` rows.
+- Device overrides: tenant database `device_configs`.
+- Runtime resolver: Laravel Central API `GET /api/v1/effective-config?tenant_id=&device_id=&service=`.
 
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
+The resolver must authenticate the user, verify active account and subscription, validate central tenant membership and device registry/ownership before opening a tenant database, resolve exactly one service, and merge values in canonical order.
 
-The legacy `(device_id, key, value)` shape is not canonical.
+`scripts/export_workbook_for_laravel.py` is the offline validator/exporter. `php artisan config:import-workbook <manifest.json>` imports that manifest to Laravel. This is a metadata/configuration import; it is not a complete transaction-data migration.
 
-## Effective configuration algorithm
+## 4. Required parity and acceptance
 
-For a requested `(tenant_id, device_id, service)`:
+For every valid `(tenant_id, device_id, service)`, backend effective config must match the canonical workbook's merge semantics. POS and Akuntansi rows must never be combined. Tenant A must not read or mutate Tenant B configuration by changing client-supplied identifiers.
 
-1. Load `global`.
-2. Load `tenant:<tenant_id>` and resolve its `template_id`/`template`.
-3. Load `template:<TEMPLATE_ID>`.
-4. Load only `tenant:<tenant_id>:service:<service>` for the requested service.
-5. Load `device:<device_id>`.
-6. Merge in this exact precedence order:
+Tests need cases for:
+- all five layers and override precedence;
+- missing optional layer/inheritance;
+- each supported service separately;
+- inactive user/subscription, unknown device and device bound to a different tenant;
+- cache scoping to the exact tenant/device/service tuple;
+- version retention during repeated workbook import;
+- independent tenant database resolution.
 
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-```
+## 5. Superseded legacy implementation
 
-POS and Akuntansi service rows must never be merged together when resolving one requested service.
+The old Supabase-specific `app_config(key, value JSONB)`, `get_effective_config` RPC and RLS SQL documents remain historical migration evidence only. They are not active code/runtime requirements. DOC_14 controls replacement persistence and API while this document continues to control inheritance and workbook fidelity.
 
-## Runtime reference implementation
-
-`pos-app/lib/core/config/config_service.dart` calls the authenticated `get_effective_config` RPC for remote configuration and may use only a previously returned effective-config cache for the exact tenant/device/service tuple during transient offline errors. It must not directly SELECT layered GLOBAL/TEMPLATE/TENANT/SERVICE rows. `ConfigService.mergeLayers()` is the Flutter merge-order reference.
-
-`docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql` expresses the same Final Pos inheritance order and remains subject to the authentication hardening specified by the correction roadmap.
-
-## Superseded statements
-
-The following concepts are superseded and must not be used as architecture authority:
-
-- any configuration model that omits TEMPLATE;
-- any inheritance description equivalent to `GLOBAL -> TENANT -> DEVICE`;
-- any instruction that treats an historical commit as a permanently frozen implementation authority;
-- any Admin merge that combines POS and Akuntansi service rows for one effective-config request.
-
-Historical verification documents may retain old facts only when explicitly marked **HISTORICAL** and must not override this decision.
-
-## Change control
-
-A future change to the inheritance model requires all of the following in one reviewed change set:
-
-- update this architecture decision;
-- update workbook validator/sync logic;
-- update RPC and Flutter/Admin resolvers;
-- update tests and verification documents;
-- provide migration and backward-compatibility impact.
-
-Until such a change is merged, **GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE is the only authority**.
+Any later configuration decision must change this document, DOC_14, the exporter/importer, resolver, client contract, tests and migration/backout plan in one reviewed change set.
