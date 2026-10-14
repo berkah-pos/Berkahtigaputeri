@@ -1,6 +1,6 @@
 # DOC_16 — Supabase Migration and Schema Reconciliation Ledger
 
-**Status: BLOCKED — historical migration SQL is missing from Git and the environments are not structurally equivalent.**
+**Status: BLOCKED — historical migration source coverage is incomplete and the environments are not structurally equivalent.**
 **Captured:** 2026-10-14; exact snapshot time is recorded in the JSON ledger.
 **Repository:** `berkah-pos/Berkahtigaputeri`
 **Working branch:** `feat/supabase-idcloudhost-backend-foundation`
@@ -29,6 +29,8 @@ The connected project inventory currently exposes staging and staging-clone. No 
 | `20261008131700_p0_rls_identity_config_runtime_prep.sql` | `20261008131537 / p0_rls_identity_config_runtime_prep_20261008` | No P0 record found | Same concept does not prove identical SQL; clone registry lacks this entry |
 | `20261013120000_phase5_tenant_isolation_hardening.sql` | `20261013085934 / phase5_tenant_isolation_hardening` | `20261013085912 / phase5_tenant_isolation_hardening` | Same stem, different version prefixes; replay equivalence not proven |
 
+Follow-up Git provenance review on 2026-10-14 confirmed that the P0 candidate blob `07768fe035fec700b9b836b65f8a15657a9e4fe5` exists in [commit `d8cd93f`](https://github.com/berkah-pos/Berkahtigaputeri/commit/d8cd93f3a307fdde730d265c739d664ffd7c8574), and the Phase 5 candidate blob `e4b487e66e041025e1d56796428e98826855b506` exists in [commit `dfcc4f6`](https://github.com/berkah-pos/Berkahtigaputeri/commit/dfcc4f60fda442bb8fc24bafe4f6696f575e8dae). This recovers provenance for the two tracked candidate files only. The remote migration registry has version/name metadata, not SQL-body checksums; neither candidate is an exact version-prefix match, so both remain `SOURCE_RECOVERED_NOT_MATCHED`. The complete 139/12 history remains unrecovered.
+
 The staging registry has 139 rows but only two SQL migration files are tracked in Git. The registry stores version/name metadata, **not historical SQL bodies or content checksums**, so it cannot recover the missing SQL by itself. The full ordered migration lists are included in the JSON ledger without exporting business row contents or routine source bodies.
 
 ## 3. Read-only schema fingerprint comparison
@@ -52,8 +54,8 @@ The catalog fingerprint query inspected relation structure (column/constraint/in
 
 - `app_config` key-set hash is `1fd3d64219ecc7c333453c20da80e295` in both projects; the ordered key/value fingerprint is `71cbd474ca826c0a3768da2c02621ce9` in both. This demonstrates matching fingerprints for this table only, not full schema or behavioral parity.
 - Clone-only relations: `private.pos_outbox`, `public.transaction_type_map`, `public.v_outbox_unacked`, and `public.v_stress_validation`.
-- Four shared relation definitions differ in the audited column/constraint/index fingerprints: `private.tenant_accounting_links`, `public.accounting_journals`, `public.accounting_transaction_evidence`, and `public.extended_withholding_liabilities`.
-- Staging has 35 routine signatures absent from the clone; the clone has four clone-only routine signatures. **117 shared routine fingerprints differ**, including definition and/or execution ACL.
+- Five shared relation fingerprints differ: `private.tenant_accounting_links` (RLS enabled state), `public.config_history` (indexes), and `public.accounting_journals`, `public.accounting_transaction_evidence`, and `public.extended_withholding_liabilities` (constraints).
+- Staging has 39 routine signatures absent from the clone; the clone has four clone-only routine signatures. **117 shared routine fingerprints differ**, including definition and/or execution ACL.
 - Eight staging triggers are absent from the clone. Policy counts match but policy sets do not: two unique names on each side and one changed policy fingerprint.
 - `pg_cron` is installed on staging and absent from staging-clone.
 
@@ -80,7 +82,7 @@ The source files represent only a small part of the live schema surface. Missing
 ## 6. Safe completion sequence
 
 1. **Recover schema-only DDL securely.** In a trusted environment, check the installed CLI options with `supabase db dump --help`; link to the intended project and create a private schema-only dump. Enter credentials only in the trusted terminal or approved secret manager—not chat, source code, public artifacts, or shell history. Keep raw dumps private and out of Git. The default Supabase dump excludes managed schemas such as `auth` and `storage`; separately inventory custom Auth triggers/settings, Storage policies, cron jobs, grants, and managed-schema customizations.
-2. **Recover historical SQL sources.** Find source commits or protected operator archives for the 139 staging records and 12 clone records. Compare the two semantic candidates against fingerprints and content, not just migration labels. Do not invent historical SQL from names.
+2. **Recover the complete historical SQL sources.** Git-history inspection confirms the two tracked candidate files exist in commits linked below, but their filename versions do not match remote registry versions. Keep both classified `SOURCE_RECOVERED_NOT_MATCHED`; continue recovering the full original SQL history from trusted source commits or protected operator archives. Compare content and schema effects, not labels.
 3. **Define a clean baseline strategy.** Produce a reviewed schema baseline for a fresh disposable database, preserve the canonical `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE` contract and 352-key config fingerprint, and document required seed data without committing production data.
 4. **Replay only in isolation.** Test the reviewed baseline on a fresh throwaway database; run migration validation, RLS/roles, Phase 5 Tenant A/B, accounting/inventory invariants, and compare fingerprints. Restore-test a backup into a separate target.
 5. **Review ACL and Advisor findings object-by-object.** Resolve the clone's anonymous `SECURITY DEFINER` execution surface and review staging Auth/function warnings. Prioritize foreign-key indexes using query plans and workload; confirm internal default-deny policies.
@@ -88,7 +90,7 @@ The source files represent only a small part of the live schema surface. Missing
 
 ## 7. What actually ran / changed
 
-- Read-only operations: migration registries, catalog fingerprints, and Supabase Security/Performance Advisors for the two named staging projects.
+- Read-only operations re-run on 2026-10-14: migration registries, the committed `catalog_fingerprint.sql` against both project IDs, and Supabase Security/Performance Advisors. Counts and object diffs were recalculated; no writes were performed.
 - No database writes: no DDL, migration apply, migration repair, reset, row modifications, grants/revokes, or high-volume stress workload.
 - Repository changes on this Draft PR: this evidence ledger, full machine-readable migration registries and fingerprints, read-only SQL, and a validator.
 - Status remains **BLOCKED**: migration inventory and drift diagnosis are now recorded, but historical SQL recovery, clean replay, restore testing, and production readiness remain unverified.

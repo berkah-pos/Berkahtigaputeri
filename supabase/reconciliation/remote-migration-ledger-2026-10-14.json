@@ -841,13 +841,14 @@
         "private.tenant_accounting_links",
         "public.accounting_journals",
         "public.accounting_transaction_evidence",
-        "public.extended_withholding_liabilities"
+        "public.extended_withholding_liabilities",
+        "public.config_history"
       ]
     },
     "routines": {
       "staging_count": 169,
       "clone_count": 134,
-      "staging_only_count": 35,
+      "staging_only_count": 39,
       "staging_only_examples": [
         "public.get_license_private_key()",
         "public.post_accounting_journal(...)",
@@ -914,5 +915,85 @@
     "supabase db reset against either remote project",
     "bulk RLS policy grants/revokes based only on advisor counts",
     "rename repository migrations to remote versions without proven identical SQL"
-  ]
+  ],
+  "source_recovery_review": {
+    "verified_on_utc_date": "2026-10-14",
+    "status": "BLOCKED_SOURCE_SQL_NOT_RECOVERED",
+    "exact_remote_version_matches": 0,
+    "repository_history_checked": true,
+    "candidate_files": [
+      {
+        "file": "20261008131700_p0_rls_identity_config_runtime_prep.sql",
+        "git_blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5",
+        "source_commit": "d8cd93f3a307fdde730d265c739d664ffd7c8574",
+        "source_status": "SOURCE_RECOVERED_NOT_MATCHED",
+        "remote_candidates": [
+          {
+            "environment": "staging",
+            "version": "20261008131537",
+            "name": "p0_rls_identity_config_runtime_prep_20261008"
+          }
+        ]
+      },
+      {
+        "file": "20261013120000_phase5_tenant_isolation_hardening.sql",
+        "git_blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+        "source_commit": "dfcc4f60fda442bb8fc24bafe4f6696f575e8dae",
+        "source_status": "SOURCE_RECOVERED_NOT_MATCHED",
+        "remote_candidates": [
+          {
+            "environment": "staging",
+            "version": "20261013085934",
+            "name": "phase5_tenant_isolation_hardening"
+          },
+          {
+            "environment": "staging-clone",
+            "version": "20261013085912",
+            "name": "phase5_tenant_isolation_hardening"
+          }
+        ]
+      }
+    ],
+    "coverage_note": "Git history verifies provenance for two candidate SQL files only. It does not recover or certify a complete replayable SQL history for either remote registry; no remote migration command is authorized by this evidence."
+  },
+  "latest_read_only_verification": {
+    "verified_on_utc_date": "2026-10-14",
+    "project_ids": {
+      "staging": "cztlmwzfrhyafgawphgw",
+      "staging-clone": "txwzhesvcjftybrlhnzs"
+    },
+    "migration_counts": {
+      "staging": 139,
+      "staging-clone": 12
+    },
+    "catalog_fingerprint_sql_rerun": true,
+    "app_config_key_count": {
+      "staging": 352,
+      "staging-clone": 352
+    },
+    "app_config_key_and_value_fingerprints_equal": true,
+    "relation_counts": {
+      "staging": 67,
+      "staging-clone": 71
+    },
+    "routine_counts": {
+      "staging": 169,
+      "staging-clone": 134
+    },
+    "staging_only_routine_signatures": 39,
+    "clone_only_routine_signatures": 4,
+    "shared_routine_fingerprint_mismatches": 117,
+    "shared_relation_fingerprint_mismatches": 5,
+    "clone_only_relations": [
+      "private.pos_outbox",
+      "public.transaction_type_map",
+      "public.v_outbox_unacked",
+      "public.v_stress_validation"
+    ],
+    "public_security_definer_anon_execute": {
+      "staging": 0,
+      "staging-clone": 32
+    },
+    "write_operations_performed": false
+  }
 }
