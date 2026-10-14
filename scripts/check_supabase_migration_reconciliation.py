@@ -17,7 +17,7 @@ def main() -> int:
     errors=[]
     if data.get('schema_version') != 1: errors.append('unsupported manifest schema_version')
     status=data.get('status')
-    if status not in {'BLOCKED_SOURCE_SQL_NOT_RECOVERED','BLOCKED_HISTORICAL_REPLAY_PENDING','BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING','BLOCKED_CANONICAL_CONFIG_FIXTURE_REPLAY_PENDING','BLOCKED_CLONE_DRIFT_AND_RUNTIME_GATES','RECONCILED'}: errors.append('invalid reconciliation status')
+    if status not in {'BLOCKED_SOURCE_SQL_NOT_RECOVERED','BLOCKED_HISTORICAL_REPLAY_PENDING','BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING','BLOCKED_CANONICAL_CONFIG_FIXTURE_REPLAY_PENDING','BLOCKED_CLONE_DRIFT_AND_RUNTIME_GATES','BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED','RECONCILED'}: errors.append('invalid reconciliation status')
     expected=data.get('repository',{}).get('tracked_migration_files',[])
     expected_names=sorted(x.get('file','') for x in expected)
     paths=sorted(MIGRATIONS.glob('*.sql'))
@@ -52,5 +52,6 @@ def main() -> int:
     elif status == 'BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING': print('NOTICE: remote SQL bodies are recovered; historical replay needs a documented pre-history licences scaffold.')
     elif status == 'BLOCKED_CANONICAL_CONFIG_FIXTURE_REPLAY_PENDING': print('NOTICE: historical replay needs the canonical 352-key workbook fixture; seed only the disposable runner.')
     elif status == 'BLOCKED_CLONE_DRIFT_AND_RUNTIME_GATES': print('NOTICE: historical staging replay passed, but clone/runtime/restore/release gates remain blocked.')
+    elif status == 'BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED': print('NOTICE: staging historical replay and fingerprint passed; staging-clone drift, hostile tenant tests, restore and release gates remain blocked.')
     return 0
 if __name__ == '__main__': raise SystemExit(main())
