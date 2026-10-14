@@ -1,32 +1,27 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Berkah POS - Super Admin Login</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="auth.js"></script>
-<style>
-body{font-family:Arial,sans-serif;background:#f6f6f6;margin:0}.box{max-width:460px;margin:8vh auto;background:#fff;border:1px solid #bbb;padding:22px}label{display:block;font-weight:700;font-size:14px;margin:12px 0 4px}input,button{width:100%;padding:12px;font:inherit;box-sizing:border-box}button{margin-top:16px;background:#111;color:#fff;border:0;font-weight:700}button.secondary{background:#fff;color:#111;border:1px solid #777}button:disabled{opacity:.55}.status{white-space:pre-wrap;margin-top:14px;padding:10px;border:1px solid #aaa}.bad{border-color:#c5221f}.ok{border-color:#188038}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Berkah POS — Login — Admin Legacy Berkah POS</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f7f5; color: #18372b; }
+    main { max-width: 640px; padding: 32px; margin: 20px; background: white; border: 1px solid #d8e6dd; border-radius: 16px; box-shadow: 0 12px 40px #12352412; }
+    h1 { line-height: 1.2; }
+    p { line-height: 1.65; }
+    .state { display: inline-block; padding: 5px 9px; background: #edf0ee; border-radius: 6px; font-size: 12px; color: #34483e; }
+    a { color: #087447; }
+  </style>
 </head>
 <body>
-<div class="box">
-  <h1>Super Admin Login</h1>
-  <p>Write hanya untuk authenticated super admin.</p>
-  <label>Email</label>
-  <input id="email" type="email" value="berkahtigaputeri@gmail.com" autocomplete="username" readonly>
-  <label>Password</label>
-  <input id="password" type="password" autocomplete="current-password">
-  <button id="login">LOGIN</button>
-  <button id="forgot" type="button" class="secondary">LUPA PASSWORD</button>
-  <div id="status" class="status">Belum login.</div>
-</div>
-<script>
-const q=new URLSearchParams(location.search);const cfg=BTP_AUTH.cfg();
-BTP_AUTH.getAdmin().then(u=>{if(u){status.textContent=`Sudah login: ${u.email}`;status.className='status ok';}});
-login.onclick=async()=>{try{login.disabled=true;status.textContent='Login...';const u=await BTP_AUTH.login(cfg.url,cfg.key,email.value,password.value);status.textContent=`Login OK: ${u.email}`;status.className='status ok';const next=q.get('next')||'clients.html';location.replace(next);}catch(e){status.textContent=`Login gagal: ${e.message}`;status.className='status bad';}finally{login.disabled=false;password.value='';}};
-forgot.onclick=async()=>{try{forgot.disabled=true;status.textContent='Mengirim email reset password...';status.className='status';const redirectTo=new URL('reset-password.html',location.href).href;await BTP_AUTH.requestPasswordReset(email.value,redirectTo);status.textContent='Email reset password sudah dikirim.\nSilakan buka inbox Gmail dan gunakan link terbaru.';status.className='status ok';}catch(e){status.textContent=`Gagal mengirim reset password: ${e.message}`;status.className='status bad';}finally{forgot.disabled=false;}};
-</script>
+  <main>
+    <span class="state">ADMIN LEGACY — DINONAKTIFKAN</span>
+    <h1>Berkah POS — Login</h1>
+    <p>Halaman admin statis lama telah dinonaktifkan saat migrasi backend Berkah POS. Halaman ini tidak lagi melakukan login, membaca, atau mengubah data.</p>
+    <p>Target Central Admin baru adalah <code>https://app.berkahtigaputeri.co.id/central/admin</code>. Gunakan hanya setelah deployment Laravel resmi, HTTPS, autentikasi administrator, dan pemeriksaan tenant selesai diverifikasi. Endpoint tersebut belum dinyatakan aktif hanya berdasarkan perubahan repositori ini.</p>
+    <p>Untuk kebijakan dan status implementasi, lihat dokumentasi permanen dalam repositori utama.</p>
+  </main>
 </body>
 </html>
