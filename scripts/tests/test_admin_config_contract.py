@@ -45,7 +45,7 @@ class AdminCanonicalConfigContractTests(unittest.TestCase):
         editor = source("btp-admin/editor-core.js")
         flutter = source("pos-app/lib/core/config/config_service.dart")
         self.assertIn("`template:${templateId}`", editor)
-        self.assertIn("`tenant:${tenant}:service:${requestedService}`", editor)
+        self.assertIn("`tenant:${tenantId}:service:${requestedService}`", editor)
         self.assertIn("`device:${deviceId}`", editor)
         self.assertIn("v!=='pos'&&v!=='akuntansi'", editor)
         self.assertIn("'get_effective_config'", flutter)
