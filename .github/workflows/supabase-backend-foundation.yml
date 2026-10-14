@@ -5,6 +5,7 @@ on:
     paths:
       - "supabase/**"
       - "scripts/check_supabase_backend_foundation.py"
+      - "AGENTS.md"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
       - "docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
@@ -16,6 +17,7 @@ on:
     paths:
       - "supabase/**"
       - "scripts/check_supabase_backend_foundation.py"
+      - "AGENTS.md"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
       - "docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
