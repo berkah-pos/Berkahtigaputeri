@@ -265,7 +265,7 @@ jobs:
           mkdir -p "$CLONE_DIR/supabase/migrations" "$CLONE_DIR/supabase/tests" "$CLONE_DIR/recorded-migrations"
           cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$CLONE_DIR/supabase/config.toml"
           sed -i 's/^project_id = "berkah-pos-local"/project_id = "berkah-pos-clone-replay"/' "$CLONE_DIR/supabase/config.toml"
-          grep -q '^project_id = "berkah-pos-clone-replay" "$CLONE_DIR/supabase/config.toml"
+          grep -q '^project_id = "berkah-pos-clone-replay"' "$CLONE_DIR/supabase/config.toml"
           python3 scripts/prepare_supabase_historical_replay.py \
             supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
             "$CLONE_DIR/recorded-migrations" --environment staging-clone
