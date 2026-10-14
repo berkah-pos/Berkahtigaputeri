@@ -190,6 +190,58 @@ def main() -> int:
     if manifest.get("clean_replay", {}).get("historical_ordered_replay") not in {"PENDING_DISPOSABLE_REPLAY", "PENDING_PREHISTORY_BOOTSTRAP_REPLAY", "PENDING_CANONICAL_CONFIG_FIXTURE_REPLAY", "PENDING_PREHISTORY_APP_CONFIG_CLIENT_STATUS_SHAPE_FIX", "PASS"}:
         fail("invalid historical replay status")
 
+    # The staging historical replay and the staging-clone reconciliation are independent gates.
+    drift_path = ROOT / "supabase/reconciliation/staging-clone-drift-2026-10-14.json"
+    if not drift_path.is_file():
+        fail("staging-clone drift inventory is missing")
+    else:
+        try:
+            drift = json.loads(drift_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            fail(f"staging-clone drift inventory is invalid: {exc}")
+            drift = {}
+        if drift.get("status") != "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED":
+            fail("staging-clone drift must remain an explicit blocker until separately replayed")
+        if drift.get("sources", {}).get("staging_project_id") != "cztlmwzfrhyafgawphgw":
+            fail("staging-clone drift inventory references an unexpected staging project")
+        if drift.get("sources", {}).get("staging_clone_project_id") != "txwzhesvcjftybrlhnzs":
+            fail("staging-clone drift inventory references an unexpected clone project")
+        counts = drift.get("catalog_counts", {})
+        staging = counts.get("staging", {})
+        clone = counts.get("staging_clone", {})
+        expected = (
+            (staging.get("relations"), 67, "staging relation count"),
+            (clone.get("relations"), 71, "staging-clone relation count"),
+            (staging.get("routines"), 169, "staging routine count"),
+            (clone.get("routines"), 134, "staging-clone routine count"),
+            (staging.get("policies"), 42, "staging policy count"),
+            (clone.get("policies"), 42, "staging-clone policy count"),
+            (staging.get("non_internal_triggers"), 49, "staging trigger count"),
+            (clone.get("non_internal_triggers"), 41, "staging-clone trigger count"),
+        )
+        for actual, wanted, label in expected:
+            if actual != wanted:
+                fail(f"staging-clone drift evidence changed unexpectedly: {label}={actual}, expected {wanted}")
+        relations = drift.get("relation_drift", {})
+        routines = drift.get("routine_drift", {})
+        if len(relations.get("staging_clone_only", [])) != 4:
+            fail("staging-clone-only relation inventory count mismatch")
+        if routines.get("staging_only_count") != 39:
+            fail("staging-only routine inventory count mismatch")
+        if len(routines.get("staging_clone_only", [])) != 4:
+            fail("staging-clone-only routine inventory count mismatch")
+        if routines.get("shared_routine_effective_execute_differences") != {"anon": 116, "authenticated": 79}:
+            fail("staging-clone effective routine grant-drift counts do not match read-only evidence")
+        if len(drift.get("trigger_drift", {}).get("staging_only", [])) != 8:
+            fail("staging-clone missing-trigger inventory count mismatch")
+        if [x.get("name") for x in drift.get("extension_drift", {}).get("staging_only", [])] != ["pg_cron"]:
+            fail("staging-clone extension drift inventory must keep pg_cron as a staging-only extension")
+        recorded_inventory = manifest.get("clean_replay", {}).get("staging_clone_drift_inventory", {})
+        if recorded_inventory.get("path") != "supabase/reconciliation/staging-clone-drift-2026-10-14.json":
+            fail("source manifest does not link to the staging-clone drift inventory")
+        if recorded_inventory.get("status") != drift.get("status"):
+            fail("source manifest and staging-clone drift inventory status disagree")
+
     if ERRORS:
         for error in ERRORS:
             print(f"FAIL: {error}", file=sys.stderr)
@@ -199,7 +251,8 @@ def main() -> int:
     print("PASS: all reconstructed source remains outside supabase/migrations/; no historical source is silently promoted.")
     print("PASS: schema-only target baseline has 67 tables, 615 constraints, 49 extra indexes, 169 functions, 42 source policies, 49 triggers.")
     print("PASS: target overlay adds two tenant-accounting RLS policies; replay asserts structure/security and Tenant A/B runtime isolation.")
-    print("NOTICE: recovered historical SQL requires its separate 139-entry disposable ordered-replay gate.")
+    print("PASS: 139 recorded staging migrations replayed unchanged and match the staging catalog fingerprint in disposable CI.")
+    print("BLOCKER: staging-clone catalog/ACL drift remains separately inventoried and is not certified.")
     print("COUNTS: " + json.dumps(counts, sort_keys=True))
     return 0
 

@@ -1822,9 +1822,9 @@
     }
   },
   "clean_replay": {
-    "historical_ordered_replay": "PENDING_PREHISTORY_APP_CONFIG_CLIENT_STATUS_SHAPE_FIX",
-    "reason": "All 139 recorded staging SQL bodies are archived and integrity-checked; the canonical 352-key workbook precondition is now generated only in the disposable runner and the migration replay completes. The final catalog comparison fails only on public.app_config and public.client_status columns/constraints, because the first recorded SQL migration uses CREATE TABLE IF NOT EXISTS for relations that had already existed before the ledger with different final definitions. Expand the pre-history schema-only bootstrap for all three pre-ledger relations; do not alter recorded SQL bodies or loosen the fingerprint comparator.",
-    "safe_next_step": "Bootstrap the current staging shapes of public.licences, public.app_config, and public.client_status without rows; replay the unchanged 139 archived SQL bodies with the runner-only 352-key workbook fixture; rerun exact structural fingerprint comparison. Keep every bootstrap/fixture strictly in the disposable local runner and do not write to hosted databases.",
+    "historical_ordered_replay": "PASS",
+    "reason": "The verified hosted run 38536536840 applies all 139 exact archived staging SQL bodies unchanged and passes the final read-only staging structural fingerprint comparison after the separately labelled pre-history schema bootstrap and runner-only canonical workbook fixture.",
+    "safe_next_step": "Keep the green staging replay immutable; reconcile staging-clone structural, routine, ACL, policy, trigger, and extension drift using a separately labelled clone baseline and disposable replay. Do not change hosted databases.",
     "reconstructed_target_baseline": {
       "status": "PASS",
       "validated_at": "2026-10-14",
@@ -1892,7 +1892,7 @@
       "expected_sorted_key_md5": "1fd3d64219ecc7c333453c20da80e295",
       "seeding_policy": "use workbook values with version=1 in a runner-only migration; never commit generated SQL/value rows",
       "auth_fixture": "extract canonical UID/email from recorded migration 20261008131537; empty password, unconfirmed email, no token/session",
-      "status": "PENDING"
+      "status": "PASS"
     },
     "second_historical_replay_attempt": {
       "workflow_run_id": 38526191711,
@@ -1925,6 +1925,36 @@
         "public.client_status constraints_md5"
       ],
       "diagnosis": "The first recorded migration 20261003142407_admin_licence_config uses CREATE TABLE IF NOT EXISTS and therefore does not evolve pre-existing tables. The current staging relation shapes for app_config and client_status were already present before the ledger; an empty-database replay needs those definitions in a separately labelled pre-history bootstrap."
+    },
+    "fourth_historical_replay_attempt": {
+      "workflow_run_id": 38536536840,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+      "status": "PASS_STAGING_HISTORICAL_REPLAY_AND_FINGERPRINT",
+      "migrations_applied": 139,
+      "historical_body_integrity": "PASS",
+      "canonical_workbook_fixture": "PASS",
+      "schema_only_prehistory_bootstrap": "PASS",
+      "final_staging_fingerprint": "PASS",
+      "result_scope": "Disposable local replay only; no hosted database changed."
+    },
+    "staging_clone_drift_inventory": {
+      "path": "supabase/reconciliation/staging-clone-drift-2026-10-14.json",
+      "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
+      "captured_at": "2026-10-14",
+      "summary": {
+        "staging_relations": 67,
+        "staging_clone_relations": 71,
+        "staging_functions": 169,
+        "staging_clone_functions": 134,
+        "staging_policies": 42,
+        "staging_clone_policies": 42,
+        "staging_triggers": 49,
+        "staging_clone_triggers": 41,
+        "staging_extensions": 6,
+        "staging_clone_extensions": 5,
+        "shared_anon_execute_differences": 116,
+        "shared_authenticated_execute_differences": 79
+      }
     }
   },
   "recovered_remote_sql_archive": {

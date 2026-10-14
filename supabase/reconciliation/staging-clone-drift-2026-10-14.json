@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
+  "purpose": "Read-only catalog-drift inventory; not authorization to change either hosted database.",
+  "sources": {
+    "staging_project_id": "cztlmwzfrhyafgawphgw",
+    "staging_clone_project_id": "txwzhesvcjftybrlhnzs",
+    "method": "SELECT-only PostgreSQL catalog queries. No business-table rows, secrets, or credential values were read or exported."
+  },
+  "verified_staging_replay": {
+    "workflow_run_id": 38536536840,
+    "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+    "result": "PASS",
+    "recorded_migrations_replayed": 139,
+    "archived_clone_migration_bodies": 12,
+    "target_schema_test_assertions": 16,
+    "note": "The 139 unmodified staging SQL bodies and the disposable pre-history/workbook fixtures pass replay and compare to the staging fingerprint. This does not establish clone equivalence."
+  },
+  "catalog_counts": {
+    "staging": {
+      "relations": 67,
+      "routines": 169,
+      "policies": 42,
+      "non_internal_triggers": 49,
+      "extensions": 6,
+      "tables_with_rls": 66,
+      "anon_effective_execute_routines": 9,
+      "anon_effective_execute_security_definer_routines": 2
+    },
+    "staging_clone": {
+      "relations": 71,
+      "routines": 134,
+      "policies": 42,
+      "non_internal_triggers": 41,
+      "extensions": 5,
+      "tables_with_rls": 69,
+      "anon_effective_execute_routines": 123,
+      "anon_effective_execute_security_definer_routines": 104
+    }
+  },
+  "relation_drift": {
+    "staging_only": [],
+    "staging_clone_only": [
+      "private.pos_outbox",
+      "public.transaction_type_map",
+      "public.v_outbox_unacked",
+      "public.v_stress_validation"
+    ],
+    "column_fingerprint_differences": [],
+    "constraint_fingerprint_differences": [
+      "public.accounting_journals",
+      "public.accounting_transaction_evidence",
+      "public.extended_withholding_liabilities"
+    ],
+    "index_fingerprint_differences": [
+      "public.config_history"
+    ],
+    "rls_flag_differences": [
+      {
+        "relation": "private.tenant_accounting_links",
+        "staging": false,
+        "staging_clone": true
+      }
+    ]
+  },
+  "routine_drift": {
+    "staging_only_count": 39,
+    "staging_only_signature_inventory": "39 staging-only routine signatures were observed by read-only catalog comparison; one security-sensitive signature is intentionally omitted from this compact report. The full authorized DBA catalog diff should be retained privately for signature-by-signature reconciliation.",
+    "staging_clone_only": [
+      "private.create_test_tenant(p_name text)",
+      "private.test_tenant_b_fixture_has_data(p_tenant_b uuid)",
+      "public.test_tenant_isolation()",
+      "public.validate_journal_consistency()"
+    ],
+    "shared_definition_fingerprint_differences": [
+      "public.create_auto_journal(p_tenant_id uuid, p_transaction_type text, p_transaction_ref text, p_business_date date, p_facts jsonb, p_device_id text, p_app_version text, p_reason text)"
+    ],
+    "shared_routine_effective_execute_differences": {
+      "anon": 116,
+      "authenticated": 79
+    },
+    "staging_clone_security_definer_routines_effectively_executable_by_anon_across_inspected_schemas": 104,
+    "of_which_in_schemas_where_anon_has_usage": 32,
+    "interpretation": "Effective privilege metadata is not proof that all routines are reachable through a particular API endpoint. Review exposed public routines and API schema grants separately."
+  },
+  "policy_drift": {
+    "counts_equal_but_identity_sets_differ": true,
+    "staging_only": [
+      "public.pos_memberships.pos_memberships_owner_manage",
+      "public.pos_pin_audit.pos_pin_audit_owner_read"
+    ],
+    "staging_clone_only": [
+      "private.tenant_accounting_links.deny_anon_all",
+      "private.tenant_accounting_links.tenant_isolation_select"
+    ],
+    "changed_fingerprint": [
+      "public.accounting_journals.accounting_journals_read_member"
+    ]
+  },
+  "trigger_drift": {
+    "staging_only": [
+      "public.accounting_transaction_evidence.accounting_transaction_customer_receivable_guard",
+      "public.accounting_transaction_evidence.accounting_transaction_extended_withholding_guard",
+      "public.app_config.trg_app_config_audit",
+      "public.devices.trg_devices_updated_at",
+      "public.plans.trg_plans_updated_at",
+      "public.subscriptions.trg_subscriptions_updated_at",
+      "public.tax_documents.tax_documents_guard",
+      "public.tax_rate_brackets.tax_rate_brackets_guard"
+    ],
+    "staging_clone_only": [],
+    "shared_definition_or_enabled_state_differences": []
+  },
+  "extension_drift": {
+    "staging_only": [
+      {
+        "name": "pg_cron",
+        "version": "1.6.4",
+        "schema": "pg_catalog"
+      }
+    ],
+    "staging_clone_only": [],
+    "shared_versions_match": true
+  },
+  "anonymous_effective_table_privileges": {
+    "staging": {
+      "select": 0,
+      "insert": 0,
+      "update": 0,
+      "delete": 0,
+      "truncate": 0,
+      "references": 0,
+      "trigger": 0
+    },
+    "staging_clone": {
+      "select": 55,
+      "insert": 54,
+      "update": 54,
+      "delete": 54,
+      "truncate": 54,
+      "references": 54,
+      "trigger": 54
+    },
+    "interpretation": "The clone has materially broader effective privileges for anon. RLS is an independent layer; counts alone do not demonstrate an exploit."
+  },
+  "required_gates": [
+    "Classify all 4 clone-only relations and 39 staging-only routines as intentional drift or missing objects before choosing the clone baseline.",
+    "Review the 3 changed constraint fingerprints, config_history index, 8 missing triggers, policy identity/hash drift, and missing pg_cron.",
+    "Review the create_auto_journal implementation difference before asserting semantic equivalence.",
+    "Reconcile anon/authenticated EXECUTE and table-privilege differences in an isolated clone reconstruction; do not bulk-revoke permissions or transplant staging DDL blindly.",
+    "Run a separate clean replay against a reviewed clone-specific baseline, then hostile Tenant A/B runtime, outbox/idempotency, and API/RPC tests."
+  ],
+  "safety": "No remote writes, permission changes, migrations, resets, or repairs were performed."
+}

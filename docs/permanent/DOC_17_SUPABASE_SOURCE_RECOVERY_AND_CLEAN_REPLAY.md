@@ -1,6 +1,6 @@
 # DOC_17 — Supabase Source Recovery and Disposable Clean Replay
 
-**Status:** REMOTE SQL BODIES RECOVERED; 139-BODY REPLAY PASSED; HISTORICAL FINGERPRINT BOOTSTRAP FIX PENDING  
+**Status:** REMOTE SQL BODIES RECOVERED; 139-BODY REPLAY AND STAGING FINGERPRINT PASSED; STAGING-CLONE DRIFT BLOCKS CERTIFICATION  
 **Captured:** 2026-10-14  
 **Scope:** GitHub SQL provenance, read-only recovery from hosted migration ledgers, reconstructed staging schema, and isolated replay acceptance.  
 **Authority:** Follow `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, and `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md`.
@@ -64,7 +64,7 @@ The first replay of the 139 recorded staging SQL bodies in a fresh local databas
 
 A schema-only bootstrap `supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql` is applied before the **139 unchanged staging migration bodies** in the disposable runner. The first replay established that `public.licences` also predates the ledger. A second replay reached `20261007184231_p1_cfg_01_config_5layer_strict_role` but failed because only five `app_config` rows existed and the recorded invariant requires exactly 352 canonical workbook keys (MD5 `1fd3d64219ecc7c333453c20da80e295`). Those rows are initialized by the canonical workbook sync outside the ledger, so a runner-only fixture is used; no workbook values are committed to the repository.
 
-The workflow uses `scripts/prepare_supabase_historical_replay_fixtures.py` to load and validate the workbook using the same parser as the production dry-run. In the isolated runner only, it generates a temporary migration `20261007180000_replay_only_canonical_config_fixture.sql` between recorded migrations `20261007073026` and `20261007184231`; it seeds the 352 canonical `app_config` key/value rows at version 1 and inserts the recorded Auth guard identity with an empty password, unconfirmed email, and no session/token. The generated SQL/value rows stay in the runner's temporary directory and are not committed or emitted to logs. The original 139 SQL migration bodies remain byte-for-byte unchanged. The latest replay passed all 139 migrations and the canonical-config guard, but the final structural comparison found exactly two pre-history relation-shape gaps: `public.app_config` had the old no-default value column and key-length check, and `public.client_status` had the old empty-string default, a `licences` FK, and no hardware-mode check. The staging catalog shows the final shapes already existed when the ledger began: the recorded migration uses `CREATE TABLE IF NOT EXISTS`, so it cannot recreate those pre-existing definitions on an empty database. The bootstrap is now being extended with schema-only definitions for both relations. The next replay must prove the unchanged 139 bodies plus all three pre-history relations match the staging fingerprint; do not patch historical bodies or weaken the comparator.
+The workflow uses `scripts/prepare_supabase_historical_replay_fixtures.py` to load and validate the workbook using the same parser as the production dry-run. In the isolated runner only, it generates a temporary migration `20261007180000_replay_only_canonical_config_fixture.sql` between recorded migrations `20261007073026` and `20261007184231`; it seeds the 352 canonical `app_config` key/value rows at version 1 and inserts the recorded Auth guard identity with an empty password, unconfirmed email, and no session/token. The generated SQL/value rows stay in the runner's temporary directory and are not committed or emitted to logs. The latest verified run [38536536840](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840) passed both the reconstructed-target job and the staging historical-replay job. The historical job applies all 139 archived staging migration bodies unchanged, with a runner-only canonical 352-key workbook fixture and a separately labelled schema-only pre-history bootstrap for `public.licences`, `public.app_config`, and `public.client_status`. The final read-only comparison passes for all 67 staging relations, their RLS flags and DDL fingerprints, all 169 routine definitions/security modes, 42 source policies, and 49 triggers. Earlier pre-history shape mismatches are resolved by the disposable bootstrap; no historical migration body was patched, and no hosted database was written. This proves staging schema replay against the captured catalog, not clone equivalence, data restore, extension-version parity, cron-job parity, or production readiness.
 
 ## 6. Replay workflow and remaining gates
 
@@ -78,8 +78,25 @@ The workflow runs reconstructed-target replay first, then the pre-history scaffo
 - [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema and represented by a separately labelled bootstrap.
 - [x] Second replay failure diagnosed as a required 352-key canonical workbook inventory and represented by a generated runner-only fixture.
 - [x] Bootstrap + workbook fixture + all 139 original staging migration bodies apply cleanly in a fresh disposable database.
-- [ ] Expanded pre-history bootstrap for `public.licences`, `public.app_config`, and `public.client_status` passes exact structural fingerprint comparison after historic replay.
-- [ ] Clone-only relation/routine/ACL drift has a separate reviewed reconstruction and verification plan.
+- [x] Expanded schema-only pre-history bootstrap plus all 139 unchanged staging bodies passes exact structural fingerprint comparison in disposable replay (run 38536536840).
+- [x] Read-only staging-clone drift inventory recorded in `supabase/reconciliation/staging-clone-drift-2026-10-14.json`; [ ] reviewed clone-specific reconstruction, clean replay, and privilege reconciliation remain open.
 - [ ] Tenant A/B hostile runtime tests, outbox/idempotency end-to-end tests, restore drills, disposable load/resilience tests, independent review, and explicit release approval.
+
+
+## 7. Staging-clone drift inventory
+
+The staging and staging-clone catalogs were compared read-only on 2026-10-14. Exact counts, object identifiers, fingerprints, and gate notes are kept in `supabase/reconciliation/staging-clone-drift-2026-10-14.json`.
+
+| Catalog surface | Staging | Staging-clone | Difference requiring review |
+|---|---:|---:|---|
+| Relations | 67 | 71 | Four clone-only relations; three constraint fingerprints and one index fingerprint differ; one RLS flag differs |
+| Functions | 169 | 134 | 39 staging-only signatures, four clone-only helpers, one shared body fingerprint differs |
+| RLS policies | 42 | 42 | Same count does not mean same set: two staging-only and two clone-only policies, plus one changed fingerprint |
+| Non-internal triggers | 49 | 41 | Eight staging triggers are absent from clone |
+| Extensions | 6 | 5 | `pg_cron 1.6.4` exists on staging but not clone |
+
+The privilege difference is more material than object counts: read-only catalog checks show 116 shared routine signatures differ in effective `anon` EXECUTE and 79 differ for `authenticated`. The clone has effective `anon` SELECT on 55 application relations and effective INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on 54 each; staging has none of those effective application-table privileges in the inspected schemas. Of the clone's 104 security-definer routines with effective `anon` EXECUTE across the inspected schemas, 32 reside in schemas where `anon` has schema USAGE. These are privilege/catalog findings, not proof that each routine is reachable through a specific API or proof of an exploit; RLS and exposed API schemas need separate review.
+
+**Disposition:** staging's 139-body replay is green, but clone recovery is not certified. Do not blindly transplant staging SQL or run a blanket permission rewrite on the hosted clone. First classify every clone-only/missing object and intended feature divergence, construct a clone-specific baseline or reviewed migration delta in disposable local Supabase, then pass independent clean replay, ACL comparison, and hostile Tenant A/B runtime tests.
 
 Even after replay passes, this does **not** prove row-data restore, clone equivalence, production tenant isolation, backup recovery, extension-version parity, cron-job parity, or production readiness. Keep the Draft PR unmerged and do not write to an existing hosted Supabase project until each production gate is independently satisfied.
