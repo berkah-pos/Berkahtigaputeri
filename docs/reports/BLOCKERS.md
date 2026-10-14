@@ -18,9 +18,9 @@
 - **Needed:** authorized repository execution environment/runner with dependencies available, or an agent with workspace and command execution.
 
 ## BLOCKER B0-4 — Supabase staging drift and RPC ACL review
-- **Observed:** staging clone reports 12 migrations / 64 public tables; staging reports 139 migrations / 63 public tables. Both report 352 `app_config` rows and canonical column/primary-key metadata. Security Advisors report one or more `SECURITY DEFINER` execution warnings and disabled leaked-password protection.
+- **Observed:** staging clone reports 12 migrations / 64 public tables; staging reports 139 migrations / 63 public tables. Both report 352 `app_config` rows with the exact expected category counts (1/3/100/140/108), matching keyset MD5 `1fd3d64219ecc7c333453c20da80e295`, matching key/value payload MD5 `fc4c054a80a0f59871f1edc0bb03e268`, positive versions 95–108 (14 distinct). Security Advisors report `SECURITY DEFINER` execution warnings and leaked-password protection disabled. Draft PR #39 has green disposable replay CI for the 139-body staging ledger and 12-body clone ledger, but it explicitly keeps overall reconciliation blocked.
 - **Impact:** cannot select a safe sync target from names alone or mark RLS/RPC fail-closed/atomic versioning GREEN. A catalog query was blocked by the tool safety guard.
-- **Needed:** verify against repository migrations and the approved staging target; review each flagged function's required caller roles, body-level tenant/device checks, explicit grants, and search_path before changing privileges.
+- **Needed:** identify the approved target from environment/repository evidence; review the intended structural differences and each flagged function's caller roles, body-level tenant/device checks, explicit grants, and search_path. Do not perform remote sync, migration repair/reset/push, or blanket permission changes.
 
 ## Safety note
 No SQL migration, data sync, production action, fork write, or push to `main` has been performed. Do not resolve these blockers by guessing at environment identity, disabling required RPCs globally, or weakening tenant authorization.
@@ -29,3 +29,8 @@ No SQL migration, data sync, production action, fork write, or push to `main` ha
 ## Additional evidence — repository tree screening
 
 The base and fork each expose 164 tracked blobs with identical path sets under the recursive Git tree endpoint. Git blob IDs identify one changed path, `.github/workflows/berkah-pos-trial-ci.yml`; no only-in-main or only-in-fork paths were detected. This is a screening result using Git object IDs, not the requested SHA-256 content-hash report, and must not be labelled as that final report. The base workflow includes more hosted Android SDK/NDK setup than the shorter fork version, so the canonical base version is retained pending verified CI results.
+
+
+## Workflow evidence — useful, but not phase-completion evidence for consolidation
+
+Draft PR #39 has green CI jobs at `185bfef085abeba479bc94f2df4b6fe7811363cf`: [workbook validation](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280597), [backend foundation](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280427), [POS app](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280123), and [clean replay](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280094). Its reports preserve the open clone-drift, least-privilege, hostile tenant-A/B, recovery, and production approval blockers. Do not treat this separate draft PR as merged or the consolidated branch as green.
