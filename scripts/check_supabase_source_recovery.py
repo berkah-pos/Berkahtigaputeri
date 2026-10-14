@@ -146,7 +146,7 @@ def main() -> int:
         "source_policies": count(r"^CREATE POLICY\b", security_sql),
         "target_extra_policies": count(r"^CREATE POLICY\b", overlay_sql),
         "triggers": count(r"^CREATE (?:CONSTRAINT\s+)?TRIGGER\b", security_sql),
-        "pgtap_assertions": count(r"^SELECT extensions\.ok\(", test_sql),
+        "pgtap_assertions": count(r"^SELECT extensions\.(?:ok|is)\(", test_sql),
     }
     for key, expected in {
         "tables": 67,
@@ -198,7 +198,7 @@ def main() -> int:
     print("PASS: 151 exact SQL bodies are archived from remote migration ledgers; Git still has 0 exact historical-source matches.")
     print("PASS: all reconstructed source remains outside supabase/migrations/; no historical source is silently promoted.")
     print("PASS: schema-only target baseline has 67 tables, 615 constraints, 49 extra indexes, 169 functions, 42 source policies, 49 triggers.")
-    print("PASS: target overlay adds two tenant-accounting RLS policies and 16 replay assertions.")
+    print("PASS: target overlay adds two tenant-accounting RLS policies; replay asserts structure/security and Tenant A/B runtime isolation.")
     print("NOTICE: recovered historical SQL requires its separate 139-entry disposable ordered-replay gate.")
     print("COUNTS: " + json.dumps(counts, sort_keys=True))
     return 0
