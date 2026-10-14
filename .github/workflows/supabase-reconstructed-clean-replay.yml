@@ -9,6 +9,9 @@ on:
       - "scripts/check_supabase_remote_migration_archive.py"
       - "scripts/prepare_supabase_historical_replay.py"
       - "scripts/compare_historical_migration_fingerprint.py"
+      - "scripts/prepare_supabase_historical_replay_fixtures.py"
+      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md"
       - "docs/permanent/DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md"
       - "supabase/reconciliation/source-recovery-manifest-2026-10-14.json"
@@ -43,6 +46,16 @@ jobs:
 
       - name: Validate recovered hosted migration SQL bodies
         run: python3 scripts/check_supabase_remote_migration_archive.py
+
+      - name: Validate canonical workbook preconditions for disposable replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV="$RUNNER_TEMP/replay-fixture-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$VENV/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json
 
       - name: Install verified Supabase CLI release binary
         shell: bash
@@ -135,7 +148,7 @@ jobs:
           fi
 
   historical-replay:
-    name: Replay 139 recorded staging migrations with a documented pre-history bootstrap
+    name: Replay 139 recorded staging migrations with isolated prehistory and workbook fixtures
     needs: clean-replay
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -163,7 +176,7 @@ jobs:
           echo "$RUNNER_TEMP/supabase-bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/supabase-bin/supabase" --version
 
-      - name: Assemble recorded staging sequence and pre-history schema prerequisite
+      - name: Assemble recorded staging sequence plus isolated prehistory/workbook fixtures
         shell: bash
         run: |
           set -euo pipefail
@@ -175,8 +188,12 @@ jobs:
             "$REPLAY_DIR/supabase/migrations" --environment staging
           cp supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql \
             "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
+          "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            --output "$REPLAY_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
           test -f "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
-          printf 'files=%s (139 recorded migration bodies + 1 pre-history bootstrap)\n' \
+          test -f "$REPLAY_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
+          printf 'files=%s (139 recorded migration bodies + 1 pre-history schema bootstrap + 1 generated canonical-config fixture)\n' \
             "$(find "$REPLAY_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
 
       - name: Start isolated disposable Supabase stack
@@ -186,7 +203,7 @@ jobs:
           cd "$RUNNER_TEMP/berkah-pos-historical-staging-replay"
           supabase start --exclude studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
 
-      - name: Apply the pre-history bootstrap plus exact 139 recorded migration bodies to the disposable database
+      - name: Apply 139 unmodified historical bodies with isolated schema and canonical-workbook preconditions
         shell: bash
         run: |
           set -euo pipefail

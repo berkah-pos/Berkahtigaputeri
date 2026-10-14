@@ -1,6 +1,6 @@
 # DOC_17 — Supabase Source Recovery and Disposable Clean Replay
 
-**Status:** REMOTE SQL BODIES RECOVERED; TARGET RECONSTRUCTION PASSED; PRE-HISTORY BOOTSTRAP REPLAY PENDING  
+**Status:** REMOTE SQL BODIES RECOVERED; TARGET RECONSTRUCTION PASSED; CANONICAL-WORKBOOK FIXTURE REPLAY PENDING  
 **Captured:** 2026-10-14  
 **Scope:** GitHub SQL provenance, read-only recovery from hosted migration ledgers, reconstructed staging schema, and isolated replay acceptance.  
 **Authority:** Follow `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, and `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md`.
@@ -58,13 +58,13 @@ This reconstructed target replay passed on PR #39 head `fd442e2307004af691056072
 
 The target overlay deliberately enables RLS on `private.tenant_accounting_links`, adds a deny-all `anon` policy and an active-accounting-membership SELECT policy, revokes `anon`/`PUBLIC` EXECUTE on two trigger-helper functions, and hardens default privileges. These are forward-target changes, not historical statements.
 
-## 5. Historical replay and the pre-history schema gap
+## 5. Historical replay and external preconditions
 
-The first unmodified replay attempt used a fresh local database and the 139 exact staging migration bodies. It reached `20261004013605_p1_complete_pilot_device_relations`, then failed because `public.licences.toko_address` did not exist. This is a real pre-history gap—not an archive checksum error and not a runner startup issue.
+The first replay of the 139 recorded staging SQL bodies in a fresh local database reached `20261004013605_p1_complete_pilot_device_relations`, then failed because `public.licences.toko_address` did not exist. The preceding recorded migration `20261003142407_admin_licence_config` uses `CREATE TABLE IF NOT EXISTS public.licences` with an older `address` column, while the next migration inserts/selects `toko_address`. The applied ledger therefore begins after some legacy schema existed out-of-band or in a pre-ledger setup step.
 
-The preceding recorded migration `20261003142407_admin_licence_config` uses `CREATE TABLE IF NOT EXISTS public.licences` with a legacy column named `address`, while the next migration inserts/selects `toko_address`. In live staging the relation already exists with `toko_address`; the applied ledger therefore begins after some legacy schema already existed out-of-band or in a pre-ledger setup step.
+A separate schema-only bootstrap `supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql` was added before the **139 unchanged staging migration bodies** in the disposable runner. That allowed replay to pass the licences pre-history dependency and continue through `20261007073026`. The second replay then failed at `20261007184231_p1_cfg_01_config_5layer_strict_role`: only five `app_config` rows existed, but the recorded invariant requires exactly 352 workbook-canonical keys and MD5 `1fd3d64219ecc7c333453c20da80e295`. These rows are initialized by the canonical workbook sync outside the recorded migration ledger. This is a separate data prerequisite, not an SQL body mismatch.
 
-To keep original history untouched, the workflow now adds a separately labelled schema-only pre-history bootstrap `supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql` before the **139 unmodified recorded staging migrations**. It recreates only the pre-existing `public.licences` schema using the read-only live catalog and known migration deltas; it inserts no rows and does not pre-create the `tenant_id` field, which is added by recorded history. Replay with this scaffold is **pending**. If the next error reveals more absent pre-history prerequisites, document them separately rather than patching original migration bodies.
+The workflow uses `scripts/prepare_supabase_historical_replay_fixtures.py` to load and validate the workbook using the same parser as the production dry-run. In the isolated runner only, it generates a temporary migration `20261007180000_replay_only_canonical_config_fixture.sql` between recorded migrations `20261007073026` and `20261007184231`; it seeds the 352 canonical `app_config` key/value rows at version 1 and inserts the recorded Auth guard identity with an empty password, unconfirmed email, and no session/token. The generated SQL/value rows stay in the runner's temporary directory and are not committed or emitted to logs. The original 139 SQL migration bodies remain byte-for-byte unchanged. This next replay is pending; any additional missing pre-history prerequisite must be documented rather than silently patching historical bodies.
 
 ## 6. Replay workflow and remaining gates
 
@@ -75,8 +75,9 @@ The workflow runs reconstructed-target replay first, then the pre-history scaffo
 - [x] Exhaustive reachable-Git source search and candidate provenance recorded.
 - [x] All 139 staging and 12 clone SQL bodies recovered and SHA-256-verified.
 - [x] Reconstructed target schema replay, 16 pgTAP assertions, and structural comparison passed.
-- [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema.
-- [ ] Pre-history scaffold plus all 139 original staging migration bodies replay cleanly.
+- [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema and represented by a separately labelled bootstrap.
+- [x] Second replay failure diagnosed as a required 352-key canonical workbook inventory and represented by a generated runner-only fixture.
+- [ ] Bootstrap + workbook fixture + all 139 original staging migration bodies replay cleanly.
 - [ ] Exact structural fingerprint comparison passes after historic replay.
 - [ ] Clone-only relation/routine/ACL drift has a separate reviewed reconstruction and verification plan.
 - [ ] Tenant A/B hostile runtime tests, outbox/idempotency end-to-end tests, restore drills, disposable load/resilience tests, independent review, and explicit release approval.

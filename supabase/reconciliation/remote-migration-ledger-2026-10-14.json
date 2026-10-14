@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "captured_at_utc": "2026-10-14T03:37:00Z",
-  "status": "BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING",
+  "status": "BLOCKED_CANONICAL_CONFIG_FIXTURE_REPLAY_PENDING",
   "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
   "scope_note": "Read-only registry and catalog evidence plus exact recorded migration SQL bodies recovered from the remote Supabase migration ledgers. No customer business-row snapshots, passwords, API keys or database URLs are stored. Existing hosted projects were not changed.",
   "production_project_identified": false,
@@ -918,7 +918,7 @@
   ],
   "source_recovery_review": {
     "verified_on_utc_date": "2026-10-14",
-    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; PREHISTORY_REPLAY_PENDING",
+    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; CANONICAL_WORKBOOK_FIXTURE REPLAY PENDING",
     "exact_remote_version_matches": 0,
     "repository_history_checked": true,
     "candidate_files": [
@@ -954,7 +954,7 @@
         ]
       }
     ],
-    "coverage_note": "Git history verifies provenance for two candidate SQL files only and yields zero exact Git/version matches. All 151 exact SQL bodies as stored in the remote migration ledgers are archived. A fresh empty-database replay failed at migration 20261004013605 because public.licences.toko_address was absent: the prior recorded CREATE TABLE IF NOT EXISTS would create a different address column. A separately documented, data-free pre-history schema bootstrap is being tested before replaying the 139 unchanged staging bodies. No remote migration command is authorized.",
+    "coverage_note": "All 151 exact SQL bodies as stored in the remote migration ledgers are archived. A fresh empty-database replay with the data-free legacy licences bootstrap then failed at recorded migration 20261007184231 because only five app_config rows existed; the recorded SQL requires the canonical 352-key workbook inventory. The local-only replay will seed from the canonical workbook in an ephemeral fixture migration at version 20261007180000; no workbook values are committed and hosted databases are never written.",
     "remote_body_archive_verified": true,
     "remote_body_archive": {
       "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
@@ -975,6 +975,29 @@
       "cause": "The recorded migration uses CREATE TABLE IF NOT EXISTS with column address; staging already had a pre-history licences relation with toko_address.",
       "bootstrap_path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
       "bootstrap_rows_seeded": 0
+    },
+    "canonical_config_fixture": {
+      "generator": "scripts/prepare_supabase_historical_replay_fixtures.py",
+      "source_workbook": "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx",
+      "expected_key_count": 352,
+      "expected_sorted_key_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "output_version": "20261007180000",
+      "trigger_migration": "20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "fixture_rows_are_committed": false,
+      "output_location": "GitHub runner temporary replay project only",
+      "auth_guard": "identity is extracted from recorded SQL; empty password, unconfirmed email, no token/session"
+    },
+    "canonical_fixture_attempt": {
+      "workflow_run_id": 38526191711,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38526191711",
+      "job_id": 115727493668,
+      "status": "FAIL_CANONICAL_WORKBOOK_PRECONDITION",
+      "failing_migration": "20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "observed_app_config_count": 5,
+      "observed_app_config_md5": "65a1553f72adad3e820bb3d61cdfcf86",
+      "required_app_config_count": 352,
+      "required_app_config_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "diagnosis": "Recorded SQL assumes the canonical workbook's 352-row app_config sync ran before the migration ledger reached the 5-layer guard; this data initialization is outside the recorded migration bodies."
     }
   },
   "latest_read_only_verification": {

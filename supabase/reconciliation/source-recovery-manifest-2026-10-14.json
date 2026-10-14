@@ -1822,9 +1822,9 @@
     }
   },
   "clean_replay": {
-    "historical_ordered_replay": "PENDING_PREHISTORY_BOOTSTRAP_REPLAY",
-    "reason": "All 151 exact SQL bodies are recovered and hash-verified. The first pure-empty-database attempt reached migration 20261004013605_p1_complete_pilot_device_relations, then failed because public.licences.toko_address was absent. Earlier migration 20261003142407_admin_licence_config uses CREATE TABLE IF NOT EXISTS and defines address rather than toko_address, demonstrating that the ledger starts after an out-of-band/pre-history licences table already existed. A documented schema-only pre-history bootstrap is now being added before replaying the 139 unchanged staging bodies.",
-    "safe_next_step": "Use the smallest read-only-catalog-grounded legacy public.licences schema prerequisite, with no data rows, before applying all 139 exact archived staging bodies in a disposable local Supabase instance; compare structural fingerprints and keep the pre-history prerequisite explicitly separate from recorded history.",
+    "historical_ordered_replay": "PENDING_CANONICAL_CONFIG_FIXTURE_REPLAY",
+    "reason": "All 151 archived historical SQL bodies are recovered and hash-verified. A schema-only pre-history public.licences bootstrap allowed replay to pass migrations through 20261007073026. The next migration, 20261007184231_p1_cfg_01_config_5layer_strict_role, failed on a pure empty DB because only five app_config rows existed while the recorded invariant requires exactly 352 canonical keys with MD5 1fd3d64219ecc7c333453c20da80e295. Those keys are loaded by the canonical workbook sync outside the recorded SQL ledger. A runner-only fixture generator now validates and seeds those 352 canonical app_config rows from the workbook, without committing the generated values; it also inserts the specific archived migration-guard Auth row locally with an empty password and no confirmed email/session.",
+    "safe_next_step": "Generate the non-persistent replay-only fixture from config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx after migration 20261007073026 and before 20261007184231, verify the canonical 352-key digest against both recorded SQL guards, replay the unchanged 139 SQL bodies, and compare the resulting structural fingerprint. Keep all fixture rows on the disposable local runner only.",
     "reconstructed_target_baseline": {
       "status": "PASS",
       "validated_at": "2026-10-14",
@@ -1867,6 +1867,30 @@
       "failing_migration": "20261004013605_p1_complete_pilot_device_relations",
       "error": "column public.licences.toko_address does not exist",
       "diagnosis": "The recorded migration sequence assumes public.licences existed before migration 20261003142407; that CREATE TABLE IF NOT EXISTS statement otherwise creates an address column instead of toko_address. No archived migration adds toko_address."
+    },
+    "canonical_config_fixture": {
+      "generator": "scripts/prepare_supabase_historical_replay_fixtures.py",
+      "source_workbook": "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx",
+      "output_version": "20261007180000",
+      "output_filename": "20261007180000_replay_only_canonical_config_fixture.sql",
+      "placement": "after recorded migration 20261007073026_p0_1_cloud_source_type_parity and before 20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "app_config_rows": 352,
+      "expected_sorted_key_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "seeding_policy": "use workbook values with version=1 in a runner-only migration; never commit generated SQL/value rows",
+      "auth_fixture": "extract canonical UID/email from recorded migration 20261008131537; empty password, unconfirmed email, no token/session",
+      "status": "PENDING"
+    },
+    "second_historical_replay_attempt": {
+      "workflow_run_id": 38526191711,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38526191711",
+      "job_id": 115727493668,
+      "status": "FAIL_CANONICAL_WORKBOOK_PRECONDITION",
+      "failing_migration": "20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "observed_app_config_count": 5,
+      "observed_app_config_md5": "65a1553f72adad3e820bb3d61cdfcf86",
+      "required_app_config_count": 352,
+      "required_app_config_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "diagnosis": "Recorded SQL assumes the canonical workbook's 352-row app_config sync ran before the migration ledger reached the 5-layer guard; this data initialization is outside the recorded migration bodies."
     }
   },
   "recovered_remote_sql_archive": {

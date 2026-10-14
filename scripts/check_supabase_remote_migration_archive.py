@@ -60,6 +60,10 @@ def main() -> int:
         if any(re.match(r"^tenant_id\s+", line) for line in bootstrap_lines):
             errors.append("pre-history bootstrap must not pre-create tenant_id; an archived migration adds it")
 
+    fixture_helper = ROOT / "scripts/prepare_supabase_historical_replay_fixtures.py"
+    if not fixture_helper.is_file():
+        errors.append("canonical workbook replay-fixture generator is missing")
+
     entries = archive.get("entries", [])
     if len(entries) != sum(EXPECTED_COUNTS.values()):
         errors.append(f"archive entry count {len(entries)} != 151")

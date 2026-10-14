@@ -104,7 +104,7 @@ The source files represent only a small part of the live schema surface. Missing
 - Read-only operations re-run on 2026-10-14: migration registries, the committed `catalog_fingerprint.sql` against both project IDs, and Supabase Security/Performance Advisors. Counts and object diffs were recalculated; no writes were performed.
 - No database writes: no DDL, migration apply, migration repair, reset, row modifications, grants/revokes, or high-volume stress workload.
 - Repository changes on this Draft PR: this evidence ledger, full machine-readable migration registries and fingerprints, read-only SQL, and a validator.
-- Status remains **BLOCKED**: remote migration body recovery and reconstructed-target replay are complete, but the full 139-entry historical staging replay, clone drift reconciliation, runtime tenant-isolation tests, restore/load testing, and production readiness remain unverified.
+- Status remains **BLOCKED**: all SQL bodies are recovered and reconstructed-target replay passed. Historical replay identified two external prerequisites: a pre-history `public.licences` schema and the canonical 352-key `app_config` workbook sync. These are isolated as explicit runner-only fixtures; full 139-entry replay and fingerprint comparison remain pending. Clone drift, runtime tenant-isolation, restore/load, and production-readiness gates remain open.
 
 ## References
 
