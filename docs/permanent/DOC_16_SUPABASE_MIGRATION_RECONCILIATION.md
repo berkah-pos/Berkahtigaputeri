@@ -1,6 +1,6 @@
 # DOC_16 — Supabase Migration and Schema Reconciliation Ledger
 
-**Status: BLOCKED — historical migration source coverage is incomplete and the environments are not structurally equivalent.**
+**Status: BLOCKED — historic SQL bodies have been recovered and a disposable ordered replay is pending; the environments remain structurally different.**
 **Captured:** 2026-10-14; exact snapshot time is recorded in the JSON ledger.
 **Repository:** `berkah-pos/Berkahtigaputeri`
 **Working branch:** `feat/supabase-idcloudhost-backend-foundation`
@@ -29,9 +29,9 @@ The connected project inventory currently exposes staging and staging-clone. No 
 | `20261008131700_p0_rls_identity_config_runtime_prep.sql` | `20261008131537 / p0_rls_identity_config_runtime_prep_20261008` | No P0 record found | Same concept does not prove identical SQL; clone registry lacks this entry |
 | `20261013120000_phase5_tenant_isolation_hardening.sql` | `20261013085934 / phase5_tenant_isolation_hardening` | `20261013085912 / phase5_tenant_isolation_hardening` | Same stem, different version prefixes; replay equivalence not proven |
 
-Follow-up Git provenance review on 2026-10-14 confirmed that the P0 candidate blob `07768fe035fec700b9b836b65f8a15657a9e4fe5` exists in [commit `d8cd93f`](https://github.com/berkah-pos/Berkahtigaputeri/commit/d8cd93f3a307fdde730d265c739d664ffd7c8574), and the Phase 5 candidate blob `e4b487e66e041025e1d56796428e98826855b506` exists in [commit `dfcc4f6`](https://github.com/berkah-pos/Berkahtigaputeri/commit/dfcc4f60fda442bb8fc24bafe4f6696f575e8dae). This recovers provenance for the two tracked candidate files only. The remote migration registry has version/name metadata, not SQL-body checksums; neither candidate is an exact version-prefix match, so both remain `SOURCE_RECOVERED_NOT_MATCHED`. The complete 139/12 history remains unrecovered.
+Follow-up Git provenance review on 2026-10-14 confirmed that the P0 candidate blob `07768fe035fec700b9b836b65f8a15657a9e4fe5` exists in [commit `d8cd93f`](https://github.com/berkah-pos/Berkahtigaputeri/commit/d8cd93f3a307fdde730d265c739d664ffd7c8574), and the Phase 5 candidate blob `e4b487e66e041025e1d56796428e98826855b506` exists in [commit `dfcc4f6`](https://github.com/berkah-pos/Berkahtigaputeri/commit/dfcc4f60fda442bb8fc24bafe4f6696f575e8dae). These remain non-exact Git candidates. A separate read-only inspection of the underlying `supabase_migrations.schema_migrations.statements[1]` recovered all 151 recorded SQL bodies: staging 139 bodies (926,910 bytes) and staging-clone 12 (61,346 bytes), archived with per-body SHA-256 in `supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json`. Git exact-source matches remain zero; remote ledger body recovery is complete and disposable ordered replay is pending.
 
-The staging registry has 139 rows but only two SQL migration files are tracked in Git. The registry stores version/name metadata, **not historical SQL bodies or content checksums**, so it cannot recover the missing SQL by itself. The full ordered migration lists are included in the JSON ledger without exporting business row contents or routine source bodies.
+The Git checkout contains only two non-exact SQL candidates. Although the listing API exposed only version/name metadata, read-only access to the underlying migration table recovered the `statements` SQL bodies directly. All 139 staging and 12 clone bodies are now archived with byte counts and SHA-256 in the recovered SQL bundle. The bundle includes migration code only, not business table snapshots, tenant/device rows, or `app_config` row data.
 
 ## 3. Read-only schema fingerprint comparison
 
@@ -104,7 +104,7 @@ The source files represent only a small part of the live schema surface. Missing
 - Read-only operations re-run on 2026-10-14: migration registries, the committed `catalog_fingerprint.sql` against both project IDs, and Supabase Security/Performance Advisors. Counts and object diffs were recalculated; no writes were performed.
 - No database writes: no DDL, migration apply, migration repair, reset, row modifications, grants/revokes, or high-volume stress workload.
 - Repository changes on this Draft PR: this evidence ledger, full machine-readable migration registries and fingerprints, read-only SQL, and a validator.
-- Status remains **BLOCKED**: migration inventory and drift diagnosis are now recorded, but historical SQL recovery, clean replay, restore testing, and production readiness remain unverified.
+- Status remains **BLOCKED**: remote migration body recovery and reconstructed-target replay are complete, but the full 139-entry historical staging replay, clone drift reconciliation, runtime tenant-isolation tests, restore/load testing, and production readiness remain unverified.
 
 ## References
 

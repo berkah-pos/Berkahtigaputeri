@@ -17,7 +17,7 @@ def main() -> int:
     errors=[]
     if data.get('schema_version') != 1: errors.append('unsupported manifest schema_version')
     status=data.get('status')
-    if status not in {'BLOCKED_SOURCE_SQL_NOT_RECOVERED','RECONCILED'}: errors.append('invalid reconciliation status')
+    if status not in {'BLOCKED_SOURCE_SQL_NOT_RECOVERED','BLOCKED_HISTORICAL_REPLAY_PENDING','BLOCKED_CLONE_DRIFT_AND_RUNTIME_GATES','RECONCILED'}: errors.append('invalid reconciliation status')
     expected=data.get('repository',{}).get('tracked_migration_files',[])
     expected_names=sorted(x.get('file','') for x in expected)
     paths=sorted(MIGRATIONS.glob('*.sql'))
@@ -39,7 +39,7 @@ def main() -> int:
     if status == 'RECONCILED':
         missing=[k for k in REQUIRED if data.get('required_gates',{}).get(k) is not True]
         if missing: errors.append('cannot mark reconciled; missing gates: '+', '.join(missing))
-        if data.get('repository',{}).get('exact_remote_version_matches') == 0: errors.append('no exact remote migration version matches; a reviewed baseline plan is required')
+        if not data.get('source_recovery_review',{}).get('remote_body_archive_verified', False): errors.append('remote SQL body archive verification is not recorded')
     if errors:
         [print('::error::'+e,file=sys.stderr) for e in errors]; return 1
     staging=next((x for x in data['environments'] if x['label']=='staging'),{})
@@ -47,6 +47,8 @@ def main() -> int:
     print('PASS: migration snapshots are ordered and unique; tracked file names and Git blob SHAs match the manifest.')
     print(f'PASS: remote history counts captured: staging={staging.get("migration_count")}, staging-clone={clone.get("migration_count")}.')
     print('RECONCILIATION STATUS: '+status)
-    if status == 'BLOCKED_SOURCE_SQL_NOT_RECOVERED': print('NOTICE: historical SQL is missing; remote push/reset/migration repair remain prohibited.')
+    if status == 'BLOCKED_SOURCE_SQL_NOT_RECOVERED': print('NOTICE: historical SQL-body archive is missing; remote push/reset/migration repair remain prohibited.')
+    elif status == 'BLOCKED_HISTORICAL_REPLAY_PENDING': print('NOTICE: SQL bodies are recovered; historical replay is pending; remote push/reset/migration repair remain prohibited.')
+    elif status == 'BLOCKED_CLONE_DRIFT_AND_RUNTIME_GATES': print('NOTICE: historical staging replay passed, but clone/runtime/restore/release gates remain blocked.')
     return 0
 if __name__ == '__main__': raise SystemExit(main())

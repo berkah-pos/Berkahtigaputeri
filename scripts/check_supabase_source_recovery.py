@@ -71,12 +71,16 @@ def main() -> int:
         if record.get("registry_count") != wanted_total or len(entries) != wanted_total:
             fail(f"{environment} migration registry count no longer matches captured evidence")
         counts = manifest.get("counts", {}).get(environment, {})
-        if counts.get("exact_version_and_sql_matches") != 0:
-            fail(f"{environment} incorrectly claims an exact historical SQL/version match")
+        if counts.get("exact_git_version_and_sql_matches") != 0:
+            fail(f"{environment} incorrectly claims an exact historical Git SQL/version match")
+        if counts.get("recovered_remote_sql_bodies") != wanted_total:
+            fail(f"{environment} recovered body count is inconsistent")
         if counts.get("candidate_not_exact") != wanted_candidates:
             fail(f"{environment} candidate classification count is inconsistent")
-        if counts.get("missing_source") != wanted_missing:
-            fail(f"{environment} missing-source count is inconsistent")
+        if counts.get("missing_git_source") != wanted_missing:
+            fail(f"{environment} missing-Git-source count is inconsistent")
+        if any(entry.get("remote_body_status") != "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER" for entry in entries):
+            fail(f"{environment} contains an entry without recovered remote SQL body evidence")
         if any(entry.get("source_status") == "EXACT_MATCH" for entry in entries):
             fail(f"{environment} contains an unsupported exact-source claim")
 
@@ -174,16 +178,24 @@ def main() -> int:
         # The replay deliberately contains schema only; workbook seed data is a separate gate.
         pass
 
+    if not (ROOT / "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json").is_file():
+        fail("hosted remote migration SQL archive is missing")
+    archive_info = manifest.get("recovered_remote_sql_archive", {})
+    if archive_info.get("total_records") != 151 or archive_info.get("total_sql_bytes") != 988256:
+        fail("manifest does not attest to all 151 recovered hosted migration SQL bodies")
+    if manifest.get("clean_replay", {}).get("historical_ordered_replay") not in {"PENDING_DISPOSABLE_REPLAY", "PASS"}:
+        fail("invalid historical replay status")
+
     if ERRORS:
         for error in ERRORS:
             print(f"FAIL: {error}", file=sys.stderr)
         return 1
     print("PASS: recovered candidate blobs match their recorded source commit blobs.")
-    print("PASS: staging 139 / clone 12 migration-history registries remain marked unrecovered (0 exact SQL/version matches).")
+    print("PASS: 151 exact SQL bodies are archived from remote migration ledgers; Git still has 0 exact historical-source matches.")
     print("PASS: all reconstructed source remains outside supabase/migrations/; no historical source is silently promoted.")
     print("PASS: schema-only target baseline has 67 tables, 615 constraints, 49 extra indexes, 169 functions, 42 source policies, 49 triggers.")
     print("PASS: target overlay adds two tenant-accounting RLS policies and 16 replay assertions.")
-    print("NOTICE: this static check does not prove SQL replay; the separate disposable Supabase workflow does that.")
+    print("NOTICE: recovered historical SQL requires its separate 139-entry disposable ordered-replay gate.")
     print("COUNTS: " + json.dumps(counts, sort_keys=True))
     return 0
 

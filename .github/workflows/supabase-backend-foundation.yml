@@ -9,6 +9,7 @@ on:
       - "supabase/reconciliation/**"
       - "scripts/check_supabase_migration_reconciliation.py"
       - "scripts/check_supabase_source_recovery.py"
+      - "scripts/check_supabase_remote_migration_archive.py"
       - "scripts/compare_reconstructed_catalog_fingerprint.py"
       - "docs/permanent/DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md"
       - "AGENTS.md"
@@ -59,6 +60,9 @@ jobs:
 
       - name: Validate recovered migration source and reconstructed baseline
         run: python3 scripts/check_supabase_source_recovery.py
+
+      - name: Validate archived hosted migration SQL bodies
+        run: python3 scripts/check_supabase_remote_migration_archive.py
 
       - name: Check patch whitespace
         run: git diff --check

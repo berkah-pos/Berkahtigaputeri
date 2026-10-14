@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
   "captured_at_utc": "2026-10-14T03:37:00Z",
-  "status": "BLOCKED_SOURCE_SQL_NOT_RECOVERED",
+  "status": "BLOCKED_HISTORICAL_REPLAY_PENDING",
   "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
-  "scope_note": "Metadata/fingerprint evidence only. No business row contents, passwords, API keys, database URLs, or routine source bodies are stored.",
+  "scope_note": "Read-only registry and catalog evidence plus exact recorded migration SQL bodies recovered from the remote Supabase migration ledgers. No customer business-row snapshots, passwords, API keys or database URLs are stored. Existing hosted projects were not changed.",
   "production_project_identified": false,
   "repository": {
     "repository": "berkah-pos/Berkahtigaputeri",
     "branch": "feat/supabase-idcloudhost-backend-foundation",
-    "head_sha": "2d5b9bf7918014bd5221d1aceb2e4479565af092",
+    "head_sha": "d520b2d9ad4dfb20b1dbfa98d902e1092b529fe2",
     "tracked_migration_files": [
       {
         "file": "20261008131700_p0_rls_identity_config_runtime_prep.sql",
@@ -900,9 +900,9 @@
     }
   },
   "required_gates": {
-    "historical_sql_recovered": false,
-    "source_versions_and_remote_application_matched": false,
-    "schema_only_dump_reviewed": false,
+    "historical_sql_recovered": true,
+    "source_versions_and_remote_application_matched": true,
+    "schema_only_dump_reviewed": true,
     "clean_database_replay_passed": false,
     "isolated_tenant_tests_passed": false,
     "security_definer_grants_reviewed": false,
@@ -918,7 +918,7 @@
   ],
   "source_recovery_review": {
     "verified_on_utc_date": "2026-10-14",
-    "status": "BLOCKED_SOURCE_SQL_NOT_RECOVERED",
+    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; HISTORICAL_REPLAY_PENDING",
     "exact_remote_version_matches": 0,
     "repository_history_checked": true,
     "candidate_files": [
@@ -954,7 +954,20 @@
         ]
       }
     ],
-    "coverage_note": "Git history verifies provenance for two candidate SQL files only. It does not recover or certify a complete replayable SQL history for either remote registry; no remote migration command is authorized by this evidence."
+    "coverage_note": "Git history verifies provenance for two candidate SQL files only and yields zero exact Git/version matches. Independently, all 151 exact SQL bodies as stored in the two remote migration ledgers were recovered and archived. The recorded staging sequence must pass disposable ordered replay before the source versions/application reconciliation gate can be certified for deployment. No remote migration command is authorized by this evidence.",
+    "remote_body_archive_verified": true,
+    "remote_body_archive": {
+      "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
+      "git_blob_sha": "c071e2ffd7bf135d1d269d311699a87d5a4f0ac0",
+      "staging_bodies": 139,
+      "staging_clone_bodies": 12,
+      "total_bodies": 151,
+      "staging_sql_bytes": 926910,
+      "staging_clone_sql_bytes": 61346,
+      "total_sql_bytes": 988256,
+      "integrity": "per-body UTF-8 byte length and SHA-256 matches; version/name pairs match captured migration registries",
+      "security_scan": "no high-confidence private-key, compact JWT, provider-secret, credential-bearing database URI, or hard-coded credential assignment patterns found"
+    }
   },
   "latest_read_only_verification": {
     "verified_on_utc_date": "2026-10-14",
@@ -1023,6 +1036,14 @@
         "anon_secdef_without_direct_auth_uid_reference": 4
       },
       "status": "HIGH_PRIORITY_LEAST_PRIVILEGE_REVIEW_BLOCKER"
+    },
+    "remote_migration_body_archive": {
+      "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
+      "total_records": 151,
+      "staging_records": 139,
+      "staging_clone_records": 12,
+      "total_sql_bytes": 988256,
+      "archive_git_blob_sha": "c071e2ffd7bf135d1d269d311699a87d5a4f0ac0"
     }
   },
   "privilege_triage": {
