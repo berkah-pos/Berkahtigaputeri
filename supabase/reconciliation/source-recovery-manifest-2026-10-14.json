@@ -1822,9 +1822,9 @@
     }
   },
   "clean_replay": {
-    "historical_ordered_replay": "PENDING_DISPOSABLE_REPLAY",
-    "reason": "All 139 staging and 12 staging-clone SQL bodies are now recovered from the read-only hosted migration registries with exact per-body SHA-256/byte counts and matching version/name metadata. Git itself still has 0 exact historic blob matches. A fresh disposable replay of the 139-entry staging sequence is the remaining historic replay gate.",
-    "safe_next_step": "Run all 139 archived staging migration bodies in a fresh local Supabase project; compare structural fingerprints; then separately reconcile clone-only drift and run tenant/API/runtime, restore, and release gates. Never apply, repair, or reset an existing hosted project as part of source recovery.",
+    "historical_ordered_replay": "PENDING_PREHISTORY_BOOTSTRAP_REPLAY",
+    "reason": "All 151 exact SQL bodies are recovered and hash-verified. The first pure-empty-database attempt reached migration 20261004013605_p1_complete_pilot_device_relations, then failed because public.licences.toko_address was absent. Earlier migration 20261003142407_admin_licence_config uses CREATE TABLE IF NOT EXISTS and defines address rather than toko_address, demonstrating that the ledger starts after an out-of-band/pre-history licences table already existed. A documented schema-only pre-history bootstrap is now being added before replaying the 139 unchanged staging bodies.",
+    "safe_next_step": "Use the smallest read-only-catalog-grounded legacy public.licences schema prerequisite, with no data rows, before applying all 139 exact archived staging bodies in a disposable local Supabase instance; compare structural fingerprints and keep the pre-history prerequisite explicitly separate from recorded history.",
     "reconstructed_target_baseline": {
       "status": "PASS",
       "validated_at": "2026-10-14",
@@ -1851,6 +1851,22 @@
         "revoke anon/PUBLIC EXECUTE on public.log_config_change() and public.set_updated_at()"
       ],
       "scope_limit": "Disposable reconstructed target-schema replay only; not historical ordered replay, clone equivalence, production migration approval, data restore, extension/cron parity, or end-to-end Tenant A/B certification."
+    },
+    "prehistory_bootstrap": {
+      "path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
+      "purpose": "Recreate the schema-only public.licences relation that predates the first recorded migration, so CREATE TABLE IF NOT EXISTS does not create the incompatible address-only shape.",
+      "source_evidence": "Current staging catalog columns/constraints and the bodies of recorded migrations 20261003142407, 20261004013230, and 20261004013605.",
+      "rows_seeded": 0,
+      "adds_tenant_id": false,
+      "unmodified_recorded_migrations": 139
+    },
+    "initial_historical_replay_attempt": {
+      "workflow_run_id": 38525272706,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38525272706",
+      "status": "FAIL_EXPECTED_PREHISTORY_GAP",
+      "failing_migration": "20261004013605_p1_complete_pilot_device_relations",
+      "error": "column public.licences.toko_address does not exist",
+      "diagnosis": "The recorded migration sequence assumes public.licences existed before migration 20261003142407; that CREATE TABLE IF NOT EXISTS statement otherwise creates an address column instead of toko_address. No archived migration adds toko_address."
     }
   },
   "recovered_remote_sql_archive": {

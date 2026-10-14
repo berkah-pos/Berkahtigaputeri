@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "supabase/reconciliation/reconstructed/staging-baseline/**"
+      - "supabase/reconciliation/historical-replay-bootstrap/**"
       - "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
       - "scripts/check_supabase_remote_migration_archive.py"
       - "scripts/prepare_supabase_historical_replay.py"
@@ -134,7 +135,7 @@ jobs:
           fi
 
   historical-replay:
-    name: Replay all 139 recorded staging migrations in a fresh local database
+    name: Replay 139 recorded staging migrations with a documented pre-history bootstrap
     needs: clean-replay
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -162,7 +163,7 @@ jobs:
           echo "$RUNNER_TEMP/supabase-bin" >> "$GITHUB_PATH"
           "$RUNNER_TEMP/supabase-bin/supabase" --version
 
-      - name: Assemble exact recorded staging migration sequence
+      - name: Assemble recorded staging sequence and pre-history schema prerequisite
         shell: bash
         run: |
           set -euo pipefail
@@ -172,7 +173,11 @@ jobs:
           python3 scripts/prepare_supabase_historical_replay.py \
             supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
             "$REPLAY_DIR/supabase/migrations" --environment staging
-          printf 'migration_file_count=%s\n' "$(find "$REPLAY_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
+          cp supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql \
+            "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
+          test -f "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
+          printf 'files=%s (139 recorded migration bodies + 1 pre-history bootstrap)\n' \
+            "$(find "$REPLAY_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
 
       - name: Start isolated disposable Supabase stack
         shell: bash
@@ -181,7 +186,7 @@ jobs:
           cd "$RUNNER_TEMP/berkah-pos-historical-staging-replay"
           supabase start --exclude studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
 
-      - name: Apply the recorded 139-migration sequence to the fresh local database
+      - name: Apply the pre-history bootstrap plus exact 139 recorded migration bodies to the disposable database
         shell: bash
         run: |
           set -euo pipefail

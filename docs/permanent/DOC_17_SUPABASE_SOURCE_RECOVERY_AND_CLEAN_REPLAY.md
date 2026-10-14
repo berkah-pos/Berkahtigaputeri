@@ -1,15 +1,15 @@
 # DOC_17 — Supabase Source Recovery and Disposable Clean Replay
 
-**Status:** REMOTE SQL BODIES RECOVERED; TARGET RECONSTRUCTION PASSED; HISTORICAL ORDERED REPLAY PENDING  
+**Status:** REMOTE SQL BODIES RECOVERED; TARGET RECONSTRUCTION PASSED; PRE-HISTORY BOOTSTRAP REPLAY PENDING  
 **Captured:** 2026-10-14  
-**Scope:** GitHub SQL provenance, read-only recovery from hosted migration ledgers, reconstructed staging schema, and disposable replay acceptance.  
+**Scope:** GitHub SQL provenance, read-only recovery from hosted migration ledgers, reconstructed staging schema, and isolated replay acceptance.  
 **Authority:** Follow `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, and `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md`.
 
 ## 1. Decision and safety boundary
 
 The complete original migration SQL sequence was not present in the two reachable Git repositories. A second read-only recovery path succeeded: each project’s internal `supabase_migrations.schema_migrations.statements[1]` stores the SQL body associated with its version/name registry entry. All 139 staging bodies and 12 staging-clone bodies have been retrieved and archived with per-body SHA-256 and UTF-8 byte-count checks.
 
-This does **not** authorize a migration, repair, reset, grant/revoke, or deployment on any hosted project. Archived SQL remains recovery evidence. Historical replay tests must run only in a fresh disposable local Supabase instance.
+This does **not** authorize a migration, repair, reset, grant/revoke, or deployment on any hosted project. Historical replay tests run only in a fresh disposable local Supabase instance.
 
 ## 2. Git source search versus remote-body recovery
 
@@ -32,11 +32,9 @@ Archive Git blob SHA: `c071e2ffd7bf135d1d269d311699a87d5a4f0ac0`
 | Staging-clone, PostgreSQL 17.11 | 12 | 61,346 | All bodies recovered |
 | **Total** | **151** | **988,256** | Version/name and body-integrity checks pass |
 
-Each registry row had one non-empty SQL entry in its `statements` array. The archive retains the recorded environment, version, name, exact SQL body, byte length, and SHA-256. The archive checker compares every archived version/name to the captured remote registry manifest and verifies body checksums.
+Each registry row had one non-empty SQL entry in its `statements` array. The archive retains the recorded environment, version, name, exact SQL body, byte length, and SHA-256. The archive checker compares every archived version/name to the captured remote registry manifest and verifies body checksums. No high-confidence private-key/JWT/provider-secret/credential-URI pattern was found; long literal matches were reviewed in context and were application SQL/error strings. No business-row snapshots or tenant/device table dumps are included.
 
-A high-confidence credential scan found no private-key PEM, compact JWT, Supabase secret key, AWS key, GitHub token, Stripe secret, credential-bearing database URI, or hard-coded credential assignment. Long literal matches were reviewed in context and were application SQL/error strings. No business-row snapshots, tenant/device dumps, or `app_config` row data are included.
-
-Important distinction: the **Git checkout** lacks exact historical blobs; the recorded SQL bodies have now been recovered from the live migration ledgers. Preserve both facts rather than saying that source bodies remain missing.
+Important distinction: the **Git checkout** lacks exact historical blobs; the recorded SQL bodies were recovered from the live migration ledgers. Preserve both facts.
 
 ## 4. Reconstructed current target schema
 
@@ -52,30 +50,35 @@ The separately reconstructed schema-only target is in `supabase/reconciliation/r
 | Non-internal triggers | 49 |
 | Tables with source RLS enabled | 66 of 67 |
 
-The reconstructed target replay passed on PR #39 head `fd442e2307004af6910560726f7f98055972521a`:
+This reconstructed target replay passed on PR #39 head `fd442e2307004af6910560726f7f98055972521a`:
 - [Disposable target replay run 38523201897](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897): **success**.
 - **16 pgTAP assertions passed**.
-- Structural fingerprint comparison passed for relations, 169 routine definitions/security modes, 42 source policies, and 49 triggers under the documented target-only deltas.
+- Structural fingerprint comparison passed for relations, 169 routine definitions/security modes, 42 source policies, and 49 triggers under documented target-only deltas.
 - The temporary local stack stopped successfully.
 
 The target overlay deliberately enables RLS on `private.tenant_accounting_links`, adds a deny-all `anon` policy and an active-accounting-membership SELECT policy, revokes `anon`/`PUBLIC` EXECUTE on two trigger-helper functions, and hardens default privileges. These are forward-target changes, not historical statements.
 
-## 5. Historical staging replay gate
+## 5. Historical replay and the pre-history schema gap
+
+The first unmodified replay attempt used a fresh local database and the 139 exact staging migration bodies. It reached `20261004013605_p1_complete_pilot_device_relations`, then failed because `public.licences.toko_address` did not exist. This is a real pre-history gap—not an archive checksum error and not a runner startup issue.
+
+The preceding recorded migration `20261003142407_admin_licence_config` uses `CREATE TABLE IF NOT EXISTS public.licences` with a legacy column named `address`, while the next migration inserts/selects `toko_address`. In live staging the relation already exists with `toko_address`; the applied ledger therefore begins after some legacy schema already existed out-of-band or in a pre-ledger setup step.
+
+To keep original history untouched, the workflow now adds a separately labelled schema-only pre-history bootstrap `supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql` before the **139 unmodified recorded staging migrations**. It recreates only the pre-existing `public.licences` schema using the read-only live catalog and known migration deltas; it inserts no rows and does not pre-create the `tenant_id` field, which is added by recorded history. Replay with this scaffold is **pending**. If the next error reveals more absent pre-history prerequisites, document them separately rather than patching original migration bodies.
+
+## 6. Replay workflow and remaining gates
 
 Workflow: `.github/workflows/supabase-reconstructed-clean-replay.yml`.
 
-The workflow runs the reconstructed-target replay first and the historic staging replay in a separate disposable local Supabase project. The second job verifies the archive, materializes the 139 staging entries as timestamp/name migration files under the runner’s temporary directory, starts a local-only PostgreSQL 17/Supabase stack without a hosted project link or credentials, runs `supabase db reset --local` there, and compares table/relation, constraint/index, routine, RLS-policy, and trigger fingerprints to the read-only staging reference.
-
-The full 139-migration historical replay is **pending** until the job completes successfully. The 12-entry staging-clone history is archived, but clone migrations are incremental over a structurally different database and must not be assumed replayable from an empty database or interchangeable with staging.
-
-## 6. Remaining gates
+The workflow runs reconstructed-target replay first, then the pre-history scaffold plus the exact staging SQL bodies in a separate disposable local Supabase project. The historical job verifies archive hashes, materializes the 139 staging bodies in version order, applies them locally, and compares relation/constraint/index fingerprints, routine definitions/security modes, RLS flags, policies, and triggers to the read-only staging reference.
 
 - [x] Exhaustive reachable-Git source search and candidate provenance recorded.
-- [x] All 139 staging and 12 staging-clone SQL bodies recovered and archived with per-body SHA-256.
-- [x] Reconstructed target schema clean replay, 16 pgTAP assertions, and structural comparison passed.
-- [ ] Full 139-migration historical staging replay and exact structural comparison pass in a clean disposable database.
+- [x] All 139 staging and 12 clone SQL bodies recovered and SHA-256-verified.
+- [x] Reconstructed target schema replay, 16 pgTAP assertions, and structural comparison passed.
+- [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema.
+- [ ] Pre-history scaffold plus all 139 original staging migration bodies replay cleanly.
+- [ ] Exact structural fingerprint comparison passes after historic replay.
 - [ ] Clone-only relation/routine/ACL drift has a separate reviewed reconstruction and verification plan.
-- [ ] Tenant A/B hostile runtime tests across database/RPC/API/Storage/Realtime paths used by the app.
-- [ ] Outbox/idempotency end-to-end tests, restore drills, disposable load/resilience tests, independent review, and explicit release approval.
+- [ ] Tenant A/B hostile runtime tests, outbox/idempotency end-to-end tests, restore drills, disposable load/resilience tests, independent review, and explicit release approval.
 
-Even after historical staging replay passes, this does **not** prove row-data restore, clone equivalence, production tenant isolation, backup recovery, extension-version parity, cron-job parity, or production readiness. Keep the Draft PR unmerged and do not write to an existing hosted Supabase project until each production gate is independently satisfied.
+Even after replay passes, this does **not** prove row-data restore, clone equivalence, production tenant isolation, backup recovery, extension-version parity, cron-job parity, or production readiness. Keep the Draft PR unmerged and do not write to an existing hosted Supabase project until each production gate is independently satisfied.

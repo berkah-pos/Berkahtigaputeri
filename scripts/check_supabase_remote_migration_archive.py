@@ -46,6 +46,20 @@ def main() -> int:
 
     if archive.get("schema_version") != 1:
         errors.append("unsupported archive schema_version")
+    bootstrap_path = ROOT / "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql"
+    if not bootstrap_path.is_file():
+        errors.append("documented pre-history licences bootstrap is missing")
+    else:
+        bootstrap_sql = bootstrap_path.read_text(encoding="utf-8")
+        for required in ("CREATE TABLE public.licences", "toko_address text", "licences_pkey", "licences_package_id_check"):
+            if required not in bootstrap_sql:
+                errors.append(f"pre-history bootstrap is missing schema marker: {required}")
+        bootstrap_lines = [line.strip().lower() for line in bootstrap_sql.splitlines() if line.strip() and not line.strip().startswith("--")]
+        if any(re.match(r"^(?:insert into|copy\\s|update\\s|delete from)\\b", line) for line in bootstrap_lines):
+            errors.append("pre-history bootstrap must not seed or modify data rows")
+        if any(re.match(r"^tenant_id\\s+", line) for line in bootstrap_lines):
+            errors.append("pre-history bootstrap must not pre-create tenant_id; an archived migration adds it")
+
     entries = archive.get("entries", [])
     if len(entries) != sum(EXPECTED_COUNTS.values()):
         errors.append(f"archive entry count {len(entries)} != 151")

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "captured_at_utc": "2026-10-14T03:37:00Z",
-  "status": "BLOCKED_HISTORICAL_REPLAY_PENDING",
+  "status": "BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING",
   "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
   "scope_note": "Read-only registry and catalog evidence plus exact recorded migration SQL bodies recovered from the remote Supabase migration ledgers. No customer business-row snapshots, passwords, API keys or database URLs are stored. Existing hosted projects were not changed.",
   "production_project_identified": false,
@@ -918,7 +918,7 @@
   ],
   "source_recovery_review": {
     "verified_on_utc_date": "2026-10-14",
-    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; HISTORICAL_REPLAY_PENDING",
+    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; PREHISTORY_REPLAY_PENDING",
     "exact_remote_version_matches": 0,
     "repository_history_checked": true,
     "candidate_files": [
@@ -954,7 +954,7 @@
         ]
       }
     ],
-    "coverage_note": "Git history verifies provenance for two candidate SQL files only and yields zero exact Git/version matches. Independently, all 151 exact SQL bodies as stored in the two remote migration ledgers were recovered and archived. The recorded staging sequence must pass disposable ordered replay before the source versions/application reconciliation gate can be certified for deployment. No remote migration command is authorized by this evidence.",
+    "coverage_note": "Git history verifies provenance for two candidate SQL files only and yields zero exact Git/version matches. All 151 exact SQL bodies as stored in the remote migration ledgers are archived. A fresh empty-database replay failed at migration 20261004013605 because public.licences.toko_address was absent: the prior recorded CREATE TABLE IF NOT EXISTS would create a different address column. A separately documented, data-free pre-history schema bootstrap is being tested before replaying the 139 unchanged staging bodies. No remote migration command is authorized.",
     "remote_body_archive_verified": true,
     "remote_body_archive": {
       "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
@@ -967,6 +967,14 @@
       "total_sql_bytes": 988256,
       "integrity": "per-body UTF-8 byte length and SHA-256 matches; version/name pairs match captured migration registries",
       "security_scan": "no high-confidence private-key, compact JWT, provider-secret, credential-bearing database URI, or hard-coded credential assignment patterns found"
+    },
+    "prehistory_gap": {
+      "migration": "20261004013605_p1_complete_pilot_device_relations",
+      "error": "column public.licences.toko_address does not exist",
+      "prior_migration": "20261003142407_admin_licence_config",
+      "cause": "The recorded migration uses CREATE TABLE IF NOT EXISTS with column address; staging already had a pre-history licences relation with toko_address.",
+      "bootstrap_path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
+      "bootstrap_rows_seeded": 0
     }
   },
   "latest_read_only_verification": {
