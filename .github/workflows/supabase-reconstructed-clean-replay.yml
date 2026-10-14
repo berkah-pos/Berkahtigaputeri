@@ -163,6 +163,16 @@ jobs:
       - name: Validate all recovered remote migration SQL bodies
         run: python3 scripts/check_supabase_remote_migration_archive.py
 
+      - name: Install Python environment for workbook fixture in this job
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV="$RUNNER_TEMP/replay-fixture-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$VENV/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json
+
       - name: Install verified Supabase CLI release binary
         shell: bash
         run: |
