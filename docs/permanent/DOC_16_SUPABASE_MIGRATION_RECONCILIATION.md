@@ -1,16 +1,16 @@
 # DOC_16 — Supabase Migration and Schema Reconciliation Ledger
 
-**Status: BLOCKED — staging's 139-body disposable replay and exact catalog comparison pass; staging-clone drift, tenant-A/B runtime proof, and production gates remain open.**
+**Status: BLOCKED — staging's 139-body replay and staging-clone's 12-body replay both pass in disposable local Supabase; targeted RLS and atomic-versioning assertions pass. Hosted ACL drift, broader adversarial coverage, restore/resilience and release approval remain open.**
 **Captured:** 2026-10-14; exact snapshot time is recorded in the JSON ledger.
 **Repository:** `berkah-pos/Berkahtigaputeri`
-**Working branch:** `feat/supabase-idcloudhost-backend-foundation`
+**Working branch:** `chore/consolidate-single-main-repo`
 **Related work:** [PR #39](https://github.com/berkah-pos/Berkahtigaputeri/pull/39), [audit issue #40](https://github.com/berkah-pos/Berkahtigaputeri/issues/40)
 **Machine-readable ledger:** [remote-migration-ledger-2026-10-14.json](../../supabase/reconciliation/remote-migration-ledger-2026-10-14.json)
 **Repeatable read-only SQL:** [catalog_fingerprint.sql](../../supabase/reconciliation/catalog_fingerprint.sql)
 
 ## 1. Decision
 
-Read-only migration history has been recovered from both remote ledgers, and staging's 139 recorded migration bodies now replay unchanged in a disposable environment with an exact structural comparison pass. **Overall migration reconciliation remains blocked** because staging-clone is structurally and privilege-wise different and tenant-A/B runtime proof has not yet passed. Do not run `supabase db push`, `supabase migration repair`, or `supabase db reset` against either existing remote project. Do not create empty migration files, rename files solely to match remote timestamps, or bulk-revoke/grant execution to silence advisor findings.
+Read-only migration history has been recovered from both remote ledgers. Staging's 139 recorded migration bodies and staging-clone's 12 recorded bodies each replay unchanged in their respective disposable environments and match their captured catalog fingerprints. The reconstructed staging target passes 50 baseline/Tenant A-B pgTAP tests plus 19 atomic-versioning assertions. **Overall migration reconciliation remains blocked** because staging-clone's privilege model differs materially, broader hostile cross-surface tests are incomplete, and restore/resilience/release gates remain open. Do not run `supabase db push`, `supabase migration repair`, or `supabase db reset` against either existing remote project. Do not create empty migration files, rename files solely to match remote timestamps, or bulk-revoke/grant execution to silence advisor findings.
 
 The connected project inventory currently exposes staging and staging-clone. No production project was positively identified. The two staging projects are not interchangeable schema replicas.
 
@@ -20,7 +20,7 @@ The connected project inventory currently exposes staging and staging-clone. No 
 |---|---:|---|
 | Supabase staging | **139** applied-history rows | 17.6 |
 | Supabase staging-clone | **12** applied-history rows | 17.11 |
-| Git `supabase/migrations/` | **2** SQL files | Local CLI config targets PG 17 |
+| Git `supabase/migrations/` | **3** SQL files | Local CLI config targets PG 17 |
 
 **There are zero exact version-prefix matches** between the tracked SQL filenames and the remote applied versions captured. The source files are only semantic candidates for two remote entries, with different timestamps (and a different P0 recorded name):
 
@@ -31,7 +31,7 @@ The connected project inventory currently exposes staging and staging-clone. No 
 
 Follow-up Git provenance review on 2026-10-14 confirmed that the P0 candidate blob `07768fe035fec700b9b836b65f8a15657a9e4fe5` exists in [commit `d8cd93f`](https://github.com/berkah-pos/Berkahtigaputeri/commit/d8cd93f3a307fdde730d265c739d664ffd7c8574), and the Phase 5 candidate blob `e4b487e66e041025e1d56796428e98826855b506` exists in [commit `dfcc4f6`](https://github.com/berkah-pos/Berkahtigaputeri/commit/dfcc4f60fda442bb8fc24bafe4f6696f575e8dae). These remain non-exact Git candidates. A separate read-only inspection of the underlying `supabase_migrations.schema_migrations.statements[1]` recovered all 151 recorded SQL bodies: staging 139 bodies (926,910 bytes) and staging-clone 12 (61,346 bytes), archived with per-body SHA-256 in `supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json`. Git exact-source matches remain zero; all recorded remote SQL bodies are archived with per-body SHA-256. Staging's ordered replay and schema fingerprint pass on [run 38536536840](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840); clone-specific baseline/replay remains a separate blocked gate.
 
-The Git checkout contains only two non-exact SQL candidates. Although the listing API exposed only version/name metadata, read-only access to the underlying migration table recovered the `statements` SQL bodies directly. All 139 staging and 12 clone bodies are now archived with byte counts and SHA-256 in the recovered SQL bundle. The bundle includes migration code only, not business table snapshots, tenant/device rows, or `app_config` row data.
+The Git checkout has two non-exact historical SQL candidates plus one forward-only Phase 6 correction. All 139 staging and 12 clone historical bodies are archived with byte counts and SHA-256. The archive contains migration code only, not business table snapshots, tenant/device rows, or app_config row data.
 
 ## 3. Read-only schema fingerprint comparison
 
@@ -95,9 +95,9 @@ The source files represent only a small part of the live schema surface. Missing
 ## 6. Safe completion sequence
 
 1. **Preserve the verified staging replay.** The run on 2026-10-14 applied all 139 recorded staging migration bodies byte-for-byte unchanged in a fresh disposable local Supabase database, with a runner-only canonical 352-key workbook fixture and explicitly labelled pre-history schema bootstrap. The final read-only comparator passed against the captured staging catalog. Do not edit recorded bodies or move the replay-only fixture/bootstrap into active migrations.
-2. **Reconcile staging-clone independently.** Use `supabase/reconciliation/staging-clone-drift-2026-10-14.json` as the starting inventory. Classify the four clone-only relations, 39 staging-only routine signatures, four clone-only helper routines, constraint/index changes, eight missing triggers, policy-set differences, and missing `pg_cron`. The 12 recorded clone SQL bodies are recovered and integrity-checked, but a clone clean replay must start from a reviewed clone-specific pre-history baseline; the staging baseline is not interchangeable.
+2. **Reconcile staging-clone independently.** The 12 recorded clone SQL bodies have now replayed unchanged with a clone-specific disposable pre-history scaffold and passed the captured clone catalog fingerprint and 37 pgTAP assertions in run 38629812613. Use the clone-drift inventory to classify clone-only relations/helpers, constraint/index changes, policy differences, and missing pg_cron. Matching clone-to-clone fingerprints do not imply equivalence to staging or security approval.
 3. **Review privileges object-by-object.** Staging-clone has broad effective `anon` table privileges and material routine EXECUTE differences. Inventory actual callers, exposed schemas, direct/PUBLIC grants, function auth/device/member checks, and required PostgREST contracts before proposing a forward-only ACL migration. Do not mass-revoke or grant permissions on either hosted database.
-4. **Run hostile isolated tests.** Prove Tenant A/B cannot cross-read or cross-write data through direct REST, RLS, RPC, reports, accounting/inventory operations, storage, and subscription endpoints. Verify allowed authenticated paths, idempotent posting/outbox behavior, and the special tenant-accounting-link guard.
+4. **Extend hostile isolated tests.** Targeted reconstructed-target pgTAP assertions now prove Tenant A/B effective-config isolation, cross-tenant device rejection and service separation. Still prove the wider cross-read/cross-write matrix through direct REST, reports, accounting/inventory operations, storage, subscriptions and write RPCs; verify outbox/idempotency and tenant-accounting-link behavior.
 5. **Restore and resilience gates.** Run a separate backup/restore drill, migration failure/retry validation, and representative load/resilience tests in disposable environments. Record exact commit, workflow IDs, SQL/test counts, and any remaining limits.
 6. **Approval and remote rollout.** Keep the Draft PR unmerged and keep remote `db push`, migration repair/reset, grant/revoke, and deployment prohibited until clone reconciliation, tenant isolation, restore/load, and independent review pass. Production has not been positively identified or authorized.
 
@@ -106,7 +106,7 @@ The source files represent only a small part of the live schema surface. Missing
 - Read-only operations re-run on 2026-10-14: migration registries, the committed `catalog_fingerprint.sql` against both project IDs, and Supabase Security/Performance Advisors. Counts and object diffs were recalculated; no writes were performed.
 - No database writes: no DDL, migration apply, migration repair, reset, row modifications, grants/revokes, or high-volume stress workload.
 - Repository changes on this Draft PR: this evidence ledger, full machine-readable migration registries and fingerprints, read-only SQL, and a validator.
-- Status remains **BLOCKED** for overall reconciliation, not for staging replay. Verified run 38536536840 passes the reconstructed-target replay and all 139 unchanged historical staging migrations with the runner-only workbook fixture and pre-history bootstrap, including exact staging fingerprint comparison. The pre-history shape gap is resolved in the disposable runner. The independent staging-clone drift, hostile Tenant A/B tests, backup/restore, load/resilience, independent review, and production-approval gates remain open.
+- Status remains **BLOCKED** for overall reconciliation, not for disposable replay. Run 38629812613 passed the reconstructed target (50 pgTAP tests plus 19 atomic-versioning assertions), the 139-body staging replay, and the 12-body clone replay with their respective catalog comparisons. No hosted DDL, migration, grants/revokes, config sync or production action was performed. Clone's broad anon grants, wider hostile testing, backup/restore, load/resilience, independent review and release approval remain open.
 
 ## References
 
@@ -114,3 +114,8 @@ The source files represent only a small part of the live schema surface. Missing
 - [Supabase CLI — pull remote schema](https://supabase.com/docs/reference/cli/supabase-db-pull)
 - [Supabase security linter: SECURITY DEFINER executable](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
 - [Supabase security linter: RLS enabled without policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)
+
+
+## Phase 6 addendum — atomic config versioning
+
+The consolidation branch now contains a forward-only migration, 20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql, fixing the case where the Admin echoes unchanged protected legacy tax keys while saving the full tenant object. Changed/new protected tax fields are still rejected; unchanged keys are stripped before persistence. Run 38629812613 passed the real-RPC 19-assertion suite in disposable local Supabase. This migration has not been applied to a hosted project.

@@ -12,15 +12,15 @@
 - **Observed:** the first file-fetch/search attempts could not enumerate the directory. A follow-up call through the GitHub Contents API found and fetched `.cursor/rules/berkah-pos.mdc`, and its content was read.
 - **Resolution:** mandatory Cursor rule review is now source-verified for the base repository's default branch. No code implementation was changed based on an unread rule.
 
-## BLOCKER B0-3 — No repository-local execution environment exposed
-- **Observed:** the connected GitHub Contents/recursive-tree APIs enumerate root and tracked paths, but this session has no local checked-out working tree/shell for `git status`, actual `ls -la`, SHA-256 directory comparison using the repository's script, local workbook dry-run, Flutter/npm/pytest, or local Supabase CLI tests. A local `git ls-remote` attempt also failed because this shell could not resolve `github.com`.
-- **Impact:** source inspection can proceed, but local test and build results cannot honestly be reported from this interface alone.
-- **Needed:** authorized repository execution environment/runner with dependencies available, or an agent with workspace and command execution.
+## BLOCKER B0-3 — No repository-local checked-out worktree exposed
+- **Observed:** this session can read and modify GitHub files and run hosted GitHub Actions, but it does not expose a local cloned worktree for git status, literal root listing, in-shell SHA-256 file-by-file comparison, or git bundle creation. A prior local git ls-remote attempt failed because the shell could not resolve github.com.
+- **Impact:** source, hosted CI, and disposable Supabase checks are available; a true repository-local Git bundle and full-repository SHA-256 comparison have not been produced by this session.
+- **Needed:** a repository workspace with Git object storage, or a reviewed hosted export workflow that generates a bundle and ZIP from the target commit.
 
-## BLOCKER B0-4 — Supabase staging drift and RPC ACL review
-- **Observed:** staging clone reports 12 migrations / 64 public tables; staging reports 139 migrations / 63 public tables. Both report 352 `app_config` rows with the exact expected category counts (1/3/100/140/108), matching keyset MD5 `1fd3d64219ecc7c333453c20da80e295`, matching key/value payload MD5 `fc4c054a80a0f59871f1edc0bb03e268`, positive versions 95–108 (14 distinct). Security Advisors report `SECURITY DEFINER` execution warnings and leaked-password protection disabled. Draft PR #39 has green disposable replay CI for the 139-body staging ledger and 12-body clone ledger, but it explicitly keeps overall reconciliation blocked.
-- **Impact:** cannot select a safe sync target from names alone or mark RLS/RPC fail-closed/atomic versioning GREEN. A catalog query was blocked by the tool safety guard.
-- **Needed:** identify the approved target from environment/repository evidence; review the intended structural differences and each flagged function's caller roles, body-level tenant/device checks, explicit grants, and search_path. Do not perform remote sync, migration repair/reset/push, or blanket permission changes.
+## BLOCKER B0-4 — Hosted staging-clone ACL and release approval
+- **Observed:** captured state identifies staging (139 applied migrations, 67 audited relations, 169 routines) and staging-clone (12 migrations, 71 relations, 134 routines) as materially different projects. Both have 352 canonical keys and matching captured key/value fingerprints. Disposable CI run 38629812613 passes target baseline/Tenant A-B tests (50 pgTAP assertions), atomic versioning (19 assertions), the 139-body staging replay, and the separate 12-body clone replay with their respective catalog fingerprints. Read-only catalog evidence still shows broad effective clone anon access, including 32 public-schema SECURITY DEFINER routines executable by anon and effective anon SELECT on 55 application relations.
+- **Impact:** canonical contract and disposable RPC behavior are tested, but hosted clone privilege safety, complete hostile cross-surface isolation, backup/restore, load/resilience, independent review, and production identity/approval remain unverified. No hosted database has been modified.
+- **Needed:** review clone ACLs object-by-object and design only a narrow forward-only ACL migration; run the broader hostile Tenant A/B matrix and recovery/resilience tests in disposable environments; identify the production project and obtain independent approval. Keep remote migration push/repair/reset, grants/revokes, workbook apply and production deployment prohibited until then.
 
 ## Safety note
 No SQL migration, data sync, production action, fork write, or push to `main` has been performed. Do not resolve these blockers by guessing at environment identity, disabling required RPCs globally, or weakening tenant authorization.
@@ -43,3 +43,11 @@ Draft PR #39 has green CI jobs at `185bfef085abeba479bc94f2df4b6fe7811363cf`: [w
 - **Resolved:** the Admin's direct relational-only tenant insert path is disabled; onboarding points to the validated canonical workbook because the fixed 352-key inventory cannot safely gain an orphan tenant.
 - **Verification:** [Canonical Workbook Validation run 38583997667](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38583997667) passed Admin JavaScript syntax checks, 10 Python tests, and the 352-key no-write workbook dry-run on the consolidation branch.
 - **Remaining limit:** these source-level fixes do not resolve remote staging migration/schema/privilege drift, do not count as hostile Tenant A/B runtime tests, and do not establish a production-ready Supabase target. Do not apply remote migrations or blanket grants/revokes.
+
+
+## Phase 5/6 runtime evidence — target tests green, release still blocked
+
+- Phase 5 target-schema evidence: clean replay run 38629812613 passed 50 pgTAP assertions covering baseline security and targeted Tenant A/B effective-config/device isolation. The staging-clone replay passed 37 assertions and its own structural fingerprint. Neither result proves broad hosted API isolation.
+- Phase 6 atomic-versioning evidence: the same run passed 19 pgTAP assertions against the real RPC in the disposable reconstructed target, including compare-and-swap, N-to-N+1, server-owned version, identity guards and audit history.
+- Current backend guardrail: Supabase Backend Foundation CI run 38630659808 passed after the push filter was expanded for source-recovery/archive/workbook/replay helper changes.
+- Still blocked: staging-clone broad anon ACLs, complete cross-surface hostile matrix, backup/restore and load/resilience, explicit production identity/approval, and Git bundle/ZIP.

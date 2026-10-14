@@ -1,6 +1,6 @@
 # DOC_17 — Supabase Source Recovery and Disposable Clean Replay
 
-**Status:** REMOTE SQL BODIES RECOVERED; 139-BODY REPLAY AND STAGING FINGERPRINT PASSED; STAGING-CLONE DRIFT BLOCKS CERTIFICATION  
+**Status:** REMOTE SQL BODIES RECOVERED; 139-BODY STAGING AND 12-BODY CLONE DISPOSABLE REPLAYS PASS; HOSTED ACL DRIFT BLOCKS CERTIFICATION  
 **Captured:** 2026-10-14  
 **Scope:** GitHub SQL provenance, read-only recovery from hosted migration ledgers, reconstructed staging schema, and isolated replay acceptance.  
 **Authority:** Follow `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, and `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md`.
@@ -15,9 +15,10 @@ This does **not** authorize a migration, repair, reset, grant/revoke, or deploym
 
 The source search covered the primary repository `berkah-pos/Berkahtigaputeri` (19 reachable branches), mirror `Andisatriawan/Berkahtigaputeri` (one reachable branch), main-line migration history, current migration directories, feature branches, and SQL-bearing documentation/test artefacts.
 
-Git still contains only two current tracked candidate files in `supabase/migrations/`:
+The active migration directory contains two non-exact historical candidates plus one new forward-only Phase 6 correction. The third file is not claimed to be recovered from either remote history:
 - `20261008131700_p0_rls_identity_config_runtime_prep.sql`, blob SHA `07768fe035fec700b9b836b65f8a15657a9e4fe5`; its staging registry entry is version `20261008131537`, so it is not an exact Git/version match.
 - `20261013120000_phase5_tenant_isolation_hardening.sql`, blob SHA `e4b487e66e041025e1d56796428e98826855b506`; staging and clone versions are `20261013085934` and `20261013085912`.
+- `20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql` is a forward-only fix for unchanged legacy tax keys echoed by full-object Admin saves. It is not a historical body and has not been applied to a hosted project.
 
 Other recovered branch files stay under `supabase/reconciliation/recovered-source-candidates/` as partial candidates, not active migrations. The exact Git historical-source match count therefore remains **0**.
 
@@ -50,9 +51,10 @@ The separately reconstructed schema-only target is in `supabase/reconciliation/r
 | Non-internal triggers | 49 |
 | Tables with source RLS enabled | 66 of 67 |
 
-This reconstructed target replay passed on PR #39 head `fd442e2307004af6910560726f7f98055972521a`:
-- [Disposable target replay run 38523201897](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897): **success**.
-- **23 pgTAP assertions passed (21 `ok` checks and 2 `is` checks).**
+This reconstructed target was initially verified on PR #39 and was re-run from the consolidation branch with expanded tests:
+- [Current disposable clean replay run 38629812613](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629812613): **success** with Phase 6 implementation.
+- Baseline and Tenant A/B tests: **50 pgTAP tests across 2 files, PASS**.
+- Atomic-versioning RPC suite: **19 pgTAP assertions, PASS** after applying the forward fix to the disposable target only.
 - Structural fingerprint comparison passed for relations, 169 routine definitions/security modes, 42 source policies, and 49 triggers under documented target-only deltas.
 - The temporary local stack stopped successfully.
 
@@ -64,7 +66,7 @@ The first replay of the 139 recorded staging SQL bodies in a fresh local databas
 
 A schema-only bootstrap `supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql` is applied before the **139 unchanged staging migration bodies** in the disposable runner. The first replay established that `public.licences` also predates the ledger. A second replay reached `20261007184231_p1_cfg_01_config_5layer_strict_role` but failed because only five `app_config` rows existed and the recorded invariant requires exactly 352 canonical workbook keys (MD5 `1fd3d64219ecc7c333453c20da80e295`). Those rows are initialized by the canonical workbook sync outside the ledger, so a runner-only fixture is used; no workbook values are committed to the repository.
 
-The workflow uses `scripts/prepare_supabase_historical_replay_fixtures.py` to load and validate the workbook using the same parser as the production dry-run. In the isolated runner only, it generates a temporary migration `20261007180000_replay_only_canonical_config_fixture.sql` between recorded migrations `20261007073026` and `20261007184231`; it seeds the 352 canonical `app_config` key/value rows at version 1 and inserts the recorded Auth guard identity with an empty password, unconfirmed email, and no session/token. The generated SQL/value rows stay in the runner's temporary directory and are not committed or emitted to logs. The latest verified run [38536536840](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840) passed both the reconstructed-target job and the staging historical-replay job. The historical job applies all 139 archived staging migration bodies unchanged, with a runner-only canonical 352-key workbook fixture and a separately labelled schema-only pre-history bootstrap for `public.licences`, `public.app_config`, and `public.client_status`. The final read-only comparison passes for all 67 staging relations, their RLS flags and DDL fingerprints, all 169 routine definitions/security modes, 42 source policies, and 49 triggers. Earlier pre-history shape mismatches are resolved by the disposable bootstrap; no historical migration body was patched, and no hosted database was written. This proves staging schema replay against the captured catalog, not clone equivalence, data restore, extension-version parity, cron-job parity, or production readiness.
+The workflow uses `scripts/prepare_supabase_historical_replay_fixtures.py` to load and validate the workbook using the same parser as the production dry-run. In the isolated runner only, it generates a temporary migration `20261007180000_replay_only_canonical_config_fixture.sql` between recorded migrations `20261007073026` and `20261007184231`; it seeds the 352 canonical `app_config` key/value rows at version 1 and inserts the recorded Auth guard identity with an empty password, unconfirmed email, and no session/token. The generated SQL/value rows stay in the runner's temporary directory and are not committed or emitted to logs. The latest verified combined run [38629812613](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629812613) passed the reconstructed target, exact staging historical replay, and separate staging-clone replay. The historical job applies all 139 archived staging migration bodies unchanged, with a runner-only canonical 352-key workbook fixture and a separately labelled schema-only pre-history bootstrap for `public.licences`, `public.app_config`, and `public.client_status`. The final read-only comparison passes for all 67 staging relations, their RLS flags and DDL fingerprints, all 169 routine definitions/security modes, 42 source policies, and 49 triggers. Earlier pre-history shape mismatches are resolved by the disposable bootstrap; no historical migration body was patched, and no hosted database was written. This proves staging schema replay against the captured catalog, not clone equivalence, data restore, extension-version parity, cron-job parity, or production readiness.
 
 ## 6. Replay workflow and remaining gates
 
@@ -74,12 +76,13 @@ The workflow runs reconstructed-target replay first, then the pre-history scaffo
 
 - [x] Exhaustive reachable-Git source search and candidate provenance recorded.
 - [x] All 139 staging and 12 clone SQL bodies recovered and SHA-256-verified.
-- [x] Reconstructed target schema replay, 23 pgTAP assertions, and structural comparison passed.
+- [x] Reconstructed target schema replay, 50 baseline/Tenant A-B pgTAP tests, 19 atomic-versioning pgTAP assertions, and structural comparison passed.
 - [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema and represented by a separately labelled bootstrap.
 - [x] Second replay failure diagnosed as a required 352-key canonical workbook inventory and represented by a generated runner-only fixture.
 - [x] Bootstrap + workbook fixture + all 139 original staging migration bodies apply cleanly in a fresh disposable database.
-- [x] Expanded schema-only pre-history bootstrap plus all 139 unchanged staging bodies passes exact structural fingerprint comparison in disposable replay (run 38536536840).
-- [x] Read-only staging-clone drift inventory recorded in `supabase/reconciliation/staging-clone-drift-2026-10-14.json`; [ ] reviewed clone-specific reconstruction, clean replay, and privilege reconciliation remain open.
+- [x] Expanded schema-only pre-history bootstrap plus all 139 unchanged staging bodies passes exact structural fingerprint comparison in disposable replay (run 38629812613).
+- [x] All 12 unchanged staging-clone bodies replay with clone-specific pre-history; 37 pgTAP tests and clone catalog fingerprint comparison pass in run 38629812613.
+- [x] Read-only staging-clone drift inventory recorded; clone-specific disposable clean replay and clone-to-clone structural comparison pass. [ ] ACL/privilege remediation remains open because broad effective anon grants are observed.
 - [ ] Tenant A/B hostile runtime tests, outbox/idempotency end-to-end tests, restore drills, disposable load/resilience tests, independent review, and explicit release approval.
 
 
@@ -97,6 +100,11 @@ The staging and staging-clone catalogs were compared read-only on 2026-10-14. Ex
 
 The privilege difference is more material than object counts: read-only catalog checks show 116 shared routine signatures differ in effective `anon` EXECUTE and 79 differ for `authenticated`. The clone has effective `anon` SELECT on 55 application relations and effective INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER on 54 each; staging has none of those effective application-table privileges in the inspected schemas. Of the clone's 104 security-definer routines with effective `anon` EXECUTE across the inspected schemas, 32 reside in schemas where `anon` has schema USAGE. These are privilege/catalog findings, not proof that each routine is reachable through a specific API or proof of an exploit; RLS and exposed API schemas need separate review.
 
-**Disposition:** staging's 139-body replay is green, but clone recovery is not certified. Do not blindly transplant staging SQL or run a blanket permission rewrite on the hosted clone. First classify every clone-only/missing object and intended feature divergence, construct a clone-specific baseline or reviewed migration delta in disposable local Supabase, then pass independent clean replay, ACL comparison, and hostile Tenant A/B runtime tests.
+**Disposition:** both environment-specific recorded histories now pass disposable replay and their own captured catalog fingerprints. This does not make the clone equivalent to staging or safe for production: broad effective anon ACLs and wider hostile application-surface tests remain open. Do not blindly transplant staging SQL or run a blanket permission rewrite on the hosted clone. No hosted database was modified.
 
 Even after replay passes, this does **not** prove row-data restore, clone equivalence, production tenant isolation, backup recovery, extension-version parity, cron-job parity, or production readiness. Keep the Draft PR unmerged and do not write to an existing hosted Supabase project until each production gate is independently satisfied.
+
+
+## Phase 6 atomic-versioning compatibility regression
+
+The forward-only migration 20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql allows unchanged legacy tax keys to be echoed by full-object Admin saves and strips them before persistence; new or changed protected tax values still fail with SQLSTATE 42501. Run 38629812613 passed the reconstructed target's 50 baseline/Tenant A-B assertions, 19 atomic-versioning assertions, the 139-body staging replay, and the 12-body clone replay. Backend Foundation CI run 38630659808 also passed after the push trigger was corrected. These are disposable CI results; the forward migration has not been applied to hosted staging or production.

@@ -1,7 +1,7 @@
 # FASE 5 — TENANT ISOLATION AND AUTHENTICATED EFFECTIVE CONFIG
 
 **Status: GREEN for disposable reconstructed-target pgTAP contract tests.**  
-**Overall release/migration reconciliation: BLOCKED.** The staging-clone historical replay is still running separately, and hosted runtime certification is not implied.  
+**Overall release/migration reconciliation: BLOCKED.** The separate staging and staging-clone replays have both completed successfully in disposable environments; hosted runtime certification and clone ACL approval are not implied.  
 **Date:** 2026-10-14 UTC  
 **Branch head tested:** `3a77a16a96719638284063b07d4ae80387d0c48e`
 
@@ -18,7 +18,7 @@ The canonical roadmap Phase 5 requires anonymous direct reads of tenant/device/l
 
 ## CI evidence
 
-Run: [Supabase Reconstructed Baseline Clean Replay — 38615152411](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38615152411)
+Run: [Supabase Reconstructed Baseline Clean Replay — 38629812613](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629812613)
 
 The job **“Reconstruct and test schema in disposable local Supabase”** completed successfully and reported:
 

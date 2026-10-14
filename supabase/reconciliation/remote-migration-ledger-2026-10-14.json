@@ -7,8 +7,8 @@
   "production_project_identified": false,
   "repository": {
     "repository": "berkah-pos/Berkahtigaputeri",
-    "branch": "feat/supabase-idcloudhost-backend-foundation",
-    "head_sha": "d520b2d9ad4dfb20b1dbfa98d902e1092b529fe2",
+    "branch": "chore/consolidate-single-main-repo",
+    "head_sha": "7b2e0daaa20c3e974a0dafa6e4606d3dc2917e66",
     "tracked_migration_files": [
       {
         "file": "20261008131700_p0_rls_identity_config_runtime_prep.sql",
