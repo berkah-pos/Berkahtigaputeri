@@ -1,120 +1,119 @@
-# BERKAH POS - MASTER ROADMAP DOKUMEN PERMANEN
+# Berkah POS — KVM2 Migration and Acceptance Roadmap
 
-Repository: `berkah-ajb-dev/Berkahtigaputeri`  
-Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
-
-## Canonical authority
-
-Read `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` first.
-
-The only canonical Final Pos configuration inheritance is:
-
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-```
-
-The canonical workbook is:
-
-```text
-config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
-```
-
-`scripts/sync_excel_to_supabase.py` validates its structure and the exact `APP_CONFIG_EXPORT` inventory:
-
-```text
-1 global + 3 templates + 100 tenants + 140 services + 108 devices = 352 keys
-```
-
-Supabase configuration rows use:
-
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-No historical commit is a permanently frozen architecture authority. Current behavior is governed by the canonical architecture decision, tests, reviewed migrations, and the current repository HEAD.
+**Status:** Active ordered rollout plan. No historical Supabase green report certifies this new architecture.
+**Architecture authorities:** root `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, and `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
 
 ## Product goal
 
-Build a multi-tenant SaaS POS + accounting platform where each tenant can use independently configurable services:
+Deliver a secure, offline-first POS and accounting SaaS:
+- Flutter/SQLite for local POS transactions and durable outbox;
+- Laravel 11 / PHP 8.3 Central API and Filament administration;
+- MariaDB 11 central database plus physically isolated database per tenant on one private DB server;
+- Coolify deployment on the Hostinger KVM2 target;
+- a server-enforced subscription model, controlled tenant/device identity and durable cloud sync.
 
-- POS: cashier, barcode, payment, QRIS, printer/drawer, inventory and device behavior.
-- Akuntansi: automatic journals, PPN, COA and reporting.
+Keep the canonical workbook's 352-key inventory and the exact `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE` logical inheritance. Preserve FEFO physical lot allocation versus FIFO financial costing, inventory/COGS COA contracts, balanced journals and safe legacy-product review gating.
 
-Tenant configuration must remain isolated, service-specific, auditable, versioned, and reproducible from the canonical configuration sources.
+## Phase 0 — Authority, source and data inventory
 
-## Permanent-document principles
+- Root `AGENTS.md` and DOC_14 agree; DOC_14 has its canonical filename and is listed in the permanent index.
+- Inventory every active Supabase runtime, SDK, Edge Function, RPC, migration, workflow, env reference and browser asset.
+- Identify all existing hosted Supabase projects/data by authorized inventory without mutating them.
+- Produce read-only counts/hashes and a backup/restore and retention plan for all data needed for cutover.
 
-- `/docs/permanent/` contains the durable architecture and verification record.
-- Historical documents must be explicitly labelled historical; they must not override current canonical decisions.
-- Implementation, SQL/RPC, Admin, Flutter and CI must agree with the same contracts.
-- Changes are made through feature/fix branches and pull requests, never by treating an old commit as immutable architecture.
+**Gate:** exact source inventory and documented data-export path. No hosted deletion.
 
-## Canonical correction roadmap
+## Phase 1 — Laravel foundation
 
-The following phases are executed in order. A later phase must not redefine architecture established by an earlier phase without updating `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
+- Laravel 11, PHP 8.3, Sanctum, Filament 3 and stancl/tenancy v3 resolve in Composer.
+- MariaDB 11 supports central schema plus isolated tenant databases.
+- Root Dockerfile, Compose, .env.example, health check `/up`, Coolify-ready environment and GitHub-hosted CI are present.
+- Central migrations run on a clean disposable MariaDB.
+- CI boots the app and enumerates API routes.
 
-### PHASE 1 - Canonical architecture declaration
+**Gate:** reproducible dependency installation and clean database migration.
 
-- Rewrite architecture and agent-instruction documents.
-- Remove stale inheritance rules that omit TEMPLATE.
-- Establish `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE` as the sole authority.
+## Phase 2 — Tenant isolation and platform identity
 
-Acceptance:
-- all agent-facing instructions point to the canonical decision;
-- no active architecture instruction preserves a historical frozen-core rule;
-- the 352-key workbook contract is documented consistently.
+- Central tenant/domain/user/device/subscription records.
+- Tenant creation safely provisions a separate tenant DB inside the same private MariaDB server and applies tenant migrations.
+- Tenant domain routing is validated against central domain records.
+- API membership/device/subscription checks precede tenant DB initialization.
+- Central panel is restricted to active platform administrators.
 
-### PHASE 2 - Data-source ownership and synchronization
+**Gate:** two separate tenant databases exist in a disposable environment; hostile Tenant A → Tenant B requests are denied across API and database switching.
 
-Decision target: the canonical workbook owns tenant, device, service and feature configuration data.
+## Phase 3 — Canonical configuration migration
 
-Acceptance:
-- workbook sync updates `app_config` and required relational projections;
-- Flutter feature access no longer depends on an unsynchronized `tenants.features` fallback;
-- relational projections match workbook-derived configuration after sync.
+- Validate workbook sheets, all 352 keys, templates, row counts and keyset MD5.
+- Export an offline import manifest.
+- Import global, template, tenant, service and device configuration into the correct central/tenant data owner.
+- Repeated import is idempotent for unchanged values and preserves version history/positive versions.
+- Effective-config API merges five layers and only the requested service.
 
-### PHASE 3 - Admin / APK / RPC parity
+**Gate:** automated comparison against workbook-derived cases and no missing/duplicate/orphan tenant, service, device or template mapping.
 
-Acceptance:
-- Admin resolves TEMPLATE exactly like Flutter/RPC;
-- effective configuration is service-specific;
-- the same tenant/device/service produces identical effective configuration across Admin, APK and RPC.
+## Phase 4 — Mobile runtime transition
 
-### PHASE 4 - Fail-closed synchronization CI
+- Remove Supabase SDK/auth/RPC from active mobile source.
+- Authenticate against the Laravel Central API using a revocable bearer token.
+- Use `CENTRAL_API_BASE_URL` as the cloud API base; never bundle server secrets.
+- Keep local-only mode explicit and retain SQLite schema, local checkout, outbox and review protections.
+- Run Flutter analysis/tests, Android AAB build and installed-device smoke test.
 
-Acceptance:
-- missing Supabase credentials fail the sync job;
-- sync failures fail the job;
-- post-sync verification confirms exactly 352 canonical keys and verifies the key manifest/hash.
+**Gate:** no Supabase symbols or configuration in active mobile client; successful real API login/config query on an approved staging deployment.
 
-### PHASE 5 - Tenant isolation and authenticated effective-config access
+## Phase 5 — Transaction synchronization
 
-Acceptance:
-- anonymous direct reads of tenant/device/licence/app-config metadata are removed;
-- effective-config access authenticates the caller and validates device-to-tenant ownership;
-- RLS/auth documentation and APK verification describe the same model.
+- Implement authenticated batch acceptance for local outbox events.
+- Use stable event IDs, canonical payload hash, server-authorized tenant/device, atomic DB transaction, durable event receipt, duplicate replay and conflict rejection.
+- Synchronize sale/items, inventory movements and journals without double posting.
+- Acknowledge local outbox only after server confirmation.
+- Maintain FEFO physical allocations and FIFO costing behavior.
 
-### PHASE 6 - Atomic configuration versioning
+**Gate:** retry/crash/replay tests and Tenant A/B hostile tests across sales, inventory, reports and accounting.
 
-Acceptance:
-- all normal configuration writes use an atomic expected-version RPC;
-- Admin, Template Admin and sync behavior use documented version semantics;
-- SQL seeds cannot silently reset a newer version to version 1.
+## Phase 6 — Central administration and subscriptions
 
-### PHASE 7 - Re-certification and release documentation
+- Filament central tenant/domain/subscription administration.
+- Provisioning failures are recoverable; failed tenant initialization is not reported as ready.
+- Subscription activation/suspension/expiry is server-enforced.
+- Payment webhook signatures are verified and idempotent before changing entitlements.
+- Prevent arbitrary client/admin privilege escalation and unsafe tenant deletion.
 
-Acceptance:
-- historical verification is archived as historical;
-- a new current-head verification document certifies the Final Pos architecture;
-- APK verification includes TEMPLATE;
-- release notes describe only behavior actually reachable from the current application entry UI;
-- permanent-document indexes and table counts are correct.
+**Gate:** authenticated panel tests, expiry tests, subscription enforcement and verified billing webhook integration.
+
+## Phase 7 — Operational recoverability and release
+
+- Coolify staging deploy, TLS/DNS including wildcard, secret injection, structured logs, health/metrics and resource limits.
+- Central and tenant DB backup, independent storage, and a timed restore drill.
+- Schema and data reconciliation report; no guessed historic tax, stock, cost, payment or journal data.
+- Signing key match and Android update compatibility evidence.
+- Security review, representative load test and operational runbook.
+
+**Gate:** staged app/device acceptance, all required hostile-access checks, successful restore evidence and explicit release sign-off.
+
+## Phase 8 — Hosted legacy retirement and cutover
+
+- Freeze old hosted Supabase writes before final export.
+- Verify full export checksums, counts and tenant ownership; compare against imported MariaDB records.
+- Exercise rollback by switching the mobile API base to the approved prior version or restoring pre-cutover service using the written runbook.
+- Obtain explicit data-retention and production cutover approval.
+- Only then revoke old backend secrets, disable hosted functions/jobs and request hosted project deletion through an authorized operator.
+- Retain required audit/legal records and a verified archive; never delete business data solely to make source searches pass.
+
+**Gate:** approved cutover record and evidence that new Laravel API is authoritative. A repository PR alone is not production cutover.
 
 ## Protected green contracts
 
-The correction program must not break these already-aligned contracts:
+- `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
+- Exactly 352 source keys and canonical workbook hash.
+- One service row resolved per request; POS and Akuntansi are never merged together.
+- FEFO physical allocation and FIFO financial costing intentionally differ.
+- Inventory account `1-1040`, COGS account `5-5010`.
+- Local SQLite checkout, transaction/outbox atomicity and non-destructive legacy data import.
+- GitHub Pages `btp-admin/` is legacy only; new Central Admin runs in the Laravel deployment.
 
-- FEFO physical allocation and FIFO financial costing are intentionally different.
-- COA `1-1040` is Inventory and `5-5010` is COGS.
-- Flutter version `1.1.0+2` remains aligned with Android `versionName 1.1.0` / `versionCode 2` unless intentionally version-bumped.
-- GitHub Pages continues to publish `btp-admin/`.
+## Reporting rule
+
+Every gate states source facts, tests actually executed, CI evidence, disposable integration, staging evidence, production evidence, unresolved risks and one next action. Use PASS only for an acceptance condition that was actually executed and satisfied; otherwise use PARTIAL, BLOCKED or NOT VERIFIED.
