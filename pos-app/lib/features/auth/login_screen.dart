@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/config/central_api_client.dart';
 
 /// Authenticated entry point for cloud-backed use.
 ///
@@ -14,7 +14,7 @@ class LoginScreen extends StatefulWidget {
     this.configurationMessage,
   });
 
-  final SupabaseClient? client;
+  final CentralApiClient? client;
   final VoidCallback onAuthenticated;
   final VoidCallback onContinueLocal;
   final String? configurationMessage;
@@ -50,13 +50,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final response = await widget.client!.auth.signInWithPassword(
+      await widget.client!.signIn(
         email: _email.text.trim(),
         password: _password.text,
       );
-      if (response.session == null) {
-        throw StateError('Login berhasil tetapi sesi tidak tersedia.');
-      }
       if (!mounted) return;
       setState(() => _loading = false);
       widget.onAuthenticated();
@@ -65,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _loading = false;
         _error = 'Login gagal. Periksa email dan kata sandi, koneksi, serta '
-            'pengaturan Supabase Auth. Jika akun belum dibuat, hubungi '
+            'pengaturan Laravel Central API. Jika akun belum dibuat, hubungi '
             'administrator Berkah POS.';
       });
     }
@@ -141,7 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 8),
         Text(
           widget.configurationMessage ??
-              'SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY belum diatur.',
+              'CENTRAL_API_BASE_URL belum diatur.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
