@@ -74,6 +74,17 @@ Staging-clone is therefore **not a structurally equivalent replay of staging**. 
 | Unused indexes (INFO) | 16 | 23 |
 
 The 32 anonymous-callable public `SECURITY DEFINER` functions on the clone are a **security review gate**. Callable does not itself prove successful exploitation; each function must be reviewed for caller identity, tenant/device ownership, fixed `search_path`, and exact grants. Do not bulk-revoke or create permissive policies without validating valid callers. RLS-enabled/no-policy may be intentional default-deny for internal tables.
+ 
+### Additional effective-privilege catalog triage — staging versus clone
+ 
+A second read-only check used `information_schema.role_table_grants` and `pg_catalog` (2026-10-14):
+ 
+- **Staging:** zero public-table grants to `anon`; two public functions are executable by `anon`, and neither is `SECURITY DEFINER`.
+- **Staging-clone:** `anon` has table grants on **54 public relations**, represented by **378 role/table/privilege rows** — all seven privileges (`SELECT`, `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`) for each relation. All 54 relations have RLS enabled, none was found with RLS disabled, and no policy in the audited `public` schema targets `anon` or `PUBLIC`. This is not evidence that ordinary row-level REST calls can read/write rows; RLS without an applicable policy is default-deny. It is nevertheless **HIGH-priority least-privilege debt**. PostgreSQL explicitly states that RLS does not govern `TRUNCATE` or `REFERENCES`, so blanket grants must not be treated as harmless merely because RLS is enabled ([PostgreSQL 17 row-security documentation](https://www.postgresql.org/docs/17/ddl-rowsecurity.html)).
+- The clone exposes 37 public functions to `anon`, including 32 `SECURITY DEFINER` functions. All 34 `public`-schema `SECURITY DEFINER` functions have `search_path = ''`, which is a useful hardening control but does not establish correct caller authorization.
+- Four of the 32 anonymously executable `SECURITY DEFINER` function bodies do not directly mention `auth.uid()`: `assert_config_contract()`, `create_self_tax_party_for_config_tenant(...)`, `get_compliance_readiness(uuid,text,text)`, and `get_config_tenant_compliance_readiness(...)`. Source inspection shows the config assertion returns an inventory digest, while the mutating/helper paths delegate into device/member-role checks; those indirect paths still require negative and positive runtime tests under actual JWT/PostgREST contexts. Two payroll tax calculation functions do directly require authenticated identity but are not tenant-specific data access. These text-pattern results are triage, not a substitute for semantic per-function review.
+ 
+Do not apply a broad grant migration to the remote clone as part of this audit. Before any privilege change, inventory intended callers, test legitimate authenticated/service-role flows, prove anonymous table and RPC requests are denied, verify no required public contract breaks, then apply an approved forward-only change to an isolated database and review it. Callable does not itself prove successful exploitation; each function must be reviewed for caller identity, tenant/device ownership, fixed `search_path`, and exact grants. Do not bulk-revoke or create permissive policies without validating valid callers. RLS-enabled/no-policy may be intentional default-deny for internal tables.
 
 ## 5. Why filenames cannot solve this
 

@@ -994,6 +994,86 @@
       "staging": 0,
       "staging-clone": 32
     },
-    "write_operations_performed": false
+    "write_operations_performed": false,
+    "anonymous_access_review": {
+      "staging": {
+        "public_functions_anon_execute": 2,
+        "public_security_definer_anon_execute": 0,
+        "anon_public_table_grants": 0
+      },
+      "staging_clone": {
+        "public_functions_anon_execute": 37,
+        "public_security_definer_functions": 34,
+        "public_security_definer_anon_execute": 32,
+        "public_security_definer_empty_search_path": 34,
+        "anon_public_tables_with_table_grants": 54,
+        "anon_table_privilege_rows": 378,
+        "anon_privilege_types": [
+          "DELETE",
+          "INSERT",
+          "REFERENCES",
+          "SELECT",
+          "TRIGGER",
+          "TRUNCATE",
+          "UPDATE"
+        ],
+        "rls_enabled_anon_granted_tables": 54,
+        "rls_disabled_anon_granted_tables": 0,
+        "anon_or_public_policy_tables": 0,
+        "anon_secdef_without_direct_auth_uid_reference": 4
+      },
+      "status": "HIGH_PRIORITY_LEAST_PRIVILEGE_REVIEW_BLOCKER"
+    }
+  },
+  "privilege_triage": {
+    "verified_on_utc_date": "2026-10-14",
+    "source": "Read-only PostgreSQL role_table_grants and pg_catalog queries; no remote writes",
+    "status": "HIGH_PRIORITY_LEAST_PRIVILEGE_REVIEW_BLOCKER",
+    "staging": {
+      "public_functions_anon_execute": 2,
+      "public_security_definer_anon_execute": 0,
+      "anon_public_table_grants": 0
+    },
+    "staging_clone": {
+      "public_functions_anon_execute": 37,
+      "public_security_definer_functions": 34,
+      "public_security_definer_anon_execute": 32,
+      "public_security_definer_empty_search_path": 34,
+      "anon_public_tables_with_table_grants": 54,
+      "anon_table_privilege_rows": 378,
+      "privileges_per_table": [
+        "DELETE",
+        "INSERT",
+        "REFERENCES",
+        "SELECT",
+        "TRIGGER",
+        "TRUNCATE",
+        "UPDATE"
+      ],
+      "anon_granted_relations_rls_enabled": 54,
+      "anon_granted_relations_rls_disabled": 0,
+      "anon_or_public_policies_on_granted_relations": 0,
+      "anonymously_executable_secdef_without_direct_auth_uid_reference": 4,
+      "anonymous_secdef_review_candidates": [
+        {
+          "signature": "public.assert_config_contract()",
+          "initial_triage": "read-only app_config inventory digest; runtime response/exposure still to test"
+        },
+        {
+          "signature": "public.create_self_tax_party_for_config_tenant(...)",
+          "initial_triage": "mutating wrapper delegates to resolver and member/device-gated evidence function; negative/positive JWT tests required"
+        },
+        {
+          "signature": "public.get_compliance_readiness(uuid,text,text)",
+          "initial_triage": "wrapper delegates to overload that checks bound device and member role; negative/positive JWT tests required"
+        },
+        {
+          "signature": "public.get_config_tenant_compliance_readiness(...)",
+          "initial_triage": "resolves tenant then delegates to member/device-gated readiness; negative/positive JWT tests required"
+        }
+      ],
+      "caution": "RLS denies ordinary row-level access when no applicable policy exists. PostgreSQL 17 documents that RLS does not govern TRUNCATE or REFERENCES. No unauthenticated destructive operation was executed and no direct public API exploitation was proven."
+    },
+    "remediation_gate": "Do not mass-revoke remote grants until legitimate caller contracts are inventoried, function/REST authorization tests pass, and a reviewed isolated forward-only migration plus approval is available."
   }
 }
