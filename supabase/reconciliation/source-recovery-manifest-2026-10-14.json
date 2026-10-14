@@ -1833,7 +1833,7 @@
       "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897",
       "supabase_cli_version": "2.120.0",
       "postgres_container": "supabase/postgres:17.11.0.004",
-      "pgtap_tests": 16,
+      "pgtap_tests": 23,
       "pgtap_result": "PASS",
       "structural_fingerprint_comparison": "PASS",
       "inventory": {
@@ -1850,7 +1850,10 @@
         "add tenant_accounting_links_deny_anon_reconstructed and tenant_accounting_links_read_member_reconstructed",
         "revoke anon/PUBLIC EXECUTE on public.log_config_change() and public.set_updated_at()"
       ],
-      "scope_limit": "Disposable reconstructed target-schema replay only; not historical ordered replay, clone equivalence, production migration approval, data restore, extension/cron parity, or end-to-end Tenant A/B certification."
+      "scope_limit": "Disposable reconstructed target-schema replay only; not historical ordered replay, clone equivalence, production migration approval, data restore, extension/cron parity, or end-to-end Tenant A/B certification.",
+      "pgtap_ok_assertions": 21,
+      "pgtap_is_assertions": 2,
+      "pgtap_plan": 23
     },
     "prehistory_bootstrap": {
       "path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",

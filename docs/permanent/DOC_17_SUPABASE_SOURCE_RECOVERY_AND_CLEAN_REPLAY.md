@@ -52,7 +52,7 @@ The separately reconstructed schema-only target is in `supabase/reconciliation/r
 
 This reconstructed target replay passed on PR #39 head `fd442e2307004af6910560726f7f98055972521a`:
 - [Disposable target replay run 38523201897](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897): **success**.
-- **16 pgTAP assertions passed**.
+- **23 pgTAP assertions passed (21 `ok` checks and 2 `is` checks).**
 - Structural fingerprint comparison passed for relations, 169 routine definitions/security modes, 42 source policies, and 49 triggers under documented target-only deltas.
 - The temporary local stack stopped successfully.
 
@@ -74,7 +74,7 @@ The workflow runs reconstructed-target replay first, then the pre-history scaffo
 
 - [x] Exhaustive reachable-Git source search and candidate provenance recorded.
 - [x] All 139 staging and 12 clone SQL bodies recovered and SHA-256-verified.
-- [x] Reconstructed target schema replay, 16 pgTAP assertions, and structural comparison passed.
+- [x] Reconstructed target schema replay, 23 pgTAP assertions, and structural comparison passed.
 - [x] Initial historic replay failure diagnosed as a missing pre-history `public.licences` schema and represented by a separately labelled bootstrap.
 - [x] Second replay failure diagnosed as a required 352-key canonical workbook inventory and represented by a generated runner-only fixture.
 - [x] Bootstrap + workbook fixture + all 139 original staging migration bodies apply cleanly in a fresh disposable database.
