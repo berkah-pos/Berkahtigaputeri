@@ -505,7 +505,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     final service = widget.configService;
     if (service == null) {
       setState(() {
-        _status = 'SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi. '
+        _status = 'CENTRAL_API_BASE_URL belum dikonfigurasi. '
             'Aplikasi tetap bisa bekerja lokal.';
       });
       return;
@@ -545,7 +545,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _features = features;
         _status = config.fromCache
             ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Supabase memberikan respons; validitas sesi dan otorisasi '
+            : 'Laravel Central API memberikan respons; validitas sesi dan otorisasi '
                 'perangkat tetap harus diverifikasi.';
         _loading = false;
       });
