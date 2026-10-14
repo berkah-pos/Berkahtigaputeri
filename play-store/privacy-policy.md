@@ -1,38 +1,35 @@
 # Kebijakan Privasi — Berkah Tiga Puteri POS
 
-Berlaku untuk build Final Pos UAT saat ini.
+**Status: Draf migrasi. Kebijakan final harus diverifikasi dengan AAB yang akan dirilis, backend yang telah dideploy, kanal kontak resmi, dan persyaratan hukum yang berlaku.**
 
-Build yang sekarang dibuka dari `main.dart` adalah HomeScreen konfigurasi/verification. UI reachable menyediakan pemilihan tenant/device, status Supabase/config source, refresh konfigurasi, preview konfigurasi efektif, dan status layanan POS/Akuntansi. HomeScreen belum membuka alur checkout kasir, transaksi QRIS, atau laporan PPN.
+## Arsitektur dan pemrosesan data
 
-## Data yang diproses
+Berkah POS ditujukan sebagai aplikasi POS dan akuntansi local-first. Data transaksi lokal disimpan pada SQLite perangkat. Backend cloud target adalah Laravel Central API dengan autentikasi Laravel/Sanctum dan MariaDB yang memisahkan database setiap tenant. Implementasi fitur atau rancangan arsitektur tidak dengan sendirinya membuktikan bahwa layanan cloud telah aktif.
 
-Untuk fungsi UAT/config, aplikasi dapat memproses tenant ID, device ID, konfigurasi efektif, status layanan, status sinkronisasi, dan data autentikasi yang diperlukan apabila sesi perangkat diprovisikan.
+Tergantung fitur yang benar-benar diaktifkan pada build dan backend, data yang dapat diproses meliputi:
+- email/identitas akun dan token sesi yang diperlukan untuk masuk;
+- identitas tenant/perangkat untuk pemeriksaan hak akses;
+- konfigurasi efektif dan status layanan;
+- data produk, stok, transaksi, detail penjualan dan jurnal akuntansi yang dibuat tenant;
+- status outbox/sinkronisasi ketika API sync benar-benar diaktifkan;
+- informasi teknis minimum untuk keamanan dan pemecahan masalah.
 
-Modul repository lain dapat menangani data POS/akuntansi, tetapi kebijakan rilis harus selalu disesuaikan dengan fitur dan data yang benar-benar reachable pada build yang dipublikasikan.
+## Pengamanan
 
-## Supabase dan keamanan akses
+API cloud target memakai HTTPS/TLS dan memeriksa identitas akun, membership tenant, perangkat terdaftar serta status langganan di sisi server. Setiap tenant mempunyai database terpisah di server MariaDB yang sama. ID tenant atau perangkat yang tersimpan di ponsel bukan bukti izin akses. Kesiapan kontrol ini harus dibuktikan melalui pengujian sebelum dinyatakan tersertifikasi untuk produksi.
 
-Aplikasi menggunakan Supabase sebagai backend. Data yang dikirim ke backend menggunakan HTTPS/TLS.
+Aplikasi tidak boleh menyertakan kata sandi database, application key Laravel, kredensial Redis, payment secret atau kredensial administrator di APK.
 
-Final Pos tidak menyediakan anonymous read untuk data konfigurasi tenant:
+## Penggunaan dan pembagian data
 
-- role `anon` tidak mempunyai direct SELECT pada tabel Final Pos (`tenants`, `devices`, `licences`, `app_config`, `tenant_services`);
-- role `anon` tidak dapat menjalankan `get_effective_config(...)`;
-- akses cloud effective-config memerlukan sesi authenticated;
-- pengguna/perangkat authenticated normal dibatasi ke device yang dimiliki melalui `devices.user_id = auth.uid()`;
-- RPC memvalidasi device tersebut berada pada tenant yang diminta;
-- `service_role` hanya digunakan pada proses server/administratif yang dipercaya dan tidak boleh ditanamkan di APK.
+Tujuan penggunaan data adalah menjalankan fungsi POS/akuntansi yang diminta tenant, menjaga konsistensi transaksi, mengamankan akun, dan menyediakan dukungan operasional. Kebijakan produk adalah tidak menjual data dan tidak menggunakannya untuk iklan pihak ketiga. Pemroses layanan yang diperlukan untuk operasi harus diungkapkan sesuai konfigurasi produksi yang sesungguhnya.
 
-Publishable key Supabase bukan kredensial untuk membaca data tenant secara anonim.
+## Penyimpanan, retensi, koreksi dan penghapusan
 
-## Penjualan dan pembagian data
+Data lokal tersimpan di perangkat sampai dihapus sesuai fungsi aplikasi atau data perangkat dikelola pemiliknya. Retensi data cloud, pencadangan, koreksi serta permintaan penghapusan wajib ditentukan dan diterapkan oleh pengelola backend sebelum rilis SaaS. Data akuntansi/transaksi yang wajib disimpan tidak boleh dihapus secara otomatis tanpa dasar hukum dan prosedur resmi.
 
-Kami tidak menjual data pengguna dan tidak membagikannya untuk periklanan atau pemasaran. Supabase dapat memproses data sebagai penyedia layanan teknis sejauh diperlukan untuk menyediakan backend aplikasi.
-
-## Retensi, koreksi, dan penghapusan
-
-Retensi mengikuti kebutuhan operasional dan kewajiban yang berlaku. Sebelum rilis produksi, pengelola aplikasi harus mempublikasikan kanal kontak aktif untuk permintaan privasi, koreksi, dan penghapusan data.
+Sebelum menerbitkan kebijakan final, pengelola harus mengisi kanal kontak resmi yang aktif untuk permintaan privasi, koreksi dan penghapusan data. Jangan menerbitkan draf ini sebagai komitmen operasional final sebelum langkah tersebut diverifikasi.
 
 ## Perubahan kebijakan
 
-Kebijakan ini harus diperbarui sebelum build baru mengaktifkan pengumpulan atau UI baru seperti checkout kasir, transaksi QRIS, laporan PPN, analytics, crash reporting, iklan, atau SDK pihak ketiga lain yang mengubah praktik data.
+Perbarui kebijakan sebelum mengaktifkan alur cloud baru atau mengubah cara data transaksi, billing, payment, analitik, crash reporting maupun SDK pihak ketiga diproses.
