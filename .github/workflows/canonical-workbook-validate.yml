@@ -29,6 +29,7 @@ on:
       - "scripts/sync_excel_to_supabase.py"
       - "scripts/sync_excel_to_supabase_legacy.py"
       - "scripts/tests/**"
+      - "btp-admin/**"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
   workflow_dispatch:
@@ -63,7 +64,9 @@ jobs:
           node --check btp-admin/editor-core.js
           node --check btp-admin/feature-flags.js
           node --check btp-admin/admin-fields.js
-          node scripts/tests/test_admin_parity.cjs
+
+      - name: Test Admin and RPC resolver parity fixture
+        run: node scripts/tests/test_admin_parity.cjs
 
       - name: Run workbook and Admin config contract regression tests
         shell: bash
