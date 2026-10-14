@@ -1,0 +1,110 @@
+name: KVM2 Laravel Backend CI
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/**"
+      - "routes/**"
+      - "docker/**"
+      - "composer.json"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "scripts/export_workbook_for_laravel.py"
+      - "scripts/check_kvm2_contract.py"
+      - ".github/workflows/kvm2-backend-ci.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/**"
+      - "routes/**"
+      - "docker/**"
+      - "composer.json"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "scripts/export_workbook_for_laravel.py"
+      - "scripts/check_kvm2_contract.py"
+      - ".github/workflows/kvm2-backend-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kvm2-laravel-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      mariadb:
+        image: mariadb:11
+        env:
+          MARIADB_DATABASE: berkahpos_central
+          MARIADB_USER: berkahpos_app
+          MARIADB_PASSWORD: ci-central-password
+          MARIADB_ROOT_PASSWORD: ci-root-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Verify current architecture contracts
+        run: |
+          python3 scripts/check_kvm2_contract.py
+          python3 scripts/export_workbook_for_laravel.py --validate-only
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91c4a30c7dc
+        with:
+          php-version: "8.3"
+          extensions: bcmath, ctype, curl, dom, fileinfo, intl, mbstring, openssl, pdo_mysql, tokenizer, xml, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Validate Composer manifest
+        run: composer validate --no-check-publish
+
+      - name: Install backend dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app bootstrap config database routes public -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Boot Laravel and run central schema migrations
+        env:
+          APP_KEY: base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
+          APP_ENV: testing
+          APP_DEBUG: true
+          CENTRAL_DB_HOST: 127.0.0.1
+          CENTRAL_DB_PORT: 3306
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-password
+          TENANT_DB_HOST: 127.0.0.1
+          TENANT_DB_PORT: 3306
+          TENANT_DB_DATABASE: berkahpos_central
+          TENANT_DB_USERNAME: berkahpos_app
+          TENANT_DB_PASSWORD: ci-central-password
+          DB_CONNECTION: central
+        run: |
+          php artisan package:discover --ansi
+          php artisan migrate --database=central --path=database/migrations/central --force
+          php artisan route:list --path=api/v1
