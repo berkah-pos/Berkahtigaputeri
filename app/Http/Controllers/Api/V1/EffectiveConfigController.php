@@ -19,6 +19,11 @@ class EffectiveConfigController extends Controller
         $user = $request->user();
         abort_unless($user, 401, 'Authentication required.');
 
+        $token = $user->currentAccessToken();
+        if ($token && ! $token->can('config:read')) {
+            abort(403, 'Token does not have config:read permission.');
+        }
+
         $config = $resolver->resolve(
             $user,
             $input['tenant_id'],
