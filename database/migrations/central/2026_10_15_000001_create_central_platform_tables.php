@@ -80,6 +80,28 @@ return new class extends Migration
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->unique(['tenant_id', 'service_scope']);
         });
+        Schema::connection('central')->create('tenant_services', function (Blueprint $table): void {
+            $table->string('tenant_id');
+            $table->string('service', 20);
+            $table->boolean('enabled')->default(false);
+            $table->timestamps();
+            $table->primary(['tenant_id', 'service']);
+            $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
+        });
+        Schema::connection('central')->create('audit_events', function (Blueprint $table): void {
+            $table->id();
+            $table->foreignId('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('tenant_id')->nullable()->index();
+            $table->string('scope_type', 50);
+            $table->string('scope_id', 150);
+            $table->string('action', 100);
+            $table->unsignedInteger('previous_version')->nullable();
+            $table->unsignedInteger('new_version')->nullable();
+            $table->string('previous_sha256', 64)->nullable();
+            $table->string('new_sha256', 64)->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamp('created_at')->useCurrent();
+        });
         Schema::connection('central')->create('device_registry', function (Blueprint $table): void {
             $table->string('device_id', 150)->primary();
             $table->string('tenant_id')->index();
@@ -134,7 +156,7 @@ return new class extends Migration
     public function down(): void
     {
         foreach (['failed_jobs', 'job_batches', 'jobs', 'cache_locks', 'cache',
-            'device_registry', 'tenant_configs', 'templates', 'global_configs',
+            'device_registry', 'audit_events', 'tenant_services', 'tenant_configs', 'templates', 'global_configs',
             'subscriptions', 'personal_access_tokens', 'users', 'domains', 'tenants'] as $table) {
             Schema::connection('central')->dropIfExists($table);
         }
