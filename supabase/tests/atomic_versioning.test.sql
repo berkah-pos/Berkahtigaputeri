@@ -10,6 +10,7 @@ SELECT
   chosen.tenant_id AS tenant_a,
   chosen.tenant_key,
   chosen.tenant_before,
+  chosen.tenant_clean,
   chosen.tenant_version,
   chosen.service_key,
   chosen.service_before,
@@ -34,6 +35,7 @@ FROM (
     t.tenant_id,
     tc.key AS tenant_key,
     tc.value AS tenant_before,
+    private.strip_legacy_tax_config(tc.value) AS tenant_clean,
     (tc.value->>'version')::integer AS tenant_version,
     sc.key AS service_key,
     sc.value AS service_before,
@@ -76,7 +78,7 @@ INSERT INTO public.pos_memberships (tenant_id, user_id, role, is_active)
 SELECT tenant_a, user_id, 'owner', true
 FROM pg_temp.phase6_context;
 
-SELECT extensions.plan(18);
+SELECT extensions.plan(19);
 
 SELECT extensions.ok(
   (SELECT count(*) = 352
@@ -192,6 +194,22 @@ SELECT extensions.is(
   'tenant config RPC increments exactly once and ignores caller-supplied version'
 );
 
+SELECT extensions.throws_ok(
+  (
+    SELECT format(
+      'SELECT public.update_app_config_atomic(%L, %L::jsonb, %s)',
+      c.tenant_key,
+      (c.tenant_clean || jsonb_build_object('tax_rate', 999, 'version', 999))::text,
+      c.tenant_version + 1
+    )
+    FROM pg_temp.phase6_context c
+  ),
+  '42501',
+  'regulatory tax values are read-only; use tax_rates',
+  'new or changed protected tax fields are rejected'
+);
+
+
 SELECT extensions.is(
   (
     SELECT (public.update_app_config_atomic(
@@ -281,7 +299,7 @@ SELECT extensions.throws_ok(
       'SELECT public.update_app_config_atomic(%L, %L::jsonb, %s)',
       c.tenant_key,
       (
-        c.tenant_before || jsonb_build_object(
+        c.tenant_clean || jsonb_build_object(
           'template_id',
           CASE upper(coalesce(c.tenant_before->>'template_id', c.tenant_before->>'template', ''))
             WHEN 'BASIC' THEN 'PRO'
@@ -322,6 +340,12 @@ SELECT extensions.ok(
       (tenant_row.value->>'version')::integer = c.tenant_version + 1
       AND (service_row.value->>'version')::integer = c.service_version + 1
       AND (device_row.value->>'version')::integer = c.device_version + 1
+      AND NOT (
+        tenant_row.value ?| ARRAY[
+          'ppn','ppn rate %','ppn account','dpp',
+          'pph21','pph 21','pph23','pph 23','pph final','tax rate','tax_rate'
+        ]
+      )
     FROM pg_temp.phase6_context c
     JOIN public.app_config tenant_row ON tenant_row.key = c.tenant_key
     JOIN public.app_config service_row ON service_row.key = c.service_key

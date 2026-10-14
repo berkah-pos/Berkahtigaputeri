@@ -24,7 +24,7 @@ public.update_app_config_atomic(
 
 Do not implement client-side `read version → compare → upsert`. That sequence is race-prone because two writers can observe the same version before either write commits.
 
-The canonical function is defined by `DOC_06_ATOMIC_VERSIONING_RPC.sql`. It:
+The canonical function is defined by `DOC_06_ATOMIC_VERSIONING_RPC.sql` and updated forward-only by `supabase/migrations/20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql`. It:
 
 1. asserts the immutable canonical `app_config` inventory before writing;
 2. authorizes the requested key with `private.can_write_app_config(p_key)`;
@@ -79,6 +79,10 @@ A genuinely missing canonical key may be inserted at `version: 1`. Production au
 
 Any seed or migration that conflicts with an existing newer version must not reset it to `1`.
 
+## Legacy tax compatibility
+
+The atomic RPC rejects any new or changed top-level protected regulatory tax field (`ppn`, `pph21`, `tax_rate`, and the legacy aliases). If an existing tenant/template object echoes the same legacy field unchanged, the RPC allows the versioned write to proceed and strips the legacy key before persistence. This prevents a normal full-object Admin save from failing solely because old stored rows still carry immutable tax fields; it does not make tax configuration writable. The SQL behavior is exercised in `supabase/tests/atomic_versioning.test.sql`.
+
 ## Audit history
 
 `trg_app_config_audit` records `old_value`, `new_value`, actor, timestamp, and the resulting version. Because the version bump occurs in the same database transaction as the semantic change, audit rows observe the committed transition rather than a client-side guess.
@@ -93,6 +97,7 @@ Phase 6 is green only when all of the following are true:
 - correct `p_expected_version=N` succeeds with stored `version=N+1`;
 - a stale second writer using the same `N` fails with `40001`;
 - caller-supplied `version` cannot override the server-generated version;
+- unchanged legacy tax keys are stripped during a normal save, while new/changed protected tax values fail with SQLSTATE `42501`;
 - unauthorized identities cannot write another tenant/device layer;
 - tenant template assignment cannot be changed by ordinary tenant/device roles;
 - Admin and workbook replacement use the RPC rather than direct replacement writes.

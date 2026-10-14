@@ -62,6 +62,15 @@ class AdminCanonicalConfigContractTests(unittest.TestCase):
         self.assertIn("canonical workbook", clients)
         self.assertIn("352-key", clients)
 
+    def test_phase6_rpc_preserves_legacy_tax_guards_and_cas(self):
+        migration = source("supabase/migrations/20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql")
+        sql_test = source("supabase/tests/atomic_versioning.test.sql")
+        self.assertIn("new_tax.field_value is distinct from", migration)
+        self.assertIn("private.strip_legacy_tax_config(p_new_value)", migration)
+        self.assertIn("version conflict", migration)
+        self.assertIn("new or changed protected tax fields are rejected", sql_test)
+        self.assertIn("extensions.plan(19)", sql_test)
+
     def test_canonical_sync_remains_atomic_and_inventory_guarded(self):
         sync = source("scripts/sync_excel_to_supabase.py")
         legacy_parser = source("scripts/sync_excel_to_supabase_legacy.py")

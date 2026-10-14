@@ -19,9 +19,14 @@
         "file": "20261013120000_phase5_tenant_isolation_hardening.sql",
         "version": "20261013120000",
         "git_blob_sha": "e4b487e66e041025e1d56796428e98826855b506"
+      },
+      {
+        "file": "20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql",
+        "version": "20261014201000",
+        "git_blob_sha": "310e5ed2c67783a78f2e046f76314ebcb0a1b5f0"
       }
     ],
-    "tracked_file_count": 2,
+    "tracked_file_count": 3,
     "exact_remote_version_matches": 0,
     "config_project_id": "berkah-pos-local",
     "pgdelta_enabled": false
