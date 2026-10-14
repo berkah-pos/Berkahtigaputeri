@@ -1,6 +1,6 @@
 # FASE 4 — FAIL-CLOSED SYNCHRONIZATION CI
 
-**Status: GREEN for sync guardrail behavior and regression-step evidence; final-head workflow result is tracked separately.**  
+**Status: GREEN — current implementation and full CI workflow verified.**  
 **Date:** 2026-10-14  
 **Branch:** `chore/consolidate-single-main-repo`
 
@@ -46,11 +46,7 @@ The workflow now includes the Admin runtime parity fixture and discovers all `sc
 
 ## 4. CI evidence and final-head caveat
 
-The successful pre-current-head workflow run [38585365559](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38585365559) verified that the workbook key manifest remains unchanged and the dry-run is successful.
-
-For the new fail-closed tests, workflow run [38585441163](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38585441163) executed the regression step successfully: **20 Python tests passed**, workbook dry-run printed the expected category count, printed `Canonical key manifest MD5 verified: 1fd3d64219ecc7c333453c20da80e295`, and returned `DRY-RUN OK` without credentials or network writes. That run was later cancelled by the newer commit which separated the Node parity fixture into its own CI step and added the push-side Admin path filter; the job logs show the tests/dry-run step had already completed successfully.
-
-The latest workflow for head `00021b22bec9e9b3996d75d1efbbae9e9f514568` is pending in the GitHub Actions queue at the time of writing. Treat the phase's implementation/test-step evidence as green, but do not label the latest complete workflow run GREEN until that current-head run finishes successfully.
+The full successful workflow is [Canonical Workbook Validation — run 38585478089](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38585478089), on source/workflow SHA `00021b22bec9e9b3996d75d1efbbae9e9f514568`. It completed with overall conclusion **success**. The job log confirms the Admin parity fixture passed; **20 Python tests passed**; the workbook produced `352 keys validated`; the key manifest printed `Canonical key manifest MD5 verified: 1fd3d64219ecc7c333453c20da80e295`; the count gate printed `EXPECTED KEY COUNT VERIFIED: 352`; and the final mode printed `DRY-RUN OK` with no credentials and no network writes. The workflow includes the separated Node parity step and the push-side Admin path filter.
 
 ## 5. Safety boundary
 
@@ -60,4 +56,4 @@ The latest workflow for head `00021b22bec9e9b3996d75d1efbbae9e9f514568` is pendi
 - The actual post-sync branch is exercised with mocks in this CI; a real live sync is intentionally not used as a test.
 - An approved destination, reviewed diff, rollback/restore plan and explicit release approval remain mandatory before any real workbook apply.
 
-**Phase conclusion:** The fail-closed branches and post-sync manifest assertions are covered by passing regression-step evidence. Overall reconciliation and production deployment remain blocked; a current-head successful full CI run is still required before calling Phase 4 fully GREEN.
+**Phase conclusion: GREEN.** The fail-closed branches and post-sync manifest assertions are covered by passing tests, and the complete CI workflow succeeded on the reviewed source/workflow revision. Overall Supabase reconciliation, hostile Tenant A/B runtime certification, restore/load evidence and production deployment remain blocked.
