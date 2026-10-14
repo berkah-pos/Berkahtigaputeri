@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,17 +21,33 @@ class CentralApiClient {
 
   final String baseUrl;
   final SharedPreferences preferences;
+  final FlutterSecureStorage? secureStorage;
   final http.Client _http;
+  String? _cachedToken;
 
   CentralApiClient({
     required this.baseUrl,
     required this.preferences,
+    this.secureStorage,
     http.Client? httpClient,
   }) : _http = httpClient ?? http.Client();
 
-  bool get hasSession => (preferences.getString(_tokenKey) ?? '').isNotEmpty;
+  bool get hasSession => (_token ?? '').isNotEmpty;
 
-  String? get _token => preferences.getString(_tokenKey);
+  String? get _token => _cachedToken ?? preferences.getString(_tokenKey);
+
+  Future<void> hydrateSession() async {
+    final vault = secureStorage;
+    if (vault != null) {
+      _cachedToken = await vault.read(key: _tokenKey);
+      // Never fall back to a legacy plain-text preference in production mode.
+      _cachedToken = null;
+      await secureStorage?.delete(key: _tokenKey);
+      await preferences.remove(_tokenKey);
+    } else {
+      _cachedToken = preferences.getString(_tokenKey);
+    }
+  }
 
   Uri _uri(String path, [Map<String, String>? query]) {
     final normalized = baseUrl.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -62,7 +79,14 @@ class CentralApiClient {
         statusCode: response.statusCode,
       );
     }
-    await preferences.setString(_tokenKey, token);
+    _cachedToken = token;
+    final vault = secureStorage;
+    if (vault != null) {
+      await vault.write(key: _tokenKey, value: token);
+      await preferences.remove(_tokenKey);
+    } else {
+      await preferences.setString(_tokenKey, token);
+    }
   }
 
   Future<void> signOut() async {
