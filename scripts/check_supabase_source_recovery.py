@@ -158,7 +158,7 @@ def main() -> int:
         "source_policies": 42,
         "target_extra_policies": 2,
         "triggers": 49,
-        "pgtap_assertions": 16,
+        "pgtap_assertions": 23,
     }.items():
         if counts[key] != expected:
             fail(f"reconstructed artifact count mismatch: {key}={counts[key]}, expected {expected}")
@@ -168,6 +168,10 @@ def main() -> int:
         text = read_text(BASELINE / name)
         if count(r"^\s*(?:INSERT INTO|COPY)\b", text):
             fail(f"row-data statements are forbidden in schema-only artifact {name}")
+    if "SET LOCAL ROLE authenticated" not in test_sql or "RLS-RUNTIME-A-001" not in test_sql or "RLS-RUNTIME-B-001" not in test_sql:
+        fail("reconstructed replay test is missing the synthetic Tenant A/B RLS runtime assertions")
+    if "SELECT extensions.plan(23);" not in test_sql or "RESET ROLE;" not in test_sql:
+        fail("runtime pgTAP assertion plan/role restoration is inconsistent")
     if "ALTER DEFAULT PRIVILEGES" not in overlay_sql:
         fail("target overlay is missing least-privilege default ACL hardening")
     if "tenant_accounting_links ENABLE ROW LEVEL SECURITY" not in overlay_sql:
