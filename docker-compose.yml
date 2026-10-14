@@ -60,4 +60,4 @@ volumes:
 
 networks:
   berkah-internal:
-    internal: true
+    driver: bridge
