@@ -43,9 +43,10 @@ The supported key forms are `global`, `template:<TEMPLATE_ID>`, `tenant:<tenant_
 
 - The branch `chore/consolidate-single-main-repo` was created from the observed base `main` HEAD `98befcd5807585dd0c1b84085fc4a6e73fd90f2b`.
 - `.github/workflows/berkah-pos-trial-ci.yml` exists and scopes path filters to `berkah-pos-trial/**` plus that workflow file. Its job uses `ubuntu-24.04`.
+- The workflows directory contains `berkah-pos-aab.yml`, `berkah-pos-trial-ci.yml`, `canonical-workbook-validate.yml`, and `pos-app-ci.yml`. The canonical workbook workflow runs the inventory regression tests and `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352` on a hosted Ubuntu runner when its declared paths change; this is source evidence, not a run result.
 - Fetching `.github/workflows/final-pos-sync.yml` from the base branch returned 404. The expected workflow is therefore not present at that exact path/ref as queried; further workflow inventory is required before concluding whether another equivalent workflow exists.
 - The combined status API returned an empty status list for `98befcd...`. This is **not** evidence that CI is green.
-- `.cursor/rules` could not be fetched because the endpoint treats it as a directory; code search for `.cursor/rules` and `.cursor` returned no results. Its contents have not been verified.
+- The initial file endpoint could not fetch the `.cursor/rules` directory. Follow-up GitHub Contents API discovery found and fetched `.cursor/rules/berkah-pos.mdc`; its instructions were read and match the canonical inheritance/key contract and branch/PR-only change control.
 
 ## 5. Connected Supabase staging observations — read-only
 
@@ -67,7 +68,7 @@ These advisor categories need function-/table-level review. They are not, by the
 ## 6. Violations, risks, and exit gates
 
 1. **Canonical reference access unresolved:** the connected GitHub API returned 404 for files in `berkah-ajb-dev/Berkahtigaputeri`; need access or a confirmed authoritative mirror.
-2. **Cursor rules unverified:** `.cursor/rules` directory contents are not readable through the available file/search operations.
+2. **Cursor rules:** resolved for discovery; `.cursor/rules/berkah-pos.mdc` was found and read through the GitHub Contents API.
 3. **No local checkout evidence:** no local `git status`, root listing, complete 20-commit log, local diff, or local test/build output is available.
 4. **Cross-repository merge analysis outstanding:** no full file hash comparison, merge-base evidence, or fork-only/modified file classification has been completed.
 5. **Workflow uncertainty:** `final-pos-sync.yml` is absent at the requested base path; equivalent workflow discovery and inventory fail-closed enforcement remain unverified.
@@ -84,4 +85,9 @@ These advisor categories need function-/table-level review. They are not, by the
 
 ## Phase 0 exit result
 
-**YELLOW — not GREEN.** The base and canonical documents accessible in the main repository establish the requested architecture, and a safe branch now exists. Exit is blocked by connector limitations for local repository verification, inaccessible canonical-reference files / Cursor rules, and unresolved Supabase staging drift. These are recorded in `docs/reports/BLOCKERS.md`.
+**YELLOW — not GREEN.** The base and canonical documents accessible in the main repository establish the requested architecture, the Cursor rule has now been read, and a safe branch exists. Exit remains blocked by the inaccessible canonical-reference repository, lack of a local shell/worktree for required `git status` and execution checks, and unresolved Supabase staging drift. These are recorded in `docs/reports/BLOCKERS.md`.
+
+
+## Follow-up discovery — repository tree comparison (API-level, not SHA-256 certification)
+
+Recursive Git tree responses for both default branches report 164 tracked blob paths each after excluding generated/build paths. The path sets are identical; the only differing Git blob ID is `.github/workflows/berkah-pos-trial-ci.yml`. That blob-ID screening uses Git object IDs, not the requested SHA-256 implementation. The base version contains additional hosted-runner Android SDK/NDK setup steps absent from the fork's shorter workflow; no fork-only application/config/migration file was found by path inventory. Preserve the base workflow until a full reviewed diff and CI evidence say otherwise. The designated canonical-reference repository still returns 404 through the connected GitHub API.
