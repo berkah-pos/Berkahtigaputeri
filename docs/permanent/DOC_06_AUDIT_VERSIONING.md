@@ -1,98 +1,35 @@
-# DOC_06 — Audit & Atomic Versioning
+# DOC_06 — Configuration Audit and Versioning
 
-## Status
+**Status:** Active design and acceptance contract for the Laravel runtime; legacy SQL/RPC certification is superseded.
 
-Canonical Phase 6 contract for `public.app_config` writes.
+## Version ownership
 
-Configuration inheritance remains:
+Every configuration record has a positive integer version owned by the server. A new value is written against an expected version; stale writes must fail instead of overwriting newer configuration. Version numbers are never reset to v1 by a repeat import.
 
-`GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`
+The version applies to each scope record independently:
+- global configuration;
+- each template;
+- tenant base configuration;
+- each tenant/service configuration;
+- each tenant-local device configuration.
 
-Every `app_config.value` JSON object must contain a positive integer `version`.
+## Write contract
 
-## Only normal update path: atomic RPC
+Any future config-editing API or Filament action must execute under a transaction/row lock:
+1. authorize active user and scope ownership;
+2. read the latest record and verify it exists;
+3. compare the supplied expected version;
+4. validate data shape and allowed keys;
+5. persist and increment to N+1 atomically;
+6. append an audit event including actor/scope, old/new hashes, versions and timestamp;
+7. return the stored version.
 
-The only normal write path for an **existing** `app_config` key is:
+If the expected version differs, return a conflict response and preserve the persisted value. Do not accept a client-supplied new version as authoritative.
 
-```sql
-public.update_app_config_atomic(
-  p_key text,
-  p_new_value jsonb,
-  p_expected_version integer
-)
-```
+## Workbook importer
 
-Do not implement client-side `read version → compare → upsert`. That sequence is race-prone because two writers can observe the same version before either write commits.
+`php artisan config:import-workbook <manifest.json>` is intended to be resumable. Identical values preserve current versions; changed values increment the version; missing keys should be reconciled explicitly rather than silently deleted. It does not reset versions, drop tenant DBs or replace transaction records.
 
-The canonical function is defined by `DOC_06_ATOMIC_VERSIONING_RPC.sql`. It:
+## Evidence boundary
 
-1. asserts the immutable canonical `app_config` inventory before writing;
-2. authorizes the requested key with `private.can_write_app_config(p_key)`;
-3. locks the requested row with `SELECT ... FOR UPDATE`;
-4. fails with `P0002` if the key does not exist;
-5. validates the current positive integer `version`;
-6. fails with SQLSTATE `40001` when it differs from `p_expected_version`;
-7. overwrites any caller-supplied `version` with `p_expected_version + 1`;
-8. updates with a second `WHERE version = p_expected_version` guard;
-9. keeps tenant/device relational projections aligned when those layers change;
-10. returns the stored JSON value, including the new version.
-
-Because the row is locked before the comparison, two transactions starting with the same expected version cannot both succeed. One acquires the row lock and writes `N+1`; the other waits, then sees `N+1` and fails with `40001` when it resumes.
-
-## Authorization
-
-The RPC is `SECURITY DEFINER SET search_path = ''` and is exposed only to `authenticated` and `service_role`.
-
-`SECURITY DEFINER` must not weaken tenant isolation. Authorization is therefore enforced inside `private.can_write_app_config(p_key)`:
-
-- `service_role`: trusted server-side administrative synchronization;
-- canonical super admin: `berkahtigaputeri@gmail.com`, UID `49abb5d4-8616-45d3-b2cb-8e0dcb72f100`;
-- POS tenant `owner`: may replace that tenant layer and authorized lower layers;
-- POS tenant `owner` / `manager`: may replace the tenant's service rows and device rows allowed by the helper;
-- device owner: may replace only the exact `device:<device_id>` bound to `auth.uid()`;
-- unrelated authenticated users and `anon`: denied.
-
-Template assignment on a tenant row is additionally protected: only `service_role` or the canonical super admin may change the tenant's template assignment.
-
-## Admin behavior
-
-Classic Admin and Template Admin load the current positive `value.version` and call the RPC directly with the corresponding `p_expected_version`.
-
-On SQLSTATE `40001`, the UI must not overwrite server state. It reloads the latest row and displays a conflict/reload message. The client never assigns the stored version itself.
-
-## Workbook synchronization
-
-`scripts/sync_excel_to_supabase.py` is a versioned administrative replacement operation.
-
-For every workbook-owned `app_config` key:
-
-- missing key → bootstrap once with `version: 1`;
-- existing key at live version `N` → replace through `update_app_config_atomic(..., p_expected_version=N)` and store `N+1`;
-- normal mode → fail closed if another writer changes the key after the importer read it;
-- `--force-version` → explicitly refresh the latest live version after `40001` and retry the same atomic RPC.
-
-`--force-version` does **not** disable compare-and-swap and does not accept a caller-chosen target version.
-
-## Bootstrap and seed rule
-
-A genuinely missing canonical key may be inserted at `version: 1`. Production authority is the canonical workbook and its exact 352-key export, not illustrative legacy bootstrap rows.
-
-Any seed or migration that conflicts with an existing newer version must not reset it to `1`.
-
-## Audit history
-
-`trg_app_config_audit` records `old_value`, `new_value`, actor, timestamp, and the resulting version. Because the version bump occurs in the same database transaction as the semantic change, audit rows observe the committed transition rather than a client-side guess.
-
-## Acceptance checks
-
-Phase 6 is green only when all of the following are true:
-
-- canonical inventory remains exactly 352 keys with keyset MD5 `1fd3d64219ecc7c333453c20da80e295`;
-- every canonical `app_config` row has a positive integer version;
-- wrong `p_expected_version` fails with SQLSTATE `40001`;
-- correct `p_expected_version=N` succeeds with stored `version=N+1`;
-- a stale second writer using the same `N` fails with `40001`;
-- caller-supplied `version` cannot override the server-generated version;
-- unauthorized identities cannot write another tenant/device layer;
-- tenant template assignment cannot be changed by ordinary tenant/device roles;
-- Admin and workbook replacement use the RPC rather than direct replacement writes.
+The migration importer currently preserves/increments versions during source import. That does not yet certify a complete Admin editing API, an append-only audit ledger, concurrent editing behavior or cross-node conflict handling. Those require actual implementation and executed tests. Old PostgreSQL `update_app_config_atomic` SQL/RPC reports are historical only; new APIs must implement the equivalent concurrency guarantee in Laravel/MariaDB.
