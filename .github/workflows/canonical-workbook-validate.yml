@@ -63,6 +63,7 @@ jobs:
           node --check btp-admin/editor-core.js
           node --check btp-admin/feature-flags.js
           node --check btp-admin/admin-fields.js
+          node scripts/tests/test_admin_parity.cjs
 
       - name: Run workbook and Admin config contract regression tests
         shell: bash
