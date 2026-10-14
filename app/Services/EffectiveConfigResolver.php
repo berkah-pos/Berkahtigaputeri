@@ -43,6 +43,15 @@ class EffectiveConfigResolver
             throw new AuthorizationException('Device is assigned to another user.');
         }
 
+        $serviceEnabled = DB::connection('central')->table('tenant_services')
+            ->where('tenant_id', $tenantId)
+            ->where('service', $service)
+            ->where('enabled', true)
+            ->exists();
+        if (! $serviceEnabled) {
+            throw new AuthorizationException('Requested service is not enabled for this tenant.');
+        }
+
         $tenant = Tenant::query()->findOrFail($tenantId);
         $baseConfig = TenantConfig::query()
             ->where('tenant_id', $tenantId)->whereNull('service')->first();
