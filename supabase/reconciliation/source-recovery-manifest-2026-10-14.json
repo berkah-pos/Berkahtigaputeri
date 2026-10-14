@@ -1215,7 +1215,34 @@
   },
   "clean_replay": {
     "historical_ordered_replay": "BLOCKED",
-    "reason": "Exact historical SQL bodies/versions are missing. Supabase migration registry stores version/name metadata, not SQL-body checksums. The reachable Git repositories and branches contain only partial candidate sources.",
-    "safe_next_step": "Build and label a reconstructed target-schema baseline from reviewed schema/object evidence in an isolated work area; replay that baseline on an ephemeral local Supabase/Postgres instance; compare object fingerprints and security tests; do not apply or repair remote histories as a substitute."
+    "reason": "Exact historical SQL bodies and version matches remain missing (staging: 139 registry rows, 0 exact SQL/version matches; staging-clone: 12 registry rows, 0 exact SQL/version matches). A separately reconstructed target schema has now passed a clean disposable local Supabase replay and structural fingerprint comparison; this does not recover historical source.",
+    "safe_next_step": "Reconcile the staging-clone-specific relation/routine drift, recover or formally supersede the missing ordered historical sources through a reviewed baseline strategy, and complete Tenant A/B API/RPC/Storage/Realtime tests plus restore/load gates. Do not run remote migration push, repair, or reset as a substitute.",
+    "reconstructed_target_baseline": {
+      "status": "PASS",
+      "validated_at": "2026-10-14",
+      "commit": "fd442e2307004af6910560726f7f98055972521a",
+      "workflow_run_id": 38523201897,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897",
+      "supabase_cli_version": "2.120.0",
+      "postgres_container": "supabase/postgres:17.11.0.004",
+      "pgtap_tests": 16,
+      "pgtap_result": "PASS",
+      "structural_fingerprint_comparison": "PASS",
+      "inventory": {
+        "application_relations": 67,
+        "constraints": 615,
+        "non_constraint_indexes": 49,
+        "routines": 169,
+        "source_policies": 42,
+        "target_only_policies": 2,
+        "non_internal_triggers": 49
+      },
+      "accepted_target_deltas": [
+        "enable RLS on private.tenant_accounting_links",
+        "add tenant_accounting_links_deny_anon_reconstructed and tenant_accounting_links_read_member_reconstructed",
+        "revoke anon/PUBLIC EXECUTE on public.log_config_change() and public.set_updated_at()"
+      ],
+      "scope_limit": "Disposable reconstructed target-schema replay only; not historical ordered replay, clone equivalence, production migration approval, data restore, extension/cron parity, or end-to-end Tenant A/B certification."
+    }
   }
 }

@@ -1,6 +1,6 @@
 # DOC_17 — Supabase Source Recovery and Disposable Clean Replay
 
-**Status:** PARTIAL SOURCE RECOVERY; RECONSTRUCTED SCHEMA SNAPSHOT AWAITING CLEAN-REPLAY CI  
+**Status:** RECONSTRUCTED TARGET SCHEMA REPLAY PASSED; HISTORICAL SOURCE RECOVERY BLOCKED  
 **Captured:** 2026-10-14  
 **Scope:** GitHub SQL source recovery, current staging catalog reconstruction, and isolated replay acceptance.  
 **Authority:** Follow `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, and `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md`.
@@ -12,7 +12,7 @@ The complete historic applied-migration source is not available in the two reach
 These are separate deliverables:
 
 - **Historical source recovery:** still **BLOCKED**. The registry stores version/name metadata rather than historical SQL body checksums; no candidate may be claimed exact by filename or intent.
-- **Reconstructed state snapshot:** created in `supabase/reconciliation/reconstructed/staging-baseline/`, intentionally outside the active migration folder. Its clean replay remains pending until the dedicated hosted CI workflow succeeds.
+- **Reconstructed state snapshot:** created in `supabase/reconciliation/reconstructed/staging-baseline/`, intentionally outside the active migration folder. The disposable clean replay, 16 pgTAP assertions, and staging structural-fingerprint comparison have now passed on PR #39 head `fd442e2307004af6910560726f7f98055972521a`.
 - **Target architecture hardening:** two additional tenant-accounting policies, RLS enablement for the tenant-accounting link table, and least-privilege default ACLs are explicit *reconstruction deltas*, not assertions about what was historically deployed.
 
 No existing remote database has been written, repaired, reset, or migrated during this recovery.
@@ -76,7 +76,7 @@ These are forward-looking reconstruction changes for the latest tenant-isolation
 
 ## 5. Clean-replay protocol
 
-Workflow: `.github/workflows/supabase-reconstructed-baseline-replay.yml`.
+Workflow: `.github/workflows/supabase-reconstructed-clean-replay.yml`.
 
 1. Validate provenance hashes and expected source/DDL counts.
 2. Create a temporary Supabase project under the GitHub runner's temp directory with no linked project ID or credentials.
@@ -90,6 +90,19 @@ The workflow uses the pinned Supabase CLI release `2.120.0` and has read-only Gi
 
 A green run is necessary but not sufficient for production release. It proves disposable final-state schema creation, not historical replay, row-data restore, application-level two-tenant behavior, or cross-environment equivalence.
 
+
+### Verified replay evidence (2026-10-14)
+
+- Current PR head at verification: `fd442e2307004af6910560726f7f98055972521a`.
+- Hosted isolated replay: [run 38523201897](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897) — **success**.
+- Supabase CLI `2.120.0` binary checksum verified; local PostgreSQL container `17.11.0.004`; no remote project was linked or modified.
+- Fresh local reset and reconstructed migration: **pass**.
+- pgTAP: **16 tests, all passed**, including table/routine/constraint/policy/trigger counts and anonymous grants/RLS/default-ACL assertions.
+- Catalog fingerprint: **pass** — 67 relations, 615 constraints, 49 non-constraint indexes, 169 routine definitions/security modes, 42 source policies, and 49 source triggers matched. The only accepted target deltas are enabling RLS on `private.tenant_accounting_links`, adding two reviewed policies, and revoking the two named trigger-helper anonymous EXECUTE grants.
+- Teardown of the disposable stack: **pass**.
+
+The pass proves that the reconstructed target schema can be built cleanly and matches the recorded staging structural fingerprint under the documented deltas. It does **not** prove the missing 139/12 historical migration SQL bodies, clone equivalence, production data restore, application-level tenant isolation end-to-end, extension/cron parity, or release readiness.
+
 ## 6. Acceptance gates and remaining blocks
 
 - [x] Exhaustive search of both repositories' reachable branches and migration histories recorded.
@@ -97,11 +110,11 @@ A green run is necessary but not sufficient for production release. It proves di
 - [x] Current staging object catalog reconstructed into a schema-only snapshot.
 - [x] Reference structural fingerprint captured without exporting business rows.
 - [x] Target-only tenant-accounting RLS and least-privilege deltas labelled separately.
-- [ ] Static source/artifact checker green on current candidate commit.
-- [ ] Disposable clean replay passes from a fresh database.
-- [ ] Structural comparison passes against the staging reference with only the documented target deltas.
+- [x] Static source/artifact checker green on current candidate commit.
+- [x] Disposable clean replay passes from a fresh database.
+- [x] Structural comparison passes against the staging reference with only the documented target deltas.
 - [ ] Clone-only relation/routine drift reconciled and replayed independently.
 - [ ] Complete historical SQL bodies recovered or formally superseded by a reviewed baseline migration strategy.
 - [ ] Tenant A/B hostile runtime tests, transaction/outbox end-to-end tests, backup/restore drills, load tests, and production release approval.
 
-Until replay/comparison CI passes and clone-specific drift is resolved, status remains **RECONSTRUCTION BUILT — NOT CERTIFIED**. This is not a production database migration authorization.
+The reconstructed target snapshot has passed clean replay and structural comparison, but clone-specific drift and complete historical SQL recovery remain unresolved. Status is **RECONSTRUCTED TARGET SCHEMA REPLAYED — NOT CERTIFIED**. This does not authorize any hosted database migration or production release.
