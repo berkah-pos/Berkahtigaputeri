@@ -141,11 +141,14 @@ SELECT extensions.ok(
 );
 
 SELECT extensions.ok(
-  (SELECT count(*) = 1 AND tenant_b IS NOT NULL
-          AND tenant_a <> tenant_b
-          AND tenant_key = 'tenant:' || tenant_a
-          AND service_key = 'tenant:' || tenant_a || ':service:pos'
-          AND device_key = 'device:' || device_id
+  (SELECT count(*) = 1
+          AND bool_and(
+            tenant_b IS NOT NULL
+            AND tenant_a <> tenant_b
+            AND tenant_key = 'tenant:' || tenant_a
+            AND service_key = 'tenant:' || tenant_a || ':service:pos'
+            AND device_key = 'device:' || device_id
+          )
    FROM pg_temp.phase6_context),
   'isolated owner, other-tenant denial target, service config, and unassigned device fixtures exist'
 );
