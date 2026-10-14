@@ -1,43 +1,14 @@
-# PHASE 6 CERTIFICATION - ATOMIC VERSIONING
+# DOC_06 — Historical Atomic Versioning Evidence
 
-Status: GREEN - already implemented on main 96baa2d
+**Status: HISTORICAL / SUPERSEDED as a runtime certification.**
 
-## Canonical RPC
-public.update_app_config_atomic(p_key text, p_new_value jsonb, p_expected_version int)
-Defined in: DOC_06_ATOMIC_VERSIONING_RPC.sql
-- SELECT FOR UPDATE lock
-- FAIL P0002 if key missing
-- FAIL 40001 if version mismatch
-- Server bumps N -> N+1, ignores caller version
-- Second WHERE version = expected_version guard
-- Row locking: 2 concurrent same N cannot both succeed
+This file records a former PostgreSQL/Supabase atomic RPC implementation. That RPC is not part of the active Laravel runtime and previous checks do not certify Laravel/MariaDB version integrity.
 
-Authorization:
-- service_role: allowed (workbook sync)
-- satria@berkahtigaputeri.com: allowed (Admin)
-- ordinary device users: 42501 rejected
-- anon: no execute grant (Phase 5)
+Current versioning contract:
+- each central and tenant configuration record has a positive server-owned version;
+- writes compare the expected stored version and reject stale updates;
+- an accepted change increments N to N+1 in one transaction/row lock;
+- a repeated unchanged workbook import must not reset versions or create a fake change;
+- an audit record must identify actor, scope, versions and old/new hashes once the editing API/audit ledger is implemented.
 
-## Workbook sync
-scripts/sync_excel_to_supabase.py:
-- Missing key -> bootstrap v1
-- Existing N -> atomic replace N+1 via update_app_config_atomic
-- Normal mode fail-closed on 40001
-- --force-version: refresh latest version and retry atomic RPC, does NOT disable CAS
-
-## Admin behavior
-Classic Admin and Template Admin load current version and call RPC.
-On 40001: reload latest and display "Data changed by another admin, please reload"
-
-## Seed rule
-All INSERT seeds include version:1 but ON CONFLICT DO UPDATE stores existing version +1:
-value = (excluded.value - 'version') || jsonb_build_object('version', (app_config.value->>'version')::int +1)
-Prevents v5 -> v1 silent reset.
-
-## Evidence
-- scripts/sync_excel_to_supabase.py uses update_app_config_atomic + VersionConflictError 40001
-- Workbook 352 keys validated with positive integer version
-- 50-tenant concurrency 0.31s PASS with version check
-- PHASE 5 RLS + anon removal prevents direct upsert bypass
-
-Certified: PHASE 6 acceptance met per DOC_00_MASTER_ROADMAP.md
+See `DOC_06_AUDIT_VERSIONING.md` and `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`. Until the Laravel concurrent stale-write tests and audit-ledger tests execute successfully, atomic versioning acceptance remains PARTIAL / NOT VERIFIED.
