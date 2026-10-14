@@ -1,0 +1,97 @@
+name: Consolidated Main Repo Export
+
+on:
+  push:
+    branches:
+      - "chore/consolidate-single-main-repo"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: consolidated-main-export-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export:
+    name: Build and verify Git bundle and source ZIP
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout complete Git history
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Build and verify single-file Git bundle and ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle="$RUNNER_TEMP/Berkahtigaputeri-FINAL-MAIN.bundle"
+          archive="$RUNNER_TEMP/Berkahtigaputeri-FINAL-MAIN.zip"
+          manifest="$RUNNER_TEMP/Berkahtigaputeri-FINAL-MAIN-EXPORT.txt"
+
+          git bundle create "$bundle" --all
+          git bundle verify "$bundle"
+          git bundle list-heads "$bundle" > "$RUNNER_TEMP/bundle-heads.txt"
+          test -s "$bundle"
+          grep -q "refs/heads/chore/consolidate-single-main-repo" "$RUNNER_TEMP/bundle-heads.txt"
+
+          rm -f "$archive"
+          zip -q -r "$archive" . -x "./.git/*" "./.git"
+          unzip -tq "$archive"
+
+          python3 - "$archive" <<'PY'
+          import sys
+          import zipfile
+          from pathlib import PurePosixPath
+
+          archive = sys.argv[1]
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+              bad = [name for name in names if ".git" in PurePosixPath(name).parts]
+              if bad:
+                  raise SystemExit("ZIP unexpectedly contains Git metadata: " + ", ".join(bad[:5]))
+              if not names:
+                  raise SystemExit("ZIP is empty")
+          print(f"PASS: ZIP contains {len(names)} files and excludes .git metadata.")
+          PY
+
+          {
+            echo "Repository: berkah-pos/Berkahtigaputeri"
+            echo "Branch: chore/consolidate-single-main-repo"
+            echo "Commit: $(git rev-parse HEAD)"
+            echo "Generated UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "Bundle bytes: $(wc -c < "$bundle" | tr -d ' ')"
+            echo "Bundle SHA256: $(sha256sum "$bundle" | cut -d ' ' -f 1)"
+            echo "ZIP bytes: $(wc -c < "$archive" | tr -d ' ')"
+            echo "ZIP SHA256: $(sha256sum "$archive" | cut -d ' ' -f 1)"
+            echo "Bundle refs:"
+            cat "$RUNNER_TEMP/bundle-heads.txt"
+          } > "$manifest"
+          cat "$manifest"
+
+      - name: Upload Git bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Berkahtigaputeri-FINAL-MAIN-bundle
+          path: ${{ runner.temp }}/Berkahtigaputeri-FINAL-MAIN.bundle
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload source ZIP
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Berkahtigaputeri-FINAL-MAIN-zip
+          path: ${{ runner.temp }}/Berkahtigaputeri-FINAL-MAIN.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload export manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Berkahtigaputeri-FINAL-MAIN-export-manifest
+          path: ${{ runner.temp }}/Berkahtigaputeri-FINAL-MAIN-EXPORT.txt
+          if-no-files-found: error
+          retention-days: 30
