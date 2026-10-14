@@ -1,0 +1,918 @@
+{
+  "schema_version": 1,
+  "captured_at_utc": "2026-10-14T03:37:00Z",
+  "status": "BLOCKED_SOURCE_SQL_NOT_RECOVERED",
+  "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
+  "scope_note": "Metadata/fingerprint evidence only. No business row contents, passwords, API keys, database URLs, or routine source bodies are stored.",
+  "production_project_identified": false,
+  "repository": {
+    "repository": "berkah-pos/Berkahtigaputeri",
+    "branch": "feat/supabase-idcloudhost-backend-foundation",
+    "head_sha": "2d5b9bf7918014bd5221d1aceb2e4479565af092",
+    "tracked_migration_files": [
+      {
+        "file": "20261008131700_p0_rls_identity_config_runtime_prep.sql",
+        "version": "20261008131700",
+        "git_blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5"
+      },
+      {
+        "file": "20261013120000_phase5_tenant_isolation_hardening.sql",
+        "version": "20261013120000",
+        "git_blob_sha": "e4b487e66e041025e1d56796428e98826855b506"
+      }
+    ],
+    "tracked_file_count": 2,
+    "exact_remote_version_matches": 0,
+    "config_project_id": "berkah-pos-local",
+    "pgdelta_enabled": false
+  },
+  "environments": [
+    {
+      "label": "staging",
+      "project_name": "berkahtigaputeri-pos-staging",
+      "postgres_version": "17.6",
+      "migration_count": 139,
+      "migrations": [
+        {
+          "version": "20260930014538",
+          "name": "dual_rail_subscription"
+        },
+        {
+          "version": "20260930014541",
+          "name": "harden_subscription_processing"
+        },
+        {
+          "version": "20260930015121",
+          "name": "subscription_advisor_hardening"
+        },
+        {
+          "version": "20260930101231",
+          "name": "license_key_vault_bridge"
+        },
+        {
+          "version": "20261001062544",
+          "name": "restrict_subscription_data_api_grants"
+        },
+        {
+          "version": "20261001063418",
+          "name": "advance_midtrans_provider_watermark"
+        },
+        {
+          "version": "20261001063612",
+          "name": "enable_subscription_expiry_cron"
+        },
+        {
+          "version": "20261001071537",
+          "name": "harden_bind_license_device_invoker"
+        },
+        {
+          "version": "20261001145402",
+          "name": "central_accounting_foundation"
+        },
+        {
+          "version": "20261001145643",
+          "name": "central_accounting_fk_indexes"
+        },
+        {
+          "version": "20261001233711",
+          "name": "tenant_product_master"
+        },
+        {
+          "version": "20261002111500",
+          "name": "inventory_event_projection_foundation"
+        },
+        {
+          "version": "20261002145500",
+          "name": "split_inventory_physical_valuation_events"
+        },
+        {
+          "version": "20261003065306",
+          "name": "inventory_event_projection_foundation"
+        },
+        {
+          "version": "20261003065343",
+          "name": "split_inventory_physical_valuation_events"
+        },
+        {
+          "version": "20261003070624",
+          "name": "harden_inventory_component_rpc_and_indexes"
+        },
+        {
+          "version": "20261003142407",
+          "name": "admin_licence_config"
+        },
+        {
+          "version": "20261004013230",
+          "name": "p1_three_layer_foundation_compat"
+        },
+        {
+          "version": "20261004013605",
+          "name": "p1_complete_pilot_device_relations"
+        },
+        {
+          "version": "20261004013646",
+          "name": "p2_rls_super_admin_auth"
+        },
+        {
+          "version": "20261004020237",
+          "name": "p6_get_effective_config_rpc"
+        },
+        {
+          "version": "20261004052600",
+          "name": "final_pos_template_inheritance"
+        },
+        {
+          "version": "20261004134310",
+          "name": "phase2_final_pos_relational_ownership"
+        },
+        {
+          "version": "20261004141055",
+          "name": "phase5_tenant_isolation_rls"
+        },
+        {
+          "version": "20261004142915",
+          "name": "phase6_atomic_app_config_versioning"
+        },
+        {
+          "version": "20261004144027",
+          "name": "phase6_atomic_app_config_versioning_fix"
+        },
+        {
+          "version": "20261004153300",
+          "name": "phase5_anon_rpc_tenant_isolation"
+        },
+        {
+          "version": "20261004155727",
+          "name": "phase6_atomic_versioning_rpc_v2"
+        },
+        {
+          "version": "20261004163508",
+          "name": "phase7_authenticated_effective_config_only"
+        },
+        {
+          "version": "20261006011208",
+          "name": "phase_b0_agent6_rbac_manager_pin"
+        },
+        {
+          "version": "20261006013530",
+          "name": "pos_memberships_canonical_20261007"
+        },
+        {
+          "version": "20261006013556",
+          "name": "rpc_pos_role_pin_20261007"
+        },
+        {
+          "version": "20261006060052",
+          "name": "phase_c_accounting_bridge_20261008"
+        },
+        {
+          "version": "20261006064743",
+          "name": "phase_d_purchase_sources"
+        },
+        {
+          "version": "20261006064953",
+          "name": "phase_d1_purchase_receipt_source"
+        },
+        {
+          "version": "20261006065110",
+          "name": "phase_d1_purchase_receipt_constraint_repair"
+        },
+        {
+          "version": "20261006084434",
+          "name": "phase_g_broader_sources"
+        },
+        {
+          "version": "20261006101740",
+          "name": "gate33_phaseg_cloud_audit_lineage"
+        },
+        {
+          "version": "20261006174200",
+          "name": "phase_h2_coa_1_1080_6_6070"
+        },
+        {
+          "version": "20261007073026",
+          "name": "p0_1_cloud_source_type_parity"
+        },
+        {
+          "version": "20261007184231",
+          "name": "p1_cfg_01_config_5layer_strict_role"
+        },
+        {
+          "version": "20261008012229",
+          "name": "p1_3_close_legacy_9arg_journal_rpc"
+        },
+        {
+          "version": "20261008021012",
+          "name": "p1_3_exact_14_source_guard_revalidation"
+        },
+        {
+          "version": "20261008131537",
+          "name": "p0_rls_identity_config_runtime_prep_20261008"
+        },
+        {
+          "version": "20261008210004",
+          "name": "private_helper_acl_hardening_20261009"
+        },
+        {
+          "version": "20261008211815",
+          "name": "p0_tax_authority_and_rate_guards"
+        },
+        {
+          "version": "20261008211930",
+          "name": "p1_pph21_ter_brackets_pp58"
+        },
+        {
+          "version": "20261008212207",
+          "name": "p0_coa_tax_extension_controlled_unlock"
+        },
+        {
+          "version": "20261008212217",
+          "name": "p0_config_remove_legacy_tax_values"
+        },
+        {
+          "version": "20261008212235",
+          "name": "p0_config_write_tax_guard"
+        },
+        {
+          "version": "20261008212245",
+          "name": "p0_effective_config_tax_strip"
+        },
+        {
+          "version": "20261008212430",
+          "name": "p0_inventory_moving_average_core"
+        },
+        {
+          "version": "20261008212547",
+          "name": "p1_tax_document_and_transaction_evidence"
+        },
+        {
+          "version": "20261008212605",
+          "name": "p1_tax_and_intent_private_helpers"
+        },
+        {
+          "version": "20261008212621",
+          "name": "p1_tax_document_immutability"
+        },
+        {
+          "version": "20261008212652",
+          "name": "p1_tax_helper_runtime_repairs"
+        },
+        {
+          "version": "20261008212801",
+          "name": "p0_inventory_average_adjustment"
+        },
+        {
+          "version": "20261008212843",
+          "name": "p0_auto_journal_sale_builder"
+        },
+        {
+          "version": "20261008212921",
+          "name": "p1_tax_document_secure_rpcs"
+        },
+        {
+          "version": "20261008212937",
+          "name": "p0_inventory_receive_exact_value"
+        },
+        {
+          "version": "20261008213006",
+          "name": "p0_auto_journal_purchase_builder"
+        },
+        {
+          "version": "20261008213040",
+          "name": "p1_tax_party_evidence_rpcs"
+        },
+        {
+          "version": "20261008213054",
+          "name": "p0_auto_journal_supplier_payment_builder"
+        },
+        {
+          "version": "20261008213128",
+          "name": "p0_auto_journal_return_and_stock_builders"
+        },
+        {
+          "version": "20261008213207",
+          "name": "p1_tax_document_linkage_guard_repair"
+        },
+        {
+          "version": "20261008213300",
+          "name": "p0_intent_only_create_auto_journal"
+        },
+        {
+          "version": "20261008213403",
+          "name": "p1_pph21_ter_and_final_period_calculators"
+        },
+        {
+          "version": "20261008213627",
+          "name": "p0_operator_fact_injection_guard_repair"
+        },
+        {
+          "version": "20261008213730",
+          "name": "p1_accounting_tax_daily_hard_gate"
+        },
+        {
+          "version": "20261008213854",
+          "name": "p0_runtime_config_contract_and_tax_snapshot_rpcs"
+        },
+        {
+          "version": "20261008214023",
+          "name": "p1_coretax_verified_template_registry"
+        },
+        {
+          "version": "20261008214119",
+          "name": "p1_coretax_export_monitoring_rpcs"
+        },
+        {
+          "version": "20261008214438",
+          "name": "p1_tax_rate_mutation_audit_lineage"
+        },
+        {
+          "version": "20261008214819",
+          "name": "p0_close_last_authenticated_raw_journal_bypass"
+        },
+        {
+          "version": "20261008214828",
+          "name": "p1_coretax_template_mutation_audit_lineage"
+        },
+        {
+          "version": "20261008214850",
+          "name": "p1_period_close_and_report_hard_gate"
+        },
+        {
+          "version": "20261008231304",
+          "name": "p0_sale_line_taxability_server_rule"
+        },
+        {
+          "version": "20261008232056",
+          "name": "p1_hard_gate_cogs_invariant_semantic_fix"
+        },
+        {
+          "version": "20261008232654",
+          "name": "p0_sale_tax_authority_from_server_masters"
+        },
+        {
+          "version": "20261008233115",
+          "name": "p0_server_sale_pricing_and_tax_document_lines"
+        },
+        {
+          "version": "20261009000307",
+          "name": "p0_sale_discount_backward_compat"
+        },
+        {
+          "version": "20261009001920",
+          "name": "p0_hardening_migration_manifest_rpc"
+        },
+        {
+          "version": "20261009002058",
+          "name": "p1_hard_gate_ignore_reversed_legacy_sale_diagnostic"
+        },
+        {
+          "version": "20261009002247",
+          "name": "p1_compliance_readiness_rpc"
+        },
+        {
+          "version": "20261009002718",
+          "name": "p0_config_accounting_tenant_link"
+        },
+        {
+          "version": "20261009002808",
+          "name": "p0_config_accounting_tenant_link_resolver_repair"
+        },
+        {
+          "version": "20261009003653",
+          "name": "p1_config_tenant_compliance_readiness"
+        },
+        {
+          "version": "20261009003956",
+          "name": "p0_self_tax_party_overlap_guard_and_config_wrapper"
+        },
+        {
+          "version": "20261009005100",
+          "name": "p1_coretax_readiness_matches_exporter_self_cert"
+        },
+        {
+          "version": "20261009005214",
+          "name": "p1_compliance_readiness_business_date_authority"
+        },
+        {
+          "version": "20261009005918",
+          "name": "p0_disable_unaudited_coretax_template_installer"
+        },
+        {
+          "version": "20261009010843",
+          "name": "p1_compliance_readiness_raw_self_row_count"
+        },
+        {
+          "version": "20261009012642",
+          "name": "p1_config_tenant_self_tax_profile_lifecycle"
+        },
+        {
+          "version": "20261009015303",
+          "name": "p0_remove_negative_stock_manager_pin_contract"
+        },
+        {
+          "version": "20261009015616",
+          "name": "p0_pp20_2026_vendor_eligibility_and_tax_object_evidence"
+        },
+        {
+          "version": "20261009015835",
+          "name": "p0_supplier_liability_subledger_and_domain_reversal_guard"
+        },
+        {
+          "version": "20261009020217",
+          "name": "p0_supplier_ap_reconciliation_in_accounting_hard_gate"
+        },
+        {
+          "version": "20261009020804",
+          "name": "p0_customer_receivable_subledger_collection_and_return_date_guard"
+        },
+        {
+          "version": "20261009020854",
+          "name": "p0_map_terima_piutang_to_existing_ar_receipt_source"
+        },
+        {
+          "version": "20261009020933",
+          "name": "p0_allow_terima_piutang_transaction_evidence_type"
+        },
+        {
+          "version": "20261009021350",
+          "name": "p0_remove_impossible_coretax_rejected_resubmit_path"
+        },
+        {
+          "version": "20261009021749",
+          "name": "p0_tax_document_gl_lineage_reconciliation_hard_gate"
+        },
+        {
+          "version": "20261009022035",
+          "name": "p0_input_tax_invoice_number_authority_and_duplicate_guard"
+        },
+        {
+          "version": "20261009022135",
+          "name": "p0_input_vat_event_lineage_semantics_in_hard_gate"
+        },
+        {
+          "version": "20261009022539",
+          "name": "p0_coretax_internal_export_actor_template_and_single_outbox_guard"
+        },
+        {
+          "version": "20261009022727",
+          "name": "p0_bind_supplier_withholding_to_source_liability_tax_object"
+        },
+        {
+          "version": "20261009023012",
+          "name": "p0_full_compliance_readiness_fail_closed_capability_gates"
+        },
+        {
+          "version": "20261009023238",
+          "name": "p0_vendor_service_rent_accrual_and_server_authoritative_withholding_source"
+        },
+        {
+          "version": "20261009023344",
+          "name": "p0_fire_supplier_liability_guard_for_vendor_expense_accrual"
+        },
+        {
+          "version": "20261009023927",
+          "name": "p0_pph21_employee_profile_and_payroll_calculation_authority"
+        },
+        {
+          "version": "20261009024125",
+          "name": "p0_pph21_payroll_evidence_ter_final_grossup_and_salary_subledger"
+        },
+        {
+          "version": "20261009024223",
+          "name": "p0_employee_tax_profile_audit_action_enum_alignment"
+        },
+        {
+          "version": "20261009024806",
+          "name": "p0_fixed_asset_depreciation_owner_draw_and_receivable_allowance_intents"
+        },
+        {
+          "version": "20261009024925",
+          "name": "p0_liquid_funds_authority_owner_capital_and_negative_cash_hard_gate"
+        },
+        {
+          "version": "20261009025010",
+          "name": "p0_receivable_allowance_first_event_null_safe"
+        },
+        {
+          "version": "20261009025359",
+          "name": "p0_full_compliance_gate_all_required_tax_domains"
+        },
+        {
+          "version": "20261009025833",
+          "name": "p0_ebilling_tax_remittance_source_bound_and_reconciled"
+        },
+        {
+          "version": "20261009025912",
+          "name": "p0_ebilling_requires_full_calendar_tax_period"
+        },
+        {
+          "version": "20261009030102",
+          "name": "p0_full_compliance_requires_vat_period_settlement"
+        },
+        {
+          "version": "20261009031652",
+          "name": "p0_vat_monthly_settlement_carryforward_and_ebilling_authority"
+        },
+        {
+          "version": "20261009031901",
+          "name": "p0_vat_readiness_points_to_actual_settlement_authority"
+        },
+        {
+          "version": "20261009032302",
+          "name": "p0_inbound_pph23_schema_and_master_authority"
+        },
+        {
+          "version": "20261009032313",
+          "name": "p0_inbound_pph23_sale_source_snapshot"
+        },
+        {
+          "version": "20261009032417",
+          "name": "p0_inbound_pph23_receivable_flow_and_hard_gate"
+        },
+        {
+          "version": "20261009032541",
+          "name": "p0_fire_customer_receivable_guard_for_inbound_pph23_receipt"
+        },
+        {
+          "version": "20261009032709",
+          "name": "p0_coa_extension_pph23_15pct_interest_royalty_dividend"
+        },
+        {
+          "version": "20261009032819",
+          "name": "p0_extended_pph23_15pct_source_liability_and_payment"
+        },
+        {
+          "version": "20261009033321",
+          "name": "p0_owner_umkm_final_turnover_monthly_authority"
+        },
+        {
+          "version": "20261009033350",
+          "name": "p0_owner_umkm_turnover_cross_period_return_and_full_month_profile"
+        },
+        {
+          "version": "20261009033419",
+          "name": "p0_owner_umkm_turnover_empty_facts_portability_fix"
+        },
+        {
+          "version": "20261009034029",
+          "name": "p0_corporate_fiscal_authority_tables_and_helpers"
+        },
+        {
+          "version": "20261009034149",
+          "name": "p0_corporate_annual_tax_close_article31e_losses_and_pph29"
+        },
+        {
+          "version": "20261009034256",
+          "name": "p0_pph25_authority_pph29_ebilling_and_corporate_reconciliation"
+        },
+        {
+          "version": "20261009034346",
+          "name": "p0_corporate_tax_hard_gate_reconciliation"
+        },
+        {
+          "version": "20261009065540",
+          "name": "task4_lock_post_journal_overloads_and_dispatcher_acl"
+        },
+        {
+          "version": "20261009073526",
+          "name": "enforce_accounting_journal_transaction_ref_idempotency"
+        },
+        {
+          "version": "20261009080652",
+          "name": "task4_repair_post_journal_authority"
+        },
+        {
+          "version": "20261009082402",
+          "name": "task5_coretax_fail_closed_export_gate"
+        },
+        {
+          "version": "20261013085934",
+          "name": "phase5_tenant_isolation_hardening"
+        }
+      ],
+      "schema_fingerprint": {
+        "relations": 67,
+        "relations_by_schema": {
+          "public": 63,
+          "private": 4
+        },
+        "routines": 169,
+        "security_definer_routines": 139,
+        "public_security_definer_anon_execute": 0,
+        "public_security_definer_authenticated_execute": 45,
+        "policies": 42,
+        "triggers": 49,
+        "extensions": [
+          "pg_cron",
+          "pg_stat_statements",
+          "pgcrypto",
+          "plpgsql",
+          "supabase_vault",
+          "uuid-ossp"
+        ],
+        "app_config_count": 352,
+        "app_config_key_md5": "1fd3d64219ecc7c333453c20da80e295",
+        "app_config_key_value_md5": "71cbd474ca826c0a3768da2c02621ce9",
+        "tenant_row_count": 103,
+        "device_row_count": 110
+      },
+      "advisor_findings": {
+        "security": [
+          {
+            "name": "rls_enabled_no_policy",
+            "count": 38,
+            "level": "INFO"
+          },
+          {
+            "name": "authenticated_security_definer_function_executable",
+            "count": 45,
+            "level": "WARN"
+          },
+          {
+            "name": "auth_leaked_password_protection",
+            "count": 1,
+            "level": "WARN"
+          }
+        ],
+        "performance": [
+          {
+            "name": "unindexed_foreign_keys",
+            "count": 79,
+            "level": "INFO"
+          },
+          {
+            "name": "auth_rls_initplan",
+            "count": 1,
+            "level": "WARN"
+          },
+          {
+            "name": "no_primary_key",
+            "count": 1,
+            "level": "INFO"
+          },
+          {
+            "name": "unused_index",
+            "count": 16,
+            "level": "INFO"
+          },
+          {
+            "name": "multiple_permissive_policies",
+            "count": 7,
+            "level": "WARN"
+          }
+        ]
+      }
+    },
+    {
+      "label": "staging-clone",
+      "project_name": "berkahtigaputeri-pos-staging-clone",
+      "postgres_version": "17.11",
+      "migration_count": 12,
+      "migrations": [
+        {
+          "version": "20261009120956",
+          "name": "fix_rls_tenant_links"
+        },
+        {
+          "version": "20261009123518",
+          "name": "fix_rls_tenant_links_202610100002"
+        },
+        {
+          "version": "20261009123602",
+          "name": "install_tenant_isolation_test_helpers_clone_only"
+        },
+        {
+          "version": "20261009123848",
+          "name": "align_tenant_isolation_fixture_name_clone_only"
+        },
+        {
+          "version": "20261009124420",
+          "name": "20261009163000_stress_journal_invariants"
+        },
+        {
+          "version": "20261009130145",
+          "name": "202610100004_fix_atomic_posting"
+        },
+        {
+          "version": "20261009164725",
+          "name": "restore_pos_outbox_ack_contract"
+        },
+        {
+          "version": "20261009164950",
+          "name": "fix_pos_outbox_tenant_scoped_key"
+        },
+        {
+          "version": "20261009191641",
+          "name": "fix_tenant_accounting_links_rls"
+        },
+        {
+          "version": "20261009193536",
+          "name": "202610100002_fix_rls_tenant_links"
+        },
+        {
+          "version": "20261009193542",
+          "name": "staging_clone_rls_test_helpers"
+        },
+        {
+          "version": "20261013085912",
+          "name": "phase5_tenant_isolation_hardening"
+        }
+      ],
+      "schema_fingerprint": {
+        "relations": 71,
+        "relations_by_schema": {
+          "public": 66,
+          "private": 5
+        },
+        "routines": 134,
+        "security_definer_routines": 113,
+        "public_security_definer_anon_execute": 32,
+        "public_security_definer_authenticated_execute": 33,
+        "policies": 42,
+        "triggers": 41,
+        "extensions": [
+          "pg_stat_statements",
+          "pgcrypto",
+          "plpgsql",
+          "supabase_vault",
+          "uuid-ossp"
+        ],
+        "app_config_count": 352,
+        "app_config_key_md5": "1fd3d64219ecc7c333453c20da80e295",
+        "app_config_key_value_md5": "71cbd474ca826c0a3768da2c02621ce9",
+        "tenant_row_count": 2,
+        "device_row_count": 2
+      },
+      "advisor_findings": {
+        "security": [
+          {
+            "name": "rls_enabled_no_policy",
+            "count": 40,
+            "level": "INFO"
+          },
+          {
+            "name": "anon_security_definer_function_executable",
+            "count": 32,
+            "level": "WARN"
+          },
+          {
+            "name": "authenticated_security_definer_function_executable",
+            "count": 33,
+            "level": "WARN"
+          },
+          {
+            "name": "auth_leaked_password_protection",
+            "count": 1,
+            "level": "WARN"
+          }
+        ],
+        "performance": [
+          {
+            "name": "unindexed_foreign_keys",
+            "count": 80,
+            "level": "INFO"
+          },
+          {
+            "name": "auth_rls_initplan",
+            "count": 1,
+            "level": "WARN"
+          },
+          {
+            "name": "no_primary_key",
+            "count": 1,
+            "level": "INFO"
+          },
+          {
+            "name": "unused_index",
+            "count": 23,
+            "level": "INFO"
+          },
+          {
+            "name": "multiple_permissive_policies",
+            "count": 5,
+            "level": "WARN"
+          }
+        ]
+      }
+    }
+  ],
+  "migration_candidate_mappings": [
+    {
+      "repo_file": "20261008131700_p0_rls_identity_config_runtime_prep.sql",
+      "repo_version": "20261008131700",
+      "staging_candidate": {
+        "version": "20261008131537",
+        "name": "p0_rls_identity_config_runtime_prep_20261008"
+      },
+      "staging_clone_candidate": null,
+      "exact_version_match": false,
+      "decision": "Semantic candidate only; no proof of identical SQL. Clone migration history has no P0 record."
+    },
+    {
+      "repo_file": "20261013120000_phase5_tenant_isolation_hardening.sql",
+      "repo_version": "20261013120000",
+      "staging_candidate": {
+        "version": "20261013085934",
+        "name": "phase5_tenant_isolation_hardening"
+      },
+      "staging_clone_candidate": {
+        "version": "20261013085912",
+        "name": "phase5_tenant_isolation_hardening"
+      },
+      "exact_version_match": false,
+      "decision": "Same stem with different remote versions; do not assume replay equivalence."
+    }
+  ],
+  "schema_comparison": {
+    "app_config_key_set_equal": true,
+    "app_config_key_value_fingerprint_equal": true,
+    "app_config_fingerprint_method": "MD5 over ordered key=value::text; equality fingerprint, not a security signature.",
+    "relations": {
+      "staging_count": 67,
+      "clone_count": 71,
+      "staging_only": [],
+      "clone_only": [
+        "private.pos_outbox",
+        "public.transaction_type_map",
+        "public.v_outbox_unacked",
+        "public.v_stress_validation"
+      ],
+      "shared_definition_mismatches": [
+        "private.tenant_accounting_links",
+        "public.accounting_journals",
+        "public.accounting_transaction_evidence",
+        "public.extended_withholding_liabilities"
+      ]
+    },
+    "routines": {
+      "staging_count": 169,
+      "clone_count": 134,
+      "staging_only_count": 35,
+      "staging_only_examples": [
+        "public.get_license_private_key()",
+        "public.post_accounting_journal(...)",
+        "public.update_app_config_atomic(...)"
+      ],
+      "clone_only": [
+        "private.create_test_tenant(p_name text)",
+        "private.test_tenant_b_fixture_has_data(p_tenant_b uuid)",
+        "public.test_tenant_isolation()",
+        "public.validate_journal_consistency()"
+      ],
+      "shared_definition_or_acl_mismatches": 117
+    },
+    "policies": {
+      "staging_count": 42,
+      "clone_count": 42,
+      "staging_only": [
+        "public.pos_memberships.pos_memberships_owner_manage",
+        "public.pos_pin_audit.pos_pin_audit_owner_read"
+      ],
+      "clone_only": [
+        "private.tenant_accounting_links.deny_anon_all",
+        "private.tenant_accounting_links.tenant_isolation_select"
+      ],
+      "changed": [
+        "public.accounting_journals.accounting_journals_read_member"
+      ]
+    },
+    "triggers": {
+      "staging_count": 49,
+      "clone_count": 41,
+      "staging_only": [
+        "public.accounting_transaction_evidence.accounting_transaction_customer_receivable_guard",
+        "public.accounting_transaction_evidence.accounting_transaction_extended_withholding_guard",
+        "public.app_config.trg_app_config_audit",
+        "public.devices.trg_devices_updated_at",
+        "public.plans.trg_plans_updated_at",
+        "public.subscriptions.trg_subscriptions_updated_at",
+        "public.tax_documents.tax_documents_guard",
+        "public.tax_rate_brackets.tax_rate_brackets_guard"
+      ],
+      "clone_only": []
+    },
+    "extensions": {
+      "staging_only": [
+        "pg_cron"
+      ],
+      "clone_only": []
+    }
+  },
+  "required_gates": {
+    "historical_sql_recovered": false,
+    "source_versions_and_remote_application_matched": false,
+    "schema_only_dump_reviewed": false,
+    "clean_database_replay_passed": false,
+    "isolated_tenant_tests_passed": false,
+    "security_definer_grants_reviewed": false,
+    "backup_restore_test_passed": false,
+    "human_approval_recorded": false
+  },
+  "prohibited_until_reconciled": [
+    "supabase db push against either existing remote project",
+    "supabase migration repair against either existing remote project",
+    "supabase db reset against either remote project",
+    "bulk RLS policy grants/revokes based only on advisor counts",
+    "rename repository migrations to remote versions without proven identical SQL"
+  ]
+}
