@@ -15,6 +15,23 @@ REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public, private, accounting_pri
 REVOKE EXECUTE ON FUNCTION public.log_config_change() FROM PUBLIC, anon;
 REVOKE EXECUTE ON FUNCTION public.set_updated_at() FROM PUBLIC, anon;
 
+-- Enable RLS on the staging table whose source snapshot had it disabled. Keep direct grants
+-- absent for anon/authenticated until an explicit application caller contract is reviewed.
+ALTER TABLE private.tenant_accounting_links ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_accounting_links_deny_anon_reconstructed
+  ON private.tenant_accounting_links FOR ALL TO anon
+  USING (false) WITH CHECK (false);
+CREATE POLICY tenant_accounting_links_read_member_reconstructed
+  ON private.tenant_accounting_links FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.accounting_memberships m
+      WHERE m.tenant_id = tenant_accounting_links.accounting_tenant_id
+        AND m.user_id = (SELECT auth.uid())
+        AND m.is_active = true
+    )
+  );
+
 -- Future objects must be least-privilege by default. This intentionally differs from some
 -- broad legacy default ACLs observed on staging; runtime callers must receive explicit grants.
 ALTER DEFAULT PRIVILEGES FOR ROLE postgres
