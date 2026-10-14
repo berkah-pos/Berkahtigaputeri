@@ -1,12 +1,12 @@
 <?php
 
-use App\\Models\\Central\\Domain;
-use App\\Models\\Central\\Tenant;
-use Stancl\\Tenancy\\Bootstrappers\\DatabaseTenancyBootstrapper;
-use Stancl\\Tenancy\\Events\\TenantCreated;
-use Stancl\\Tenancy\\Jobs\\CreateDatabase;
-use Stancl\\Tenancy\\Jobs\\MigrateDatabase;
-use Stancl\\JobPipeline\\JobPipeline;
+use App\Models\Central\Domain;
+use App\Models\Central\Tenant;
+use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
+use Stancl\Tenancy\Events\TenantCreated;
+use Stancl\Tenancy\Jobs\CreateDatabase;
+use Stancl\Tenancy\Jobs\MigrateDatabase;
+use Stancl\JobPipeline\JobPipeline;
 
 return [
     'tenant_model' => Tenant::class,
@@ -35,7 +35,7 @@ return [
         'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_tenant_'),
         'suffix' => '',
         'managers' => [
-            'mysql' => Stancl\\Tenancy\\TenantDatabaseManagers\\MySQLDatabaseManager::class,
+            'mysql' => Stancl\Tenancy\TenantDatabaseManagers\MySQLDatabaseManager::class,
         ],
     ],
     'migration_parameters' => [
@@ -44,7 +44,7 @@ return [
         '--realpath' => true,
     ],
     'seeder_parameters' => [
-        '--class' => 'Database\\Seeders\\TenantDatabaseSeeder',
+        '--class' => 'Database\Seeders\TenantDatabaseSeeder',
         '--force' => true,
     ],
 ];
