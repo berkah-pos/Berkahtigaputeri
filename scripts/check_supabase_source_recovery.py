@@ -134,7 +134,7 @@ def main() -> int:
 
     counts = {
         "tables": count(r"^CREATE\s+(?:UNLOGGED\s+)?TABLE\b", table_sql),
-        "constraints": count(r"^ALTER TABLE ONLY .* ADD CONSTRAINT\b", constraint_sql),
+        "constraints": count(r"^ALTER TABLE ONLY .* ADD CONSTRAINT\b", constraint_sql) + count(r"^CREATE CONSTRAINT TRIGGER\b", security_sql),
         "indexes": count(r"^CREATE\s+(?:UNIQUE\s+)?INDEX\b", constraint_sql),
         "plpgsql_routines": count(r"^CREATE OR REPLACE FUNCTION\b", plpgsql_sql),
         "sql_routines": count(r"^CREATE OR REPLACE FUNCTION\b", sql_function_sql),
