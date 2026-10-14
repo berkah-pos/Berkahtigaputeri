@@ -27,7 +27,7 @@ services:
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}
       MARIADB_DATABASE: berkahpos_central
-      MARIADB_USER: ${CENTRAL_DB_USERNAME:-berkahpos_app}
+      MARIADB_USER: berkahpos_app
       MARIADB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}
     volumes:
       - mysql-data:/var/lib/mysql
