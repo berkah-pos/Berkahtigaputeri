@@ -34,3 +34,12 @@ The base and fork each expose 164 tracked blobs with identical path sets under t
 ## Workflow evidence — useful, but not phase-completion evidence for consolidation
 
 Draft PR #39 has green CI jobs at `185bfef085abeba479bc94f2df4b6fe7811363cf`: [workbook validation](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280597), [backend foundation](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280427), [POS app](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280123), and [clean replay](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38568280094). Its reports preserve the open clone-drift, least-privilege, hostile tenant-A/B, recovery, and production approval blockers. Do not treat this separate draft PR as merged or the consolidated branch as green.
+
+
+## Resolved source-level risks — Phase 2
+
+- **Resolved:** Admin atomic writes now merge the currently loaded JSONB row with the edited patch, so fields outside the visible form are preserved under the expected-version CAS.
+- **Resolved:** feature flags now read from effective canonical configuration and save intentional tenant overrides through the same atomic `app_config` RPC rather than writing `tenants.features` directly.
+- **Resolved:** the Admin's direct relational-only tenant insert path is disabled; onboarding points to the validated canonical workbook because the fixed 352-key inventory cannot safely gain an orphan tenant.
+- **Verification:** [Canonical Workbook Validation run 38583997667](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38583997667) passed Admin JavaScript syntax checks, 10 Python tests, and the 352-key no-write workbook dry-run on the consolidation branch.
+- **Remaining limit:** these source-level fixes do not resolve remote staging migration/schema/privilege drift, do not count as hostile Tenant A/B runtime tests, and do not establish a production-ready Supabase target. Do not apply remote migrations or blanket grants/revokes.
