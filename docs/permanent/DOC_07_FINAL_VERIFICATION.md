@@ -52,7 +52,7 @@ Historical replay proves schema behavior against captured references in disposab
 2. Full hostile Tenant A/B testing across direct REST reads/writes, reporting/export, all inventory/accounting RPCs, storage, subscriptions, sync/outbox, and installed APK is incomplete. The 50 pgTAP assertions are targeted coverage, not the complete matrix.
 3. Backup/restore drills, migration failure/retry, representative load/resilience, monitoring checks, and independent release review remain outstanding.
 4. No production Supabase project has been positively identified/authorized. The Phase 6 compatibility migration has not been applied to hosted staging or production.
-5. The requested SHA-256 file-by-file two-repository comparison and generated git bundle / release ZIP are not yet delivered from a local Git worktree. Do not claim those artifacts exist.
+5. A full SHA-256 file-by-file comparison between the requested original source commits is still outstanding. The Git bundle and source ZIP have been generated and validated by hosted workflow run 38631992229; links, SHA-256 values, and artifact retention are recorded in Section 6.
 
 ## 5. Current decision
 
@@ -62,3 +62,15 @@ Historical replay proves schema behavior against captured references in disposab
 - Main merge / production release: NOT APPROVED until the remaining gates are independently completed.
 
 This updates older historical DOC_07 snapshots only for the scoped evidence above; it does not turn their old live-verification claims into current verification.
+
+
+## 6. Generated repository exports
+
+Hosted workflow [Consolidated Main Repo Export — run 38631992229](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229) succeeded on commit `dbea77b0ceb67f9492be1b36377620975b073c54`.
+
+- **Git bundle:** [download artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11925864688). The runner ran `git bundle verify`; the bundle includes `refs/heads/chore/consolidate-single-main-repo` at the exported commit. File size 1,785,170 bytes; SHA-256 `23937680b832b681da63ff437e8880b5b27c5b2fb8163ff6413e302aa6fa4677`.
+- **Source ZIP:** [download artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11926029695). The runner validated the archive, counted 329 files, and confirmed it excludes `.git` metadata. File size 941,219 bytes; SHA-256 `afea2531398e0cb151a099e7bf1998b25be9cc231cd5c64c074fbc3807f06c64`.
+- **Export manifest:** [download artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11925924630).
+- The three GitHub Actions artifacts expire on **2026-11-13**. Download and keep a separate copy before that date.
+
+The original base-versus-fork SHA-256 diff report is a separate outstanding artifact; tree/blob screening is not substituted for that report.

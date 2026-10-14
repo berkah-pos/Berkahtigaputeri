@@ -1,6 +1,6 @@
 # Blockers — Consolidation Single Main Repository
 
-**Updated:** 2026-10-14  
+**Updated:** 2026-10-15  
 **Branch:** `chore/consolidate-single-main-repo`
 
 ## BLOCKER B0-1 — Canonical reference repository inaccessible through connected GitHub API
@@ -12,10 +12,11 @@
 - **Observed:** the first file-fetch/search attempts could not enumerate the directory. A follow-up call through the GitHub Contents API found and fetched `.cursor/rules/berkah-pos.mdc`, and its content was read.
 - **Resolution:** mandatory Cursor rule review is now source-verified for the base repository's default branch. No code implementation was changed based on an unread rule.
 
-## BLOCKER B0-3 — No repository-local checked-out worktree exposed
-- **Observed:** this session can read and modify GitHub files and run hosted GitHub Actions, but it does not expose a local cloned worktree for git status, literal root listing, in-shell SHA-256 file-by-file comparison, or git bundle creation. A prior local git ls-remote attempt failed because the shell could not resolve github.com.
-- **Impact:** source, hosted CI, and disposable Supabase checks are available; a true repository-local Git bundle and full-repository SHA-256 comparison have not been produced by this session.
-- **Needed:** a repository workspace with Git object storage, or a reviewed hosted export workflow that generates a bundle and ZIP from the target commit.
+## BLOCKER B0-3 — Original base-versus-fork SHA-256 diff report outstanding
+- **Observed:** a hosted export workflow now creates and verifies the requested single Git bundle and source ZIP. Successful run: [38631992229](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229). Bundle artifact [11925864688](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11925864688), SHA-256 `23937680b832b681da63ff437e8880b5b27c5b2fb8163ff6413e302aa6fa4677`; ZIP artifact [11926029695](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11926029695), SHA-256 `afea2531398e0cb151a099e7bf1998b25be9cc231cd5c64c074fbc3807f06c64`. Exported commit: `dbea77b0ceb67f9492be1b36377620975b073c54`.
+- **Impact:** bundle and ZIP are available, but they do not replace the requested SHA-256 file-by-file comparison between the exact original base/fork revisions.
+- **Needed:** run a read-only hosted comparison of the base source commit `98befcd` and fork patch commit `b02a474`, generating a path/category/SHA-256 CSV; do not infer exact content identity from Git blob IDs alone.
+- **Retention:** current export artifacts expire 2026-11-13; download them before then.
 
 ## BLOCKER B0-4 — Hosted staging-clone ACL and release approval
 - **Observed:** captured state identifies staging (139 applied migrations, 67 audited relations, 169 routines) and staging-clone (12 migrations, 71 relations, 134 routines) as materially different projects. Both have 352 canonical keys and matching captured key/value fingerprints. Disposable CI run 38629812613 passes target baseline/Tenant A-B tests (50 pgTAP assertions), atomic versioning (19 assertions), the 139-body staging replay, and the separate 12-body clone replay with their respective catalog fingerprints. Read-only catalog evidence still shows broad effective clone anon access, including 32 public-schema SECURITY DEFINER routines executable by anon and effective anon SELECT on 55 application relations.
