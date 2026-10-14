@@ -122,6 +122,10 @@ def main() -> int:
             "-- The guard identity below is non-authenticating: empty password, unconfirmed email, no issued session/token.",
             "BEGIN;",
             "",
+            "-- Disposable replay only: remove bootstrap/legacy keys so the recorded 352-key",
+            "-- guard is tested against the canonical workbook's exact inventory.",
+            "DELETE FROM public.app_config;",
+            "",
             "INSERT INTO public.app_config (key, value, updated_at)",
             "VALUES",
         ]
@@ -158,7 +162,9 @@ def main() -> int:
             "COMMIT;",
             "",
         ])
-        args.output.write_text("\n".join(lines), encoding="utf-8")
+        if "DELETE FROM public.app_config;" not in "\n".join(lines):
+            raise ValueError("replay-only fixture must remove noncanonical bootstrap config keys before seeding canonical workbook")
+                args.output.write_text("\n".join(lines), encoding="utf-8")
         print(
             f"PASS: wrote one runner-only replay fixture ({len(rows)} app_config records and one "
             "non-authenticating auth.users guard row); values were not printed."
