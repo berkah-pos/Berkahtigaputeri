@@ -8,13 +8,12 @@
 - **Impact:** cannot independently compare the designated canonical reference repo against the base and fork.
 - **Needed:** restore connector access / confirm repository path or authorize the canonical copies in the base repo as the review reference.
 
-## BLOCKER B0-2 — Cursor rule directory cannot be enumerated
-- **Observed:** fetching `.cursor/rules` reports that the path is a directory; GitHub code search for `.cursor/rules` and `.cursor` returned no results.
-- **Impact:** cannot certify completion of the required preflight read of Cursor rule files.
-- **Needed:** file names or a connector operation that can enumerate repository directories.
+## RESOLVED B0-2 — Cursor rule directory enumerated
+- **Observed:** the first file-fetch/search attempts could not enumerate the directory. A follow-up call through the GitHub Contents API found and fetched `.cursor/rules/berkah-pos.mdc`, and its content was read.
+- **Resolution:** mandatory Cursor rule review is now source-verified for the base repository's default branch. No code implementation was changed based on an unread rule.
 
 ## BLOCKER B0-3 — No repository-local execution environment exposed
-- **Observed:** the connected GitHub API supports per-file access, but this session has no checked-out working tree/shell for `git status`, root directory listing, SHA-256 directory comparison, local workbook dry-run, Flutter/npm/pytest, or local Supabase CLI tests.
+- **Observed:** the connected GitHub Contents/recursive-tree APIs enumerate root and tracked paths, but this session has no local checked-out working tree/shell for `git status`, actual `ls -la`, SHA-256 directory comparison using the repository's script, local workbook dry-run, Flutter/npm/pytest, or local Supabase CLI tests. A local `git ls-remote` attempt also failed because this shell could not resolve `github.com`.
 - **Impact:** source inspection can proceed, but local test and build results cannot honestly be reported from this interface alone.
 - **Needed:** authorized repository execution environment/runner with dependencies available, or an agent with workspace and command execution.
 
@@ -25,3 +24,8 @@
 
 ## Safety note
 No SQL migration, data sync, production action, fork write, or push to `main` has been performed. Do not resolve these blockers by guessing at environment identity, disabling required RPCs globally, or weakening tenant authorization.
+
+
+## Additional evidence — repository tree screening
+
+The base and fork each expose 164 tracked blobs with identical path sets under the recursive Git tree endpoint. Git blob IDs identify one changed path, `.github/workflows/berkah-pos-trial-ci.yml`; no only-in-main or only-in-fork paths were detected. This is a screening result using Git object IDs, not the requested SHA-256 content-hash report, and must not be labelled as that final report. The base workflow includes more hosted Android SDK/NDK setup than the shorter fork version, so the canonical base version is retained pending verified CI results.
