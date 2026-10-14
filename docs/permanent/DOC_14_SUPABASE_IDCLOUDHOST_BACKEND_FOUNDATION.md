@@ -18,7 +18,7 @@ This keeps managed Supabase capabilities without putting PostgreSQL, Auth, Stora
 
 ## 2. IDCloudHost sizing boundary
 
-The user-selected package is Basic Standard, quoted at Rp225,000/month, with 2 CPU cores, 4 GB RAM, and 60 GB storage. Reconfirm the current checkout price and exact resource limits before purchase.
+The intended selection is Basic Standard, quoted at Rp225,000/month, with 2 CPU cores, 4 GB RAM, and 60 GB storage. IDCloudHost's documented VM creation flow explicitly asks the operator to choose an OS and Ubuntu version; the price tier does not itself mean Ubuntu is already installed. Choose **Ubuntu Server 24.04 LTS (64-bit)** if it is offered in the provisioning catalogue. Confirm the actual OS image, exact resources, location, public IPv4, SSH public-key support, backup/snapshot options, renewal amount, and taxes/add-ons in the live console before payment. Official OS selection guide: https://idcloudhost.com/panduan/cara-melakukan-building-instalasi-server-private-cloud-dengan-menggunakan-os-ubuntu/. Follow `DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md` for the approved provisioning and hardening steps.
 
 Supabase's official self-hosting guide lists 4 GB RAM / 2 cores / 40 GB SSD as the minimum for the full stack and recommends 8 GB+ RAM / 4 cores+ / 80 GB+ SSD. Self-hosting moves OS patching, secret rotation, TLS, database operations, monitoring, backups, and disaster recovery to the operator. The managed platform also offers capabilities not included in self-hosted deployments, including managed backups/PITR and branching. Therefore this VM is **not the recommended place to host the full Supabase stack plus the Berkah POS API**.
 
@@ -70,3 +70,8 @@ A deployment workflow may be added after the Laravel API and health/readiness te
 - **Not verified:** production Supabase project, purchase/availability of IDCloudHost VM, production credentials, DNS/domain, TLS, email provider, payment provider, production backup policy, and production readiness.
 
 This foundation does not mark any SaaS milestone or production release gate as complete.
+
+
+## 8. OS choice and operations runbook
+
+Ubuntu is **the selected OS target, not an automatic consequence of choosing a package**. The VM provisioning workflow presents a `Choose OS` option; select Ubuntu Server 24.04 LTS (64-bit) when available. The executable operations checklist, host hardening, deployment sequence, validation gates, and rollback requirements are maintained in [DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md](DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md). Do not install or deploy the backend until the VM's actual image and resources are verified.

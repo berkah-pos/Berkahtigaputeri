@@ -19,6 +19,7 @@ CANONICAL = ROOT / "docs" / "permanent" / "DOC_00_CANONICAL_ARCHITECTURE_DECISIO
 ROADMAP = ROOT / "docs" / "permanent" / "DOC_00_MASTER_ROADMAP.md"
 ARCHITECTURE = ROOT / "docs" / "permanent" / "DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
 FOUNDATION = ROOT / "docs" / "permanent" / "DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md"
+RUNBOOK = ROOT / "docs" / "permanent" / "DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md"
 MIGRATION_NAME = re.compile(r"^(\d{14})_[a-z0-9_]+\.sql$")
 
 
@@ -64,7 +65,7 @@ def main() -> int:
     if not TENANT_TEST.is_file():
         failures.append("tenant-isolation SQL test file is missing")
 
-    for path in (CANONICAL, ROADMAP, ARCHITECTURE, FOUNDATION):
+    for path in (CANONICAL, ROADMAP, ARCHITECTURE, FOUNDATION, RUNBOOK):
         if not path.is_file():
             failures.append(f"required architecture/evidence document is missing: {path.relative_to(ROOT)}")
 

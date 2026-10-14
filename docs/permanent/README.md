@@ -22,6 +22,7 @@ This folder contains the durable architecture, security, schema, operational, an
 16. `DOC_08_RPC_EFFECTIVE_CONFIG.sql` — authenticated effective-config RPC reference.
 17. `DOC_09_APK_VERIFICATION.md` — APK/config verification and release-surface boundary.
 18. `DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md` — Supabase-managed + IDCloudHost architecture, backend rollout gates, and explicit source/staging/production evidence; required for backend/operations/deployment changes.
+19. `DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md` — Ubuntu 24.04 VM selection, secure host hardening, managed Supabase feature rollout, CI/CD, monitoring, backup/restore, and production acceptance checklist.
 
 When any document conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the canonical decision wins. Historical reports do not prove current CI, staging, or production status.
 

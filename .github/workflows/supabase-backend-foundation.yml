@@ -9,6 +9,7 @@ on:
       - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
       - "docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
       - "docs/permanent/DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md"
+      - "docs/permanent/DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md"
       - ".github/workflows/supabase-backend-foundation.yml"
   push:
     branches: ["**"]
