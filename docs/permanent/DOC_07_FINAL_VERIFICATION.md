@@ -73,6 +73,8 @@ Hosted workflow [Consolidated Main Repo Export — run 38631992229](https://gith
 - **Export manifest:** [download artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38631992229/artifacts/11925924630).
 - The three GitHub Actions artifacts expire on **2026-11-13**. Download and keep a separate copy before that date.
 
+Subsequent export run [38632908917](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632908917), on commit abc92ade724ee70ab2220cd1e488f556bac145ab, refreshed the files after adding the SHA-256 report and updated documentation. The refreshed bundle is [artifact 11927760590](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632908917/artifacts/11927760590), 1,798,482 bytes, SHA-256 94327d0feb1f18d8cdbf0b9503ffc55dbac1f36bed5a9720a748d59dbabc26a9. The refreshed ZIP is [artifact 11927665637](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632908917/artifacts/11927665637), 331 files excluding .git, 945,864 bytes, SHA-256 2ecc1e04c43edba0189d5c822f45bec025988196d142bd4a1e6fda28bdfd435e. These refreshed artifacts expire 2026-11-13.
+
 The original base-versus-fork SHA-256 diff report is a separate outstanding artifact; tree/blob screening is not substituted for that report.
 
 ## 7. Original base-versus-fork SHA-256 comparison
