@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "captured_at_utc": "2026-10-14T03:37:00Z",
-  "status": "BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING",
+  "captured_at_utc": "2026-10-14T09:38:00Z",
+  "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
   "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
   "scope_note": "Read-only registry and catalog evidence plus exact recorded migration SQL bodies recovered from the remote Supabase migration ledgers. No customer business-row snapshots, passwords, API keys or database URLs are stored. Existing hosted projects were not changed.",
   "production_project_identified": false,
@@ -903,7 +903,7 @@
     "historical_sql_recovered": true,
     "source_versions_and_remote_application_matched": true,
     "schema_only_dump_reviewed": true,
-    "clean_database_replay_passed": false,
+    "clean_database_replay_passed": true,
     "isolated_tenant_tests_passed": false,
     "security_definer_grants_reviewed": false,
     "backup_restore_test_passed": false,
@@ -918,7 +918,7 @@
   ],
   "source_recovery_review": {
     "verified_on_utc_date": "2026-10-14",
-    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; PREHISTORY APP_CONFIG/CLIENT_STATUS SHAPE FIX PENDING",
+    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; STAGING_REPLAY_AND_FINGERPRINT_PASS; STAGING_CLONE_DRIFT_PENDING",
     "exact_remote_version_matches": 0,
     "repository_history_checked": true,
     "candidate_files": [
@@ -954,7 +954,7 @@
         ]
       }
     ],
-    "coverage_note": "All 151 exact SQL bodies as stored in the remote migration ledgers are archived and SHA-256-verified. A schema-only bootstrap plus runner-only 352-key canonical workbook fixture allows all 139 recorded staging bodies to apply cleanly in a fresh local database. The final staging-fingerprint comparison failed only for public.app_config and public.client_status column/constraint fingerprints because those tables predate the ledger and the first recorded migration uses CREATE TABLE IF NOT EXISTS. The prehistory bootstrap is being expanded to match these current staging relation shapes; archived migration bodies remain byte-for-byte unchanged, and no hosted database is written.",
+    "coverage_note": "All 151 exact SQL bodies as stored in remote migration ledgers are archived and SHA-256 verified. The 139 staging bodies replay unchanged in a fresh disposable database with the runner-only canonical config fixture and pre-history bootstrap, and exact staging fingerprint comparison passes on workflow run 38536536840. Clone-specific catalog and privilege drift remains a separate reconciliation gate; no hosted database is written.",
     "remote_body_archive_verified": true,
     "remote_body_archive": {
       "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
@@ -1129,22 +1129,23 @@
     "remediation_gate": "Do not mass-revoke remote grants until legitimate caller contracts are inventoried, function/REST authorization tests pass, and a reviewed isolated forward-only migration plus approval is available."
   },
   "latest_historical_replay_attempt": {
-    "workflow_run_id": 38534829013,
-    "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38534829013",
-    "status": "FAIL_PREHISTORY_SCHEMA_SHAPE_GAP",
+    "workflow_run_id": 38536536840,
+    "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+    "status": "PASS_STAGING_HISTORICAL_REPLAY_AND_FINGERPRINT",
     "migrations_applied": 139,
     "body_integrity": "PASS",
     "workbook_fixture": "PASS",
-    "final_catalog_compare": "FAIL",
-    "mismatched_relations": [
+    "final_catalog_compare": "PASS",
+    "matched_relations": 67,
+    "matched_routines": 169,
+    "matched_source_policies": 42,
+    "matched_triggers": 49,
+    "resolved_prehistory_relations": [
+      "public.licences",
       "public.app_config",
       "public.client_status"
     ],
-    "failing_fields": [
-      "columns_md5",
-      "constraints_md5"
-    ],
-    "next_fix": "Extend disposable prehistory bootstrap with exact catalog definitions for app_config and client_status, then rerun the exact fingerprint compare."
+    "note": "The preceding failed prehistory replay is retained below for audit history. No hosted database was modified."
   },
   "prehistory_schema_shape_gap": {
     "detection_workflow_run_id": 38534829013,
@@ -1185,6 +1186,54 @@
         "absent_constraint": "foreign key device_id -> licences from the first recorded CREATE TABLE"
       }
     },
-    "disposition": "Add schema-only definitions to the disposable prehistory bootstrap; do not alter archived migration SQL or comparator acceptance criteria."
+    "disposition": "Add schema-only definitions to the disposable prehistory bootstrap; do not alter archived migration SQL or comparator acceptance criteria.",
+    "status": "RESOLVED_IN_DISPOSABLE_REPLAY",
+    "resolution": {
+      "workflow_run_id": 38536536840,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+      "prehistory_bootstrap": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
+      "workbook_fixture": "runner-only 352-key canonical workbook fixture",
+      "final_staging_fingerprint": "PASS",
+      "original_migration_bodies_modified": false,
+      "hosted_databases_modified": false
+    }
+  },
+  "prior_historical_replay_attempts": [
+    {
+      "workflow_run_id": 38534829013,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38534829013",
+      "status": "FAIL_PREHISTORY_SCHEMA_SHAPE_GAP",
+      "migrations_applied": 139,
+      "body_integrity": "PASS",
+      "workbook_fixture": "PASS",
+      "final_catalog_compare": "FAIL",
+      "mismatched_relations": [
+        "public.app_config",
+        "public.client_status"
+      ],
+      "failing_fields": [
+        "columns_md5",
+        "constraints_md5"
+      ],
+      "next_fix": "Extend disposable prehistory bootstrap with exact catalog definitions for app_config and client_status, then rerun the exact fingerprint compare."
+    }
+  ],
+  "staging_clone_drift_inventory": {
+    "path": "supabase/reconciliation/staging-clone-drift-2026-10-14.json",
+    "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
+    "summary": {
+      "staging_relations": 67,
+      "staging_clone_relations": 71,
+      "staging_routines": 169,
+      "staging_clone_routines": 134,
+      "staging_policies": 42,
+      "staging_clone_policies": 42,
+      "staging_triggers": 49,
+      "staging_clone_triggers": 41,
+      "staging_extensions": 6,
+      "staging_clone_extensions": 5,
+      "shared_anon_execute_differences": 116,
+      "shared_authenticated_execute_differences": 79
+    }
   }
 }

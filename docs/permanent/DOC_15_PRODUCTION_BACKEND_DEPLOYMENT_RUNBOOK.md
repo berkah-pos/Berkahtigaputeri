@@ -236,7 +236,7 @@ No production release is certified by this document.
 
 ## 12. Live migration reconciliation update — 2026-10-14
 
-The current read-only ledger is in [DOC_16 — Supabase Migration and Schema Reconciliation Ledger](DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md). It records 139 migration-history rows on staging, 12 on staging-clone, zero exact version matches for the two checked-in migration filenames, schema fingerprint drift, and a clone SECURITY DEFINER execution-grant warning. The baseline is **BLOCKED**; do not run `supabase db push`, `supabase migration repair`, or `supabase db reset` on either existing project until missing SQL sources are recovered and clean-replay gates pass.
+The current read-only ledger is in [DOC_16 — Supabase Migration and Schema Reconciliation Ledger](DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md), with the machine-readable [staging-clone drift inventory](../../supabase/reconciliation/staging-clone-drift-2026-10-14.json). The exact 139 staging and 12 clone SQL bodies have been recovered from hosted migration registries and SHA-256 verified. The 139-body staging sequence plus isolated pre-history/workbook fixtures passes disposable replay and exact staging structural fingerprint comparison on [run 38536536840](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840). Overall reconciliation remains **BLOCKED** because staging-clone has relation/routine/ACL/policy/trigger/extension drift and tenant-A/B, restore/load, independent review, and production-approval gates remain open. Do not run `supabase db push`, `supabase migration repair`, `supabase db reset`, or hosted grant/revoke operations on either existing project.
 
 
 ## Sources
