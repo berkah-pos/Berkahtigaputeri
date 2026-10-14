@@ -1,0 +1,45 @@
+name: Supabase Backend Foundation CI
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "scripts/check_supabase_backend_foundation.py"
+      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+      - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
+      - "docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
+      - "docs/permanent/DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md"
+      - ".github/workflows/supabase-backend-foundation.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "supabase/**"
+      - "scripts/check_supabase_backend_foundation.py"
+      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+      - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
+      - "docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md"
+      - "docs/permanent/DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md"
+      - ".github/workflows/supabase-backend-foundation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-backend-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate Supabase configuration and architecture guardrails
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate local Supabase foundation
+        run: python3 scripts/check_supabase_backend_foundation.py
+
+      - name: Check patch whitespace
+        run: git diff --check
