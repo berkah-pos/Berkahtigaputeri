@@ -33,7 +33,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
-      REPLAY_DIR: ${{ runner.temp }}/berkah-pos-staging-reconstruction-replay
       SUPABASE_TELEMETRY_DISABLED: "1"
     steps:
       - name: Checkout source
@@ -51,6 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
           mkdir -p "$REPLAY_DIR/supabase/migrations" "$REPLAY_DIR/supabase/tests"
           cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$REPLAY_DIR/supabase/config.toml"
           migration="$REPLAY_DIR/supabase/migrations/20261014100000_reconstructed_staging_baseline.sql"
@@ -78,6 +78,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
           cd "$REPLAY_DIR"
           supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
 
@@ -85,6 +86,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
           cd "$REPLAY_DIR"
           supabase db reset --local
 
@@ -92,6 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
           cd "$REPLAY_DIR"
           supabase test db --local
 
@@ -109,6 +112,7 @@ jobs:
         if: always()
         shell: bash
         run: |
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
           if [[ -d "$REPLAY_DIR" ]]; then
             cd "$REPLAY_DIR"
             supabase stop --no-backup || true
