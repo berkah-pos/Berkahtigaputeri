@@ -138,7 +138,7 @@ jobs:
           grep -q 'applicationId = "id.co.berkahtigaputeri.berkahpos"' android/app/build.gradle
           grep -q 'namespace = "id.co.berkahtigaputeri.berkahpos"' android/app/build.gradle
           grep -q 'targetSdk = 35' android/app/build.gradle
-          if grep -R -n -E 'SUPABASE_SERVICE_ROLE_KEY|service_role|DATABASE_URL=.*PASSWORD' lib; then
+          if grep -R -n -E 'APP_KEY|CENTRAL_DB_PASSWORD|REDIS_PASSWORD|MIDTRANS_SERVER_KEY' lib; then
             echo "Privileged server/database credentials must not be embedded in the Flutter app." >&2
             exit 1
           fi
@@ -178,28 +178,25 @@ jobs:
             echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
           fi
 
-      - name: Require cloud configuration for publisher-signed release
+      - name: Require Laravel Central API configuration for publisher-signed release
         if: steps.signing.outputs.mode == 'release'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          CENTRAL_API_BASE_URL: ${{ secrets.CENTRAL_API_BASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_PUBLISHABLE_KEY" ]]; then
-            echo "::error::A publisher-signed SaaS release requires SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY GitHub Actions secrets; refusing to build an accidentally local-only production package."
+          if [[ -z "$CENTRAL_API_BASE_URL" || "$CENTRAL_API_BASE_URL" != https://* ]]; then
+            echo "::error::A publisher-signed release requires CENTRAL_API_BASE_URL pointing to the deployed HTTPS Laravel Central API."
             exit 1
           fi
 
       - name: Build publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          CENTRAL_API_BASE_URL: ${{ secrets.CENTRAL_API_BASE_URL }}
         run: |
           flutter build appbundle --release \
-            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
-            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+            --dart-define="CENTRAL_API_BASE_URL=$CENTRAL_API_BASE_URL"
 
       - name: Build test-only debug-signed AAB
         if: steps.signing.outputs.mode == 'debug'
