@@ -277,9 +277,13 @@ jobs:
             --output "$CLONE_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
           cp supabase/reconciliation/historical-replay-bootstrap/staging_clone_replay.test.sql \
             "$CLONE_DIR/supabase/tests/staging_clone_replay.test.sql"
-          migration_count="$(find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
-          test "$migration_count" -eq 14
+          migration_count="$(find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l | tr -d '[:space:]')"
           echo "clone_migrations=$migration_count (expected=14)"
+          find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' -printf '%f\n' | sort
+          if [[ "$migration_count" -ne 14 ]]; then
+            echo "::error::clone replay expected 14 SQL files but found $migration_count"
+            exit 1
+          fi
 
       - name: Start isolated disposable clone replay
         shell: bash
