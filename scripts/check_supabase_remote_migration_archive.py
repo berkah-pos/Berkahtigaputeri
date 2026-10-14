@@ -55,9 +55,9 @@ def main() -> int:
             if required not in bootstrap_sql:
                 errors.append(f"pre-history bootstrap is missing schema marker: {required}")
         bootstrap_lines = [line.strip().lower() for line in bootstrap_sql.splitlines() if line.strip() and not line.strip().startswith("--")]
-        if any(re.match(r"^(?:insert into|copy\\s|update\\s|delete from)\\b", line) for line in bootstrap_lines):
+        if any(re.match(r"^(?:insert into|copy\s|update\s|delete from)\b", line) for line in bootstrap_lines):
             errors.append("pre-history bootstrap must not seed or modify data rows")
-        if any(re.match(r"^tenant_id\\s+", line) for line in bootstrap_lines):
+        if any(re.match(r"^tenant_id\s+", line) for line in bootstrap_lines):
             errors.append("pre-history bootstrap must not pre-create tenant_id; an archived migration adds it")
 
     entries = archive.get("entries", [])
