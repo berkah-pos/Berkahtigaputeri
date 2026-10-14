@@ -2,22 +2,24 @@ name: Canonical POS App CI
 
 on:
   pull_request:
-    paths:
+    paths: &kvm2_paths
       - "pos-app/**"
-      - "supabase/**"
-      - "scripts/check_phase5_tenant_isolation.py"
-      - "docs/permanent/DOC_03_RLS_AUTH.sql"
-      - "docs/permanent/DOC_05_TENANT_ISOLATION_CERT.md"
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/**"
+      - "routes/**"
+      - "docker/**"
+      - "composer.json"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "scripts/check_kvm2_contract.py"
+      - "scripts/export_workbook_for_laravel.py"
       - ".github/workflows/pos-app-ci.yml"
   push:
     branches: ["**"]
-    paths:
-      - "pos-app/**"
-      - "supabase/**"
-      - "scripts/check_phase5_tenant_isolation.py"
-      - "docs/permanent/DOC_03_RLS_AUTH.sql"
-      - "docs/permanent/DOC_05_TENANT_ISOLATION_CERT.md"
-      - ".github/workflows/pos-app-ci.yml"
+    paths: *kvm2_paths
   workflow_dispatch:
 
 permissions:
@@ -39,8 +41,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Check Phase 5 tenant-isolation contract
-        run: python3 scripts/check_phase5_tenant_isolation.py
+      - name: Check Laravel KVM2 contract
+        run: python3 scripts/check_kvm2_contract.py
+
+      - name: Validate canonical workbook
+        run: python3 scripts/export_workbook_for_laravel.py --validate-only
 
       - name: Set up Java 17
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
