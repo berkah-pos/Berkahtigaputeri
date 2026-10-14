@@ -43,7 +43,7 @@ def compare_exact(label: str, expected: list[dict], actual: list[dict], fields: 
     for obj_id in sorted(set(exp) & set(act)):
         for field in fields:
             if exp[obj_id].get(field) != act[obj_id].get(field):
-                fail(f"{label} {obj_id} differs in {field}")
+                fail(f"{label} {obj_id} differs in {field}: expected={exp[obj_id].get(field)!r} actual={act[obj_id].get(field)!r}")
 
 def main() -> int:
     if len(sys.argv) != 2:

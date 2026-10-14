@@ -1822,9 +1822,9 @@
     }
   },
   "clean_replay": {
-    "historical_ordered_replay": "PENDING_CANONICAL_CONFIG_FIXTURE_REPLAY",
-    "reason": "All 151 archived historical SQL bodies are recovered and hash-verified. A schema-only pre-history public.licences bootstrap allowed replay to pass migrations through 20261007073026. The next migration, 20261007184231_p1_cfg_01_config_5layer_strict_role, failed on a pure empty DB because only five app_config rows existed while the recorded invariant requires exactly 352 canonical keys with MD5 1fd3d64219ecc7c333453c20da80e295. Those keys are loaded by the canonical workbook sync outside the recorded SQL ledger. A runner-only fixture generator now validates and seeds those 352 canonical app_config rows from the workbook, without committing the generated values; it also inserts the specific archived migration-guard Auth row locally with an empty password and no confirmed email/session.",
-    "safe_next_step": "Generate the non-persistent replay-only fixture from config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx after migration 20261007073026 and before 20261007184231, verify the canonical 352-key digest against both recorded SQL guards, replay the unchanged 139 SQL bodies, and compare the resulting structural fingerprint. Keep all fixture rows on the disposable local runner only.",
+    "historical_ordered_replay": "PENDING_PREHISTORY_APP_CONFIG_CLIENT_STATUS_SHAPE_FIX",
+    "reason": "All 139 recorded staging SQL bodies are archived and integrity-checked; the canonical 352-key workbook precondition is now generated only in the disposable runner and the migration replay completes. The final catalog comparison fails only on public.app_config and public.client_status columns/constraints, because the first recorded SQL migration uses CREATE TABLE IF NOT EXISTS for relations that had already existed before the ledger with different final definitions. Expand the pre-history schema-only bootstrap for all three pre-ledger relations; do not alter recorded SQL bodies or loosen the fingerprint comparator.",
+    "safe_next_step": "Bootstrap the current staging shapes of public.licences, public.app_config, and public.client_status without rows; replay the unchanged 139 archived SQL bodies with the runner-only 352-key workbook fixture; rerun exact structural fingerprint comparison. Keep every bootstrap/fixture strictly in the disposable local runner and do not write to hosted databases.",
     "reconstructed_target_baseline": {
       "status": "PASS",
       "validated_at": "2026-10-14",
@@ -1854,11 +1854,25 @@
     },
     "prehistory_bootstrap": {
       "path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
-      "purpose": "Recreate the schema-only public.licences relation that predates the first recorded migration, so CREATE TABLE IF NOT EXISTS does not create the incompatible address-only shape.",
-      "source_evidence": "Current staging catalog columns/constraints and the bodies of recorded migrations 20261003142407, 20261004013230, and 20261004013605.",
+      "purpose": "Recreate three schema-only relations that existed before the recorded migration ledger, so CREATE TABLE IF NOT EXISTS migrations do not create older incompatible table shapes. Disposable replay only; never run on a hosted project.",
+      "source_evidence": "Read-only staging catalog definitions plus archived migration 20261003142407_admin_licence_config, whose CREATE TABLE IF NOT EXISTS statements use older definitions for public.licences, public.client_status, and public.app_config. Recorded bodies remain unchanged.",
       "rows_seeded": 0,
       "adds_tenant_id": false,
-      "unmodified_recorded_migrations": 139
+      "unmodified_recorded_migrations": 139,
+      "bootstrapped_relations": [
+        {
+          "name": "public.licences",
+          "reason": "The ledger's table definition has address, but current staging has toko_address and other evolved columns."
+        },
+        {
+          "name": "public.app_config",
+          "reason": "The ledger's table definition lacks the current value default and includes a key-length check that is absent in current staging."
+        },
+        {
+          "name": "public.client_status",
+          "reason": "The ledger's definition has app_version default '', a FK to public.licences, and no hardware_mode check; current staging uses default 'unknown', no such FK, and includes the hardware_mode check."
+        }
+      ]
     },
     "initial_historical_replay_attempt": {
       "workflow_run_id": 38525272706,
@@ -1891,6 +1905,26 @@
       "required_app_config_count": 352,
       "required_app_config_md5": "1fd3d64219ecc7c333453c20da80e295",
       "diagnosis": "Recorded SQL assumes the canonical workbook's 352-row app_config sync ran before the migration ledger reached the 5-layer guard; this data initialization is outside the recorded migration bodies."
+    },
+    "third_historical_replay_attempt": {
+      "workflow_run_id": 38534829013,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38534829013",
+      "status": "FAIL_PREHISTORY_SCHEMA_SHAPE_GAP",
+      "failing_step": "Compare the historic replay to the read-only staging schema fingerprint",
+      "migrations_applied": 139,
+      "body_integrity": "PASS",
+      "workbook_fixture": "PASS",
+      "only_mismatched_relations": [
+        "public.app_config",
+        "public.client_status"
+      ],
+      "observed_mismatches": [
+        "public.app_config columns_md5",
+        "public.app_config constraints_md5",
+        "public.client_status columns_md5",
+        "public.client_status constraints_md5"
+      ],
+      "diagnosis": "The first recorded migration 20261003142407_admin_licence_config uses CREATE TABLE IF NOT EXISTS and therefore does not evolve pre-existing tables. The current staging relation shapes for app_config and client_status were already present before the ledger; an empty-database replay needs those definitions in a separately labelled pre-history bootstrap."
     }
   },
   "recovered_remote_sql_archive": {

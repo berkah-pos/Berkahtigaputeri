@@ -9,6 +9,7 @@ on:
       - "scripts/check_supabase_remote_migration_archive.py"
       - "scripts/prepare_supabase_historical_replay.py"
       - "scripts/compare_historical_migration_fingerprint.py"
+      - "scripts/check_supabase_historical_preconditions.py"
       - "scripts/prepare_supabase_historical_replay_fixtures.py"
       - "scripts/sync_excel_to_supabase_legacy.py"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
@@ -162,6 +163,9 @@ jobs:
 
       - name: Validate all recovered remote migration SQL bodies
         run: python3 scripts/check_supabase_remote_migration_archive.py
+
+      - name: Validate schema-only pre-history prerequisites
+        run: python3 scripts/check_supabase_historical_preconditions.py
 
       - name: Install Python environment for workbook fixture in this job
         shell: bash
