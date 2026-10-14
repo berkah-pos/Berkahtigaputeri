@@ -1,0 +1,2562 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "source_project_id": "txwzhesvcjftybrlhnzs",
+  "source_environment": "staging-clone",
+  "provenance": "Read-only catalog query from the hosted staging-clone project; schema object metadata only, no business row values or secrets.",
+  "relations": [
+    {
+      "id": "public.accounting_coa",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "2659841c8f18e3dbe6b631eeb523c35d",
+      "indexes_md5": "20e4afd5a9b2c4b3b6544fd92103c5bd",
+      "rls_enabled": true,
+      "constraints_md5": "ec57adca503283132ad59ea7edaa0c5b"
+    },
+    {
+      "id": "public.accounting_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "d4ace82471bed3e0d6b1e1110af55d62",
+      "indexes_md5": "fe1d7c6830a2f6b33a0fa5f5ec87a131",
+      "rls_enabled": true,
+      "constraints_md5": "8e3a91f3fb483b1f0dd0de067c139fb9"
+    },
+    {
+      "id": "public.accounting_journal_lines",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "ddd785878cdd8fe2ee2757325a970177",
+      "indexes_md5": "0c1860028c65f971254991af7d575473",
+      "rls_enabled": true,
+      "constraints_md5": "e818b3e30a251eb3ba49f0f2c9b54f01"
+    },
+    {
+      "id": "public.accounting_journals",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "f48b7dc233e3fdbc4205b8414c0a542f",
+      "indexes_md5": "eb18881cfc6a2bb54943911b66d85bae",
+      "rls_enabled": true,
+      "constraints_md5": "6cd2488fbf03c84c03ceeed947da5266"
+    },
+    {
+      "id": "public.accounting_memberships",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "2a852b8de6b0c415d7aac2b4e161f107",
+      "indexes_md5": "92f03c55db31cc8a4d649160f4476d19",
+      "rls_enabled": true,
+      "constraints_md5": "0e65bec1345b07ae8ba23b6f6cfef9f6"
+    },
+    {
+      "id": "public.accounting_periods",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "e869e96de7c19afbec8c9318955cf2d3",
+      "indexes_md5": "d9a234d4dc5c0cd9c7e2b553c2adf606",
+      "rls_enabled": true,
+      "constraints_md5": "3ee850279e07ec5ae5c3b197c129a933"
+    },
+    {
+      "id": "public.accounting_tenants",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "408a4dca3d2af419c3eaf95779eb54d8",
+      "indexes_md5": "49e9d3e131cd4d9214437c7c29a614f5",
+      "rls_enabled": true,
+      "constraints_md5": "169800afcc77a6b154227bf56842bb8e"
+    },
+    {
+      "id": "public.accounting_transaction_evidence",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "4e0aa5f890f55286ce0a4b55819c9b83",
+      "indexes_md5": "1f3d9b90f5c42c1fb96c7d0ef3889fc3",
+      "rls_enabled": true,
+      "constraints_md5": "287263353b738e97ede040d844521c87"
+    },
+    {
+      "id": "public.app_config",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "29371bd8eb0f14ed5d9c0087f517d374",
+      "indexes_md5": "3c769f3144f6668b1f4bd2ee69cc73f6",
+      "rls_enabled": true,
+      "constraints_md5": "8f45446779681ef216aa20f437c3cbb5"
+    },
+    {
+      "id": "public.client_status",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "142aca2b5b95e9fbacb6edb926481aad",
+      "indexes_md5": "94c5ea4a5f8e9beaffe8839df7bb8f5c",
+      "rls_enabled": true,
+      "constraints_md5": "d009dc8a97ecdd25e3db844e49e3b05f"
+    },
+    {
+      "id": "public.config_history",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "1d9927e267bb1fad73fc53d42b74739c",
+      "indexes_md5": "a21c8718892f9256d2a3822bbf224a78",
+      "rls_enabled": true,
+      "constraints_md5": "8baf0131e7ad613d3f065d77a8f7566d"
+    },
+    {
+      "id": "public.coretax_outbox",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "a2b80114266a772d27ab07a369da5fc5",
+      "indexes_md5": "c4013ac0d0cc4ec110dfa8f22073f599",
+      "rls_enabled": true,
+      "constraints_md5": "245c2b380d8229158573894ff0f02354"
+    },
+    {
+      "id": "public.coretax_template_registry",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "ecbda3e54821b3a5f918b1ef06993307",
+      "indexes_md5": "4b0aa3c719a0a6c4c35dd603c07e494a",
+      "rls_enabled": true,
+      "constraints_md5": "4098492e3e223eb3c2ed552bacecc970"
+    },
+    {
+      "id": "public.corporate_annual_tax_periods",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "add8956c99e8eb269c6d315b877d1743",
+      "indexes_md5": "ef1a664bc8b02845c292d99cb072d25d",
+      "rls_enabled": true,
+      "constraints_md5": "3ee53bc1e30fb293b79b1ce4fc7e8011"
+    },
+    {
+      "id": "public.corporate_fiscal_adjustments",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "ff0482a2f7f09083a77ff08c94ad5803",
+      "indexes_md5": "c6a7981b0c495823a2ca6865ee27ba79",
+      "rls_enabled": true,
+      "constraints_md5": "5a90a0ff04571145937acaa431d44613"
+    },
+    {
+      "id": "public.corporate_fiscal_loss_applications",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "df92bfc82a8d3b79c02da7e4b17c85e6",
+      "indexes_md5": "b81fd9b446855d910874fee07fb22ab9",
+      "rls_enabled": true,
+      "constraints_md5": "45e08caf6e986ff3b769a9aec2c62cdd"
+    },
+    {
+      "id": "public.corporate_fiscal_loss_carryforwards",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "9d96183b0bfbd69177bc209161918e9c",
+      "indexes_md5": "20911f759e2aba131ff6be72df4cf8f5",
+      "rls_enabled": true,
+      "constraints_md5": "1656c9f28c7931a0d773a3ad381fe345"
+    },
+    {
+      "id": "public.corporate_pph25_authorities",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "70465e0a354b95f56bbaba7b32789d51",
+      "indexes_md5": "f168a7d5e5bc60a57b7713cae6d2739e",
+      "rls_enabled": true,
+      "constraints_md5": "fc86d340cc69433617b4f2d8775d5d0c"
+    },
+    {
+      "id": "public.customer_receivable_allocations",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "1aca4ae1879fc70a5410dd32f6cc3cdb",
+      "indexes_md5": "c02ee9e70ba5651e1b376a4e1d39eb52",
+      "rls_enabled": true,
+      "constraints_md5": "90d28fb6e519d731ab68b08b9476bb25"
+    },
+    {
+      "id": "public.customer_receivables",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "9a3853195237e8e464a431a4213af99f",
+      "indexes_md5": "45cf5dac0760b7b09ed496d5cb453c5f",
+      "rls_enabled": true,
+      "constraints_md5": "e8847140622024dea441ab0dc0acd91e"
+    },
+    {
+      "id": "public.customer_withholding_tax_credits",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "02c442230adf87107de9072112cfc1aa",
+      "indexes_md5": "c976663a904a797429c17ea0c8d6f065",
+      "rls_enabled": true,
+      "constraints_md5": "e0a6c005f52e2cf2a7b4c37ebfbbe0a8"
+    },
+    {
+      "id": "public.devices",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "8ad30ac2c67348a7e2f92ff208b7fbbb",
+      "indexes_md5": "9750f2d425f923df2e213b00bb4a7bef",
+      "rls_enabled": true,
+      "constraints_md5": "eaec115fe167df1fa58ab672d6f069a8"
+    },
+    {
+      "id": "public.employee_payables",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "a244c60f2482feede8e0edcc58db2ecf",
+      "indexes_md5": "baece72561659e0c78c9f0dd7e93ca11",
+      "rls_enabled": true,
+      "constraints_md5": "e2f333b8d1df98662f9dc33cca0354de"
+    },
+    {
+      "id": "public.employee_tax_profiles",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "fedd349c4dcb4c01efaef06e929b0ffb",
+      "indexes_md5": "31bf78ca8aac776c9e1010f473ea62f1",
+      "rls_enabled": true,
+      "constraints_md5": "7647fcaffb771be9c9b307abd13fba4f"
+    },
+    {
+      "id": "public.extended_withholding_liabilities",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "f5d8b7531525592df1a787fca4e1d89e",
+      "indexes_md5": "a59fee96a4bbee98c235feb779d92c1e",
+      "rls_enabled": true,
+      "constraints_md5": "7b04e887258f2f8626ff68d106266969"
+    },
+    {
+      "id": "public.extended_withholding_payments",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "14841ad5e4e884e5b8802eaf6b468414",
+      "indexes_md5": "e6b98f9521d5a7f10c5adb16e78bc25a",
+      "rls_enabled": true,
+      "constraints_md5": "efc836ba3af4e5dcc3d9930b9a26a808"
+    },
+    {
+      "id": "public.fixed_asset_depreciation_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "d1721c5d702a80acd3bcabcfd6e5947f",
+      "indexes_md5": "0d18011a1fa4f552b1ef12d1c5335b53",
+      "rls_enabled": true,
+      "constraints_md5": "30e3b55034fb3a84a52592a33d41b51d"
+    },
+    {
+      "id": "public.fixed_assets",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "d5c5a08e00218271586dea66631d0024",
+      "indexes_md5": "5b95c0354f13f0817f7888fa21abc843",
+      "rls_enabled": true,
+      "constraints_md5": "4dab188973fe176c1102b8a39aab12c1"
+    },
+    {
+      "id": "public.inventory_average_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "33091566aa4be334a1431a1a10390217",
+      "indexes_md5": "1e6f6733fbe45f1f00a4331ff13730ad",
+      "rls_enabled": true,
+      "constraints_md5": "4703f5c622b90fa392d8e5bcd0d57988"
+    },
+    {
+      "id": "public.inventory_average_projection",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "11f67f063b24158102f1c05d8412438f",
+      "indexes_md5": "8647ef423b561b3f1975c6bdf61faf31",
+      "rls_enabled": true,
+      "constraints_md5": "5c98ffb17b97ef9db469cf79ca23bbab"
+    },
+    {
+      "id": "public.inventory_cost_layer_projection",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "76b9c74a7dfc8744c8fa30bc82c082d4",
+      "indexes_md5": "f3b17fe87928d3cc1f94a69d451ce8ba",
+      "rls_enabled": true,
+      "constraints_md5": "2a47d53fc875859b2f01b835fde17d6b"
+    },
+    {
+      "id": "public.inventory_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "3cdb4113636631c9b740d42e4f8dfca2",
+      "indexes_md5": "d00ec0beb1694d5badb2c0068b0a36ef",
+      "rls_enabled": true,
+      "constraints_md5": "142fa084d61aec573f28b4d95bc8537d"
+    },
+    {
+      "id": "public.inventory_lot_projection",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "a29d6c93984ef76f87e9f6d61d2dfeb7",
+      "indexes_md5": "4df01179fd328ab36e927a1f955753af",
+      "rls_enabled": true,
+      "constraints_md5": "4fede9fddfe4ec67704e9581c494c102"
+    },
+    {
+      "id": "public.inventory_product_projection",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "5ee428e2ee5c9b78bd3c4936db69d32e",
+      "indexes_md5": "790a6ebd6d23f191c35a59db8251de33",
+      "rls_enabled": true,
+      "constraints_md5": "ce1a365ad61f0b504ef775a59c48b5a7"
+    },
+    {
+      "id": "public.licences",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "a57b57ee1d1fc0399794be3faa77dba4",
+      "indexes_md5": "d1698f86f6dbde19a2742cdb3de8939c",
+      "rls_enabled": true,
+      "constraints_md5": "6e648d3caa246726900d1193279e1644"
+    },
+    {
+      "id": "public.owner_turnover_tax_periods",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "192f76fbf54be735478177eb50fee960",
+      "indexes_md5": "9f512777ffd7655f6864565d3d86fe72",
+      "rls_enabled": true,
+      "constraints_md5": "4c505572cd3699a3370b51536943b76e"
+    },
+    {
+      "id": "public.payroll_payment_allocations",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "b9f42cf33a9e71b0f7f11c4e4361070c",
+      "indexes_md5": "fa7c48bfb032ea6010f04261bed68a44",
+      "rls_enabled": true,
+      "constraints_md5": "d80d313c525048fe435268597ae4d29c"
+    },
+    {
+      "id": "public.payroll_tax_evidence",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "75d3acf21806f730506deeb05c9b5097",
+      "indexes_md5": "048bc148356014cd1df60b54882a9453",
+      "rls_enabled": true,
+      "constraints_md5": "7dd14bbb2353747111f8c53ccb6fe1b4"
+    },
+    {
+      "id": "public.plans",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "911f9ea55b240176cfe5777e8ed36b9d",
+      "indexes_md5": "3d8f43deccd12db1751d7881bbd76d39",
+      "rls_enabled": true,
+      "constraints_md5": "66d0baff51e8e99aa10dfebb291ef460"
+    },
+    {
+      "id": "public.pos_accounting_tenant_map",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "8a0de36467aaa3fda0e0f064f567e105",
+      "indexes_md5": "33f631f16ad1e9876ea9634d4d9e3019",
+      "rls_enabled": true,
+      "constraints_md5": "41ed37a7a31c9a85439562a39dbda8cf"
+    },
+    {
+      "id": "public.pos_manager_pins",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "05168e2da4027f463ee97fe60d265a37",
+      "indexes_md5": "c58232bfb34375c2de6eecdaf7155dd7",
+      "rls_enabled": true,
+      "constraints_md5": "9641c631b4c84dd47ebdd08c7057c0d2"
+    },
+    {
+      "id": "public.pos_memberships",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "79ffc47c6f6c9cd18c428866f946255e",
+      "indexes_md5": "a34dbe91888b5fb7a9b242fc2039160c",
+      "rls_enabled": true,
+      "constraints_md5": "e5fd085b54c207b6c202ac9b1841a594"
+    },
+    {
+      "id": "public.pos_pin_audit",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "d901b7783b23fa0ae08901af8f8f00c8",
+      "indexes_md5": "4ee5a8caff1f2afcbe1c32fc415f4011",
+      "rls_enabled": true,
+      "constraints_md5": "094aa11a3455f0ab7ffd1f36a3485a8e"
+    },
+    {
+      "id": "public.product_master",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "48cbc30fc74f6b36691f1ffa261a090d",
+      "indexes_md5": "6a527ea2b386983f3a4f64379a90c4bd",
+      "rls_enabled": true,
+      "constraints_md5": "f5d091493dd680b0768ab23557a1e09f"
+    },
+    {
+      "id": "public.receivable_allowance_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "f3791df2ca8e76e1f6fa109086cb7bb4",
+      "indexes_md5": "310fabca597dbb162a757ea69b028489",
+      "rls_enabled": true,
+      "constraints_md5": "41e788e45f7b2054a3b1bfe7799b3fc0"
+    },
+    {
+      "id": "public.receivable_allowances",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "4b8f7088d63e9d826c0a76c81db9d657",
+      "indexes_md5": "3e8308ed8163d4f0edb565dcfa84942c",
+      "rls_enabled": true,
+      "constraints_md5": "0e1680bf6a0ec58dffd010f864a7f934"
+    },
+    {
+      "id": "public.sale_line_evidence",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "6df464a1e1c58709752347d872f924c8",
+      "indexes_md5": "101fc9e95a58577c4ffa39c2a5f2b82e",
+      "rls_enabled": true,
+      "constraints_md5": "ada9e1559a7786cfb6dbcff14e74af3b"
+    },
+    {
+      "id": "public.sale_return_line_evidence",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "a376d7debffd769cf908a845fed8b4c5",
+      "indexes_md5": "2ae08999d080cdccab168ff3e8ef7a54",
+      "rls_enabled": true,
+      "constraints_md5": "a4740fb814c48a0c085c948e85171f54"
+    },
+    {
+      "id": "public.service_tax_profiles",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "029bc8b6a7e3e9e11180d91d3689c4f8",
+      "indexes_md5": "91631f62cb33c0958905532e2b78cc96",
+      "rls_enabled": true,
+      "constraints_md5": "48a7c0a16575435f21913dc038b01253"
+    },
+    {
+      "id": "public.subscription_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "f14d89304b061db33e4767e0e418fa6a",
+      "indexes_md5": "5fcf6441c7da59ab77ab2c071ee9b016",
+      "rls_enabled": true,
+      "constraints_md5": "624c3a6610079771ca3fc4a1bfba5e29"
+    },
+    {
+      "id": "public.subscriptions",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "548e08005a06362fa3b166ba8af9b977",
+      "indexes_md5": "2cb9be7a61f0ca9e44b92db8332911f6",
+      "rls_enabled": true,
+      "constraints_md5": "36317d2aea58d0c0e78477a5ab399c57"
+    },
+    {
+      "id": "public.supplier_liabilities",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "81d483090d6ab99b2b9c08ff48f7f99c",
+      "indexes_md5": "f005d2de74d1933e6fd4169c543a8ed9",
+      "rls_enabled": true,
+      "constraints_md5": "7c225bf6753102f2c78984bcc22d997e"
+    },
+    {
+      "id": "public.supplier_payment_allocations",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "1df36f069eb1b031d967a3a4c763f2a6",
+      "indexes_md5": "39c16adac393277ecbbb423b0afe3be7",
+      "rls_enabled": true,
+      "constraints_md5": "55d4fa59c56f4582f6cdb63415e725f9"
+    },
+    {
+      "id": "public.tax_document_events",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "5e9c7460135f909a11c51fb7e6480eb4",
+      "indexes_md5": "2e6e8aaec69afcde4b7e11b2a8ee7f7b",
+      "rls_enabled": true,
+      "constraints_md5": "a6da1bcf4cc9651f0c6a71ea9152ec5e"
+    },
+    {
+      "id": "public.tax_document_lines",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "0ab238900d8ab0c341c0c545732d772c",
+      "indexes_md5": "516c749b1022db1797e2f5d633d39236",
+      "rls_enabled": true,
+      "constraints_md5": "c200800c034fc1119878e590441c2b32"
+    },
+    {
+      "id": "public.tax_documents",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "5a2bb8502c2a61ca7686cc7a34f278d8",
+      "indexes_md5": "85156cbbdba8eb19f88a1b4f38f5fd0f",
+      "rls_enabled": true,
+      "constraints_md5": "1ccaf7e0efdb96f98fad333e88f8db84"
+    },
+    {
+      "id": "public.tax_parties",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "4ff82f67070c3a5ec8220428e21bfc59",
+      "indexes_md5": "e67bafa2996cf8322ec9d99e3956547d",
+      "rls_enabled": true,
+      "constraints_md5": "420cd93b1fe5e75d1c102263a7224b8a"
+    },
+    {
+      "id": "public.tax_payment_refs",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "4b81211619ec4ed8a5669668d35783af",
+      "indexes_md5": "00a5fdda8568dad6c4a10ec74cf39772",
+      "rls_enabled": true,
+      "constraints_md5": "a120ccafc978d38a28063c48e4b8632d"
+    },
+    {
+      "id": "public.tax_rate_brackets",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "6396c088d0978bb521d0fd4e0473af10",
+      "indexes_md5": "f76c83a92727b8136e8106671c0489a6",
+      "rls_enabled": true,
+      "constraints_md5": "806ef29f952d252bbd86d10a13619178"
+    },
+    {
+      "id": "public.tax_rates",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "929d12e1b08914eddf82f548b4e02cb0",
+      "indexes_md5": "dee7695860a6754e3abc20730b5772c5",
+      "rls_enabled": true,
+      "constraints_md5": "a0ff13dac4956ecdc6bdbdc332625a36"
+    },
+    {
+      "id": "public.tenant_services",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "e75cb8e658427c22fc11bc2fc65fab6a",
+      "indexes_md5": "01dbb6992b1854a69b2a4b0e86c01136",
+      "rls_enabled": true,
+      "constraints_md5": "fb4430c2da33009b5cea42643c60f3d8"
+    },
+    {
+      "id": "public.tenants",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "248b9a24c91a5f3f77ecdd172b8bbfaf",
+      "indexes_md5": "8a62bae12be9e49a0211b23a3f0e0e64",
+      "rls_enabled": true,
+      "constraints_md5": "102596773ce14b96769db045453df2c5"
+    },
+    {
+      "id": "public.transaction_type_map",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "898f3c3a4bb2cc8b889d4e4b9a0c23d9",
+      "indexes_md5": "6f6f91f2159781680434bc10db1123f9",
+      "rls_enabled": true,
+      "constraints_md5": "f93410d68503b397e900b92a2233642c"
+    },
+    {
+      "id": "public.v_outbox_unacked",
+      "kind": "v",
+      "force_rls": false,
+      "columns_md5": "64e58c8cd39275b534a12116c641643e",
+      "indexes_md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "rls_enabled": false,
+      "constraints_md5": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "id": "public.v_stress_validation",
+      "kind": "v",
+      "force_rls": false,
+      "columns_md5": "7dcb8ad23944f109554d8f9754a7b3dc",
+      "indexes_md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "rls_enabled": false,
+      "constraints_md5": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "id": "public.vat_period_settlements",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "128de82a0033c623b7c6edc9018ada5d",
+      "indexes_md5": "ff42ad09cdbd3bfbfcac73f2493d199d",
+      "rls_enabled": true,
+      "constraints_md5": "952209ad816dc2efb5f2139b17d0464b"
+    },
+    {
+      "id": "private.audit_logs",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "1f5e373c4d2d9a0c3b27113286d6f0b4",
+      "indexes_md5": "3a31e9763643c180815f5ef4fe4b4a24",
+      "rls_enabled": true,
+      "constraints_md5": "5194281e30eb1de2a92977f3b7f6dced"
+    },
+    {
+      "id": "private.manager_pins",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "8389bd06e4dec7cfb12e24327f36a54f",
+      "indexes_md5": "6a447255c46083249fa8bcd5aae15408",
+      "rls_enabled": true,
+      "constraints_md5": "ed132b3c40f75ee19b24ebd80025a44a"
+    },
+    {
+      "id": "private.pos_memberships",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "cc52a9855bcf42a8e997d7bc5b02a3ad",
+      "indexes_md5": "f2ecaf598b026a55ef5e31fef14aa45d",
+      "rls_enabled": true,
+      "constraints_md5": "797ba418ea596c9ea24335bef4b79f07"
+    },
+    {
+      "id": "private.pos_outbox",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "3c43c54f5517b7372ac9d72a50a3926e",
+      "indexes_md5": "d9b43f8185758f6a210787a21aa82709",
+      "rls_enabled": true,
+      "constraints_md5": "e572dd43d09dd4f145a6c497fa00beeb"
+    },
+    {
+      "id": "private.tenant_accounting_links",
+      "kind": "r",
+      "force_rls": false,
+      "columns_md5": "dee56293d5cb14a42ee589ef7405bee2",
+      "indexes_md5": "e7630963fd97550f14a38837981e3ba4",
+      "rls_enabled": true,
+      "constraints_md5": "877c1a1cd5859d0811f9cfbda08e9db0"
+    }
+  ],
+  "functions": [
+    {
+      "id": "public.activate_pph25_authority(p_tenant_id uuid, p_source_annual_period_id uuid, p_effective_from_month date, p_source_reference text, p_source_filed_date date, p_supersedes_authority_id uuid, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "25a0856f24b259bb6243fe0f1a91e89e",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.apply_midtrans_payment(p_sub_id uuid, p_status text, p_transaction_id text, p_amount numeric, p_order_id text, p_checked_at timestamp with time zone)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "69c141f48005b377a21bb34120b107e3",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.apply_play_subscription(p_user_id uuid, p_token text, p_plan_id text, p_state jsonb, p_checked_at timestamp with time zone, p_linked_token text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "5915ee429c7e9691f2f9c79c6c37e96e",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.assert_config_contract()",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "9add89aa6aa16888a323c3e78c8c7031",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.assert_financial_report_ready(p_tenant_id uuid)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "176c0578bacf8ec925211eecd089fa92",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.bind_license_device(p_user_id uuid, p_device_id text, p_platform text, p_app_version text, p_plan_id text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "e5065e0cdbfc651ee7776d0e10007213",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.calculate_pph21_final_period(p_annual_taxable_income bigint, p_withheld_before_final_period bigint)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "109004bbf630981af6cd3af63bc44f35",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.calculate_pph21_ter(p_marital_status text, p_dependents integer, p_monthly_gross bigint, p_business_date date)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d0c01b1277da634f61bcd6ac073fb0eb",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_accounting_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "cf4add8694708e7fff73ceb463c00932",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_corporate_tax_year(p_tenant_id uuid, p_tax_year integer, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "e9da5d8e5137fb1034a047cc10966080",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_employee_tax_profile(p_tenant_id uuid, p_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "59e7118e8ad5ec3b46c77e2d790d616d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_owner_turnover_tax_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "78c300d00c2689e242682dfd3d31b1db",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_self_tax_party_for_config_tenant(p_config_tenant_id text, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "17bf670846bc6056799b639a67949911",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_service_tax_profile(p_tenant_id uuid, p_service_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c3610b7ff7e710821ff5d58f2aedb1e6",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_tax_party_evidence(p_tenant_id uuid, p_party_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "5ef9dae6531f2df21c0a1938ac4c115d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_tax_rate_bracket_version(p_bracket_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "27942a6e8c5485bd94879680d2534b54",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_tax_rate_version(p_tax_rate_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7c57a50776ff7db187c8c5ae76bd0339",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_tenant_accounting_link(p_link_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "993143aba4bd9b6bf993ff5308315981",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.close_vat_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8d7fb53912f2a597e0c260ee6dda825e",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_accounting_tenant(p_name text, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "7893d019aa92ccf9b1b1ce081757362a",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_auto_journal(p_tenant_id uuid, p_transaction_type text, p_transaction_ref text, p_business_date date, p_facts jsonb, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7e6e968e9a1e890ae2a0dc9010b7bc5e",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_employee_tax_profile(p_tenant_id uuid, p_employee_party_id uuid, p_marital_status text, p_dependents integer, p_tax_method text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "2dd9705ef75d86a0156318dd5a417980",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_self_tax_party_for_config_tenant(p_config_tenant_id text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "1da6cd3f5e56255a4af801023ada62f9",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_service_tax_profile(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "be39c0c609075e5831675f825deca8cc",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_service_tax_profile_v2(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "625b381c6d6f77240cc22a939ff664a7",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_service_tax_profile_v3(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_umkm_final_eligible boolean, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "ea4dccf092319844a8b21d9ca7cccf66",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_tax_party_evidence(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "9119fa9acad21ba444ba7b032fe0af65",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_tax_party_evidence_v2(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_is_withholding_agent boolean, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "790cdc268330c01992303a0799c37c4b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_tax_rate_bracket_version(p_category text, p_lower_bound bigint, p_upper_bound bigint, p_rate numeric, p_effective_date date, p_end_date date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "43365d46959849796e98922fd270433f",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_tax_rate_version(p_tax_code text, p_object_code text, p_category text, p_statutory_rate numeric, p_dpp_multiplier numeric, p_calculation_method text, p_effective_date date, p_end_date date, p_legal_basis text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7837bb7317049cec3fe17b5583ccc495",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.create_tenant_accounting_link(p_config_tenant_id text, p_accounting_tenant_id uuid, p_valid_from date, p_valid_to date, p_device_id text, p_app_version text, p_reason text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "5ea28e816a5393a586759df94ca9b86c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_accounting_hard_gate(p_tenant_id uuid)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d4db51190a07f25cb23ccfc75a866ba9",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_compliance_readiness(p_tenant_id uuid, p_business_date date, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "b33b15aa69da04f3714b8157ea8f867e",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_compliance_readiness(p_tenant_id uuid, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "b6fa605b86bbb77d3094962f8854d5cc",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_config_tenant_compliance_readiness(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "f4354cce69d8ec87e309a2fb0959af75",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_config_tenant_self_tax_profile_status(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8d708d14a1cb1560912655d5be2d7ef3",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_coretax_export_capability(p_tax_document_id uuid, p_device_id text, p_app_version text)",
+      "acl": "=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d239d1db1668870d6ec36afc14054f6d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.get_effective_config(p_tenant text, p_device text, p_service text)",
+      "acl": "postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "7268a10481b86270653ef594317d04e9",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "public.test_tenant_isolation()",
+      "acl": "postgres=X/postgres,service_role=X/postgres",
+      "returns": "boolean",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "205679b187402596c0bb6c300da27780",
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "id": "public.validate_journal_consistency()",
+      "acl": "postgres=X/postgres,service_role=X/postgres",
+      "returns": "TABLE(issue_code text, tenant_id uuid, transaction_ref text, journal_id uuid, details jsonb)",
+      "language": "sql",
+      "anon_execute": false,
+      "definition_md5": "58a0ae05ffc1884c088a48cb34b11f4b",
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "id": "private.apply_sale_avg(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "6f8b3cabbe5c2a151a393a15cbedebc4",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.assert_accounting_hard_gate(p_tenant_id uuid)",
+      "acl": "DEFAULT",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "35cd8dc940e1ae5d43d6dda8ceaa809c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.assert_app_config_inventory()",
+      "acl": "postgres=X/postgres",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "76d5d297875425db58430580b37cc200",
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "id": "private.assert_no_accounting_fields(p_value jsonb)",
+      "acl": "DEFAULT",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "1a6b5bc5e6058fa4f438553fd47b3fd3",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.assert_sufficient_liquid_funds(p_tenant_id uuid, p_account_code text, p_amount bigint)",
+      "acl": "DEFAULT",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c9540fb76eeca8eaac5ccbfaaef01b47",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.btp_is_super_admin()",
+      "acl": "postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "boolean",
+      "language": "sql",
+      "anon_execute": false,
+      "definition_md5": "e984a886995049291703b669049a20a0",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_bad_debt_allowance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8ec659bf6258002378611f4803528a3b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_customer_receipt_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "bc6d8e57f541f73394a86e2702bac7e3",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_depreciation_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "bddeb141e0addc26545abf44a9543e9b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_extended_withholding_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "de4abdedc955a70d0a07edd1eb34eaa2",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_extended_withholding_source_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "66452bb53d96beff00c247e7b37889f3",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_fixed_asset_acquisition_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "ab36395303da3cd18c64538a56441574",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_owner_capital_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7cbfbf0c5ab84acbb2caf7f4997e9f85",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_owner_draw_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "3701cc6d75a9d39211a90a009465564c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_owner_turnover_tax_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "acf2020e7dfa33a060eff4f91e7e564e",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_payroll_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "eec03a17686f7aab29125e9127aa75e1",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_purchase_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "ec696202bbeb585b0b84be69fc271be8",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_salary_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "615a415c4d575592dad1e1f8acfd4b8c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_sale_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_payment_account text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "6d7294043850544d0f3b9ac071d0227a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_sale_return_lines(p_tenant_id uuid, p_return_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d05e5238f97bb9bdb2d819ac20938b53",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_stock_opname_lines(p_tenant_id uuid, p_transaction_ref text, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "6d8965cd92db012318725e8264e84abd",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_supplier_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7bef6db173201cfe4df2f31abf22dde5",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_tax_remittance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "49eecfc4a652859a7d27dc575cc1ae97",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.build_vendor_expense_accrual_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "17d66a21eef9f5d31a594b76fa28465f",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.can_export_coretax(p_tenant_id uuid, p_tax_document_id uuid)",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "a69a1f3cc1afe881bb612f3f5f584a1b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.can_read_client_status(p_device_id text)",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "f3a863fd6409eae7025909f27bb2fac0",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.can_read_final_pos_config(config_key text)",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "cfaf3c1e8ef5f2d1ad0a93b32106dcad",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.can_read_final_pos_config_strict(config_key text)",
+      "acl": "postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres",
+      "returns": "boolean",
+      "language": "sql",
+      "anon_execute": false,
+      "definition_md5": "581875dacf68f38a59a8014211faac51",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.can_write_app_config(p_key text)",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "ada1622865f5f8fd3074e2bd00f5d55a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.compute_accounting_hard_gate(p_tenant_id uuid)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "f513e4c327d0d825d1f62f8fc30323aa",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.corporate_commercial_profit_before_tax(p_tenant_id uuid, p_tax_year integer)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "61286a443e7185421c69539f943ffbd0",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.corporate_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "dd3e40db732a9c4dfcd7615a3935dd7b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.create_tax_document_internal(p_tenant_id uuid, p_document_type text, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_snapshot jsonb, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_journal_id uuid, p_invoice_status text, p_creditable_input_vat boolean, p_reference_document_id uuid, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "764919b1cb8885690ddd73c333de79bb",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.create_test_tenant(p_name text)",
+      "acl": "postgres=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "c97f5f7d721bbaae6745cdebdbbcddac",
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "id": "private.enforce_extended_withholding_evidence()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "7cc41ac514378d1bc5d9e89d546d84c8",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.enforce_owner_adjustment_evidence()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "025fdd9a855e0ad395c3421338bce4d4",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.enforce_payroll_evidence()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "27e05222ddb66759b5c0b685e9c819dc",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.enforce_supplier_liability_evidence()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "28775ec376fb45823cf0592d363bfa8d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.enforce_tax_remittance_evidence()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "3f482b0bca40cb25130ba51095d36277",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.get_pos_role_internal(p_device_id text)",
+      "acl": "DEFAULT",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "47a14bb2e9d5cc409e3b00d798d897fc",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_app_config_inventory()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c3e373b54a9b09dc8371c4971a2553b1",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_coretax_export_gate()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "bd6f66de9b67d567674b53cc3be5a30a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_coretax_template()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "dff002f593e9d1770cbfaa7e4e5fbc1a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_corporate_tax_history_immutable()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c410585bf5dd0b2bde19a01c165a5323",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_customer_withholding_credit_immutable()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c5f177bcef6700f7810589f892259f5a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_domain_journal_reversal()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "3f97acf75fcbf32af23c87fdbd00e55b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_employee_tax_profile()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "0b1c3cae49b60cba389939a9af282863",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_owner_turnover_tax_period_immutable()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "44ad2b80e96652fa46c4b353e7c7fe7c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_payroll_tax_evidence_immutable()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "77d5fcc0f17e404fc4c303717fed6c58",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_pph25_authority_update()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "78333a4ecc510cd91d1c9ff6d5727286",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_self_tax_party_period()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d8ab619950447c32bab080e0d7598f42",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_service_tax_profile()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "973908fbff5e193bf9feede1a00970a7",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_tax_rate()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "3ce8e97dd593a8de9111e87a1e34dd07",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_tenant_accounting_link()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "9e32a6d4e20c9cafeec705429bac2fde",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_vat_document_closed_period_insert()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "6f28f28dd7d03ca981618730881a3dc1",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.guard_vat_period_settlement_immutable()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "053569a9edc55be9361c92763d3099d5",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.is_pph_final_umkm_evidence_valid(p_tax_regime text, p_taxpayer_type text, p_turnover_eligibility boolean, p_certificate_status text, p_legal_basis text, p_business_date date)",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "7b73a35f1f581c05ae15954f36e13cd6",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.populate_tax_document_lines()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "4fb8418977ce634ebcc620f311b1df4d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.pph21_article17_tax(p_taxable_income bigint)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "a53a45879e0f0b4d5f88a8be8da6fea4",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.pph21_periodic_calc(p_category text, p_cash_compensation bigint, p_tax_method text, p_business_date date)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "2bddd7c13cddadf7945c8ed8cf228582",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.pph21_ptkp_amount(p_marital_status text, p_dependents integer)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "efc70e1530acefb1be6792bf3061abed",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.pph21_ptkp_status(p_marital_status text, p_dependents integer)",
+      "acl": "DEFAULT",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8852191423cecd527321170fdd9a7a4d",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.reject_tax_evidence_mutation()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "2ee8b4ed827ccbf46b4a25564b87529c",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.resolve_pph21_ter(p_category text, p_monthly_gross bigint, p_business_date date)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "62625b01b0fe05004f29fd5cff6ea76c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.resolve_tax_rate_snapshot(p_tax_code text, p_object_code text, p_business_date date, p_category text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "197709cf58ae63a436a0993f4fcb0b9d",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.resolve_ter_category(p_marital_status text, p_dependents integer)",
+      "acl": "DEFAULT",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "a75a3a6f2f61826fb9291052f2447724",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.resolve_vat_transaction_code(p_facility_context text)",
+      "acl": "DEFAULT",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c8c5ca4fcad1019121235c54982f8fd5",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.seal_tax_document()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "9f909a7f3095adc78eab4a3baa76dbce",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.strip_legacy_tax_config(p_value jsonb)",
+      "acl": "postgres=X/postgres",
+      "returns": "jsonb",
+      "language": "sql",
+      "anon_execute": false,
+      "definition_md5": "b0ba2654b83cf0d514fb5c3ce1aa8868",
+      "security_definer": false,
+      "authenticated_execute": false
+    },
+    {
+      "id": "private.tax_period_obligation(p_tenant_id uuid, p_tax_code text, p_period_start date, p_period_end date)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "062005f638d53fbcf179b2849d730314",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.test_tenant_b_fixture_has_data(p_tenant_b uuid)",
+      "acl": "postgres=X/postgres,authenticated=X/postgres",
+      "returns": "boolean",
+      "language": "sql",
+      "anon_execute": false,
+      "definition_md5": "6f43521e8a0a4662bf933c9910e357b9",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.umkm_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "4ccc2c6ffb1fa1ba23431db933cf4d04",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "private.verify_coretax_template()",
+      "acl": "DEFAULT",
+      "returns": "boolean",
+      "language": "sql",
+      "anon_execute": true,
+      "definition_md5": "3177fc6a21238ce14b4b63f199c4a4e4",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.assert_journal_balanced()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "85a170ec9d66eb7cbc1a6c6af2cf7f8d",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.close_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8b557361d8832a3354d88aa467832c77",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.create_tenant(p_name text, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "a5bfd9755bed8f2f4d205e90a12c195b",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.guard_line_creation_tx()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8676b0137d29144db9938bec364a68e0",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.post_journal(p_tenant_id uuid, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)",
+      "acl": "postgres=X/postgres,service_role=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "f5cf091b118dc7106aa966fe814ccb63",
+      "security_definer": true,
+      "authenticated_execute": false
+    },
+    {
+      "id": "accounting_private.reject_locked_coa_insert()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "f3c4cb7205a4adc229b37e1b628be414",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.reject_mutation()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "0596777d277664218b0d846a9ee6909f",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.reopen_period(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "bc1909e509b1504c6b40072e17f952d2",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.require_bound_device(p_actor uuid, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "6ff868df200c759d5a34454de5647b45",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.require_member_role(p_tenant_id uuid, p_actor uuid, p_allowed_roles text[])",
+      "acl": "DEFAULT",
+      "returns": "text",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "d7c51b947a620151d0043be1e33f11df",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.require_open_period(p_tenant_id uuid, p_business_date date)",
+      "acl": "DEFAULT",
+      "returns": "void",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "43dabd92d12bdf59555a109e82ad0730",
+      "security_definer": false,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.resolve_pos_accounting_tenant(p_pos_tenant_id text, p_device_id text)",
+      "acl": "DEFAULT",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "8620140ef8dc64324b1de455b4ffb80f",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "accounting_private.reverse_journal(p_tenant_id uuid, p_original_journal_id uuid, p_idempotency_key text, p_journal_date date, p_reason text, p_device_id text, p_app_version text)",
+      "acl": "postgres=X/postgres,service_role=X/postgres,authenticated=X/postgres",
+      "returns": "uuid",
+      "language": "plpgsql",
+      "anon_execute": false,
+      "definition_md5": "86a764b1e9d280a6b3046a26461bed15",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.average_adjust_to_count(p_tenant_id uuid, p_product_id uuid, p_counted_qty bigint, p_zero_stock_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "jsonb",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "c9956433e214c86b95d4d6a523cb5acd",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.average_consume(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "1b8e9628935bb3d4f27efb7999d6f06c",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.average_receive(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "b0337efdd8b8a41ae313195522abf231",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.average_receive_value(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_total_value bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "68d623e2d882261d605d9c1b6b902341",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.average_restore_original(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_original_value bigint, p_event_id text, p_business_ref text, p_original_business_ref text, p_actor uuid, p_device_id text, p_reason text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "69d0feb8f9b0fb65f54e68df5c723e8a",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.ingest_inventory_component_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "ece13ea80030cc5d6b938a90c5452512",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.ingest_inventory_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)",
+      "acl": "DEFAULT",
+      "returns": "bigint",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "9a5efe8f943d6252e727b19696db7546",
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    {
+      "id": "inventory_private.reject_event_mutation()",
+      "acl": "DEFAULT",
+      "returns": "trigger",
+      "language": "plpgsql",
+      "anon_execute": true,
+      "definition_md5": "0b0648f98db388a16f1d60ec326ddfb7",
+      "security_definer": false,
+      "authenticated_execute": true
+    }
+  ],
+  "policies": [
+    {
+      "id": "public.accounting_coa.accounting_coa_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "e76cd0b0da0127b392cd89ab55310bde"
+    },
+    {
+      "id": "public.accounting_events.accounting_events_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "7defd3e9fbf6064fb67198addf7179f0"
+    },
+    {
+      "id": "public.accounting_journal_lines.accounting_journal_lines_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "e00ac08147c64ce8cd3c10ffd9a0a211"
+    },
+    {
+      "id": "public.accounting_journals.accounting_journals_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "fc62da09486f36457aedfd2567ce6429"
+    },
+    {
+      "id": "public.accounting_memberships.accounting_memberships_read_self",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "b8464b9bda6b026330696870d5ff20ac"
+    },
+    {
+      "id": "public.accounting_periods.accounting_periods_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "edeb1ed72f86e5aae804238c6ecfb7a0"
+    },
+    {
+      "id": "public.accounting_tenants.accounting_tenants_read_member",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "9353ba298c52475b62207aae345f7cfa"
+    },
+    {
+      "id": "public.app_config.authenticated read own app_config - device only own",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "776db52c91e5d19a7ca9b12b7e80f67d"
+    },
+    {
+      "id": "public.app_config.super admin all app_config - canonical",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "182eecaf3a07ea704bd76bd02de9fe35"
+    },
+    {
+      "id": "public.client_status.client_status_tenant_bound",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "535f632bf41cdafd1b387b0b859d35dd"
+    },
+    {
+      "id": "public.config_history.super admin insert history",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "INSERT",
+      "fingerprint_md5": "c309254eb5de430f375e11024afddcde"
+    },
+    {
+      "id": "public.config_history.super admin read history",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "57522ea617b7e9bed64360a484b5bc89"
+    },
+    {
+      "id": "public.coretax_template_registry.coretax_template_insert_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "INSERT",
+      "fingerprint_md5": "c309254eb5de430f375e11024afddcde"
+    },
+    {
+      "id": "public.coretax_template_registry.coretax_template_read_authenticated",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "bf9525e544a04c9ff01d19882c8fb33e"
+    },
+    {
+      "id": "public.coretax_template_registry.coretax_template_update_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "UPDATE",
+      "fingerprint_md5": "e77eb144df26b05d9adef753fece953d"
+    },
+    {
+      "id": "public.devices.authenticated read own devices",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "b8464b9bda6b026330696870d5ff20ac"
+    },
+    {
+      "id": "public.devices.super admin all devices",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "182eecaf3a07ea704bd76bd02de9fe35"
+    },
+    {
+      "id": "public.inventory_average_events.inventory_average_events_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "fc715a938a3acac579e6a1d35a8c0b94"
+    },
+    {
+      "id": "public.inventory_average_projection.inventory_average_projection_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "c99511ac1c9c505b9304a75542c3b3d6"
+    },
+    {
+      "id": "public.inventory_cost_layer_projection.inventory_cost_projection_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "17fb9e7c3239c74f1506cacad0d58eeb"
+    },
+    {
+      "id": "public.inventory_events.inventory_events_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "dfb39e235174d9ef7c5ed0e1546d8289"
+    },
+    {
+      "id": "public.inventory_lot_projection.inventory_lot_projection_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "d6e7ae636c223501a1ba7379689c3176"
+    },
+    {
+      "id": "public.inventory_product_projection.inventory_product_projection_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "b569a0707716573cb1921b8bf81c5083"
+    },
+    {
+      "id": "public.licences.authenticated read own licences",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "73d796fa21132fa8d6157227ed724908"
+    },
+    {
+      "id": "public.licences.super admin all licences",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "182eecaf3a07ea704bd76bd02de9fe35"
+    },
+    {
+      "id": "public.plans.plans_read_active",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "939012d9d4b15349dfdcd9aea645c7ec"
+    },
+    {
+      "id": "public.pos_memberships.pos_memberships_self_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "b8464b9bda6b026330696870d5ff20ac"
+    },
+    {
+      "id": "public.pos_pin_audit.pos_pin_audit_self_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "83b122e5453ac992e617a9bb918286ef"
+    },
+    {
+      "id": "public.product_master.product_master_read_active_membership",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "c637f49fb602a654bb64cbffbfe6cc96"
+    },
+    {
+      "id": "public.service_tax_profiles.service_tax_profiles_member_read",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "78eeb518239b874d6cdc31fef767ab79"
+    },
+    {
+      "id": "public.tax_rate_brackets.tax_rate_brackets_insert_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "INSERT",
+      "fingerprint_md5": "c309254eb5de430f375e11024afddcde"
+    },
+    {
+      "id": "public.tax_rate_brackets.tax_rate_brackets_read_authenticated",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "bf9525e544a04c9ff01d19882c8fb33e"
+    },
+    {
+      "id": "public.tax_rate_brackets.tax_rate_brackets_update_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "UPDATE",
+      "fingerprint_md5": "e77eb144df26b05d9adef753fece953d"
+    },
+    {
+      "id": "public.tax_rates.tax_rates_insert_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "INSERT",
+      "fingerprint_md5": "c309254eb5de430f375e11024afddcde"
+    },
+    {
+      "id": "public.tax_rates.tax_rates_read_authenticated",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "bf9525e544a04c9ff01d19882c8fb33e"
+    },
+    {
+      "id": "public.tax_rates.tax_rates_update_super_admin",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "UPDATE",
+      "fingerprint_md5": "e77eb144df26b05d9adef753fece953d"
+    },
+    {
+      "id": "public.tenant_services.authenticated read own tenant_services",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "be387ccc8ea3982eddfd29d233be1640"
+    },
+    {
+      "id": "public.tenant_services.super admin all tenant_services",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "182eecaf3a07ea704bd76bd02de9fe35"
+    },
+    {
+      "id": "public.tenants.authenticated read own tenants",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "b3009d4986566aeec9c8ac6a50060f7d"
+    },
+    {
+      "id": "public.tenants.super admin all tenants",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "182eecaf3a07ea704bd76bd02de9fe35"
+    },
+    {
+      "id": "private.tenant_accounting_links.deny_anon_all",
+      "roles": [
+        "anon"
+      ],
+      "command": "ALL",
+      "fingerprint_md5": "bd40abeaf95ec488e707bbf48c88baff"
+    },
+    {
+      "id": "private.tenant_accounting_links.tenant_isolation_select",
+      "roles": [
+        "authenticated"
+      ],
+      "command": "SELECT",
+      "fingerprint_md5": "802c82e3be91654b6f381e2f56f2f412"
+    }
+  ],
+  "triggers": [
+    {
+      "id": "public.accounting_coa.accounting_coa_no_insert",
+      "enabled": "O",
+      "definition_md5": "5d1d5c14c6b7705fe4b910d495274b58"
+    },
+    {
+      "id": "public.accounting_coa.accounting_coa_no_mutation",
+      "enabled": "O",
+      "definition_md5": "481a88764cb2011884f4c3e5f1705ff6"
+    },
+    {
+      "id": "public.accounting_events.accounting_events_no_mutation",
+      "enabled": "O",
+      "definition_md5": "8355937acf947c5c5b58d7a1740ad545"
+    },
+    {
+      "id": "public.accounting_journal_lines.accounting_journal_lines_balance",
+      "enabled": "O",
+      "definition_md5": "c7ac110cf5ec627530cdeae0fa9a6a43"
+    },
+    {
+      "id": "public.accounting_journal_lines.accounting_journal_lines_creation_tx",
+      "enabled": "O",
+      "definition_md5": "598702ed63032c544297ed0b8e6ecbb2"
+    },
+    {
+      "id": "public.accounting_journal_lines.accounting_journal_lines_no_mutation",
+      "enabled": "O",
+      "definition_md5": "56b716dd93924367c49a3f0f3b8e4ad0"
+    },
+    {
+      "id": "public.accounting_journals.accounting_journal_parent_balance",
+      "enabled": "O",
+      "definition_md5": "d25df559407e5f9050a29624f3cafdf6"
+    },
+    {
+      "id": "public.accounting_journals.accounting_journals_domain_reversal_guard",
+      "enabled": "O",
+      "definition_md5": "47193441546629ee416877e5a2baf625"
+    },
+    {
+      "id": "public.accounting_journals.accounting_journals_no_mutation",
+      "enabled": "O",
+      "definition_md5": "22dad52a9ce15255d059ba097d8367f1"
+    },
+    {
+      "id": "public.accounting_transaction_evidence.accounting_transaction_evidence_immutable",
+      "enabled": "O",
+      "definition_md5": "f0eef9509ebbde28660369020dbc0574"
+    },
+    {
+      "id": "public.accounting_transaction_evidence.accounting_transaction_owner_adjustment_guard",
+      "enabled": "O",
+      "definition_md5": "963d900d127ad33203ac765e09ed1d3b"
+    },
+    {
+      "id": "public.accounting_transaction_evidence.accounting_transaction_payroll_guard",
+      "enabled": "O",
+      "definition_md5": "42c3b518aa8cef53d39aab6884893298"
+    },
+    {
+      "id": "public.accounting_transaction_evidence.accounting_transaction_supplier_liability_guard",
+      "enabled": "O",
+      "definition_md5": "220dc0031741f120e42326945461aee5"
+    },
+    {
+      "id": "public.accounting_transaction_evidence.accounting_transaction_tax_remittance_guard",
+      "enabled": "O",
+      "definition_md5": "08ab4837bc86aa6d12f474e65895f2a3"
+    },
+    {
+      "id": "public.app_config.app_config_inventory_key_guard",
+      "enabled": "O",
+      "definition_md5": "6f41321cc7c47488f199f279cc984d59"
+    },
+    {
+      "id": "public.app_config.app_config_inventory_truncate_guard",
+      "enabled": "O",
+      "definition_md5": "a6fe73ac71ab8adb9dcbf6a5968e2d42"
+    },
+    {
+      "id": "public.coretax_outbox.coretax_outbox_export_gate",
+      "enabled": "O",
+      "definition_md5": "3cffb34706b3dc5d27231504ed96981f"
+    },
+    {
+      "id": "public.coretax_outbox.coretax_outbox_no_delete",
+      "enabled": "O",
+      "definition_md5": "1ec4cfb6e84e53c8246955d529f7550a"
+    },
+    {
+      "id": "public.coretax_template_registry.coretax_template_guard",
+      "enabled": "O",
+      "definition_md5": "8130fd96cd23e7daf9f38c463feba3c5"
+    },
+    {
+      "id": "public.corporate_annual_tax_periods.corporate_annual_tax_periods_immutable",
+      "enabled": "O",
+      "definition_md5": "5c78ffa57c4ed2088af9f830131f1283"
+    },
+    {
+      "id": "public.corporate_fiscal_adjustments.corporate_fiscal_adjustments_immutable",
+      "enabled": "O",
+      "definition_md5": "35aeb887880fc912acfc7b1d1ecdc50a"
+    },
+    {
+      "id": "public.corporate_fiscal_loss_applications.corporate_fiscal_loss_applications_immutable",
+      "enabled": "O",
+      "definition_md5": "39d23f19298612c366be8999875e957d"
+    },
+    {
+      "id": "public.corporate_fiscal_loss_carryforwards.corporate_fiscal_loss_carryforwards_immutable",
+      "enabled": "O",
+      "definition_md5": "32f800f0916a3427ff48f1c2d1eef15d"
+    },
+    {
+      "id": "public.corporate_pph25_authorities.corporate_pph25_authorities_guard",
+      "enabled": "O",
+      "definition_md5": "815638ac5b557718555cb1a45f3b3e15"
+    },
+    {
+      "id": "public.customer_withholding_tax_credits.customer_withholding_tax_credits_immutable",
+      "enabled": "O",
+      "definition_md5": "741f0d0c72b7ea6da096666af41c38c9"
+    },
+    {
+      "id": "public.employee_tax_profiles.employee_tax_profiles_guard",
+      "enabled": "O",
+      "definition_md5": "827bff1bffb3b3aa89b8a8f739e6eef8"
+    },
+    {
+      "id": "public.inventory_events.inventory_events_no_mutation",
+      "enabled": "O",
+      "definition_md5": "f5ad6609d76c12a3a2a4b2f88f856901"
+    },
+    {
+      "id": "public.owner_turnover_tax_periods.owner_turnover_tax_periods_immutable",
+      "enabled": "O",
+      "definition_md5": "58d3649c0c5bd050b43c3f43ada83f53"
+    },
+    {
+      "id": "public.payroll_tax_evidence.payroll_tax_evidence_immutable_guard",
+      "enabled": "O",
+      "definition_md5": "faef78520879bea350bb31b5939bd51e"
+    },
+    {
+      "id": "public.sale_line_evidence.sale_line_evidence_immutable",
+      "enabled": "O",
+      "definition_md5": "7a012f83dfc9f7b30b9ff099d69e655d"
+    },
+    {
+      "id": "public.sale_return_line_evidence.sale_return_line_evidence_immutable",
+      "enabled": "O",
+      "definition_md5": "a012c218ba5b48a5839ac3c64861e0bf"
+    },
+    {
+      "id": "public.service_tax_profiles.service_tax_profiles_guard",
+      "enabled": "O",
+      "definition_md5": "2eb6666b008234b8a5b0d80c32b24083"
+    },
+    {
+      "id": "public.tax_document_events.tax_document_events_immutable",
+      "enabled": "O",
+      "definition_md5": "a3c9c275ae4516c16cffba6521997d61"
+    },
+    {
+      "id": "public.tax_document_lines.tax_document_lines_immutable",
+      "enabled": "O",
+      "definition_md5": "488e8b2d9d0c34535c809876f065ea59"
+    },
+    {
+      "id": "public.tax_documents.tax_documents_populate_lines",
+      "enabled": "O",
+      "definition_md5": "3f11ed36fdea77e1e097398bebc782ca"
+    },
+    {
+      "id": "public.tax_documents.tax_documents_seal",
+      "enabled": "O",
+      "definition_md5": "34371751d6e527b7dfff2afdd83e20ed"
+    },
+    {
+      "id": "public.tax_documents.tax_documents_vat_closed_period_insert_guard",
+      "enabled": "O",
+      "definition_md5": "1bbcb4e8a538c2d16ccb5f2180584eec"
+    },
+    {
+      "id": "public.tax_parties.tax_parties_self_period_guard",
+      "enabled": "O",
+      "definition_md5": "aac25b8a727af4fce52d8dffda2fcce9"
+    },
+    {
+      "id": "public.tax_rates.tax_rates_guard",
+      "enabled": "O",
+      "definition_md5": "8be1a3b7e1976647800bc262b1b38733"
+    },
+    {
+      "id": "public.vat_period_settlements.vat_period_settlements_immutable",
+      "enabled": "O",
+      "definition_md5": "75f524548cd593697992cf71a7385e30"
+    },
+    {
+      "id": "private.tenant_accounting_links.tenant_accounting_links_guard",
+      "enabled": "O",
+      "definition_md5": "3e0e1b25bedf1e235c2cc1fd1acaa0d8"
+    }
+  ],
+  "extensions": [
+    {
+      "name": "pg_stat_statements",
+      "schema": "extensions",
+      "version": "1.11"
+    },
+    {
+      "name": "pgcrypto",
+      "schema": "extensions",
+      "version": "1.3"
+    },
+    {
+      "name": "plpgsql",
+      "schema": "pg_catalog",
+      "version": "1.0"
+    },
+    {
+      "name": "supabase_vault",
+      "schema": "vault",
+      "version": "0.3.1"
+    },
+    {
+      "name": "uuid-ossp",
+      "schema": "extensions",
+      "version": "1.1"
+    }
+  ]
+}

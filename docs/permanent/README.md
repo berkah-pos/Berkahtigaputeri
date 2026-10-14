@@ -21,6 +21,8 @@ This folder contains the durable architecture, security, schema, operational, an
 15. `DOC_07_FINAL_VERIFICATION_HISTORICAL_a19cb3f.md` — historical old 3-layer snapshot; **not current authority**.
 16. `DOC_08_RPC_EFFECTIVE_CONFIG.sql` — authenticated effective-config RPC reference.
 17. `DOC_09_APK_VERIFICATION.md` — APK/config verification and release-surface boundary.
+18. `DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md` — Supabase-managed + IDCloudHost architecture, backend rollout gates, and explicit source/staging/production evidence; required for backend/operations/deployment changes.
+19. `DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md` — Ubuntu 24.04 VM selection, secure host hardening, managed Supabase feature rollout, CI/CD, monitoring, backup/restore, and production acceptance checklist.
 
 When any document conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the canonical decision wins. Historical reports do not prove current CI, staging, or production status.
 
@@ -69,3 +71,6 @@ Anonymous direct reads of Final Pos backing tables are not allowed. Anonymous ex
 ## Live Admin
 
 https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
+
+20. `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md` — current staging/clone migration-history and schema fingerprint comparison; mandatory before remote migration work.
+21. `DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md` — two-repository migration source recovery, reconstructed staging schema snapshot, and isolated clean-replay protocol.

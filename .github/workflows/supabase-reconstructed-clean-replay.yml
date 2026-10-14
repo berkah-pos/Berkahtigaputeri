@@ -1,0 +1,327 @@
+name: Supabase Reconstructed Baseline Clean Replay
+
+on:
+  pull_request:
+    paths:
+      - "supabase/reconciliation/reconstructed/staging-baseline/**"
+      - "supabase/reconciliation/historical-replay-bootstrap/**"
+      - "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+      - "scripts/check_supabase_remote_migration_archive.py"
+      - "scripts/prepare_supabase_historical_replay.py"
+      - "scripts/compare_historical_migration_fingerprint.py"
+      - "scripts/check_supabase_historical_preconditions.py"
+      - "scripts/prepare_supabase_historical_replay_fixtures.py"
+      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md"
+      - "docs/permanent/DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md"
+      - "supabase/reconciliation/source-recovery-manifest-2026-10-14.json"
+      - "supabase/reconciliation/catalog_fingerprint.sql"
+      - "supabase/reconciliation/staging-clone-catalog-fingerprint.sql"
+      - "supabase/reconciliation/staging-clone-catalog-fingerprint-2026-10-14.json"
+      - "scripts/check_supabase_source_recovery.py"
+      - "scripts/compare_reconstructed_catalog_fingerprint.py"
+      - "scripts/prepare_supabase_clone_historical_replay.py"
+      - "scripts/compare_clone_historical_migration_fingerprint.py"
+      - ".github/workflows/supabase-reconstructed-clean-replay.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-reconstructed-clean-replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clean-replay:
+    name: Reconstruct and test schema in disposable local Supabase
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      SUPABASE_CLI_VERSION: "2.120.0"
+      SUPABASE_CLI_SHA256: "7074584113aa00495beeac661c41fb09f1ddd0a483cd7333894b0d080086dc6e"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate source-recovery evidence and artifact inventory
+        run: python3 scripts/check_supabase_source_recovery.py
+
+      - name: Validate recovered hosted migration SQL bodies
+        run: python3 scripts/check_supabase_remote_migration_archive.py
+
+      - name: Validate canonical workbook preconditions for disposable replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV="$RUNNER_TEMP/replay-fixture-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$VENV/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json
+
+      - name: Install verified Supabase CLI release binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          url="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          curl --fail --show-error --silent --location --retry 3 "$url" --output "$archive"
+          printf '%s  %s\n' "$SUPABASE_CLI_SHA256" "$archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/supabase-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/supabase-bin" supabase
+          echo "$RUNNER_TEMP/supabase-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/supabase-bin/supabase" --version
+
+      - name: Confirm CLI command contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase start --help
+          supabase db reset --help
+          supabase test db --help
+
+      - name: Assemble disposable single-migration project
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
+          mkdir -p "$REPLAY_DIR/supabase/migrations" "$REPLAY_DIR/supabase/tests"
+          cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$REPLAY_DIR/supabase/config.toml"
+          migration="$REPLAY_DIR/supabase/migrations/20261014100000_reconstructed_staging_baseline.sql"
+          : > "$migration"
+          cat supabase/reconciliation/reconstructed/staging-baseline/010_tables_and_sequences.sql >> "$migration"
+          printf '\n' >> "$migration"
+          cat supabase/reconciliation/reconstructed/staging-baseline/020_constraints_and_indexes.sql >> "$migration"
+          printf '\n' >> "$migration"
+          for part in supabase/reconciliation/reconstructed/staging-baseline/030_plpgsql_*.sql; do
+            cat "$part" >> "$migration"
+            printf '\n' >> "$migration"
+          done
+          cat supabase/reconciliation/reconstructed/staging-baseline/031_sql_functions.sql >> "$migration"
+          printf '\n' >> "$migration"
+          cat supabase/reconciliation/reconstructed/staging-baseline/040_rls_policies_and_triggers.sql >> "$migration"
+          printf '\n' >> "$migration"
+          cat supabase/reconciliation/reconstructed/staging-baseline/050_object_acl.sql >> "$migration"
+          printf '\n' >> "$migration"
+          cat supabase/reconciliation/reconstructed/staging-baseline/060_target_default_privilege_hardening.sql >> "$migration"
+          cp supabase/reconciliation/reconstructed/staging-baseline/replay_validation.test.sql "$REPLAY_DIR/supabase/tests/replay_validation.test.sql"
+          test -s "$migration"
+          printf 'assembled_sql_bytes=%s\n' "$(wc -c < "$migration")"
+
+      - name: Start isolated disposable Supabase stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
+          supabase start --exclude studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
+
+      - name: Clean-reset and replay reconstructed schema
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
+          supabase db reset --local
+
+      - name: Run replay and target-security assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
+          supabase test db --local
+
+      - name: Compare isolated schema against staging structural fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -A -t -v ON_ERROR_STOP=1 \
+            -f "$GITHUB_WORKSPACE/supabase/reconciliation/catalog_fingerprint.sql" \
+            > "$RUNNER_TEMP/local-reconstructed-fingerprint.json"
+          python3 scripts/compare_reconstructed_catalog_fingerprint.py "$RUNNER_TEMP/local-reconstructed-fingerprint.json"
+
+      - name: Stop isolated stack
+        if: always()
+        shell: bash
+        run: |
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-staging-reconstruction-replay"
+          if [[ -d "$REPLAY_DIR" ]]; then
+            cd "$REPLAY_DIR"
+            supabase stop --no-backup || true
+          fi
+
+  historical-replay:
+    name: Replay 139 recorded staging migrations with isolated prehistory and workbook fixtures
+    needs: clean-replay
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      SUPABASE_TELEMETRY_DISABLED: "1"
+      SUPABASE_CLI_VERSION: "2.120.0"
+      SUPABASE_CLI_SHA256: "7074584113aa00495beeac661c41fb09f1ddd0a483cd7333894b0d080086dc6e"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate all recovered remote migration SQL bodies
+        run: python3 scripts/check_supabase_remote_migration_archive.py
+
+      - name: Validate schema-only pre-history prerequisites
+        run: python3 scripts/check_supabase_historical_preconditions.py
+
+      - name: Install Python environment for workbook fixture in this job
+        shell: bash
+        run: |
+          set -euo pipefail
+          VENV="$RUNNER_TEMP/replay-fixture-venv"
+          python3 -m venv "$VENV"
+          "$VENV/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$VENV/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json
+
+      - name: Install verified Supabase CLI release binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          url="https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_${SUPABASE_CLI_VERSION}_linux_amd64.tar.gz"
+          curl --fail --show-error --silent --location --retry 3 "$url" --output "$archive"
+          printf '%s  %s\n' "$SUPABASE_CLI_SHA256" "$archive" | sha256sum --check
+          mkdir -p "$RUNNER_TEMP/supabase-bin"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/supabase-bin" supabase
+          echo "$RUNNER_TEMP/supabase-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/supabase-bin/supabase" --version
+
+      - name: Assemble recorded staging sequence plus isolated prehistory/workbook fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-historical-staging-replay"
+          mkdir -p "$REPLAY_DIR/supabase"
+          cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$REPLAY_DIR/supabase/config.toml"
+          python3 scripts/prepare_supabase_historical_replay.py \
+            supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            "$REPLAY_DIR/supabase/migrations" --environment staging
+          cp supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql \
+            "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
+          "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            --output "$REPLAY_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
+          test -f "$REPLAY_DIR/supabase/migrations/20260929000000_legacy_licences.sql"
+          test -f "$REPLAY_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
+          printf 'files=%s (139 recorded migration bodies + 1 pre-history schema bootstrap + 1 generated canonical-config fixture)\n' \
+            "$(find "$REPLAY_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
+
+      - name: Start isolated disposable Supabase stack
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-historical-staging-replay"
+          supabase start --exclude studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
+
+      - name: Apply 139 unmodified historical bodies with isolated schema and canonical-workbook preconditions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-historical-staging-replay"
+          supabase db reset --local
+
+      - name: Compare the historic replay to the read-only staging schema fingerprint
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -A -t -v ON_ERROR_STOP=1 \
+            -f "$GITHUB_WORKSPACE/supabase/reconciliation/catalog_fingerprint.sql" \
+            > "$RUNNER_TEMP/local-historic-staging-fingerprint.json"
+          python3 scripts/compare_historical_migration_fingerprint.py "$RUNNER_TEMP/local-historic-staging-fingerprint.json"
+
+      - name: Stop historical replay stack
+        if: always()
+        shell: bash
+        run: |
+          REPLAY_DIR="$RUNNER_TEMP/berkah-pos-historical-staging-replay"
+          if [[ -d "$REPLAY_DIR" ]]; then
+            cd "$REPLAY_DIR"
+            supabase stop --no-backup || true
+          fi
+      
+      - name: Validate clone replay preparation scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile \
+            scripts/prepare_supabase_clone_historical_replay.py \
+            scripts/compare_clone_historical_migration_fingerprint.py
+          python3 scripts/check_supabase_remote_migration_archive.py
+
+      - name: Assemble clone-only prehistory and recorded migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          CLONE_DIR="$RUNNER_TEMP/berkah-pos-historical-clone-replay"
+          mkdir -p "$CLONE_DIR/supabase/migrations" "$CLONE_DIR/supabase/tests" "$CLONE_DIR/recorded-migrations"
+          cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$CLONE_DIR/supabase/config.toml"
+          sed -i 's/^project_id = "berkah-pos-reconstructed-staging-replay"/project_id = "berkah-pos-clone-replay"/' "$CLONE_DIR/supabase/config.toml"
+          grep -Fq "berkah-pos-clone-replay" "$CLONE_DIR/supabase/config.toml"
+          python3 scripts/prepare_supabase_historical_replay.py \
+            supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            "$CLONE_DIR/recorded-migrations" --environment staging-clone
+          cp "$CLONE_DIR/recorded-migrations/"*.sql "$CLONE_DIR/supabase/migrations/"
+          python3 scripts/prepare_supabase_clone_historical_replay.py \
+            --output-migrations-dir "$CLONE_DIR/supabase/migrations"
+          "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            --output "$CLONE_DIR/supabase/migrations/20261007180000_replay_only_canonical_config_fixture.sql"
+          cp supabase/reconciliation/historical-replay-bootstrap/staging_clone_replay.test.sql \
+            "$CLONE_DIR/supabase/tests/staging_clone_replay.test.sql"
+          migration_count="$(find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l | tr -d '[:space:]')"
+          echo "clone_migrations=$migration_count (expected=14)"
+          find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' -printf '%f\n' | sort
+          if [[ "$migration_count" -ne 14 ]]; then
+            echo "::error::clone replay expected 14 SQL files but found $migration_count"
+            exit 1
+          fi
+
+      - name: Start isolated disposable clone replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-historical-clone-replay"
+          supabase start --exclude studio,postgres-meta,edge-runtime,logflare,vector,imgproxy,realtime,storage-api,supavisor
+
+      - name: Apply the 12 recorded clone migration bodies unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-historical-clone-replay"
+          supabase db reset --local
+
+      - name: Run clone historical-state assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/berkah-pos-historical-clone-replay"
+          supabase test db --local
+
+      - name: Compare clone replay with captured read-only clone catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+            -X -A -t -v ON_ERROR_STOP=1 \
+            -f "$GITHUB_WORKSPACE/supabase/reconciliation/staging-clone-catalog-fingerprint.sql" \
+            > "$RUNNER_TEMP/local-historic-clone-fingerprint.json"
+          python3 scripts/compare_clone_historical_migration_fingerprint.py "$RUNNER_TEMP/local-historic-clone-fingerprint.json"
+
+      - name: Stop clone replay stack
+        if: always()
+        shell: bash
+        run: |
+          CLONE_DIR="$RUNNER_TEMP/berkah-pos-historical-clone-replay"
+          if [[ -d "$CLONE_DIR" ]]; then
+            cd "$CLONE_DIR"
+            supabase stop --no-backup || true
+          fi

@@ -14,6 +14,10 @@ Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 7. `docs/permanent/DOC_03_RLS_AUTH.sql`
 8. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`
 9. `scripts/sync_excel_to_supabase.py` — workbook structure, the canonical 352-key inventory, and dry-run validation. Do not try to inspect the binary workbook through GitHub's text API.
+10. `docs/permanent/DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md` — managed Supabase + IDCloudHost architecture and evidence boundaries.
+11. `docs/permanent/DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md` — mandatory OS selection, host hardening, deployment, secrets, backup, monitoring, and release acceptance checklist for backend/operations work.
+12. `docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md` — mandatory current migration registry/schema drift evidence; no remote migration commands until source-recovery and clean-replay gates pass.
+13. `docs/permanent/DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md` — exhaustive two-repository source recovery, reconstructed schema baseline, and disposable replay gates; required before any further migration work.
 
 If any later or older document conflicts with the canonical architecture decision, follow the decision and correct the stale document in the same change set.
 

@@ -1,0 +1,44 @@
+# Local Supabase CLI configuration for Berkah POS.
+# This is deliberately not linked to a remote project and contains no secrets.
+# Reconcile the repository migration baseline with staging before running a full local reset.
+project_id = "berkah-pos-local"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+
+[db.seed]
+enabled = false
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000"]
+jwt_expiry = 3600
+
+# pg-delta / Declarative Schemas 2.0 is intentionally disabled until the
+# existing remote migration history and full schema are reconciled in staging.
+# Enabling it before the baseline is complete risks generating incorrect diffs.
+[experimental.pgdelta]
+enabled = false
