@@ -28,14 +28,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke-check:
-    name: Verify isolated replay workflow can start
+  clean-replay:
+    name: Validate reconstruction and install CLI
     runs-on: ubuntu-24.04
-    timeout-minutes: 2
+    timeout-minutes: 5
     steps:
-      - name: Confirm the hosted runner starts
-        run: |
-          set -euo pipefail
-          printf 'workflow-started=true\n'
-          printf 'event=%s\n' "${GITHUB_EVENT_NAME}"
-          printf 'sha=%s\n' "${GITHUB_SHA}"
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate recovery manifest and reconstructed object inventory
+        run: python3 scripts/check_supabase_source_recovery.py
+
+      - name: Install pinned Supabase CLI
+        uses: supabase/setup-cli@bea637206310b05056109c4ffab256b2c3c522af
+        with:
+          version: 2.120.0
+
+      - name: Report installed version
+        run: supabase --version
