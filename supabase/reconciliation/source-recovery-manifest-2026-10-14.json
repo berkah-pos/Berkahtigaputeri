@@ -1,0 +1,1221 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "purpose": "Source recovery ledger only; not an approval to apply migrations.",
+  "repository_search": {
+    "primary_repository": "berkah-pos/Berkahtigaputeri",
+    "mirror_repository": "Andisatriawan/Berkahtigaputeri",
+    "prior_alias_lookup": {
+      "repository": "berkah-ajb-dev/Berkahtigaputeri",
+      "result": "NOT_FOUND"
+    },
+    "repositories_current_migration_dir": {
+      "primary_files": 2,
+      "mirror_files": 2,
+      "same_candidate_blob_ids": true
+    },
+    "reachable_primary_branches_scanned": 19,
+    "reachable_mirror_branches_scanned": 1,
+    "main_history_commits_touching_supabase_migrations": 2,
+    "extra_sql_found_in_feature_branch": 5,
+    "empty_bootstrap_found": {
+      "path": "supabase/migrations/core.sql",
+      "blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size_bytes": 0
+    },
+    "result": "No full historical migration source set found. SQL source recovery remains partial."
+  },
+  "current_source_files": [
+    {
+      "path": "supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql",
+      "blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5",
+      "provenance_commit": "d8cd93f3a307fdde730d265c739d664ffd7c8574",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+      "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+      "provenance_commit": "dfcc4f60fda442bb8fc24bafe4f6696f575e8dae",
+      "status": "CANDIDATE_NOT_EXACT"
+    }
+  ],
+  "archived_feature_branch_sources": [
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/20261009163000_stress_journal_invariants.sql",
+      "source_path": "supabase/migrations/20261009163000_stress_journal_invariants.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "9804ace132fb5b9d2b505e819e2b2c0052a62cd1",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+      "source_path": "supabase/migrations/202610100002_fix_rls_tenant_links.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/202610100004_fix_atomic_posting.sql",
+      "source_path": "supabase/migrations/202610100004_fix_atomic_posting.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "89cd7e54fa602b87aa361d506b9edd7ef94e702b",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/staging_clone_rls_test_helpers.sql",
+      "source_path": "supabase/migrations/staging_clone_rls_test_helpers.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "11f581343a48366bd8da90097ac6671f52410bcf",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/verification/verify_tenant_links_rls.sql",
+      "source_path": "supabase/migrations/verify_tenant_links_rls.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "9524b6451ff4b3a04f7c252b61e8dc270619d0d2",
+      "status": "VERIFICATION_SCRIPT_NOT_MIGRATION"
+    }
+  ],
+  "remote_environments": [
+    {
+      "project_id": "cztlmwzfrhyafgawphgw",
+      "environment": "staging",
+      "registry_count": 139,
+      "entries": [
+        {
+          "version": "20260930014538",
+          "name": "dual_rail_subscription",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20260930014541",
+          "name": "harden_subscription_processing",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20260930015121",
+          "name": "subscription_advisor_hardening",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20260930101231",
+          "name": "license_key_vault_bridge",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001062544",
+          "name": "restrict_subscription_data_api_grants",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001063418",
+          "name": "advance_midtrans_provider_watermark",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001063612",
+          "name": "enable_subscription_expiry_cron",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001071537",
+          "name": "harden_bind_license_device_invoker",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001145402",
+          "name": "central_accounting_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001145643",
+          "name": "central_accounting_fk_indexes",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261001233711",
+          "name": "tenant_product_master",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261002111500",
+          "name": "inventory_event_projection_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261002145500",
+          "name": "split_inventory_physical_valuation_events",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261003065306",
+          "name": "inventory_event_projection_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261003065343",
+          "name": "split_inventory_physical_valuation_events",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261003070624",
+          "name": "harden_inventory_component_rpc_and_indexes",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261003142407",
+          "name": "admin_licence_config",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004013230",
+          "name": "p1_three_layer_foundation_compat",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004013605",
+          "name": "p1_complete_pilot_device_relations",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004013646",
+          "name": "p2_rls_super_admin_auth",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004020237",
+          "name": "p6_get_effective_config_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004052600",
+          "name": "final_pos_template_inheritance",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004134310",
+          "name": "phase2_final_pos_relational_ownership",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004141055",
+          "name": "phase5_tenant_isolation_rls",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004142915",
+          "name": "phase6_atomic_app_config_versioning",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004144027",
+          "name": "phase6_atomic_app_config_versioning_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004153300",
+          "name": "phase5_anon_rpc_tenant_isolation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004155727",
+          "name": "phase6_atomic_versioning_rpc_v2",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261004163508",
+          "name": "phase7_authenticated_effective_config_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006011208",
+          "name": "phase_b0_agent6_rbac_manager_pin",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006013530",
+          "name": "pos_memberships_canonical_20261007",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006013556",
+          "name": "rpc_pos_role_pin_20261007",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006060052",
+          "name": "phase_c_accounting_bridge_20261008",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006064743",
+          "name": "phase_d_purchase_sources",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006064953",
+          "name": "phase_d1_purchase_receipt_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006065110",
+          "name": "phase_d1_purchase_receipt_constraint_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006084434",
+          "name": "phase_g_broader_sources",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006101740",
+          "name": "gate33_phaseg_cloud_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261006174200",
+          "name": "phase_h2_coa_1_1080_6_6070",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261007073026",
+          "name": "p0_1_cloud_source_type_parity",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261007184231",
+          "name": "p1_cfg_01_config_5layer_strict_role",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008012229",
+          "name": "p1_3_close_legacy_9arg_journal_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008021012",
+          "name": "p1_3_exact_14_source_guard_revalidation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008131537",
+          "name": "p0_rls_identity_config_runtime_prep_20261008",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql",
+            "blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008210004",
+          "name": "private_helper_acl_hardening_20261009",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008211815",
+          "name": "p0_tax_authority_and_rate_guards",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008211930",
+          "name": "p1_pph21_ter_brackets_pp58",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212207",
+          "name": "p0_coa_tax_extension_controlled_unlock",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212217",
+          "name": "p0_config_remove_legacy_tax_values",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212235",
+          "name": "p0_config_write_tax_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212245",
+          "name": "p0_effective_config_tax_strip",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212430",
+          "name": "p0_inventory_moving_average_core",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212547",
+          "name": "p1_tax_document_and_transaction_evidence",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212605",
+          "name": "p1_tax_and_intent_private_helpers",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212621",
+          "name": "p1_tax_document_immutability",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212652",
+          "name": "p1_tax_helper_runtime_repairs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212801",
+          "name": "p0_inventory_average_adjustment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212843",
+          "name": "p0_auto_journal_sale_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212921",
+          "name": "p1_tax_document_secure_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008212937",
+          "name": "p0_inventory_receive_exact_value",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213006",
+          "name": "p0_auto_journal_purchase_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213040",
+          "name": "p1_tax_party_evidence_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213054",
+          "name": "p0_auto_journal_supplier_payment_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213128",
+          "name": "p0_auto_journal_return_and_stock_builders",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213207",
+          "name": "p1_tax_document_linkage_guard_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213300",
+          "name": "p0_intent_only_create_auto_journal",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213403",
+          "name": "p1_pph21_ter_and_final_period_calculators",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213627",
+          "name": "p0_operator_fact_injection_guard_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213730",
+          "name": "p1_accounting_tax_daily_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008213854",
+          "name": "p0_runtime_config_contract_and_tax_snapshot_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214023",
+          "name": "p1_coretax_verified_template_registry",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214119",
+          "name": "p1_coretax_export_monitoring_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214438",
+          "name": "p1_tax_rate_mutation_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214819",
+          "name": "p0_close_last_authenticated_raw_journal_bypass",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214828",
+          "name": "p1_coretax_template_mutation_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008214850",
+          "name": "p1_period_close_and_report_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008231304",
+          "name": "p0_sale_line_taxability_server_rule",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008232056",
+          "name": "p1_hard_gate_cogs_invariant_semantic_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008232654",
+          "name": "p0_sale_tax_authority_from_server_masters",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261008233115",
+          "name": "p0_server_sale_pricing_and_tax_document_lines",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009000307",
+          "name": "p0_sale_discount_backward_compat",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009001920",
+          "name": "p0_hardening_migration_manifest_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009002058",
+          "name": "p1_hard_gate_ignore_reversed_legacy_sale_diagnostic",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009002247",
+          "name": "p1_compliance_readiness_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009002718",
+          "name": "p0_config_accounting_tenant_link",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009002808",
+          "name": "p0_config_accounting_tenant_link_resolver_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009003653",
+          "name": "p1_config_tenant_compliance_readiness",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009003956",
+          "name": "p0_self_tax_party_overlap_guard_and_config_wrapper",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009005100",
+          "name": "p1_coretax_readiness_matches_exporter_self_cert",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009005214",
+          "name": "p1_compliance_readiness_business_date_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009005918",
+          "name": "p0_disable_unaudited_coretax_template_installer",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009010843",
+          "name": "p1_compliance_readiness_raw_self_row_count",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009012642",
+          "name": "p1_config_tenant_self_tax_profile_lifecycle",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009015303",
+          "name": "p0_remove_negative_stock_manager_pin_contract",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009015616",
+          "name": "p0_pp20_2026_vendor_eligibility_and_tax_object_evidence",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009015835",
+          "name": "p0_supplier_liability_subledger_and_domain_reversal_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009020217",
+          "name": "p0_supplier_ap_reconciliation_in_accounting_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009020804",
+          "name": "p0_customer_receivable_subledger_collection_and_return_date_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009020854",
+          "name": "p0_map_terima_piutang_to_existing_ar_receipt_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009020933",
+          "name": "p0_allow_terima_piutang_transaction_evidence_type",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009021350",
+          "name": "p0_remove_impossible_coretax_rejected_resubmit_path",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009021749",
+          "name": "p0_tax_document_gl_lineage_reconciliation_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009022035",
+          "name": "p0_input_tax_invoice_number_authority_and_duplicate_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009022135",
+          "name": "p0_input_vat_event_lineage_semantics_in_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009022539",
+          "name": "p0_coretax_internal_export_actor_template_and_single_outbox_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009022727",
+          "name": "p0_bind_supplier_withholding_to_source_liability_tax_object",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009023012",
+          "name": "p0_full_compliance_readiness_fail_closed_capability_gates",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009023238",
+          "name": "p0_vendor_service_rent_accrual_and_server_authoritative_withholding_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009023344",
+          "name": "p0_fire_supplier_liability_guard_for_vendor_expense_accrual",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009023927",
+          "name": "p0_pph21_employee_profile_and_payroll_calculation_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009024125",
+          "name": "p0_pph21_payroll_evidence_ter_final_grossup_and_salary_subledger",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009024223",
+          "name": "p0_employee_tax_profile_audit_action_enum_alignment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009024806",
+          "name": "p0_fixed_asset_depreciation_owner_draw_and_receivable_allowance_intents",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009024925",
+          "name": "p0_liquid_funds_authority_owner_capital_and_negative_cash_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009025010",
+          "name": "p0_receivable_allowance_first_event_null_safe",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009025359",
+          "name": "p0_full_compliance_gate_all_required_tax_domains",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009025833",
+          "name": "p0_ebilling_tax_remittance_source_bound_and_reconciled",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009025912",
+          "name": "p0_ebilling_requires_full_calendar_tax_period",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009030102",
+          "name": "p0_full_compliance_requires_vat_period_settlement",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009031652",
+          "name": "p0_vat_monthly_settlement_carryforward_and_ebilling_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009031901",
+          "name": "p0_vat_readiness_points_to_actual_settlement_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032302",
+          "name": "p0_inbound_pph23_schema_and_master_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032313",
+          "name": "p0_inbound_pph23_sale_source_snapshot",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032417",
+          "name": "p0_inbound_pph23_receivable_flow_and_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032541",
+          "name": "p0_fire_customer_receivable_guard_for_inbound_pph23_receipt",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032709",
+          "name": "p0_coa_extension_pph23_15pct_interest_royalty_dividend",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009032819",
+          "name": "p0_extended_pph23_15pct_source_liability_and_payment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009033321",
+          "name": "p0_owner_umkm_final_turnover_monthly_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009033350",
+          "name": "p0_owner_umkm_turnover_cross_period_return_and_full_month_profile",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009033419",
+          "name": "p0_owner_umkm_turnover_empty_facts_portability_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009034029",
+          "name": "p0_corporate_fiscal_authority_tables_and_helpers",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009034149",
+          "name": "p0_corporate_annual_tax_close_article31e_losses_and_pph29",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009034256",
+          "name": "p0_pph25_authority_pph29_ebilling_and_corporate_reconciliation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009034346",
+          "name": "p0_corporate_tax_hard_gate_reconciliation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009065540",
+          "name": "task4_lock_post_journal_overloads_and_dispatcher_acl",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009073526",
+          "name": "enforce_accounting_journal_transaction_ref_idempotency",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009080652",
+          "name": "task4_repair_post_journal_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009082402",
+          "name": "task5_coretax_fail_closed_export_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261013085934",
+          "name": "phase5_tenant_isolation_hardening",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+            "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        }
+      ]
+    },
+    {
+      "project_id": "txwzhesvcjftybrlhnzs",
+      "environment": "staging-clone",
+      "registry_count": 12,
+      "entries": [
+        {
+          "version": "20261009120956",
+          "name": "fix_rls_tenant_links",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "related_candidate_unverified"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009123518",
+          "name": "fix_rls_tenant_links_202610100002",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009123602",
+          "name": "install_tenant_isolation_test_helpers_clone_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009123848",
+          "name": "align_tenant_isolation_fixture_name_clone_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009124420",
+          "name": "20261009163000_stress_journal_invariants",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/20261009163000_stress_journal_invariants.sql",
+            "blob_sha": "9804ace132fb5b9d2b505e819e2b2c0052a62cd1",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009130145",
+          "name": "202610100004_fix_atomic_posting",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100004_fix_atomic_posting.sql",
+            "blob_sha": "89cd7e54fa602b87aa361d506b9edd7ef94e702b",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009164725",
+          "name": "restore_pos_outbox_ack_contract",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009164950",
+          "name": "fix_pos_outbox_tenant_scoped_key",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009191641",
+          "name": "fix_tenant_accounting_links_rls",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009193536",
+          "name": "202610100002_fix_rls_tenant_links",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261009193542",
+          "name": "staging_clone_rls_test_helpers",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/staging_clone_rls_test_helpers.sql",
+            "blob_sha": "11f581343a48366bd8da90097ac6671f52410bcf",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        },
+        {
+          "version": "20261013085912",
+          "name": "phase5_tenant_isolation_hardening",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+            "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "staging": {
+      "registry_count": 139,
+      "candidate_not_exact": 2,
+      "missing_source": 137,
+      "exact_version_and_sql_matches": 0
+    },
+    "staging-clone": {
+      "registry_count": 12,
+      "candidate_not_exact": 7,
+      "missing_source": 5,
+      "exact_version_and_sql_matches": 0
+    }
+  },
+  "clean_replay": {
+    "historical_ordered_replay": "BLOCKED",
+    "reason": "Exact historical SQL bodies/versions are missing. Supabase migration registry stores version/name metadata, not SQL-body checksums. The reachable Git repositories and branches contain only partial candidate sources.",
+    "safe_next_step": "Build and label a reconstructed target-schema baseline from reviewed schema/object evidence in an isolated work area; replay that baseline on an ephemeral local Supabase/Postgres instance; compare object fingerprints and security tests; do not apply or repair remote histories as a substitute."
+  }
+}
