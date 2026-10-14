@@ -151,5 +151,59 @@
     "Reconcile anon/authenticated EXECUTE and table-privilege differences in an isolated clone reconstruction; do not bulk-revoke permissions or transplant staging DDL blindly.",
     "Run a separate clean replay against a reviewed clone-specific baseline, then hostile Tenant A/B runtime, outbox/idempotency, and API/RPC tests."
   ],
-  "safety": "No remote writes, permission changes, migrations, resets, or repairs were performed."
+  "safety": "No remote writes, permission changes, migrations, resets, or repairs were performed.",
+  "clone_history_replay_requirements": {
+    "status": "PREHISTORY_SCHEMA_BASELINE_REQUIRED",
+    "evidence_source": "Read-only SQL inspection of the exact statements[1] bodies for the 12 recorded staging-clone migration rows; per-body archive hashes remain unchanged.",
+    "findings": [
+      {
+        "versions": [
+          "20261009120956",
+          "20261009123518"
+        ],
+        "name": "fix_rls_tenant_links",
+        "preflight": "Each body aborts unless private.tenant_accounting_links and public.accounting_memberships already exist, with the expected accounting_tenant_id and tenant_id columns. The body itself instructs that the clone schema must be restored first.",
+        "implication": "The 12-body clone registry is a repair tail, not a self-contained full-history bootstrap. A clean replay from empty needs an explicit clone-specific prehistory schema fixture."
+      },
+      {
+        "version": "20261009124420",
+        "name": "20261009163000_stress_journal_invariants",
+        "effects": [
+          "adds public.accounting_journals.chk_balance",
+          "creates public.v_stress_validation"
+        ],
+        "prehistory_requirement": "These objects must not already exist before this migration in an empty-schema replay. The check constraint must be validated against the replay data; schema-only replay uses no journal rows."
+      },
+      {
+        "version": "20261009164725",
+        "name": "restore_pos_outbox_ack_contract",
+        "effects": [
+          "checks public.app_config count=352 and sorted keyset MD5=1fd3d64219ecc7c333453c20da80e295",
+          "creates private.pos_outbox if absent",
+          "creates public.transaction_type_map if absent",
+          "creates/replaces public.v_outbox_unacked",
+          "patches public.create_auto_journal only if an exact expected body anchor is found"
+        ],
+        "prehistory_requirement": "Use the runner-only canonical 352-key workbook fixture and the original pre-repair create_auto_journal body that satisfies the recorded anchor. Do not modify the archived migration body to bypass the guard."
+      },
+      {
+        "version": "20261009164950",
+        "name": "fix_pos_outbox_tenant_scoped_key",
+        "effects": [
+          "requires private.pos_outbox tenant_id and transaction_ref to have no NULL values",
+          "removes the global transaction_ref uniqueness scope where present",
+          "requires unique tenant_id/transaction_ref semantics"
+        ],
+        "prehistory_requirement": "The temporary pre-replay state for private.pos_outbox must be recreated without fabricating business rows; replay-only schema fixture must leave it empty."
+      }
+    ],
+    "minimum_next_steps": [
+      "Build a clone-only schema snapshot from the read-only clone catalog, preserving the 71 relation, 134 routine, 42 policy, 41 trigger, and final ACL/extension fingerprints.",
+      "Reverse only the schema objects explicitly created/changed by these 12 recorded tail migrations in the disposable prehistory fixture (including the stress constraint/view and outbox objects); recover the pre-repair create_auto_journal definition from a verified candidate or document its missing provenance.",
+      "Add the canonical 352-key workbook fixture to the local runner only.",
+      "Replay all 12 recorded clone bodies byte-for-byte in version order and compare the final result with a separately saved clone catalog fingerprint.",
+      "Run hostile Tenant A/B API/RPC tests against that disposable clone baseline before resolving the clone gate."
+    ],
+    "caveat": "A final-state snapshot alone cannot be called a replay of the prehistory state. Do not apply the 12 clone bodies directly to the hosted clone or blindly apply staging's 139-body baseline to clone."
+  }
 }
