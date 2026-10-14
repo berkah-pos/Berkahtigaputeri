@@ -265,7 +265,7 @@ jobs:
           mkdir -p "$CLONE_DIR/supabase/migrations" "$CLONE_DIR/supabase/tests" "$CLONE_DIR/recorded-migrations"
           cp supabase/reconciliation/reconstructed/staging-baseline/config.toml "$CLONE_DIR/supabase/config.toml"
           sed -i 's/^project_id = "berkah-pos-local"/project_id = "berkah-pos-clone-replay"/' "$CLONE_DIR/supabase/config.toml"
-          grep -q '^project_id = "berkah-pos-clone-replay"' "$CLONE_DIR/supabase/config.toml"
+          grep -Fq "berkah-pos-clone-replay" "$CLONE_DIR/supabase/config.toml"
           python3 scripts/prepare_supabase_historical_replay.py \
             supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
             "$CLONE_DIR/recorded-migrations" --environment staging-clone
@@ -279,7 +279,7 @@ jobs:
             "$CLONE_DIR/supabase/tests/staging_clone_replay.test.sql"
           migration_count="$(find "$CLONE_DIR/supabase/migrations" -maxdepth 1 -name '*.sql' | wc -l)"
           test "$migration_count" -eq 14
-          printf 'clone_migrations=%s (1 schema-only prehistory + 1 runner-only workbook fixture + 12 archived clone bodies)\\n' "$migration_count"
+          echo "clone_migrations=$migration_count (expected=14)"
 
       - name: Start isolated disposable clone replay
         shell: bash
