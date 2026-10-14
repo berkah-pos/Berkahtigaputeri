@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/config/app_identity_store.dart';
@@ -30,7 +31,9 @@ Future<void> main() async {
     apiClient = CentralApiClient(
       baseUrl: _centralApiBaseUrl,
       preferences: preferences,
+      secureStorage: const FlutterSecureStorage(),
     );
+    await apiClient.hydrateSession();
     configService = ConfigService(apiClient, preferences);
     cloudConfigurationMessage = '';
   }
