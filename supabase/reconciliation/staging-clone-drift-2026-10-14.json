@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
+  "purpose": "Read-only catalog-drift inventory; not authorization to change either hosted database.",
+  "sources": {
+    "staging_project_id": "cztlmwzfrhyafgawphgw",
+    "staging_clone_project_id": "txwzhesvcjftybrlhnzs",
+    "method": "SELECT-only PostgreSQL catalog queries. No business-table rows, secrets, or credential values were read or exported."
+  },
+  "verified_staging_replay": {
+    "workflow_run_id": 38536536840,
+    "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+    "result": "PASS",
+    "recorded_migrations_replayed": 139,
+    "archived_clone_migration_bodies": 12,
+    "target_schema_test_assertions": 16,
+    "note": "The 139 unmodified staging SQL bodies and the disposable pre-history/workbook fixtures pass replay and compare to the staging fingerprint. This does not establish clone equivalence."
+  },
+  "catalog_counts": {
+    "staging": {
+      "relations": 67,
+      "routines": 169,
+      "policies": 42,
+      "non_internal_triggers": 49,
+      "extensions": 6,
+      "tables_with_rls": 66,
+      "anon_effective_execute_routines": 9,
+      "anon_effective_execute_security_definer_routines": 2
+    },
+    "staging_clone": {
+      "relations": 71,
+      "routines": 134,
+      "policies": 42,
+      "non_internal_triggers": 41,
+      "extensions": 5,
+      "tables_with_rls": 69,
+      "anon_effective_execute_routines": 123,
+      "anon_effective_execute_security_definer_routines": 104
+    }
+  },
+  "relation_drift": {
+    "staging_only": [],
+    "staging_clone_only": [
+      "private.pos_outbox",
+      "public.transaction_type_map",
+      "public.v_outbox_unacked",
+      "public.v_stress_validation"
+    ],
+    "column_fingerprint_differences": [],
+    "constraint_fingerprint_differences": [
+      "public.accounting_journals",
+      "public.accounting_transaction_evidence",
+      "public.extended_withholding_liabilities"
+    ],
+    "index_fingerprint_differences": [
+      "public.config_history"
+    ],
+    "rls_flag_differences": [
+      {
+        "relation": "private.tenant_accounting_links",
+        "staging": false,
+        "staging_clone": true
+      }
+    ]
+  },
+  "routine_drift": {
+    "staging_only_count": 39,
+    "staging_only_signature_inventory": "39 staging-only routine signatures were observed by read-only catalog comparison; one security-sensitive signature is intentionally omitted from this compact report. The full authorized DBA catalog diff should be retained privately for signature-by-signature reconciliation.",
+    "staging_clone_only": [
+      "private.create_test_tenant(p_name text)",
+      "private.test_tenant_b_fixture_has_data(p_tenant_b uuid)",
+      "public.test_tenant_isolation()",
+      "public.validate_journal_consistency()"
+    ],
+    "shared_definition_fingerprint_differences": [
+      "public.create_auto_journal(p_tenant_id uuid, p_transaction_type text, p_transaction_ref text, p_business_date date, p_facts jsonb, p_device_id text, p_app_version text, p_reason text)"
+    ],
+    "shared_routine_effective_execute_differences": {
+      "anon": 116,
+      "authenticated": 79
+    },
+    "staging_clone_security_definer_routines_effectively_executable_by_anon_across_inspected_schemas": 104,
+    "of_which_in_schemas_where_anon_has_usage": 32,
+    "interpretation": "Effective privilege metadata is not proof that all routines are reachable through a particular API endpoint. Review exposed public routines and API schema grants separately."
+  },
+  "policy_drift": {
+    "counts_equal_but_identity_sets_differ": true,
+    "staging_only": [
+      "public.pos_memberships.pos_memberships_owner_manage",
+      "public.pos_pin_audit.pos_pin_audit_owner_read"
+    ],
+    "staging_clone_only": [
+      "private.tenant_accounting_links.deny_anon_all",
+      "private.tenant_accounting_links.tenant_isolation_select"
+    ],
+    "changed_fingerprint": [
+      "public.accounting_journals.accounting_journals_read_member"
+    ]
+  },
+  "trigger_drift": {
+    "staging_only": [
+      "public.accounting_transaction_evidence.accounting_transaction_customer_receivable_guard",
+      "public.accounting_transaction_evidence.accounting_transaction_extended_withholding_guard",
+      "public.app_config.trg_app_config_audit",
+      "public.devices.trg_devices_updated_at",
+      "public.plans.trg_plans_updated_at",
+      "public.subscriptions.trg_subscriptions_updated_at",
+      "public.tax_documents.tax_documents_guard",
+      "public.tax_rate_brackets.tax_rate_brackets_guard"
+    ],
+    "staging_clone_only": [],
+    "shared_definition_or_enabled_state_differences": []
+  },
+  "extension_drift": {
+    "staging_only": [
+      {
+        "name": "pg_cron",
+        "version": "1.6.4",
+        "schema": "pg_catalog"
+      }
+    ],
+    "staging_clone_only": [],
+    "shared_versions_match": true
+  },
+  "anonymous_effective_table_privileges": {
+    "staging": {
+      "select": 0,
+      "insert": 0,
+      "update": 0,
+      "delete": 0,
+      "truncate": 0,
+      "references": 0,
+      "trigger": 0
+    },
+    "staging_clone": {
+      "select": 55,
+      "insert": 54,
+      "update": 54,
+      "delete": 54,
+      "truncate": 54,
+      "references": 54,
+      "trigger": 54
+    },
+    "interpretation": "The clone has materially broader effective privileges for anon. RLS is an independent layer; counts alone do not demonstrate an exploit."
+  },
+  "required_gates": [
+    "Classify all 4 clone-only relations and 39 staging-only routines as intentional drift or missing objects before choosing the clone baseline.",
+    "Review the 3 changed constraint fingerprints, config_history index, 8 missing triggers, policy identity/hash drift, and missing pg_cron.",
+    "Review the create_auto_journal implementation difference before asserting semantic equivalence.",
+    "Reconcile anon/authenticated EXECUTE and table-privilege differences in an isolated clone reconstruction; do not bulk-revoke permissions or transplant staging DDL blindly.",
+    "Run a separate clean replay against a reviewed clone-specific baseline, then hostile Tenant A/B runtime, outbox/idempotency, and API/RPC tests."
+  ],
+  "safety": "No remote writes, permission changes, migrations, resets, or repairs were performed.",
+  "clone_history_replay_requirements": {
+    "status": "PREHISTORY_SCHEMA_BASELINE_REQUIRED",
+    "evidence_source": "Read-only SQL inspection of the exact statements[1] bodies for the 12 recorded staging-clone migration rows; per-body archive hashes remain unchanged.",
+    "findings": [
+      {
+        "versions": [
+          "20261009120956",
+          "20261009123518"
+        ],
+        "name": "fix_rls_tenant_links",
+        "preflight": "Each body aborts unless private.tenant_accounting_links and public.accounting_memberships already exist, with the expected accounting_tenant_id and tenant_id columns. The body itself instructs that the clone schema must be restored first.",
+        "implication": "The 12-body clone registry is a repair tail, not a self-contained full-history bootstrap. A clean replay from empty needs an explicit clone-specific prehistory schema fixture."
+      },
+      {
+        "version": "20261009124420",
+        "name": "20261009163000_stress_journal_invariants",
+        "effects": [
+          "adds public.accounting_journals.chk_balance",
+          "creates public.v_stress_validation"
+        ],
+        "prehistory_requirement": "These objects must not already exist before this migration in an empty-schema replay. The check constraint must be validated against the replay data; schema-only replay uses no journal rows."
+      },
+      {
+        "version": "20261009164725",
+        "name": "restore_pos_outbox_ack_contract",
+        "effects": [
+          "checks public.app_config count=352 and sorted keyset MD5=1fd3d64219ecc7c333453c20da80e295",
+          "creates private.pos_outbox if absent",
+          "creates public.transaction_type_map if absent",
+          "creates/replaces public.v_outbox_unacked",
+          "patches public.create_auto_journal only if an exact expected body anchor is found"
+        ],
+        "prehistory_requirement": "Use the runner-only canonical 352-key workbook fixture and the original pre-repair create_auto_journal body that satisfies the recorded anchor. Do not modify the archived migration body to bypass the guard."
+      },
+      {
+        "version": "20261009164950",
+        "name": "fix_pos_outbox_tenant_scoped_key",
+        "effects": [
+          "requires private.pos_outbox tenant_id and transaction_ref to have no NULL values",
+          "removes the global transaction_ref uniqueness scope where present",
+          "requires unique tenant_id/transaction_ref semantics"
+        ],
+        "prehistory_requirement": "The temporary pre-replay state for private.pos_outbox must be recreated without fabricating business rows; replay-only schema fixture must leave it empty."
+      }
+    ],
+    "minimum_next_steps": [
+      "Build a clone-only schema snapshot from the read-only clone catalog, preserving the 71 relation, 134 routine, 42 policy, 41 trigger, and final ACL/extension fingerprints.",
+      "Reverse only the schema objects explicitly created/changed by these 12 recorded tail migrations in the disposable prehistory fixture (including the stress constraint/view and outbox objects); recover the pre-repair create_auto_journal definition from a verified candidate or document its missing provenance.",
+      "Add the canonical 352-key workbook fixture to the local runner only.",
+      "Replay all 12 recorded clone bodies byte-for-byte in version order and compare the final result with a separately saved clone catalog fingerprint.",
+      "Run hostile Tenant A/B API/RPC tests against that disposable clone baseline before resolving the clone gate."
+    ],
+    "caveat": "A final-state snapshot alone cannot be called a replay of the prehistory state. Do not apply the 12 clone bodies directly to the hosted clone or blindly apply staging's 139-body baseline to clone."
+  }
+}

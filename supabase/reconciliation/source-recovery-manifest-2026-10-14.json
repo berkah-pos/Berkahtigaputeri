@@ -1,0 +1,1975 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "purpose": "Repository source-recovery evidence plus exact SQL bodies recovered read-only from the hosted Supabase migration registries; not authorization to apply migrations.",
+  "repository_search": {
+    "primary_repository": "berkah-pos/Berkahtigaputeri",
+    "mirror_repository": "Andisatriawan/Berkahtigaputeri",
+    "prior_alias_lookup": {
+      "repository": "berkah-ajb-dev/Berkahtigaputeri",
+      "result": "NOT_FOUND"
+    },
+    "repositories_current_migration_dir": {
+      "primary_files": 2,
+      "mirror_files": 2,
+      "same_candidate_blob_ids": true
+    },
+    "reachable_primary_branches_scanned": 19,
+    "reachable_mirror_branches_scanned": 1,
+    "main_history_commits_touching_supabase_migrations": 2,
+    "extra_sql_found_in_feature_branch": 5,
+    "empty_bootstrap_found": {
+      "path": "supabase/migrations/core.sql",
+      "blob_sha": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "size_bytes": 0
+    },
+    "result": "The reachable Git repositories do not contain the complete original ordered migration SQL set. The exact recorded SQL bodies have since been recovered read-only from supabase_migrations.schema_migrations on staging and staging-clone and archived with body checksums."
+  },
+  "current_source_files": [
+    {
+      "path": "supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql",
+      "blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5",
+      "provenance_commit": "d8cd93f3a307fdde730d265c739d664ffd7c8574",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+      "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+      "provenance_commit": "dfcc4f60fda442bb8fc24bafe4f6696f575e8dae",
+      "status": "CANDIDATE_NOT_EXACT"
+    }
+  ],
+  "archived_feature_branch_sources": [
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/20261009163000_stress_journal_invariants.sql",
+      "source_path": "supabase/migrations/20261009163000_stress_journal_invariants.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "9804ace132fb5b9d2b505e819e2b2c0052a62cd1",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+      "source_path": "supabase/migrations/202610100002_fix_rls_tenant_links.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/202610100004_fix_atomic_posting.sql",
+      "source_path": "supabase/migrations/202610100004_fix_atomic_posting.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "89cd7e54fa602b87aa361d506b9edd7ef94e702b",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/staging_clone_rls_test_helpers.sql",
+      "source_path": "supabase/migrations/staging_clone_rls_test_helpers.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "11f581343a48366bd8da90097ac6671f52410bcf",
+      "status": "CANDIDATE_NOT_EXACT"
+    },
+    {
+      "path": "supabase/reconciliation/recovered-source-candidates/verification/verify_tenant_links_rls.sql",
+      "source_path": "supabase/migrations/verify_tenant_links_rls.sql",
+      "source_branch": "feat/berkah-pos-play-compliance-20261011",
+      "source_commit": "ef87eb76225faf1d56a8d2a49d53de95c56ca9b8",
+      "blob_sha": "9524b6451ff4b3a04f7c252b61e8dc270619d0d2",
+      "status": "VERIFICATION_SCRIPT_NOT_MIGRATION"
+    }
+  ],
+  "remote_environments": [
+    {
+      "project_id": "cztlmwzfrhyafgawphgw",
+      "environment": "staging",
+      "registry_count": 139,
+      "entries": [
+        {
+          "version": "20260930014538",
+          "name": "dual_rail_subscription",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "6462e66e773865693a47d21a71686d4a3fedd6adf7a68513ee68f60a8fd0c50a",
+          "sql_bytes": 13425,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20260930014541",
+          "name": "harden_subscription_processing",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "e4608f222d5279779b01f01bd336cf8f00ac3151b1afcf055134486a8aef0095",
+          "sql_bytes": 8825,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20260930015121",
+          "name": "subscription_advisor_hardening",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2fe164c9b6d0691e12b14ae6e5a56d2507f74a97eab502b978464e86a4ee6a65",
+          "sql_bytes": 273,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20260930101231",
+          "name": "license_key_vault_bridge",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8966426b6b1a054bed4e4798d1c96821b7cfbb307430638013cfd2c95451f21c",
+          "sql_bytes": 589,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001062544",
+          "name": "restrict_subscription_data_api_grants",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "78fdca5e85c6032e4c51e54f147934e4b34f31f0a7c985cafdba4865c863bb63",
+          "sql_bytes": 640,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001063418",
+          "name": "advance_midtrans_provider_watermark",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "4cace82e2029993df340a0776b013aea79de891a34085422acfbe2f9e328f8d3",
+          "sql_bytes": 4017,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001063612",
+          "name": "enable_subscription_expiry_cron",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "154e0ccffe1d1dda265ba385691263b008d088d7113c508c17a869452665d2f4",
+          "sql_bytes": 385,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001071537",
+          "name": "harden_bind_license_device_invoker",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "b83f15826b51f7b44397df4145ae6dbe960f56c83e96e08a9027ef903e4b0c80",
+          "sql_bytes": 394,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001145402",
+          "name": "central_accounting_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "bda363ac1cc6cd04c195da596922a87e083734540bb64a7f1352f63131dc99e9",
+          "sql_bytes": 40944,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001145643",
+          "name": "central_accounting_fk_indexes",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "ad49a5973500b75cd75d87b75f4dc277854a485f6ee798fe1300948d66f1f14b",
+          "sql_bytes": 1078,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261001233711",
+          "name": "tenant_product_master",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "47bd30de4ae1ac714fcfaa399498f91e6dce3395e5cf056c1ce50f0341062389",
+          "sql_bytes": 2561,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261002111500",
+          "name": "inventory_event_projection_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "0b7179cdfb0e14e04ab028ee8b3c5ae57fdfd3461eb118065f9bdde7766ba4be",
+          "sql_bytes": 69,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261002145500",
+          "name": "split_inventory_physical_valuation_events",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "229f37c15682a7fed1d13d8268f611a4e99fab81f0682fadedb756b15b19b173",
+          "sql_bytes": 69,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261003065306",
+          "name": "inventory_event_projection_foundation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "1bb7c3f7d0a4b4c742bb89b5a9a701796d5a558ff5b8a26a634fb1b0e735730b",
+          "sql_bytes": 12450,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261003065343",
+          "name": "split_inventory_physical_valuation_events",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "35f89d26a5441dc976a5788c49031aa9a868c61de4025af2e42ea4aea8794183",
+          "sql_bytes": 8895,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261003070624",
+          "name": "harden_inventory_component_rpc_and_indexes",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "e476bb0ac93404a52a4225cdde35b7ca23e096d830130a9c51150381430b562a",
+          "sql_bytes": 1625,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261003142407",
+          "name": "admin_licence_config",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "0d7c5af63473285e249e92bd56ae1a0569ee510fc23827ab355e86336d1eaa4c",
+          "sql_bytes": 4774,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004013230",
+          "name": "p1_three_layer_foundation_compat",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "f154e312576ac71aa56396fe61c6824ebcb7730d6597a189691e161c3eb53022",
+          "sql_bytes": 3784,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004013605",
+          "name": "p1_complete_pilot_device_relations",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "92b7125d08fe1f656956858b4a59f7be0bdfdf82133b5940b488a503e5598705",
+          "sql_bytes": 2086,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004013646",
+          "name": "p2_rls_super_admin_auth",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "ddd31b45c8a1c49eb46368bcc12d3af7e4730dcbc4a3940f35f8d999b0a85f25",
+          "sql_bytes": 4482,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004020237",
+          "name": "p6_get_effective_config_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "bc9d0b19d7c861e4b29a38a9d34e79ff034eb2be284eb976b9fe2cc40d205502",
+          "sql_bytes": 589,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004052600",
+          "name": "final_pos_template_inheritance",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2e53249336fe6b0f9933dc235a27ad2998d082a622bf7348b4ee7967a777c489",
+          "sql_bytes": 1532,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004134310",
+          "name": "phase2_final_pos_relational_ownership",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "538bb31e6903b78d9e21de3ebbceeda2515077f1085b47d9d804f20fabde6405",
+          "sql_bytes": 1578,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004141055",
+          "name": "phase5_tenant_isolation_rls",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "f178dc495a96e2f724412901d39276de0a9bd85098725900d706240444171609",
+          "sql_bytes": 8969,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004142915",
+          "name": "phase6_atomic_app_config_versioning",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "9cec16e928755a0628ef5d627b92b57749b788d26cc0b29390e8f9e6cefa954f",
+          "sql_bytes": 3253,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004144027",
+          "name": "phase6_atomic_app_config_versioning_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "14fcc7be779e80fc75f9c5d839fd12018dcc118593769b95abe912d6cc05c750",
+          "sql_bytes": 2479,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004153300",
+          "name": "phase5_anon_rpc_tenant_isolation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "751f1c70c67c931cbbb761406659c357d090d7aa1b76ea76f4a9b1c3d714b53b",
+          "sql_bytes": 3866,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004155727",
+          "name": "phase6_atomic_versioning_rpc_v2",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "1afc72e4e4c64a14bacf2594e7a4f612a7e3ac14fb4d9f0630eafbf58b550bf5",
+          "sql_bytes": 2549,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261004163508",
+          "name": "phase7_authenticated_effective_config_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "3873b4e8dd6dd3da7b2a903240bbe5a758484caced068fc8140d8e72a110ccca",
+          "sql_bytes": 3110,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006011208",
+          "name": "phase_b0_agent6_rbac_manager_pin",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8d160762b17ac960a6b0a0cebcfbdb86b46d39bbd44b933880989ac178d94563",
+          "sql_bytes": 6454,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006013530",
+          "name": "pos_memberships_canonical_20261007",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "94a05324feccd6d3641f17feb6d86872bfcd0677d6ac4e2f8e96d881a3098f71",
+          "sql_bytes": 4114,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006013556",
+          "name": "rpc_pos_role_pin_20261007",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "c8ceaf7d9096407adf907b8666a20986241fe5a3ab5494e9242bbfe354bb3672",
+          "sql_bytes": 6489,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006060052",
+          "name": "phase_c_accounting_bridge_20261008",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2e13f64f525828271274a8dcab1bca9b50657bd6b386576848280b83be16c6a4",
+          "sql_bytes": 6047,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006064743",
+          "name": "phase_d_purchase_sources",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d66ace842780a84cc5d94635379fded6176b936dce6288c45ca92142ddf87cd1",
+          "sql_bytes": 1193,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006064953",
+          "name": "phase_d1_purchase_receipt_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "18f37594866dd7e772c5812f5b0133d1c48cb40a8cddc3c577bbf72a204d1170",
+          "sql_bytes": 1063,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006065110",
+          "name": "phase_d1_purchase_receipt_constraint_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "731a9440bd8eed2280e13aba8edd0f39803a3368e626061a6b2cb08600687486",
+          "sql_bytes": 2158,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006084434",
+          "name": "phase_g_broader_sources",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "7506c8f3accc10fea3764ba388b8532a7fad061a427afa7248bb6d8601485841",
+          "sql_bytes": 1632,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006101740",
+          "name": "gate33_phaseg_cloud_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "bc2c97e3a5728c9504ce52c6f3082c8b852c5e81e2a5556b3bfd206f0ded350c",
+          "sql_bytes": 3085,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261006174200",
+          "name": "phase_h2_coa_1_1080_6_6070",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "238b611c931051610d5a9c84901e7fcee141f5ff7b93ac8abb1a7e2157676462",
+          "sql_bytes": 2255,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261007073026",
+          "name": "p0_1_cloud_source_type_parity",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "b5cba88e0054868c903750643d34362ff5184c2d36f7e6980a1f49ee62f37d67",
+          "sql_bytes": 3204,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261007184231",
+          "name": "p1_cfg_01_config_5layer_strict_role",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "55f9c08ac0af481c61b73615a0e75d250b979570184893e3e2134cf5e52369ec",
+          "sql_bytes": 8052,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008012229",
+          "name": "p1_3_close_legacy_9arg_journal_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "e9388e34ba9893b3deae4146761cfbe69a927d2e16f1d4362ad3f3426321e961",
+          "sql_bytes": 3494,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008021012",
+          "name": "p1_3_exact_14_source_guard_revalidation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "48183f777e859f779bf89a40c59cd6a3805e19f390b2d9d8d5d7e3fbc2dafc51",
+          "sql_bytes": 3651,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008131537",
+          "name": "p0_rls_identity_config_runtime_prep_20261008",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql",
+            "blob_sha": "07768fe035fec700b9b836b65f8a15657a9e4fe5",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "90060a7aaa5114c53db8945ca9cd6c5dfafc7b3fbaae700304d34ea3df3a47af",
+          "sql_bytes": 16915,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008210004",
+          "name": "private_helper_acl_hardening_20261009",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d5ffe67f5f02a82a166e5b52d4c2e26407e2b15bc45e80b60ad791638d16a359",
+          "sql_bytes": 4480,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008211815",
+          "name": "p0_tax_authority_and_rate_guards",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "3ac43685842b9b0b90c84166eda1f251b8535c63c6c29d07087664ea4ce69f06",
+          "sql_bytes": 11254,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008211930",
+          "name": "p1_pph21_ter_brackets_pp58",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d86e58dc40d3bf840c329ff618bf2b4f2020cb40cac750540a5122e5e662b72f",
+          "sql_bytes": 12567,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212207",
+          "name": "p0_coa_tax_extension_controlled_unlock",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "9c26bd88dc37e653cab775a5c53a3fcf71f8ec634f2d27e1df747508a3cf475b",
+          "sql_bytes": 3241,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212217",
+          "name": "p0_config_remove_legacy_tax_values",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "acc0b2e0d18d4880f53e8be782795fea3810bbd06e41b951dfb9aae81488a331",
+          "sql_bytes": 1640,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212235",
+          "name": "p0_config_write_tax_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "83141f0ff0a6ed9a114f55f021a998aa01a914add0dd7ca33f1605302d527f77",
+          "sql_bytes": 5196,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212245",
+          "name": "p0_effective_config_tax_strip",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2f81ab434796148e290a8bdcecacd39f7a2d5007dd3b43e76bbb5ebbdf8fe9ea",
+          "sql_bytes": 2375,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212430",
+          "name": "p0_inventory_moving_average_core",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "78f75e512182f4658d8a094638bb2692504ff9333dd4460d011cbf098078a834",
+          "sql_bytes": 12480,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212547",
+          "name": "p1_tax_document_and_transaction_evidence",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "345126b7618b140f7f8d8d3a944e109d788cabd672a3ba99dcb842917ea3d0ae",
+          "sql_bytes": 9005,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212605",
+          "name": "p1_tax_and_intent_private_helpers",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "5931a96ec739da86aa700c9dfade71529bd008e2f7eee8dfe9189793b8134d99",
+          "sql_bytes": 4847,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212621",
+          "name": "p1_tax_document_immutability",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "74df4f7ed80cd50f44614c66576530b50a2e16cc8edf6ac8dffbd8df407b0ad5",
+          "sql_bytes": 4515,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212652",
+          "name": "p1_tax_helper_runtime_repairs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "b4add60485ec84c284f60e8b8e89fad91b0ca8e75cbbb80906be44e3cc62ec1f",
+          "sql_bytes": 2438,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212801",
+          "name": "p0_inventory_average_adjustment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "6cebdb793192d1e8b7918ea18197a803595598363fc2a5879d540841f1ed946c",
+          "sql_bytes": 7669,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212843",
+          "name": "p0_auto_journal_sale_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "bc074e794dcc5c99781fafc8f2f7105a5072af8412ba3635a8453c0bbc120529",
+          "sql_bytes": 6194,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212921",
+          "name": "p1_tax_document_secure_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "9866be7bc9664be379c9a085bfb47947d7382912e1ac656809aa3f2d2720bd4b",
+          "sql_bytes": 8102,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008212937",
+          "name": "p0_inventory_receive_exact_value",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d0822c0b41b52c41ef19f9255af113335c7eed1b3d4d9e01763150a2adacc785",
+          "sql_bytes": 3232,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213006",
+          "name": "p0_auto_journal_purchase_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2bd60b94124f89cc0206e43fe228a889602265849984ef43a07b15c773e366d3",
+          "sql_bytes": 5402,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213040",
+          "name": "p1_tax_party_evidence_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "536f439508375f640aafa8168af87888c869bbb3adfe357a2b52e636b3eb4b8a",
+          "sql_bytes": 4648,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213054",
+          "name": "p0_auto_journal_supplier_payment_builder",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "98a65072f59515ead01b6b5a50c32acae667d3937e1d1a8bffd6abf57d2848a3",
+          "sql_bytes": 4231,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213128",
+          "name": "p0_auto_journal_return_and_stock_builders",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "20dca37cf534add878f7bb81aa998792e69d1a681f3f3577a595e85ef32d71cb",
+          "sql_bytes": 8836,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213207",
+          "name": "p1_tax_document_linkage_guard_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "64212ef2feed28f3e7f69b9f1dbd3a6e819fe72945d6b4f1f13e755f8744a84c",
+          "sql_bytes": 5504,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213300",
+          "name": "p0_intent_only_create_auto_journal",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "38ec3cf70745205599ccf1b8bc96534feb20a2c00d008fd1670537b3a46bd6ca",
+          "sql_bytes": 11460,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213403",
+          "name": "p1_pph21_ter_and_final_period_calculators",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "26c60894f33953e69ff67b4278b58a19a3473f95edd7d9b7cb9eb3e7d9ba4958",
+          "sql_bytes": 3655,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213627",
+          "name": "p0_operator_fact_injection_guard_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8ea63f8c201db1e494b05b796f5fc9ab077532f842d1e967a2dc47fac8f45c92",
+          "sql_bytes": 1372,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213730",
+          "name": "p1_accounting_tax_daily_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "a6d829d35c9b205591da8309711e537b04461dd5511693fce82405cdc7d2a473",
+          "sql_bytes": 10042,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008213854",
+          "name": "p0_runtime_config_contract_and_tax_snapshot_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "4862d65e10e6c2e0034179875290efa22e763391d4a87cffaf632df96f6c13b2",
+          "sql_bytes": 3395,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214023",
+          "name": "p1_coretax_verified_template_registry",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "f2e7e9c41886d66d2d89aafdbf0c8efdb8c3227a19fe30047b75000bf765df56",
+          "sql_bytes": 4391,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214119",
+          "name": "p1_coretax_export_monitoring_rpcs",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "09104243abdd4f9d7796c358cb36b41d2cd83baae6c7d5b5ccff944b619856cf",
+          "sql_bytes": 16069,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214438",
+          "name": "p1_tax_rate_mutation_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "914181240d240ae5eabaef3acf097e12efb90040febffd8faca1f1f94078b9b3",
+          "sql_bytes": 6843,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214819",
+          "name": "p0_close_last_authenticated_raw_journal_bypass",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "f3fe9503aed8ce735c06d30a6a65f66b59182012169d3131c591e82c5f146583",
+          "sql_bytes": 586,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214828",
+          "name": "p1_coretax_template_mutation_audit_lineage",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "ff3fdb90ea518dd9f0cc1b0f9fbbb93cbc4220154296da0485e17e143d36d6ad",
+          "sql_bytes": 3319,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008214850",
+          "name": "p1_period_close_and_report_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "345d43afacb5cffe1e90f809c68d6febbebd5734377683f51eed79a304178cf0",
+          "sql_bytes": 3416,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008231304",
+          "name": "p0_sale_line_taxability_server_rule",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "3df8ee4a19eb2321351fea08048da910c61a6ebf23111ea05d018784f3d63f5d",
+          "sql_bytes": 6537,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008232056",
+          "name": "p1_hard_gate_cogs_invariant_semantic_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "fd5f7e66ea31e0f1c3740d8a56d3543160c7a707307839384720dd0ca525fc4f",
+          "sql_bytes": 10294,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008232654",
+          "name": "p0_sale_tax_authority_from_server_masters",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8f0a1b639d903c39f5164e257b07e947c079ba320041df390fd8d74bd621d7b7",
+          "sql_bytes": 28678,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261008233115",
+          "name": "p0_server_sale_pricing_and_tax_document_lines",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "391ded3d953b4f9e3b0121666f0b6d8d8aab929ee7678ace7fec5eebaf7d1c8f",
+          "sql_bytes": 33504,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009000307",
+          "name": "p0_sale_discount_backward_compat",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "a3566f3aa831a29485e4e73fd1400821ac684eca5995a7be775602de69af412e",
+          "sql_bytes": 2468,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009001920",
+          "name": "p0_hardening_migration_manifest_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "55053565aac03bd43311699f76cf2852b128bbfa617c8783b63b817dbb045475",
+          "sql_bytes": 728,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009002058",
+          "name": "p1_hard_gate_ignore_reversed_legacy_sale_diagnostic",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "65cb1efe3797d6e0a565ac341042784f68bd269ec6e63a6dd2f06317ab14f141",
+          "sql_bytes": 1254,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009002247",
+          "name": "p1_compliance_readiness_rpc",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8e5d36dd97f916579d9db1aa3a9425beff1f1d6ec6a68706c628be4ab824d178",
+          "sql_bytes": 3050,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009002718",
+          "name": "p0_config_accounting_tenant_link",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "a2b40f395589f46d16d57138fe52d53961046755a51eacf8e8a79d3272874e44",
+          "sql_bytes": 9405,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009002808",
+          "name": "p0_config_accounting_tenant_link_resolver_repair",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "164d4ceb2b51938aafa1b074511c79d2b34f14e75e9c17fe6f2486e1430210d7",
+          "sql_bytes": 2303,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009003653",
+          "name": "p1_config_tenant_compliance_readiness",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "80d8460a524d8bee1817dfc3575b5e30fe42b894447a1e196f640bbe969de342",
+          "sql_bytes": 1227,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009003956",
+          "name": "p0_self_tax_party_overlap_guard_and_config_wrapper",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "9d03206df009fcbf1a557a6ba345888e37baba4ef19b70a509b5d140db611058",
+          "sql_bytes": 2666,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009005100",
+          "name": "p1_coretax_readiness_matches_exporter_self_cert",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "6e335d6322dd29409e380321b7088a2355ce91519c9bc2aa772c0cb93e6fe662",
+          "sql_bytes": 3607,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009005214",
+          "name": "p1_compliance_readiness_business_date_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "28e54539fa8dcef8d9bc68fd6e7d2ec0617461e96e63c0200cbcb24fc79e0c42",
+          "sql_bytes": 5528,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009005918",
+          "name": "p0_disable_unaudited_coretax_template_installer",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "a30fe5461e399fd444e0b6a537e1c9ab51e1b3e7a4c15a00d2fe4751ab042a88",
+          "sql_bytes": 856,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009010843",
+          "name": "p1_compliance_readiness_raw_self_row_count",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "cef9de395d4037eb786f4eed5976a85f3ac237d46a783cfe5698b9851ec18cc5",
+          "sql_bytes": 4132,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009012642",
+          "name": "p1_config_tenant_self_tax_profile_lifecycle",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2ae1ba664630b3b9a83c0f672ba4391eaaa81132b74f75f02e65b7f907d648e5",
+          "sql_bytes": 4994,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009015303",
+          "name": "p0_remove_negative_stock_manager_pin_contract",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "208b9a7610e1eee4b6ecfcd5f6e37df0f397cfef7e9be68c3c2f6dbce1f4bb53",
+          "sql_bytes": 7214,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009015616",
+          "name": "p0_pp20_2026_vendor_eligibility_and_tax_object_evidence",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "e56733f9da025429ae18f952783f167f218c536be790a470f3ea32ee3979c56d",
+          "sql_bytes": 5666,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009015835",
+          "name": "p0_supplier_liability_subledger_and_domain_reversal_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "18a513f4c1b939479d1a4772ef2ea176a48ba6f6fa37808c8950649d39637268",
+          "sql_bytes": 9295,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009020217",
+          "name": "p0_supplier_ap_reconciliation_in_accounting_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "593482707c9f9da176a6924c4043d04c6c8246e37323d9249445131d5d11395c",
+          "sql_bytes": 1916,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009020804",
+          "name": "p0_customer_receivable_subledger_collection_and_return_date_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8ba28feffea6ed317ecf4708ff4abbd7dbff16dc5200daedb429d9eda8ba2293",
+          "sql_bytes": 13491,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009020854",
+          "name": "p0_map_terima_piutang_to_existing_ar_receipt_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "7527bbd0b9ed32c087284a7348bd0ab20a4b31c4898da779e8c043e6da792dc2",
+          "sql_bytes": 625,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009020933",
+          "name": "p0_allow_terima_piutang_transaction_evidence_type",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "5f34721c5dc2ff72d6776b66ebc76fd944a10c004970a8cb286767517a28717e",
+          "sql_bytes": 496,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009021350",
+          "name": "p0_remove_impossible_coretax_rejected_resubmit_path",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "4c945684d6f35f9af8cc908c838cc2922ec390ea3a6f96b1fbc825aef00f9830",
+          "sql_bytes": 2057,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009021749",
+          "name": "p0_tax_document_gl_lineage_reconciliation_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "4c09e0e83e7ff194a8bb081c940c23a35e5db0b02e76f5d2d7fa9e7e25f089ae",
+          "sql_bytes": 4687,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009022035",
+          "name": "p0_input_tax_invoice_number_authority_and_duplicate_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "484921ae9edca6d61b68074e50ee56456c79f5ae3eba24c121164536348c1001",
+          "sql_bytes": 4888,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009022135",
+          "name": "p0_input_vat_event_lineage_semantics_in_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "14bc89b1bee8378650d204be7b7396ca909283ddfd8c0c6790f6b80075ed4a9d",
+          "sql_bytes": 2558,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009022539",
+          "name": "p0_coretax_internal_export_actor_template_and_single_outbox_guard",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "a2fcf8e519ff419c6a1046ae2cf27443d67e6070dcd393a4f1cbb252d6d111ff",
+          "sql_bytes": 5082,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009022727",
+          "name": "p0_bind_supplier_withholding_to_source_liability_tax_object",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "53a1c3cff9d64ce7f1f0cfdebcc08a5b90564f29dedc182b5bd2259f59af75d9",
+          "sql_bytes": 7103,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009023012",
+          "name": "p0_full_compliance_readiness_fail_closed_capability_gates",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "305f2c728f32df268b75606fbf025d21a592ba8ecacbe5bd84aab699802f4cd1",
+          "sql_bytes": 5968,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009023238",
+          "name": "p0_vendor_service_rent_accrual_and_server_authoritative_withholding_source",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "98fb0472374bd53baf72208165d965ede6c22d824fa03e1f1cddaff088b8b2d1",
+          "sql_bytes": 24196,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009023344",
+          "name": "p0_fire_supplier_liability_guard_for_vendor_expense_accrual",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "171ec9c7e9737cf69e41eb618c756df4163c2270f3a0581a8f968ab4ef7271bd",
+          "sql_bytes": 395,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009023927",
+          "name": "p0_pph21_employee_profile_and_payroll_calculation_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "daa6cfdc41621e3dced1766424c9749d9f4f4a4ad3f14e2925037452089ded3c",
+          "sql_bytes": 10923,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009024125",
+          "name": "p0_pph21_payroll_evidence_ter_final_grossup_and_salary_subledger",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "e3348d8643f0b4e247b9416318db7e204a121cd10967f2b40c7f498b49feb06b",
+          "sql_bytes": 31029,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009024223",
+          "name": "p0_employee_tax_profile_audit_action_enum_alignment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "5101bb2a9769b1533c5fce0529e8a22896ebe9d559f9fa8a3acf272c7ade75e6",
+          "sql_bytes": 1163,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009024806",
+          "name": "p0_fixed_asset_depreciation_owner_draw_and_receivable_allowance_intents",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8fbfbc3aa96b03294829b474bbae4d1898983cc10efc8a1b01a6f8329ec5b088",
+          "sql_bytes": 29051,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009024925",
+          "name": "p0_liquid_funds_authority_owner_capital_and_negative_cash_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "07ae472c76c7181262c895333501c1c43560b101b8db9336466cbf6650ad5877",
+          "sql_bytes": 10042,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009025010",
+          "name": "p0_receivable_allowance_first_event_null_safe",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d83855305e74590e476b6c07d2e7efbb519457582949a2d08691c0300bca7240",
+          "sql_bytes": 1247,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009025359",
+          "name": "p0_full_compliance_gate_all_required_tax_domains",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "03f3becf940ab0ad2386a775de904217b2decb2962a29a1f68cf6a4c89ea1410",
+          "sql_bytes": 8331,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009025833",
+          "name": "p0_ebilling_tax_remittance_source_bound_and_reconciled",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "0737ec8020ad4c518c2ebf33000ecd1bfe5ffd02d125f31aa79ea068ddeadc2f",
+          "sql_bytes": 16692,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009025912",
+          "name": "p0_ebilling_requires_full_calendar_tax_period",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "07189f6e5ba6bbd3ec4135791aa5b3736c318eb548ee009ad95ef2e3d8b4d13c",
+          "sql_bytes": 975,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009030102",
+          "name": "p0_full_compliance_requires_vat_period_settlement",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "45930755353d223eba23b18678521e203aaf28940192fa375a194e8b52ba64ff",
+          "sql_bytes": 2267,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009031652",
+          "name": "p0_vat_monthly_settlement_carryforward_and_ebilling_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "87aa9abef573138fbb725e6328c8e15c9efc0e051bef80246e46a49368abf795",
+          "sql_bytes": 19372,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009031901",
+          "name": "p0_vat_readiness_points_to_actual_settlement_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "63c5d9e818a3d18f3c73591af76e2f2fdac5ae7b5706b04f25c9d5258663c821",
+          "sql_bytes": 646,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032302",
+          "name": "p0_inbound_pph23_schema_and_master_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8d665e5bb1b50eced89098dc9110f17082527e54392c3f9c881f90518bd7abdc",
+          "sql_bytes": 8897,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032313",
+          "name": "p0_inbound_pph23_sale_source_snapshot",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "c458a0158acad8e9fd93214752fbe0bbd62fe0220ad2b28f402d3d4d5657c454",
+          "sql_bytes": 2862,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032417",
+          "name": "p0_inbound_pph23_receivable_flow_and_hard_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "69b44af76d337565efd04f8aa0afa9cf1194d1f37e6392c87c81f107f4164255",
+          "sql_bytes": 18659,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032541",
+          "name": "p0_fire_customer_receivable_guard_for_inbound_pph23_receipt",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "4194b61bc850af41440cec118d4e16d49cd16dc58f7e3478611f70246a490ff5",
+          "sql_bytes": 437,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032709",
+          "name": "p0_coa_extension_pph23_15pct_interest_royalty_dividend",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "c8853aaa2c4f0fb3ae930cd776719d80e59252ac08c64b32e836029dab33b16c",
+          "sql_bytes": 615,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009032819",
+          "name": "p0_extended_pph23_15pct_source_liability_and_payment",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2acdf24a31b4cf1a2bde97e4f5440855d358d4f3f63c789d08d35c531b663701",
+          "sql_bytes": 19882,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009033321",
+          "name": "p0_owner_umkm_final_turnover_monthly_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "bfb5d925c8c2f32bb2fa474b0d90f8baf3edbb9cc19b0224d3d0d74a9bb137e4",
+          "sql_bytes": 20093,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009033350",
+          "name": "p0_owner_umkm_turnover_cross_period_return_and_full_month_profile",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "9b166a6dca0d0ca20d71ad7263b3a4047373404b24b9f409e3dee396d7762dc5",
+          "sql_bytes": 2769,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009033419",
+          "name": "p0_owner_umkm_turnover_empty_facts_portability_fix",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "b72247a60d3715c1288b6882ad0c3af7808df102a22cc2662f17f3312eb9f0c8",
+          "sql_bytes": 654,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009034029",
+          "name": "p0_corporate_fiscal_authority_tables_and_helpers",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "da127996cbebe1f448aa290d1234b7d1d0ac8502322208d95372987b94b17855",
+          "sql_bytes": 15473,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009034149",
+          "name": "p0_corporate_annual_tax_close_article31e_losses_and_pph29",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "10c6bb1dee49ef4e2d3f3c155133167fedf8346a9b46ff424ea2d5f68727149b",
+          "sql_bytes": 12089,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009034256",
+          "name": "p0_pph25_authority_pph29_ebilling_and_corporate_reconciliation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d46f97a9f346f0bff58fc88a8463df70e6e87b16a305bf87083ee3bdd257a020",
+          "sql_bytes": 16884,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009034346",
+          "name": "p0_corporate_tax_hard_gate_reconciliation",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "c749f6b60e91d2c0b7c375aaf0291aee437de820590ce4c374a1182ade313f72",
+          "sql_bytes": 7611,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009065540",
+          "name": "task4_lock_post_journal_overloads_and_dispatcher_acl",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "cc963d98e3c7c986d58ed74d22b8fb49c0d1db57784f0364ebaead71af20ca2f",
+          "sql_bytes": 552,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009073526",
+          "name": "enforce_accounting_journal_transaction_ref_idempotency",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "98953eafae5302aa0ed3d4726b05a6982d9b94c24929d5d670834e15f72eddff",
+          "sql_bytes": 139,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009080652",
+          "name": "task4_repair_post_journal_authority",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "09be84adbcc18cb96105e9e3dea280e54e2471c5cf3aacf0850657e9ba43165b",
+          "sql_bytes": 29854,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009082402",
+          "name": "task5_coretax_fail_closed_export_gate",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "b5b217649cfc624e0e19f0513237d1a032ff9864c809aa7c6f78829d8c273696",
+          "sql_bytes": 9814,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261013085934",
+          "name": "phase5_tenant_isolation_hardening",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+            "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d9dad2bd18fbfc67e513c0b996343e6e962325f4a1c1d3ea4f9dbd05e50abe94",
+          "sql_bytes": 9520,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        }
+      ]
+    },
+    {
+      "project_id": "txwzhesvcjftybrlhnzs",
+      "environment": "staging-clone",
+      "registry_count": 12,
+      "entries": [
+        {
+          "version": "20261009120956",
+          "name": "fix_rls_tenant_links",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "related_candidate_unverified"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "91892ee19ab7b987a4fe0082580e5d51ebe534640004bc4173ff7b2a3ec000e2",
+          "sql_bytes": 2640,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009123518",
+          "name": "fix_rls_tenant_links_202610100002",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "2e6b4e750bf2b840ac5565aaef26efd363efd5eeea6d04d46fefd74b9a255bde",
+          "sql_bytes": 3152,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009123602",
+          "name": "install_tenant_isolation_test_helpers_clone_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8be19658c2c2d91557d210b7c4c0456044ca6eebfcb8236864e138a6cfaa7e61",
+          "sql_bytes": 2836,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009123848",
+          "name": "align_tenant_isolation_fixture_name_clone_only",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "3d2cfd2c3b22f981f67a919c67bac42ac9113c9d64837ac423e927d914eb4688",
+          "sql_bytes": 647,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009124420",
+          "name": "20261009163000_stress_journal_invariants",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/20261009163000_stress_journal_invariants.sql",
+            "blob_sha": "9804ace132fb5b9d2b505e819e2b2c0052a62cd1",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "357724701b3081fc01a1c4d074b7d5ef5fbded417bcd49c9c02371114f15e83f",
+          "sql_bytes": 1070,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009130145",
+          "name": "202610100004_fix_atomic_posting",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100004_fix_atomic_posting.sql",
+            "blob_sha": "89cd7e54fa602b87aa361d506b9edd7ef94e702b",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "5a6b796d8657f031042fc6be0f7d37acc7ed077fd5ba04a47737ca5e66627e6b",
+          "sql_bytes": 20376,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009164725",
+          "name": "restore_pos_outbox_ack_contract",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "849ab7028c833431d8adb9c4fd953f564e570b2ef4dae87ecd607d27aa5f3952",
+          "sql_bytes": 15268,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009164950",
+          "name": "fix_pos_outbox_tenant_scoped_key",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "3f372ed8d40df04b08e5d996bc6ad2231ada94d9e766a3cc888750a22086f560",
+          "sql_bytes": 1817,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009191641",
+          "name": "fix_tenant_accounting_links_rls",
+          "source_status": "MISSING_SOURCE",
+          "candidate": null,
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "f5c538a4bb054490328ee2b65bebeae1d9760ac05dbb5b725369fecca30aa475",
+          "sql_bytes": 1689,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009193536",
+          "name": "202610100002_fix_rls_tenant_links",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/202610100002_fix_rls_tenant_links.sql",
+            "blob_sha": "69e8369759d51e6526827c700191144d81da3db4",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "6e1ca46c896e021289d695ba32f755b52b568df8ab59922cac7dd9eece228028",
+          "sql_bytes": 805,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261009193542",
+          "name": "staging_clone_rls_test_helpers",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "berkah-pos/Berkahtigaputeri",
+            "path": "supabase/reconciliation/recovered-source-candidates/staging_clone_rls_test_helpers.sql",
+            "blob_sha": "11f581343a48366bd8da90097ac6671f52410bcf",
+            "kind": "filename_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "8541e9a2bce883248a423c6f1e9853f9b519cc03451c153f885b4fbcaa87a6d3",
+          "sql_bytes": 1526,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        },
+        {
+          "version": "20261013085912",
+          "name": "phase5_tenant_isolation_hardening",
+          "source_status": "CANDIDATE_NOT_EXACT",
+          "candidate": {
+            "repo": "Andisatriawan/Berkahtigaputeri",
+            "path": "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql",
+            "blob_sha": "e4b487e66e041025e1d56796428e98826855b506",
+            "kind": "semantic_candidate_not_exact"
+          },
+          "version_prefix_match": false,
+          "remote_body_status": "RECOVERED_FROM_SUPABASE_MIGRATION_LEDGER",
+          "sql_sha256": "d9dad2bd18fbfc67e513c0b996343e6e962325f4a1c1d3ea4f9dbd05e50abe94",
+          "sql_bytes": 9520,
+          "archive_path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+        }
+      ]
+    }
+  ],
+  "counts": {
+    "staging": {
+      "registry_count": 139,
+      "candidate_not_exact": 2,
+      "missing_git_source": 137,
+      "exact_git_version_and_sql_matches": 0,
+      "recovered_remote_sql_bodies": 139,
+      "remote_sql_bytes": 926910
+    },
+    "staging-clone": {
+      "registry_count": 12,
+      "candidate_not_exact": 7,
+      "missing_git_source": 5,
+      "exact_git_version_and_sql_matches": 0,
+      "recovered_remote_sql_bodies": 12,
+      "remote_sql_bytes": 61346
+    }
+  },
+  "clean_replay": {
+    "historical_ordered_replay": "PASS",
+    "reason": "The verified hosted run 38536536840 applies all 139 exact archived staging SQL bodies unchanged and passes the final read-only staging structural fingerprint comparison after the separately labelled pre-history schema bootstrap and runner-only canonical workbook fixture.",
+    "safe_next_step": "Keep the green staging replay immutable; reconcile staging-clone structural, routine, ACL, policy, trigger, and extension drift using a separately labelled clone baseline and disposable replay. Do not change hosted databases.",
+    "reconstructed_target_baseline": {
+      "status": "PASS",
+      "validated_at": "2026-10-14",
+      "commit": "fd442e2307004af6910560726f7f98055972521a",
+      "workflow_run_id": 38523201897,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38523201897",
+      "supabase_cli_version": "2.120.0",
+      "postgres_container": "supabase/postgres:17.11.0.004",
+      "pgtap_tests": 23,
+      "pgtap_result": "PASS",
+      "structural_fingerprint_comparison": "PASS",
+      "inventory": {
+        "application_relations": 67,
+        "constraints": 615,
+        "non_constraint_indexes": 49,
+        "routines": 169,
+        "source_policies": 42,
+        "target_only_policies": 2,
+        "non_internal_triggers": 49
+      },
+      "accepted_target_deltas": [
+        "enable RLS on private.tenant_accounting_links",
+        "add tenant_accounting_links_deny_anon_reconstructed and tenant_accounting_links_read_member_reconstructed",
+        "revoke anon/PUBLIC EXECUTE on public.log_config_change() and public.set_updated_at()"
+      ],
+      "scope_limit": "Disposable reconstructed target-schema replay only; not historical ordered replay, clone equivalence, production migration approval, data restore, extension/cron parity, or end-to-end Tenant A/B certification.",
+      "pgtap_ok_assertions": 21,
+      "pgtap_is_assertions": 2,
+      "pgtap_plan": 23
+    },
+    "prehistory_bootstrap": {
+      "path": "supabase/reconciliation/historical-replay-bootstrap/20260929000000_legacy_licences.sql",
+      "purpose": "Recreate three schema-only relations that existed before the recorded migration ledger, so CREATE TABLE IF NOT EXISTS migrations do not create older incompatible table shapes. Disposable replay only; never run on a hosted project.",
+      "source_evidence": "Read-only staging catalog definitions plus archived migration 20261003142407_admin_licence_config, whose CREATE TABLE IF NOT EXISTS statements use older definitions for public.licences, public.client_status, and public.app_config. Recorded bodies remain unchanged.",
+      "rows_seeded": 0,
+      "adds_tenant_id": false,
+      "unmodified_recorded_migrations": 139,
+      "bootstrapped_relations": [
+        {
+          "name": "public.licences",
+          "reason": "The ledger's table definition has address, but current staging has toko_address and other evolved columns."
+        },
+        {
+          "name": "public.app_config",
+          "reason": "The ledger's table definition lacks the current value default and includes a key-length check that is absent in current staging."
+        },
+        {
+          "name": "public.client_status",
+          "reason": "The ledger's definition has app_version default '', a FK to public.licences, and no hardware_mode check; current staging uses default 'unknown', no such FK, and includes the hardware_mode check."
+        }
+      ]
+    },
+    "initial_historical_replay_attempt": {
+      "workflow_run_id": 38525272706,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38525272706",
+      "status": "FAIL_EXPECTED_PREHISTORY_GAP",
+      "failing_migration": "20261004013605_p1_complete_pilot_device_relations",
+      "error": "column public.licences.toko_address does not exist",
+      "diagnosis": "The recorded migration sequence assumes public.licences existed before migration 20261003142407; that CREATE TABLE IF NOT EXISTS statement otherwise creates an address column instead of toko_address. No archived migration adds toko_address."
+    },
+    "canonical_config_fixture": {
+      "generator": "scripts/prepare_supabase_historical_replay_fixtures.py",
+      "source_workbook": "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx",
+      "output_version": "20261007180000",
+      "output_filename": "20261007180000_replay_only_canonical_config_fixture.sql",
+      "placement": "after recorded migration 20261007073026_p0_1_cloud_source_type_parity and before 20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "app_config_rows": 352,
+      "expected_sorted_key_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "seeding_policy": "use workbook values with version=1 in a runner-only migration; never commit generated SQL/value rows",
+      "auth_fixture": "extract canonical UID/email from recorded migration 20261008131537; empty password, unconfirmed email, no token/session",
+      "status": "PASS"
+    },
+    "second_historical_replay_attempt": {
+      "workflow_run_id": 38526191711,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38526191711",
+      "job_id": 115727493668,
+      "status": "FAIL_CANONICAL_WORKBOOK_PRECONDITION",
+      "failing_migration": "20261007184231_p1_cfg_01_config_5layer_strict_role",
+      "observed_app_config_count": 5,
+      "observed_app_config_md5": "65a1553f72adad3e820bb3d61cdfcf86",
+      "required_app_config_count": 352,
+      "required_app_config_md5": "1fd3d64219ecc7c333453c20da80e295",
+      "diagnosis": "Recorded SQL assumes the canonical workbook's 352-row app_config sync ran before the migration ledger reached the 5-layer guard; this data initialization is outside the recorded migration bodies."
+    },
+    "third_historical_replay_attempt": {
+      "workflow_run_id": 38534829013,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38534829013",
+      "status": "FAIL_PREHISTORY_SCHEMA_SHAPE_GAP",
+      "failing_step": "Compare the historic replay to the read-only staging schema fingerprint",
+      "migrations_applied": 139,
+      "body_integrity": "PASS",
+      "workbook_fixture": "PASS",
+      "only_mismatched_relations": [
+        "public.app_config",
+        "public.client_status"
+      ],
+      "observed_mismatches": [
+        "public.app_config columns_md5",
+        "public.app_config constraints_md5",
+        "public.client_status columns_md5",
+        "public.client_status constraints_md5"
+      ],
+      "diagnosis": "The first recorded migration 20261003142407_admin_licence_config uses CREATE TABLE IF NOT EXISTS and therefore does not evolve pre-existing tables. The current staging relation shapes for app_config and client_status were already present before the ledger; an empty-database replay needs those definitions in a separately labelled pre-history bootstrap."
+    },
+    "fourth_historical_replay_attempt": {
+      "workflow_run_id": 38536536840,
+      "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38536536840",
+      "status": "PASS_STAGING_HISTORICAL_REPLAY_AND_FINGERPRINT",
+      "migrations_applied": 139,
+      "historical_body_integrity": "PASS",
+      "canonical_workbook_fixture": "PASS",
+      "schema_only_prehistory_bootstrap": "PASS",
+      "final_staging_fingerprint": "PASS",
+      "result_scope": "Disposable local replay only; no hosted database changed."
+    },
+    "staging_clone_drift_inventory": {
+      "path": "supabase/reconciliation/staging-clone-drift-2026-10-14.json",
+      "status": "BLOCKED_STAGING_CLONE_DRIFT_RECONCILIATION_REQUIRED",
+      "captured_at": "2026-10-14",
+      "summary": {
+        "staging_relations": 67,
+        "staging_clone_relations": 71,
+        "staging_functions": 169,
+        "staging_clone_functions": 134,
+        "staging_policies": 42,
+        "staging_clone_policies": 42,
+        "staging_triggers": 49,
+        "staging_clone_triggers": 41,
+        "staging_extensions": 6,
+        "staging_clone_extensions": 5,
+        "shared_anon_execute_differences": 116,
+        "shared_authenticated_execute_differences": 79
+      }
+    }
+  },
+  "recovered_remote_sql_archive": {
+    "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
+    "git_blob_sha": "c071e2ffd7bf135d1d269d311699a87d5a4f0ac0",
+    "recovered_from": "supabase_migrations.schema_migrations.statements[1]",
+    "total_records": 151,
+    "staging_records": 139,
+    "staging_clone_records": 12,
+    "total_sql_bytes": 988256,
+    "body_hash": "SHA-256 for each exact UTF-8 SQL body",
+    "safety_scan": "No high-confidence private-key, JWT, provider-secret, credential-bearing database URI or hard-coded credential assignment pattern detected. High-entropy long literals were reviewed in context and were application error/SQL literals.",
+    "source_scope": "Migration code only; no customer/business table snapshots, tenant data dumps, or app_config rows included."
+  }
+}
