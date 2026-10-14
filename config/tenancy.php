@@ -3,6 +3,10 @@
 use App\\Models\\Central\\Domain;
 use App\\Models\\Central\\Tenant;
 use Stancl\\Tenancy\\Bootstrappers\\DatabaseTenancyBootstrapper;
+use Stancl\\Tenancy\\Events\\TenantCreated;
+use Stancl\\Tenancy\\Jobs\\CreateDatabase;
+use Stancl\\Tenancy\\Jobs\\MigrateDatabase;
+use Stancl\\JobPipeline\\JobPipeline;
 
 return [
     'tenant_model' => Tenant::class,
