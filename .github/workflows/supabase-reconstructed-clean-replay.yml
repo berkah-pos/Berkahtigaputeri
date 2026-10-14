@@ -26,6 +26,7 @@ on:
       - "scripts/prepare_supabase_clone_historical_replay.py"
       - "scripts/compare_clone_historical_migration_fingerprint.py"
       - "supabase/tests/tenant_isolation.test.sql"
+      - "supabase/tests/atomic_versioning.test.sql"
       - ".github/workflows/supabase-reconstructed-clean-replay.yml"
   pull_request:
     paths:
@@ -50,6 +51,7 @@ on:
       - "scripts/prepare_supabase_clone_historical_replay.py"
       - "scripts/compare_clone_historical_migration_fingerprint.py"
       - "supabase/tests/tenant_isolation.test.sql"
+      - "supabase/tests/atomic_versioning.test.sql"
       - ".github/workflows/supabase-reconstructed-clean-replay.yml"
   workflow_dispatch:
 
@@ -136,6 +138,7 @@ jobs:
           cat supabase/reconciliation/reconstructed/staging-baseline/060_target_default_privilege_hardening.sql >> "$migration"
           cp supabase/reconciliation/reconstructed/staging-baseline/replay_validation.test.sql "$REPLAY_DIR/supabase/tests/replay_validation.test.sql"
           cp supabase/tests/tenant_isolation.test.sql "$REPLAY_DIR/supabase/tests/tenant_isolation.test.sql"
+          cp supabase/tests/atomic_versioning.test.sql "$REPLAY_DIR/supabase/tests/atomic_versioning.test.sql"
           "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
             --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
             --output "$REPLAY_DIR/supabase/migrations/20261014110000_replay_only_canonical_config_fixture.sql" --seed-relational-projections
