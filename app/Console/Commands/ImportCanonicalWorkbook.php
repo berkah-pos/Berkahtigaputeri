@@ -83,71 +83,102 @@ class ImportCanonicalWorkbook extends Command
 
     private function importCentral(array $manifest): void
     {
-        DB::connection('central')->transaction(function () use ($manifest): void {
-            $global = GlobalConfig::query()->firstOrNew(['key' => 'global']);
-            $globalConfig = $this->nextConfig($global->exists ? $global->config : null, $manifest['global_config'], (int) ($global->version ?? 0));
-            $global->config = $globalConfig;
-            $global->version = (int) $globalConfig['version'];
-            $global->save();
+        // This is deliberately resumable instead of one long transaction over
+        // 100 tenant database provisions. Every write is an idempotent upsert;
+        // a failure is reported, and rerunning the same manifest reconciles it.
 
-            foreach ($manifest['templates'] as $row) {
-                $model = Template::query()->firstOrNew(['id' => $row['id']]);
-                $config = $this->nextConfig($model->exists ? $model->config : null, $row['config'], (int) ($model->version ?? 0));
-                $model->config = $config;
-                $model->version = (int) $config['version'];
-                $model->save();
-            }
+        $global = GlobalConfig::query()->firstOrNew(['key' => 'global']);
+        $globalConfig = $this->nextConfig(
+            $global->exists ? $global->config : null,
+            $manifest['global_config'],
+            (int) ($global->version ?? 0)
+        );
+        $global->config = $globalConfig;
+        $global->version = (int) $globalConfig['version'];
+        $global->save();
 
-            foreach ($manifest['tenants'] as $row) {
-                $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
-                $isNew = ! $tenant->exists;
-                $tenant->template_id = $row['template_id'];
-                $tenant->save(); // tenancy event pipeline creates DB and applies tenant migrations.
+        foreach ($manifest['templates'] as $row) {
+            $model = Template::query()->firstOrNew(['id' => $row['id']]);
+            $config = $this->nextConfig(
+                $model->exists ? $model->config : null,
+                $row['config'],
+                (int) ($model->version ?? 0)
+            );
+            $model->config = $config;
+            $model->version = (int) $config['version'];
+            $model->save();
+        }
 
-                $base = TenantConfig::query()->firstOrNew([
-                    'tenant_id' => $row['tenant_id'],
-                    'service_scope' => '__base__',
-                ]);
-                $base->service = null;
-                $base->service_scope = '__base__';
-                $base->template_id = $row['template_id'];
-                $baseConfig = $this->nextConfig($base->exists ? $base->config : null, $row['config'], (int) ($base->version ?? 0));
-                $base->config = $baseConfig;
-                $base->version = (int) $baseConfig['version'];
-                $base->save();
+        foreach ($manifest['tenants'] as $row) {
+            $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
+            $isNew = ! $tenant->exists;
+            $tenant->template_id = $row['template_id'];
+            // The configured TenantCreated pipeline creates the tenant DB and
+            // applies database/migrations/tenant. Never drop existing DBs here.
+            $tenant->save();
 
-                if ($isNew) {
-                    Subscription::query()->firstOrCreate(
-                        ['tenant_id' => $row['tenant_id']],
-                        ['plan' => strtolower($row['template_id']), 'status' => 'trial', 'expires_at' => now()->addDays(14)]
-                    );
-                }
-            }
+            $base = TenantConfig::query()->firstOrNew([
+                'tenant_id' => $row['tenant_id'],
+                'service_scope' => '__base__',
+            ]);
+            $base->service = null;
+            $base->service_scope = '__base__';
+            $base->template_id = $row['template_id'];
+            $baseConfig = $this->nextConfig(
+                $base->exists ? $base->config : null,
+                $row['config'],
+                (int) ($base->version ?? 0)
+            );
+            $base->config = $baseConfig;
+            $base->version = (int) $baseConfig['version'];
+            $base->save();
 
-            foreach ($manifest['services'] as $row) {
-                $config = TenantConfig::query()->firstOrNew([
-                    'tenant_id' => $row['tenant_id'],
-                    'service_scope' => $row['service'],
-                ]);
-                $config->service = $row['service'];
-                $config->service_scope = $row['service'];
-                $desired = $row['config'];
-                $desired['enabled'] = (bool) $row['enabled'];
-                $next = $this->nextConfig($config->exists ? $config->config : null, $desired, (int) ($config->version ?? 0));
-                $config->config = $next;
-                $config->version = (int) $next['version'];
-                $config->save();
-
-                DB::connection('central')->table('tenant_services')->updateOrInsert(
-                    ['tenant_id' => $row['tenant_id'], 'service' => $row['service']],
+            if ($isNew) {
+                Subscription::query()->firstOrCreate(
+                    ['tenant_id' => $row['tenant_id']],
                     [
-                        'enabled' => (bool) $row['enabled'],
-                        'updated_at' => now(),
-                        'created_at' => DB::connection('central')->raw('COALESCE(created_at, CURRENT_TIMESTAMP)'),
+                        'plan' => strtolower($row['template_id']),
+                        'status' => 'trial',
+                        'expires_at' => now()->addDays(14),
                     ]
                 );
             }
-        }, 3);
+        }
+
+        foreach ($manifest['services'] as $row) {
+            $model = TenantConfig::query()->firstOrNew([
+                'tenant_id' => $row['tenant_id'],
+                'service_scope' => $row['service'],
+            ]);
+            $model->service = $row['service'];
+            $model->service_scope = $row['service'];
+            $desired = $row['config'];
+            $desired['enabled'] = (bool) $row['enabled'];
+            $next = $this->nextConfig(
+                $model->exists ? $model->config : null,
+                $desired,
+                (int) ($model->version ?? 0)
+            );
+            $model->config = $next;
+            $model->version = (int) $next['version'];
+            $model->save();
+
+            $serviceQuery = DB::connection('central')->table('tenant_services')
+                ->where('tenant_id', $row['tenant_id'])
+                ->where('service', $row['service']);
+            $existingService = $serviceQuery->first();
+            $serviceValues = [
+                'enabled' => (bool) $row['enabled'],
+                'updated_at' => now(),
+            ];
+            if (! $existingService) {
+                $serviceValues['created_at'] = now();
+            }
+            DB::connection('central')->table('tenant_services')->updateOrInsert(
+                ['tenant_id' => $row['tenant_id'], 'service' => $row['service']],
+                $serviceValues
+            );
+        }
     }
 
     private function importDevices(array $manifest): void
