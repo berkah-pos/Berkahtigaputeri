@@ -1,7 +1,7 @@
 -- Disposable staging-baseline replay guardrails. No fixture/business rows are needed.
 BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
-SELECT extensions.plan(14);
+SELECT extensions.plan(16);
 
 SELECT extensions.ok(
   (SELECT count(*) = 67 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -20,9 +20,9 @@ SELECT extensions.ok(
   'all 615 application constraints replayed'
 );
 SELECT extensions.ok(
-  (SELECT count(*) = 42 FROM pg_policies
+  (SELECT count(*) = 44 FROM pg_policies
    WHERE schemaname IN ('public','private','accounting_private','inventory_private')),
-  'all 42 RLS policies replayed'
+  '42 source policies plus two reviewed target-isolation policies replayed'
 );
 SELECT extensions.ok(
   (SELECT count(*) = 49 FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid
@@ -61,7 +61,15 @@ SELECT extensions.ok(
 );
 SELECT extensions.ok(
   (SELECT relrowsecurity FROM pg_class WHERE oid='public.app_config'::regclass),
-  'RLS enabled on canonical 352-key app_config surface'
+  'RLS enabled on canonical app_config surface'
+);
+SELECT extensions.ok(
+  (SELECT relrowsecurity FROM pg_class WHERE oid='private.tenant_accounting_links'::regclass),
+  'RLS enabled on tenant-accounting cross-link data'
+);
+SELECT extensions.ok(
+  NOT has_table_privilege('authenticated','private.tenant_accounting_links','SELECT'),
+  'authenticated direct reads of cross-tenant link table remain closed unless separately approved'
 );
 SELECT extensions.ok(
   NOT EXISTS (
