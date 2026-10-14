@@ -1,1 +1,27 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Berkah POS Admin</title><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="auth.js"></script></head><body><p>Mengarahkan ke Super Admin...</p><script>BTP_AUTH.getAdmin().then(u=>location.replace(u?'clients.html':'login.html?next=clients.html'));</script></body></html>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Berkah POS — Index — Admin Legacy Berkah POS</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f4f7f5; color: #18372b; }
+    main { max-width: 640px; padding: 32px; margin: 20px; background: white; border: 1px solid #d8e6dd; border-radius: 16px; box-shadow: 0 12px 40px #12352412; }
+    h1 { line-height: 1.2; }
+    p { line-height: 1.65; }
+    .state { display: inline-block; padding: 5px 9px; background: #edf0ee; border-radius: 6px; font-size: 12px; color: #34483e; }
+    a { color: #087447; }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="state">ADMIN LEGACY — DINONAKTIFKAN</span>
+    <h1>Berkah POS — Index</h1>
+    <p>Halaman admin statis lama telah dinonaktifkan saat migrasi backend Berkah POS. Halaman ini tidak lagi melakukan login, membaca, atau mengubah data.</p>
+    <p>Target Central Admin baru adalah <code>https://app.berkahtigaputeri.co.id/central/admin</code>. Gunakan hanya setelah deployment Laravel resmi, HTTPS, autentikasi administrator, dan pemeriksaan tenant selesai diverifikasi. Endpoint tersebut belum dinyatakan aktif hanya berdasarkan perubahan repositori ini.</p>
+    <p>Untuk kebijakan dan status implementasi, lihat dokumentasi permanen dalam repositori utama.</p>
+  </main>
+</body>
+</html>
