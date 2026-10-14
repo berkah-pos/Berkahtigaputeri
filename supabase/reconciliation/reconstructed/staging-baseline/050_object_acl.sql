@@ -1,8 +1,8 @@
 -- RECONSTRUCTED STAGING OBJECT ACL SNAPSHOT; not historical migration source.
--- Privileges are read from ACL arrays, separate from effective privileges inherited via role memberships.
--- Post-snapshot least-privilege target defaults and sequence hardening are in 060_target_default_privilege_hardening.sql.
+-- The baseline resets direct grants for every reconstructed relation and function, even where the source ACL is owner-only.
+-- Target default-privilege hardening and anon sequence-helper cleanup are applied by the following overlay.
 
--- Application schema grants.
+-- Schema ACLs
 REVOKE ALL PRIVILEGES ON SCHEMA "public" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON SCHEMA "private" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON SCHEMA "accounting_private" FROM PUBLIC, anon, authenticated, service_role;
@@ -19,7 +19,11 @@ GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
 
--- Reset direct grants for application relations, then restore recorded source ACL entries.
+-- Object ACLs for all tables/sequences; grant only explicitly recorded privileges.
+REVOKE ALL PRIVILEGES ON TABLE "private"."audit_logs" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "private"."manager_pins" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "private"."pos_memberships" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "private"."tenant_accounting_links" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."accounting_coa" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."accounting_events" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."accounting_journal_lines" FROM PUBLIC, anon, authenticated, service_role;
@@ -40,10 +44,16 @@ REVOKE ALL PRIVILEGES ON TABLE "public"."corporate_fiscal_adjustments" FROM PUBL
 REVOKE ALL PRIVILEGES ON TABLE "public"."corporate_fiscal_loss_applications" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."corporate_fiscal_loss_carryforwards" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."corporate_pph25_authorities" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."customer_receivable_allocations" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."customer_receivables" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."customer_withholding_tax_credits" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."devices" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."employee_payables" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."employee_tax_profiles" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."extended_withholding_liabilities" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."extended_withholding_payments" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."fixed_asset_depreciation_events" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."fixed_assets" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."inventory_average_events" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."inventory_average_projection" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."inventory_cost_layer_projection" FROM PUBLIC, anon, authenticated, service_role;
@@ -53,6 +63,8 @@ REVOKE ALL PRIVILEGES ON TABLE "public"."inventory_lot_projection" FROM PUBLIC, 
 REVOKE ALL PRIVILEGES ON TABLE "public"."inventory_product_projection" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."licences" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."owner_turnover_tax_periods" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."payroll_payment_allocations" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."payroll_tax_evidence" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."plans" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."pos_accounting_tenant_map" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."pos_manager_pins" FROM PUBLIC, anon, authenticated, service_role;
@@ -60,11 +72,15 @@ REVOKE ALL PRIVILEGES ON TABLE "public"."pos_memberships" FROM PUBLIC, anon, aut
 REVOKE ALL PRIVILEGES ON TABLE "public"."pos_pin_audit" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON SEQUENCE "public"."pos_pin_audit_id_seq" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."product_master" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."receivable_allowance_events" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."receivable_allowances" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."sale_line_evidence" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."sale_return_line_evidence" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."service_tax_profiles" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."subscription_events" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."subscriptions" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."supplier_liabilities" FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON TABLE "public"."supplier_payment_allocations" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."tax_document_events" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."tax_document_lines" FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON TABLE "public"."tax_documents" FROM PUBLIC, anon, authenticated, service_role;
@@ -358,7 +374,7 @@ GRANT TRUNCATE ON TABLE "public"."tenants" TO "service_role";
 GRANT UPDATE ON TABLE "public"."tenants" TO "service_role";
 GRANT SELECT ON TABLE "public"."vat_period_settlements" TO "service_role";
 
--- Reset direct function ACLs, then restore recorded source ACL entries.
+-- Direct function ACLs for all application routines.
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."assert_journal_balanced"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."close_period"(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."create_tenant"(p_name text, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
@@ -369,16 +385,94 @@ REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."reject_mutation"() FROM 
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."reopen_period"(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."require_bound_device"(p_actor uuid, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."require_member_role"(p_tenant_id uuid, p_actor uuid, p_allowed_roles text[]) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."require_open_period"(p_tenant_id uuid, p_business_date date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."resolve_pos_accounting_tenant"(p_pos_tenant_id text, p_device_id text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "accounting_private"."reverse_journal"(p_tenant_id uuid, p_original_journal_id uuid, p_idempotency_key text, p_journal_date date, p_reason text, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."average_adjust_to_count"(p_tenant_id uuid, p_product_id uuid, p_counted_qty bigint, p_zero_stock_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."average_consume"(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."average_receive"(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."average_receive_value"(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_total_value bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."average_restore_original"(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_original_value bigint, p_event_id text, p_business_ref text, p_original_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."ingest_inventory_component_event"(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."ingest_inventory_event"(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "inventory_private"."reject_event_mutation"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."apply_sale_avg"(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."assert_accounting_hard_gate"(p_tenant_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."assert_app_config_inventory"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."assert_no_accounting_fields"(p_value jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."assert_sufficient_liquid_funds"(p_tenant_id uuid, p_account_code text, p_amount bigint) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."btp_is_super_admin"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_bad_debt_allowance_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_customer_receipt_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_customer_withholding_receipt_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_depreciation_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_extended_withholding_payment_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_extended_withholding_source_lines"(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_fixed_asset_acquisition_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_owner_capital_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_owner_draw_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_owner_turnover_tax_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_payroll_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_purchase_lines"(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_salary_payment_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_sale_lines"(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_payment_account text, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_sale_return_lines"(p_tenant_id uuid, p_return_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_stock_opname_lines"(p_tenant_id uuid, p_transaction_ref text, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_supplier_payment_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_tax_remittance_lines"(p_tenant_id uuid, p_business_date date, p_facts jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."build_vendor_expense_accrual_lines"(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."can_export_coretax"(p_tenant_id uuid, p_tax_document_id uuid) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."can_read_client_status"(p_device_id text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."can_read_final_pos_config"(config_key text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."can_read_final_pos_config_strict"(config_key text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."can_write_app_config"(p_key text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."compute_accounting_hard_gate"(p_tenant_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."corporate_commercial_profit_before_tax"(p_tenant_id uuid, p_tax_year integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."corporate_gross_turnover_between"(p_tenant_id uuid, p_from date, p_to date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."create_tax_document_internal"(p_tenant_id uuid, p_document_type text, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_snapshot jsonb, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_journal_id uuid, p_invoice_status text, p_creditable_input_vat boolean, p_reference_document_id uuid, p_actor uuid, p_device_id text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_customer_receivable_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_extended_withholding_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_owner_adjustment_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_payroll_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_supplier_liability_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."enforce_tax_remittance_evidence"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."get_pos_role_internal"(p_device_id text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_app_config_inventory"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_coretax_export_gate"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_coretax_template"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_corporate_tax_history_immutable"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_customer_withholding_credit_immutable"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_domain_journal_reversal"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_employee_tax_profile"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_owner_turnover_tax_period_immutable"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_payroll_tax_evidence_immutable"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_pph25_authority_update"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_self_tax_party_period"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_service_tax_profile"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_tax_document_update"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_tax_rate"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_tax_rate_bracket"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_tenant_accounting_link"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_vat_document_closed_period_insert"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."guard_vat_period_settlement_immutable"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "private"."is_pos_owner"(p_tenant_id text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."is_pph_final_umkm_evidence_valid"(p_tax_regime text, p_taxpayer_type text, p_turnover_eligibility boolean, p_certificate_status text, p_legal_basis text, p_business_date date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."populate_tax_document_lines"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."pph21_article17_tax"(p_taxable_income bigint) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."pph21_periodic_calc"(p_category text, p_cash_compensation bigint, p_tax_method text, p_business_date date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."pph21_ptkp_amount"(p_marital_status text, p_dependents integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."pph21_ptkp_status"(p_marital_status text, p_dependents integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."reject_tax_evidence_mutation"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."resolve_pph21_ter"(p_category text, p_monthly_gross bigint, p_business_date date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."resolve_tax_rate_snapshot"(p_tax_code text, p_object_code text, p_business_date date, p_category text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."resolve_ter_category"(p_marital_status text, p_dependents integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."resolve_vat_transaction_code"(p_facility_context text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."seal_tax_document"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."strip_legacy_tax_config"(p_value jsonb) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."tax_period_obligation"(p_tenant_id uuid, p_tax_code text, p_period_start date, p_period_end date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."umkm_gross_turnover_between"(p_tenant_id uuid, p_from date, p_to date) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."verify_coretax_template"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "private"."verify_manager_pin_internal"(p_device_id text, p_outlet_id text, p_pin text, p_required_action text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."activate_pph25_authority"(p_tenant_id uuid, p_source_annual_period_id uuid, p_effective_from_month date, p_source_reference text, p_source_filed_date date, p_supersedes_authority_id uuid, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."apply_midtrans_payment"(p_sub_id uuid, p_status text, p_transaction_id text, p_amount numeric, p_order_id text, p_checked_at timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."apply_play_subscription"(p_user_id uuid, p_token text, p_plan_id text, p_state jsonb, p_checked_at timestamp with time zone, p_linked_token text) FROM PUBLIC, anon, authenticated, service_role;
@@ -420,9 +514,11 @@ REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_coretax_status"(p_tax_document_i
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_effective_config"(p_tenant text, p_device text, p_service text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_hardening_migration_manifest"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_license_private_key"() FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_pos_role"(p_device_id text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."get_runtime_tax_snapshot"(p_business_date date) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."ingest_inventory_component_event"(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."ingest_inventory_event"(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "public"."install_coretax_template"(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."install_coretax_template"(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."log_config_change"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."mark_coretax_submitted"(p_outbox_id uuid, p_coretax_reference text, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
@@ -434,7 +530,9 @@ REVOKE ALL PRIVILEGES ON FUNCTION "public"."prepare_coretax_export_package"(p_ta
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."reconcile_subscription_expiry"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."record_coretax_result"(p_outbox_id uuid, p_result text, p_reference text, p_details jsonb, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."record_corporate_fiscal_adjustment"(p_tenant_id uuid, p_tax_year integer, p_adjustment_ref text, p_direction text, p_category text, p_amount bigint, p_legal_basis text, p_evidence jsonb, p_reverses_adjustment_id uuid, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "public"."register_input_tax_invoice"(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."register_input_tax_invoice"(p_tenant_id uuid, p_transaction_ref text, p_document_number text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "public"."register_tax_payment_reference"(p_tenant_id uuid, p_tax_document_id uuid, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."register_tax_payment_reference_v2"(p_tenant_id uuid, p_tax_code text, p_tax_period_start date, p_tax_period_end date, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."reopen_accounting_period"(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."resolve_accounting_tenant"(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text) FROM PUBLIC, anon, authenticated, service_role;
@@ -445,6 +543,7 @@ REVOKE ALL PRIVILEGES ON FUNCTION "public"."save_coretax_export_internal"(p_tax_
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."set_input_tax_invoice_validation"(p_tax_document_id uuid, p_invoice_status text, p_creditable boolean, p_external_reference text, p_reason text) FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."set_updated_at"() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL PRIVILEGES ON FUNCTION "public"."update_app_config_atomic"(p_key text, p_new_value jsonb, p_expected_version integer) FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL PRIVILEGES ON FUNCTION "public"."verify_manager_pin"(p_device_id text, p_outlet_id text, p_pin text, p_required_action text) FROM PUBLIC, anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION "accounting_private"."assert_journal_balanced"() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION "accounting_private"."close_period"(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text) TO "authenticated";
 GRANT EXECUTE ON FUNCTION "accounting_private"."close_period"(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text) TO "service_role";
