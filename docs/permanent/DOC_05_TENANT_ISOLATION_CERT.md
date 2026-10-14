@@ -1,34 +1,14 @@
-# PHASE 5 CERTIFICATION - TENANT ISOLATION
+# DOC_05 — Historical Tenant Isolation Evidence
 
-## 1. Anon reads removed
-SELECT * FROM pg_policies WHERE 'anon' = ANY(roles) AND tablename IN ('app_config','tenants','devices');
--- Result: 0 rows = PASS
+**Status: HISTORICAL / SUPERSEDED for runtime architecture. Do not use as current release certification.**
 
-## 2. RLS enabled
-tenants | t
-devices | t
-licences | t
-app_config | t (key PRIMARY KEY, value JSONB)
+This file records earlier source and staging checks against the former shared PostgreSQL/Supabase RLS implementation. Those results do not certify the canonical KVM2 architecture and must not be used as evidence that current Laravel tenant databases are isolated.
 
-## 3. Device ownership check
-IF auth.uid() IS NULL THEN 401
-IF device.tenant_id != p_tenant_id THEN 403 device not owned by tenant
-Merge: GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
+Current authority:
+- `AGENTS.md`
+- `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`
+- `docs/permanent/DOC_00_MASTER_ROADMAP.md`
 
-## 4. 50-tenant concurrency
-Run: python3 scripts/test_50_tenant_concurrency.py
-Result: 50 tenants 0.31s PASS, isolation enforced
-Log: docs/screenshots/phase5-concurrency.txt
+Current required evidence is an executed negative Tenant A/B matrix against the Laravel Central API and two distinct MariaDB tenant databases. It must cover configuration, host/domain routing, products, sales, inventory, reports, journals, sync receipts, tenant subscription and authorized admin paths. Source presence or an old RLS query is not a pass.
 
-## 5. HTTP 403 proof
-File: docs/screenshots/phase5-403-proof.sql
-Checks: anon 0 rows, RLS true
-
-## 6. Workbook 352 keys
-Run 38373824895 green: 1 global + 3 templates + 100 tenants + 140 services + 108 devices = 352
-
-## 7. APK verification
-Artifact: berkahtigaputeri-pos-debug-aab / app-debug.aab 71M from run 38373824842
-Path: /tmp/aab-artifact/app-debug.aab
-
-Certified: PHASE 5 acceptance met per DOC_00_MASTER_ROADMAP.md
+No production tenant-isolation certification is asserted by this historical file.
