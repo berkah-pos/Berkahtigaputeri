@@ -1,6 +1,32 @@
 name: Supabase Reconstructed Baseline Clean Replay
 
 on:
+  push:
+    branches:
+      - "chore/consolidate-single-main-repo"
+    paths:
+      - "supabase/reconciliation/reconstructed/staging-baseline/**"
+      - "supabase/reconciliation/historical-replay-bootstrap/**"
+      - "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json"
+      - "scripts/check_supabase_remote_migration_archive.py"
+      - "scripts/prepare_supabase_historical_replay.py"
+      - "scripts/compare_historical_migration_fingerprint.py"
+      - "scripts/check_supabase_historical_preconditions.py"
+      - "scripts/prepare_supabase_historical_replay_fixtures.py"
+      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md"
+      - "docs/permanent/DOC_17_SUPABASE_SOURCE_RECOVERY_AND_CLEAN_REPLAY.md"
+      - "supabase/reconciliation/source-recovery-manifest-2026-10-14.json"
+      - "supabase/reconciliation/catalog_fingerprint.sql"
+      - "supabase/reconciliation/staging-clone-catalog-fingerprint.sql"
+      - "supabase/reconciliation/staging-clone-catalog-fingerprint-2026-10-14.json"
+      - "scripts/check_supabase_source_recovery.py"
+      - "scripts/compare_reconstructed_catalog_fingerprint.py"
+      - "scripts/prepare_supabase_clone_historical_replay.py"
+      - "scripts/compare_clone_historical_migration_fingerprint.py"
+      - "supabase/tests/tenant_isolation.test.sql"
+      - ".github/workflows/supabase-reconstructed-clean-replay.yml"
   pull_request:
     paths:
       - "supabase/reconciliation/reconstructed/staging-baseline/**"
@@ -23,6 +49,7 @@ on:
       - "scripts/compare_reconstructed_catalog_fingerprint.py"
       - "scripts/prepare_supabase_clone_historical_replay.py"
       - "scripts/compare_clone_historical_migration_fingerprint.py"
+      - "supabase/tests/tenant_isolation.test.sql"
       - ".github/workflows/supabase-reconstructed-clean-replay.yml"
   workflow_dispatch:
 
@@ -108,6 +135,7 @@ jobs:
           printf '\n' >> "$migration"
           cat supabase/reconciliation/reconstructed/staging-baseline/060_target_default_privilege_hardening.sql >> "$migration"
           cp supabase/reconciliation/reconstructed/staging-baseline/replay_validation.test.sql "$REPLAY_DIR/supabase/tests/replay_validation.test.sql"
+          cp supabase/tests/tenant_isolation.test.sql "$REPLAY_DIR/supabase/tests/tenant_isolation.test.sql"
           test -s "$migration"
           printf 'assembled_sql_bytes=%s\n' "$(wc -c < "$migration")"
 
