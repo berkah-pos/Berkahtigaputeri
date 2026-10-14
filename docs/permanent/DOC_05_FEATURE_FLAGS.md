@@ -1,31 +1,36 @@
-# DOC_05 — Historical Feature Flags Pilot (Superseded)
+# DOC_05 — Feature Flags and Service Entitlements
 
-Status: **HISTORICAL / SUPERSEDED** — this document describes the pre-Final-Pos two-service pilot and is not current runtime authority.
+**Status:** Active logical contract; runtime is Laravel Central API + MariaDB per DOC_14.
 
-## Why this document is retained
+## Authority and data ownership
 
-The former contract stored feature entitlements in `tenants.features` and included demo tenants `clientA` / `clientB`. The current canonical architecture supersedes that contract. The document remains to preserve historical context, but its prior "LIVE / P4" status and SQL seed must not be treated as current verification.
+- Follow `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` for logical inheritance.
+- Follow `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` for runtime storage and authorization.
+- Canonical source is the production workbook and its `APP_CONFIG_EXPORT` sheet.
+- The canonical inventory contains 352 keys and sorted-key MD5 `1fd3d64219ecc7c333453c20da80e295`.
 
-## Current Final Pos contract
+## Five-layer configuration
 
-The authorities are:
+`GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`
 
-1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — only supported inheritance is `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
-2. `docs/permanent/DOC_02_FINAL_POS_RELATIONAL_OWNERSHIP.sql` — the workbook owns the relational projections and `app_config`; `tenants.features` is a deprecated compatibility projection.
-3. `scripts/sync_excel_to_supabase.py` — validates the canonical workbook's 352-key contract.
+Runtime stores:
+- `global_configs` — global values;
+- `templates` — BASIC/PRO/ENTERPRISE package defaults;
+- `tenant_configs` — tenant base plus independent service-specific rows;
+- tenant-local `device_configs` — device-specific overrides.
 
-For Final Pos, application entitlement flags are resolved from canonical `app_config` values through the authorized effective-config path. A client must not read `tenants.features` as its authoritative source or write that compatibility column as the feature setting. Feature-entitlement resolution is separate from effective service configuration: one request must never combine the POS and Akuntansi service configuration rows.
+Feature flags are read only from the effective configuration returned by authenticated Laravel API. Never trust a client-supplied flag to grant a paid entitlement. Server-enforced subscription status and tenant/device membership must be checked independently of config JSON.
 
-The canonical template rows are the source of template-level feature flags. In the read-only staging check on 2026-10-13, the 100 workbook-owned tenants assigned to BASIC (60), PRO (35), and ENTERPRISE (5) had template feature flags aligned with the presence of their service-config keys; no service/feature mismatch was observed. This is staging evidence, not production certification.
+## Service selection
 
-## Known implementation follow-up
+A request resolves one service in `pos` or `akuntansi`. No API, admin or client implementation may combine service rows. Missing lower-layer keys inherit; explicit lower-layer keys override. An omitted TEMPLATE layer is a contract failure.
 
-The current `main` revision still has a legacy Admin widget at `btp-admin/feature-flags.js` which directly reads and updates `tenants.features` (lines 4-5). This is a known Admin/runtime-parity defect for the later Phase 3 work. Do not treat that widget as proof of canonical feature-flag behavior. Correct it through a reviewed branch/PR after Phase 2's data-source ownership gate is resolved.
+## Acceptance tests
 
-## Historical examples — not canonical
-
-The old pilot's `clientA` / `clientB` values, MDR examples, and service keys are historical only. Do not seed them into the canonical workbook-managed inventory, and do not manually execute `DOC_05_FEATURE_FLAGS.sql`.
-
-## Security invariant
-
-A feature flag controls UI availability only; it does not replace authentication, tenant/device ownership checks, or Row-Level Security. Configuration writes must use the documented atomic expected-version RPC.
+- Canonical workbook passes counts and hash checks.
+- BASIC, PRO and ENTERPRISE template values merge correctly.
+- Each service resolves independently.
+- Device settings come from the correct isolated tenant DB.
+- Inactive/suspended/expired subscriptions do not receive cloud configuration.
+- Tenant A cannot use IDs for Tenant B.
+- Client feature values cannot override server subscription entitlements.
