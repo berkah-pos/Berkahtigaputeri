@@ -2,7 +2,7 @@
 
 **Status: YELLOW — target-scoped engineering phases have passing evidence, but the overall goal is not 100% GREEN. No PR to main is opened while required release gates remain blocked.**  
 **Branch:** chore/consolidate-single-main-repo  
-**Reviewed branch revision:** abc92ade724ee70ab2220cd1e488f556bac145ab
+**Reviewed branch revision:** 29c6f041406b4074a82bc386bd17e939cc9d607a
 
 ## Phase status
 
@@ -23,7 +23,7 @@
 - Workbook: [run 38632908922](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632908922).
 - SHA-256 base/fork comparison: [run 38632527070](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632527070).
 - Disposable Supabase target + historical staging/clone replays: [run 38629812613](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629812613).
-- Verified export refresh: [run 38632908917](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632908917).
+- Verified phase-roll-up export: [run 38633380528](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38633380528).
 
 ## Loop decision
 
