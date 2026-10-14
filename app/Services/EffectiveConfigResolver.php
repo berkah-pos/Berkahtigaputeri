@@ -43,6 +43,17 @@ class EffectiveConfigResolver
             throw new AuthorizationException('Device is assigned to another user.');
         }
 
+        $subscriptionValid = DB::connection('central')->table('subscriptions')
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', ['active', 'trial'])
+            ->where(function ($query): void {
+                $query->whereNull('expires_at')->orWhere('expires_at', '>', now());
+            })
+            ->exists();
+        if (! $subscriptionValid) {
+            throw new AuthorizationException('Tenant subscription is inactive, suspended, or expired.');
+        }
+
         $serviceEnabled = DB::connection('central')->table('tenant_services')
             ->where('tenant_id', $tenantId)
             ->where('service', $service)
