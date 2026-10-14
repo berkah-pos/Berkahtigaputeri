@@ -1,71 +1,53 @@
-# DOCS PERMANENT — FINAL POS ARCHITECTURE AUTHORITY
+# Permanent Documentation — KVM2 Canonical Authority
 
-This folder contains the durable architecture, security, schema, operational, and verification record for Berkah POS.
+This directory contains durable architecture, security, migration and verification records. Historical evidence never certifies current deployment or production readiness.
 
 ## Mandatory read order
 
-1. Root `AGENTS.md` — mandatory preflight, scoped work, and evidence-reporting rules.
-2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole authority for Final Pos configuration inheritance.
-3. `DOC_00_MASTER_ROADMAP.md` — correction phases and acceptance gates in order.
-4. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — scoped execution and evidence protocol.
-5. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — implementation evidence and unresolved gates.
-6. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; canonical Final Pos contract.
-7. `DOC_02_SUPABASE_SCHEMA_V1.sql` and `DOC_02_FINAL_POS_RELATIONAL_OWNERSHIP.sql` — schema and workbook ownership.
-8. `DOC_03_RLS_AUTH.sql` and `DOC_03_RLS_AUTH_FIXED.sql` — authenticated tenant-isolation contract.
-9. `DOC_04_ADMIN_ARCHITECTURE.md` — Admin architecture.
-10. `scripts/sync_excel_to_supabase.py` — workbook validator and 352-key inventory.
-11. `DOC_05_FEATURE_FLAGS.md`, `DOC_05_FEATURE_FLAGS.sql` — service/feature configuration.
-12. `DOC_06_AUDIT_VERSIONING.md`, `DOC_06_ATOMIC_VERSIONING_RPC.sql` — atomic version integrity.
-13. `CERTIFICATION_CURRENT_HEAD.md` — scoped Phase 1 canonical source audit; **not** a Phase 7 product/runtime certification.
-14. `DOC_07_FINAL_VERIFICATION_CURRENT_HEAD.md` — historical snapshot dated 2026-10-04; its legacy filename does **not** make it current.
-15. `DOC_07_FINAL_VERIFICATION_HISTORICAL_a19cb3f.md` — historical old 3-layer snapshot; **not current authority**.
-16. `DOC_08_RPC_EFFECTIVE_CONFIG.sql` — authenticated effective-config RPC reference.
-17. `DOC_09_APK_VERIFICATION.md` — APK/config verification and release-surface boundary.
+1. Root `AGENTS.md` — mandatory preflight, branch/PR discipline and evidence contract.
+2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — logical config contract and canonical 352-key workbook inventory.
+3. `DOC_00_MASTER_ROADMAP.md` — ordered KVM2/Laravel migration and acceptance gates.
+4. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — local-first, transaction, tenant boundary and evidence rules.
+5. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — current app/backend implementation status.
+6. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — runtime architecture, deployment, tenant DB isolation and legacy backend retirement.
+7. `DOC_01_3_LAYER_CONFIG.md` — retained compatibility name for the five-layer config contract.
+8. `scripts/export_workbook_for_laravel.py` — executable source-workbook validator/export contract.
+9. Relevant source, migrations, tests, security reports and runbooks scoped to the task.
 
-When any document conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the canonical decision wins. Historical reports do not prove current CI, staging, or production status.
+DOC_14 must exist under the exact canonical filename above. DOC_00 remains authoritative for logical precedence only; AGENTS.md and DOC_14 govern runtime database/auth/deployment choices.
 
-## Canonical model
+## Canonical logical model
 
 ```text
-GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE
+GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 ```
 
-Canonical workbook:
-
-`config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`
-
-Canonical inventory:
+Workbook: `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`.
 
 ```text
-1 global + 3 templates + 100 tenants + 140 services + 108 devices = 352 keys
+1 global + 3 templates + 100 tenants + 140 service rows + 108 devices = 352 keys
 ```
 
-Canonical key forms:
+Sorted keyset MD5: `1fd3d64219ecc7c333453c20da80e295`.
+Canonical template IDs: `BASIC`, `PRO`, `ENTERPRISE`.
 
-```text
-global
-template:<TEMPLATE_ID>
-tenant:<tenant_id>
-tenant:<tenant_id>:service:<service>
-device:<device_id>
-```
+## Runtime architecture
 
-POS and Akuntansi service rows are service-specific and are not merged together.
+- Laravel 11 / PHP 8.3 / Filament 3 / Sanctum / stancl/tenancy v3.
+- MariaDB 11 on one private server, with `berkahpos_central` and a distinct `berkahpos_tenant_{id}` DB per tenant.
+- Mobile client remains local-first with SQLite; active cloud runtime uses authenticated Laravel APIs.
+- Effective config endpoint: `GET /api/v1/effective-config?tenant_id=&device_id=&service=`.
+- Deployment target: Hostinger KVM2 + Coolify; app health check `GET /up`.
+- Active GitHub Actions use hosted `ubuntu-24.04`, never a workstation/self-hosted runner.
+- Legacy `btp-admin/` is not the new control plane; the Central Admin is `/central/admin`.
 
-## Security boundary
+## Retired legacy material
 
-Anonymous direct reads of Final Pos backing tables are not allowed. Anonymous execution of `get_effective_config(...)` is also revoked. Runtime cloud config requires authentication, and normal authenticated callers are scoped by `devices.user_id = auth.uid()` plus device-to-tenant validation.
+Supabase RLS/schema/RPC SQL, Supabase migrations/functions, and Supabase-authenticated static admin pages are superseded as active runtime. Keep only documentation necessary to explain source-history, audit provenance, or a verified migration mapping. Any retained legacy file must visibly state `HISTORICAL / SUPERSEDED — NOT ACTIVE RUNTIME`. Do not wire historical files into deploy/CI/runtime.
 
-## Repository operating rule
+## Security and evidence boundary
 
-- Work on branches and merge through review/PR.
-- Do not push Final Pos implementation directly to `main`.
-- Do not restore inheritance that omits TEMPLATE.
-- Do not re-enable anonymous Final Pos table/RPC reads.
-- Keep `btp-admin/` as the published Admin path.
-- Treat `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` as the architecture authority; use current test/runtime evidence for implementation certification.
-- Keep historical verification clearly labelled historical.
+Anonymous or client-authorized cross-tenant access is prohibited. Database identity, domain, subscription and device membership must be resolved server-side before a tenant DB connection is initialized. No tenant isolation, config import, deploy, backup/restore, transaction sync, release signing or production cutover is certified by source presence alone.
 
-## Live Admin
-
-https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
+Live Admin legacy URL: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
+New Central Admin target: https://app.berkahtigaputeri.co.id/central/admin (not to be described as live until deployment evidence exists).
