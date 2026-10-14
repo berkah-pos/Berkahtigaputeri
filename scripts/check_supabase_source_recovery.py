@@ -187,7 +187,7 @@ def main() -> int:
     archive_info = manifest.get("recovered_remote_sql_archive", {})
     if archive_info.get("total_records") != 151 or archive_info.get("total_sql_bytes") != 988256:
         fail("manifest does not attest to all 151 recovered hosted migration SQL bodies")
-    if manifest.get("clean_replay", {}).get("historical_ordered_replay") not in {"PENDING_DISPOSABLE_REPLAY", "PENDING_PREHISTORY_BOOTSTRAP_REPLAY", "PENDING_CANONICAL_CONFIG_FIXTURE_REPLAY", "PASS"}:
+    if manifest.get("clean_replay", {}).get("historical_ordered_replay") not in {"PENDING_DISPOSABLE_REPLAY", "PENDING_PREHISTORY_BOOTSTRAP_REPLAY", "PENDING_CANONICAL_CONFIG_FIXTURE_REPLAY", "PENDING_PREHISTORY_APP_CONFIG_CLIENT_STATUS_SHAPE_FIX", "PASS"}:
         fail("invalid historical replay status")
 
     if ERRORS:

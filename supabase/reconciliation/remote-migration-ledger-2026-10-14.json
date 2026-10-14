@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "captured_at_utc": "2026-10-14T03:37:00Z",
-  "status": "BLOCKED_CANONICAL_CONFIG_FIXTURE_REPLAY_PENDING",
+  "status": "BLOCKED_PREHISTORY_BASELINE_REPLAY_PENDING",
   "source": "Read-only Supabase migration registries, pg_catalog fingerprints, and Supabase Security/Performance Advisors.",
   "scope_note": "Read-only registry and catalog evidence plus exact recorded migration SQL bodies recovered from the remote Supabase migration ledgers. No customer business-row snapshots, passwords, API keys or database URLs are stored. Existing hosted projects were not changed.",
   "production_project_identified": false,
@@ -918,7 +918,7 @@
   ],
   "source_recovery_review": {
     "verified_on_utc_date": "2026-10-14",
-    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; CANONICAL_WORKBOOK_FIXTURE REPLAY PENDING",
+    "status": "REMOTE_SQL_BODY_ARCHIVE_RECOVERED; PREHISTORY APP_CONFIG/CLIENT_STATUS SHAPE FIX PENDING",
     "exact_remote_version_matches": 0,
     "repository_history_checked": true,
     "candidate_files": [
@@ -954,7 +954,7 @@
         ]
       }
     ],
-    "coverage_note": "All 151 exact SQL bodies as stored in the remote migration ledgers are archived. A fresh empty-database replay with the data-free legacy licences bootstrap then failed at recorded migration 20261007184231 because only five app_config rows existed; the recorded SQL requires the canonical 352-key workbook inventory. The local-only replay will seed from the canonical workbook in an ephemeral fixture migration at version 20261007180000; no workbook values are committed and hosted databases are never written.",
+    "coverage_note": "All 151 exact SQL bodies as stored in the remote migration ledgers are archived and SHA-256-verified. A schema-only bootstrap plus runner-only 352-key canonical workbook fixture allows all 139 recorded staging bodies to apply cleanly in a fresh local database. The final staging-fingerprint comparison failed only for public.app_config and public.client_status column/constraint fingerprints because those tables predate the ledger and the first recorded migration uses CREATE TABLE IF NOT EXISTS. The prehistory bootstrap is being expanded to match these current staging relation shapes; archived migration bodies remain byte-for-byte unchanged, and no hosted database is written.",
     "remote_body_archive_verified": true,
     "remote_body_archive": {
       "path": "supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json",
@@ -1127,5 +1127,64 @@
       "caution": "RLS denies ordinary row-level access when no applicable policy exists. PostgreSQL 17 documents that RLS does not govern TRUNCATE or REFERENCES. No unauthenticated destructive operation was executed and no direct public API exploitation was proven."
     },
     "remediation_gate": "Do not mass-revoke remote grants until legitimate caller contracts are inventoried, function/REST authorization tests pass, and a reviewed isolated forward-only migration plus approval is available."
+  },
+  "latest_historical_replay_attempt": {
+    "workflow_run_id": 38534829013,
+    "workflow_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38534829013",
+    "status": "FAIL_PREHISTORY_SCHEMA_SHAPE_GAP",
+    "migrations_applied": 139,
+    "body_integrity": "PASS",
+    "workbook_fixture": "PASS",
+    "final_catalog_compare": "FAIL",
+    "mismatched_relations": [
+      "public.app_config",
+      "public.client_status"
+    ],
+    "failing_fields": [
+      "columns_md5",
+      "constraints_md5"
+    ],
+    "next_fix": "Extend disposable prehistory bootstrap with exact catalog definitions for app_config and client_status, then rerun the exact fingerprint compare."
+  },
+  "prehistory_schema_shape_gap": {
+    "detection_workflow_run_id": 38534829013,
+    "relations": [
+      "public.app_config",
+      "public.client_status"
+    ],
+    "source_migration_version": "20261003142407",
+    "source_migration_name": "admin_licence_config",
+    "source_behavior": "CREATE TABLE IF NOT EXISTS does not evolve the existing relation to match the historical DDL shape.",
+    "staging_observations": {
+      "app_config": {
+        "columns": [
+          "key text NOT NULL",
+          "value jsonb NOT NULL DEFAULT '{}'::jsonb",
+          "updated_at timestamptz NOT NULL DEFAULT now()"
+        ],
+        "constraints": [
+          "PRIMARY KEY (key)"
+        ],
+        "absent_constraint": "key length > 0 check from the first recorded CREATE TABLE"
+      },
+      "client_status": {
+        "columns": [
+          "device_id text NOT NULL",
+          "last_seen timestamptz NOT NULL DEFAULT now()",
+          "app_version text NOT NULL DEFAULT 'unknown'",
+          "last_transaction_id text nullable",
+          "sales_today bigint NOT NULL DEFAULT 0",
+          "hardware_mode text NOT NULL DEFAULT 'SIMULATED'",
+          "updated_at timestamptz NOT NULL DEFAULT now()"
+        ],
+        "constraints": [
+          "PRIMARY KEY (device_id)",
+          "CHECK hardware_mode in SIMULATED/REAL",
+          "CHECK sales_today >= 0"
+        ],
+        "absent_constraint": "foreign key device_id -> licences from the first recorded CREATE TABLE"
+      }
+    },
+    "disposition": "Add schema-only definitions to the disposable prehistory bootstrap; do not alter archived migration SQL or comparator acceptance criteria."
   }
 }
