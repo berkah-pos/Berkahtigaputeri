@@ -133,15 +133,15 @@ def main() -> int:
     test_sql = read_text(BASELINE / "replay_validation.test.sql")
 
     counts = {
-        "tables": count(r"^CREATE\\s+(?:UNLOGGED\\s+)?TABLE\\b", table_sql),
-        "constraints": count(r"^ALTER TABLE ONLY .* ADD CONSTRAINT\\b", constraint_sql),
-        "indexes": count(r"^CREATE\\s+(?:UNIQUE\\s+)?INDEX\\b", constraint_sql),
-        "plpgsql_routines": count(r"^CREATE OR REPLACE FUNCTION\\b", plpgsql_sql),
-        "sql_routines": count(r"^CREATE OR REPLACE FUNCTION\\b", sql_function_sql),
-        "source_policies": count(r"^CREATE POLICY\\b", security_sql),
-        "target_extra_policies": count(r"^CREATE POLICY\\b", overlay_sql),
-        "triggers": count(r"^CREATE (?:CONSTRAINT\\s+)?TRIGGER\\b", security_sql),
-        "pgtap_assertions": count(r"^SELECT extensions\\.ok\\(", test_sql),
+        "tables": count(r"^CREATE\s+(?:UNLOGGED\s+)?TABLE\b", table_sql),
+        "constraints": count(r"^ALTER TABLE ONLY .* ADD CONSTRAINT\b", constraint_sql),
+        "indexes": count(r"^CREATE\s+(?:UNIQUE\s+)?INDEX\b", constraint_sql),
+        "plpgsql_routines": count(r"^CREATE OR REPLACE FUNCTION\b", plpgsql_sql),
+        "sql_routines": count(r"^CREATE OR REPLACE FUNCTION\b", sql_function_sql),
+        "source_policies": count(r"^CREATE POLICY\b", security_sql),
+        "target_extra_policies": count(r"^CREATE POLICY\b", overlay_sql),
+        "triggers": count(r"^CREATE (?:CONSTRAINT\s+)?TRIGGER\b", security_sql),
+        "pgtap_assertions": count(r"^SELECT extensions\.ok\(", test_sql),
     }
     for key, expected in {
         "tables": 67,
@@ -160,7 +160,7 @@ def main() -> int:
     # Ensure no transaction/business rows have been exported as part of the schema snapshot.
     for name in ("010_tables_and_sequences.sql", "020_constraints_and_indexes.sql"):
         text = read_text(BASELINE / name)
-        if count(r"^\\s*(?:INSERT INTO|COPY)\\b", text):
+        if count(r"^\s*(?:INSERT INTO|COPY)\b", text):
             fail(f"row-data statements are forbidden in schema-only artifact {name}")
     if "ALTER DEFAULT PRIVILEGES" not in overlay_sql:
         fail("target overlay is missing least-privilege default ACL hardening")
