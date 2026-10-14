@@ -75,3 +75,8 @@ This foundation does not mark any SaaS milestone or production release gate as c
 ## 8. OS choice and operations runbook
 
 Ubuntu is **the selected OS target, not an automatic consequence of choosing a package**. The VM provisioning workflow presents a `Choose OS` option; select Ubuntu Server 24.04 LTS (64-bit) when available. The executable operations checklist, host hardening, deployment sequence, validation gates, and rollback requirements are maintained in [DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md](DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md). Do not install or deploy the backend until the VM's actual image and resources are verified.
+
+
+## 9. Migration reconciliation result — 2026-10-14
+
+The follow-up read-only audit found **139 migration-history rows in staging and 12 in staging-clone**, while Git still contains only two SQL migration files and neither filename version matches a remote applied version exactly. The clone also differs structurally and has a wider anonymous-executable SECURITY DEFINER surface. See [DOC_16 — Supabase Migration and Schema Reconciliation Ledger](DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md) for the measured drift and blocked next steps. Do not run remote migration commands until the DOC_16 gates pass.

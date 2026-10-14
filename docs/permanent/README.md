@@ -71,3 +71,5 @@ Anonymous direct reads of Final Pos backing tables are not allowed. Anonymous ex
 ## Live Admin
 
 https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
+
+20. `DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md` — current staging/clone migration-history and schema fingerprint comparison; mandatory before remote migration work.

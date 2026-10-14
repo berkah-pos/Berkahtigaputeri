@@ -234,6 +234,11 @@ Do not mark this runbook complete based on static CI alone. The release checklis
 
 No production release is certified by this document.
 
+## 12. Live migration reconciliation update — 2026-10-14
+
+The current read-only ledger is in [DOC_16 — Supabase Migration and Schema Reconciliation Ledger](DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md). It records 139 migration-history rows on staging, 12 on staging-clone, zero exact version matches for the two checked-in migration filenames, schema fingerprint drift, and a clone SECURITY DEFINER execution-grant warning. The baseline is **BLOCKED**; do not run `supabase db push`, `supabase migration repair`, or `supabase db reset` on either existing project until missing SQL sources are recovered and clean-replay gates pass.
+
+
 ## Sources
 
 - [IDCloudHost Ubuntu provisioning guide](https://idcloudhost.com/panduan/cara-melakukan-building-instalasi-server-private-cloud-dengan-menggunakan-os-ubuntu/)

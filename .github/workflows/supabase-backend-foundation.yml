@@ -5,6 +5,9 @@ on:
     paths:
       - "supabase/**"
       - "scripts/check_supabase_backend_foundation.py"
+      - "docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md"
+      - "supabase/reconciliation/**"
+      - "scripts/check_supabase_migration_reconciliation.py"
       - "AGENTS.md"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
@@ -17,6 +20,9 @@ on:
     paths:
       - "supabase/**"
       - "scripts/check_supabase_backend_foundation.py"
+      - "docs/permanent/DOC_16_SUPABASE_MIGRATION_RECONCILIATION.md"
+      - "supabase/reconciliation/**"
+      - "scripts/check_supabase_migration_reconciliation.py"
       - "AGENTS.md"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - "docs/permanent/DOC_00_MASTER_ROADMAP.md"
@@ -44,6 +50,9 @@ jobs:
 
       - name: Validate local Supabase foundation
         run: python3 scripts/check_supabase_backend_foundation.py
+
+      - name: Validate recorded Supabase migration reconciliation
+        run: python3 scripts/check_supabase_migration_reconciliation.py
 
       - name: Check patch whitespace
         run: git diff --check
