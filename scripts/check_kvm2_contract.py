@@ -31,7 +31,7 @@ REQUIRED = [
     ("config/tenancy.php", "'template_tenant_connection' => 'tenant'"),
     ("routes/api.php", "'/effective-config'"),
     ("app/Services/EffectiveConfigResolver.php", "array_merge($global, $template, $tenantLayer, $serviceLayer, $deviceLayer)"),
-    ("docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md", "Status: CANONICAL"),
+    ("docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md", "**Status:** CANONICAL"),
 ]
 
 def main() -> int:
