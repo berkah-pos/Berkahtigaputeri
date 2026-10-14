@@ -41,8 +41,6 @@ class CentralApiClient {
     if (vault != null) {
       _cachedToken = await vault.read(key: _tokenKey);
       // Never fall back to a legacy plain-text preference in production mode.
-      _cachedToken = null;
-      await secureStorage?.delete(key: _tokenKey);
       await preferences.remove(_tokenKey);
     } else {
       _cachedToken = preferences.getString(_tokenKey);
@@ -101,6 +99,8 @@ class CentralApiClient {
             .timeout(const Duration(seconds: 10));
       }
     } finally {
+      _cachedToken = null;
+      await secureStorage?.delete(key: _tokenKey);
       await preferences.remove(_tokenKey);
     }
   }
