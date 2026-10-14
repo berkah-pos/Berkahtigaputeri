@@ -1,0 +1,64 @@
+name: Original Source SHA256 Comparison
+
+on:
+  push:
+    branches:
+      - "chore/consolidate-single-main-repo"
+    paths:
+      - "scripts/compare_repos_sha256.py"
+      - ".github/workflows/original-source-sha256-compare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: original-source-sha256-compare-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compare:
+    name: SHA-256 diff of the specified original source commits
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout consolidation branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Fetch exact base and fork snapshots read-only
+        shell: bash
+        run: |
+          set -euo pipefail
+          main_dir="$RUNNER_TEMP/original-main"
+          fork_dir="$RUNNER_TEMP/original-fork"
+
+          git clone --quiet https://github.com/berkah-pos/Berkahtigaputeri.git "$main_dir"
+          git -C "$main_dir" checkout --quiet --detach 98befcd5807585dd0c1b84085fc4a6e73fd90f2b
+          test "$(git -C "$main_dir" rev-parse HEAD)" = "98befcd5807585dd0c1b84085fc4a6e73fd90f2b"
+
+          git clone --quiet https://github.com/Andisatriawan/Berkahtigaputeri.git "$fork_dir"
+          git -C "$fork_dir" checkout --quiet --detach b02a47448eddfc2db6efb1c336b6cda0b4c85556
+          test "$(git -C "$fork_dir" rev-parse HEAD)" = "b02a47448eddfc2db6efb1c336b6cda0b4c85556"
+
+      - name: Compare file SHA-256 manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile scripts/compare_repos_sha256.py
+          python3 scripts/compare_repos_sha256.py \
+            --main-dir "$RUNNER_TEMP/original-main" \
+            --fork-dir "$RUNNER_TEMP/original-fork" \
+            --main-commit 98befcd5807585dd0c1b84085fc4a6e73fd90f2b \
+            --fork-commit b02a47448eddfc2db6efb1c336b6cda0b4c85556 \
+            --output-csv "$RUNNER_TEMP/diff_report.csv" \
+            --output-summary "$RUNNER_TEMP/diff_summary.json"
+
+      - name: Upload SHA-256 diff report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Berkahtigaputeri-original-source-SHA256-diff
+          path: |
+            ${{ runner.temp }}/diff_report.csv
+            ${{ runner.temp }}/diff_summary.json
+          if-no-files-found: error
+          retention-days: 30
