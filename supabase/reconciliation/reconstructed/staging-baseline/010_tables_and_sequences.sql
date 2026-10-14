@@ -3,6 +3,7 @@
 -- Captured for disposable clean-replay validation only. No production/customer row data included.
 -- This baseline is intentionally stored outside supabase/migrations/ and must never be pushed
 -- to either existing Supabase project as a substitute for missing migration history.
+CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE SCHEMA IF NOT EXISTS private;
 CREATE SCHEMA IF NOT EXISTS accounting_private;
 CREATE SCHEMA IF NOT EXISTS inventory_private;
