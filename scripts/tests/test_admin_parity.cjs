@@ -110,7 +110,7 @@ const window = {
   BTP_FIELDS: fields,
   BTP_AUTH: {async requireAdmin() {return {id: 'admin-user'};}, client() {return supabase;}},
 };
-const context = {window, document, location, URLSearchParams, Date, structuredClone, console};
+const context = {window, BTP_AUTH: window.BTP_AUTH, document, location, URLSearchParams, Date, structuredClone, console, process};
 vm.runInNewContext(editorSource, context, {filename: 'btp-admin/editor-core.js'});
 const editor = window.BTP_EDITOR;
 assert.ok(editor, 'Admin editor must expose its API');
