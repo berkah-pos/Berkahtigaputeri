@@ -19,9 +19,7 @@ begin
   insert into public.tax_document_events(tax_document_id,tenant_id,event_type,details,actor_user_id,device_id,reason)
   values(p_tax_document_id,v_doc.tenant_id,'INPUT_INVOICE_VALIDATED',jsonb_build_object('invoice_status',p_invoice_status,'creditable',p_creditable,'external_reference',p_external_reference),coalesce(v_actor,v_doc.actor_user_id),v_doc.device_id,btrim(p_reason));
 end;
-$function$
-
-
+$function$;
 -- public.set_updated_at()
 CREATE OR REPLACE FUNCTION public.set_updated_at()
  RETURNS trigger
@@ -32,9 +30,7 @@ begin
   new.updated_at = now();
   return new;
 end;
-$function$
-
-
+$function$;
 -- public.update_app_config_atomic(p_key text, p_new_value jsonb, p_expected_version integer)
 CREATE OR REPLACE FUNCTION public.update_app_config_atomic(p_key text, p_new_value jsonb, p_expected_version integer)
  RETURNS jsonb
@@ -136,5 +132,4 @@ begin
 exception when no_data_found then
   raise exception 'device projection missing' using errcode='23514';
 end;
-$function$
-
+$function$;

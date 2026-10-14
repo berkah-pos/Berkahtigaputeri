@@ -46,9 +46,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_vat_document_closed_period_insert()
 CREATE OR REPLACE FUNCTION private.guard_vat_document_closed_period_insert()
  RETURNS trigger
@@ -62,18 +60,14 @@ begin
     raise exception 'vat_period_already_settled_use_period_correction_workflow' using errcode='55000';
   end if;
   return new;
-end; $function$
-
-
+end; $function$;
 -- private.guard_vat_period_settlement_immutable()
 CREATE OR REPLACE FUNCTION private.guard_vat_period_settlement_immutable()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ begin raise exception 'VAT period settlement is immutable' using errcode='55000'; end; $function$
-
-
+AS $function$ begin raise exception 'VAT period settlement is immutable' using errcode='55000'; end; $function$;
 -- private.populate_tax_document_lines()
 CREATE OR REPLACE FUNCTION private.populate_tax_document_lines()
  RETURNS trigger
@@ -107,9 +101,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.pph21_article17_tax(p_taxable_income bigint)
 CREATE OR REPLACE FUNCTION private.pph21_article17_tax(p_taxable_income bigint)
  RETURNS bigint
@@ -132,9 +124,7 @@ begin
   v_tax:=v_tax+v_remaining::numeric*0.35;
   return round(v_tax)::bigint;
 end;
-$function$
-
-
+$function$;
 -- private.pph21_periodic_calc(p_category text, p_cash_compensation bigint, p_tax_method text, p_business_date date)
 CREATE OR REPLACE FUNCTION private.pph21_periodic_calc(p_category text, p_cash_compensation bigint, p_tax_method text, p_business_date date)
  RETURNS jsonb
@@ -183,9 +173,7 @@ begin
   end loop;
   raise exception 'pph21_gross_up_did_not_converge' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- private.pph21_ptkp_amount(p_marital_status text, p_dependents integer)
 CREATE OR REPLACE FUNCTION private.pph21_ptkp_amount(p_marital_status text, p_dependents integer)
  RETURNS bigint
@@ -202,9 +190,7 @@ begin
     + case when v_status='K' then 4500000 else 0 end
     + (p_dependents::bigint*4500000);
 end;
-$function$
-
-
+$function$;
 -- private.pph21_ptkp_status(p_marital_status text, p_dependents integer)
 CREATE OR REPLACE FUNCTION private.pph21_ptkp_status(p_marital_status text, p_dependents integer)
  RETURNS text
@@ -219,17 +205,13 @@ begin
   end if;
   return v_status||'/'||p_dependents::text;
 end;
-$function$
-
-
+$function$;
 -- private.reject_tax_evidence_mutation()
 CREATE OR REPLACE FUNCTION private.reject_tax_evidence_mutation()
  RETURNS trigger
  LANGUAGE plpgsql
  SET search_path TO ''
-AS $function$ begin raise exception 'immutable_tax_or_transaction_evidence' using errcode='55000'; end $function$
-
-
+AS $function$ begin raise exception 'immutable_tax_or_transaction_evidence' using errcode='55000'; end $function$;
 -- private.resolve_pph21_ter(p_category text, p_monthly_gross bigint, p_business_date date)
 CREATE OR REPLACE FUNCTION private.resolve_pph21_ter(p_category text, p_monthly_gross bigint, p_business_date date)
  RETURNS jsonb
@@ -256,9 +238,7 @@ begin
     'rate',v.rate,'effective_date',v.effective_date,'end_date',v.end_date,'legal_basis',v.legal_basis
   );
 end;
-$function$
-
-
+$function$;
 -- private.resolve_tax_rate_snapshot(p_tax_code text, p_object_code text, p_business_date date, p_category text)
 CREATE OR REPLACE FUNCTION private.resolve_tax_rate_snapshot(p_tax_code text, p_object_code text, p_business_date date, p_category text DEFAULT 'DEFAULT'::text)
  RETURNS jsonb
@@ -287,9 +267,7 @@ begin
     'metadata',v_row.metadata
   );
 end;
-$function$
-
-
+$function$;
 -- private.resolve_ter_category(p_marital_status text, p_dependents integer)
 CREATE OR REPLACE FUNCTION private.resolve_ter_category(p_marital_status text, p_dependents integer)
  RETURNS text
@@ -305,5 +283,4 @@ begin
   if v='K' and p_dependents=3 then return 'C'; end if;
   raise exception 'invalid_ptkp_status' using errcode='22023';
 end;
-$function$
-
+$function$;

@@ -7,18 +7,14 @@ CREATE OR REPLACE FUNCTION private.guard_corporate_tax_history_immutable()
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ begin raise exception 'corporate tax history is immutable; post a correction/version instead' using errcode='55000'; end; $function$
-
-
+AS $function$ begin raise exception 'corporate tax history is immutable; post a correction/version instead' using errcode='55000'; end; $function$;
 -- private.guard_customer_withholding_credit_immutable()
 CREATE OR REPLACE FUNCTION private.guard_customer_withholding_credit_immutable()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ begin raise exception 'customer withholding tax credit evidence is immutable' using errcode='55000'; end; $function$
-
-
+AS $function$ begin raise exception 'customer withholding tax credit evidence is immutable' using errcode='55000'; end; $function$;
 -- private.guard_domain_journal_reversal()
 CREATE OR REPLACE FUNCTION private.guard_domain_journal_reversal()
  RETURNS trigger
@@ -41,9 +37,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_employee_tax_profile()
 CREATE OR REPLACE FUNCTION private.guard_employee_tax_profile()
  RETURNS trigger
@@ -120,18 +114,14 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_owner_turnover_tax_period_immutable()
 CREATE OR REPLACE FUNCTION private.guard_owner_turnover_tax_period_immutable()
  RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
  SET search_path TO ''
-AS $function$ begin raise exception 'owner turnover tax period is immutable' using errcode='55000'; end; $function$
-
-
+AS $function$ begin raise exception 'owner turnover tax period is immutable' using errcode='55000'; end; $function$;
 -- private.guard_payroll_tax_evidence_immutable()
 CREATE OR REPLACE FUNCTION private.guard_payroll_tax_evidence_immutable()
  RETURNS trigger
@@ -142,9 +132,7 @@ AS $function$
 begin
   raise exception 'payroll tax evidence is immutable' using errcode='55000';
 end;
-$function$
-
-
+$function$;
 -- private.guard_pph25_authority_update()
 CREATE OR REPLACE FUNCTION private.guard_pph25_authority_update()
  RETURNS trigger
@@ -162,9 +150,7 @@ begin
   if old.superseded_from_month is not null and new.superseded_from_month is distinct from old.superseded_from_month then raise exception 'PPh25 authority supersession is immutable once set' using errcode='55000'; end if;
   if new.superseded_from_month is not null and (new.superseded_from_month<=old.effective_from_month or new.superseded_from_month>old.effective_to_month) then raise exception 'invalid PPh25 authority supersession month' using errcode='23514'; end if;
   return new;
-end; $function$
-
-
+end; $function$;
 -- private.guard_self_tax_party_period()
 CREATE OR REPLACE FUNCTION private.guard_self_tax_party_period()
  RETURNS trigger
@@ -185,9 +171,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_service_tax_profile()
 CREATE OR REPLACE FUNCTION private.guard_service_tax_profile()
  RETURNS trigger
@@ -230,9 +214,7 @@ begin
   if v_overlap then raise exception 'overlapping service tax profiles' using errcode='23514'; end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_tax_document_update()
 CREATE OR REPLACE FUNCTION private.guard_tax_document_update()
  RETURNS trigger
@@ -268,9 +250,7 @@ begin
   end if;
   new.updated_at:=now(); return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_tax_rate()
 CREATE OR REPLACE FUNCTION private.guard_tax_rate()
  RETURNS trigger
@@ -326,9 +306,7 @@ begin
   new.created_by := coalesce(new.created_by, auth.uid());
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.guard_tax_rate_bracket()
 CREATE OR REPLACE FUNCTION private.guard_tax_rate_bracket()
  RETURNS trigger
@@ -386,5 +364,4 @@ begin
   new.created_by := coalesce(new.created_by,auth.uid());
   return new;
 end;
-$function$
-
+$function$;

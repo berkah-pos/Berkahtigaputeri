@@ -90,9 +90,7 @@ begin
     'has_nitku',v_row.nitku is not null
   );
 end;
-$function$
-
-
+$function$;
 -- public.get_coretax_export_capability(p_tax_document_id uuid, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.get_coretax_export_capability(p_tax_document_id uuid, p_device_id text, p_app_version text)
  RETURNS jsonb
@@ -175,9 +173,7 @@ EXCEPTION
   WHEN no_data_found THEN
     RAISE EXCEPTION 'tax_document_not_found' USING errcode = 'P0002';
 END;
-$function$
-
-
+$function$;
 -- public.get_coretax_status(p_tax_document_id uuid)
 CREATE OR REPLACE FUNCTION public.get_coretax_status(p_tax_document_id uuid)
  RETURNS jsonb
@@ -193,9 +189,7 @@ begin
   select coalesce(jsonb_agg(to_jsonb(p) order by p.created_at desc),'[]'::jsonb) into v_pay from public.tax_payment_refs p where p.tax_document_id=p_tax_document_id;
   return jsonb_build_object('document_status',v_doc.status,'invoice_status',v_doc.invoice_status,'coretax_reference',v_doc.coretax_reference,'sealed_hash',v_doc.sealed_hash,'outbox',v_out,'payments',v_pay);
 end;
-$function$
-
-
+$function$;
 -- public.get_effective_config(p_tenant text, p_device text, p_service text)
 CREATE OR REPLACE FUNCTION public.get_effective_config(p_tenant text, p_device text, p_service text)
  RETURNS jsonb
@@ -272,9 +266,7 @@ exception
   when no_data_found then
     raise exception 'missing canonical five-layer app_config row' using errcode = '23514';
 end;
-$function$
-
-
+$function$;
 -- public.get_runtime_tax_snapshot(p_business_date date)
 CREATE OR REPLACE FUNCTION public.get_runtime_tax_snapshot(p_business_date date)
  RETURNS jsonb
@@ -319,9 +311,7 @@ begin
   end if;
   return jsonb_build_object('business_date',p_business_date,'tax_rates',v_rules,'pph21_ter_categories',v_ter,'authority','public.tax_rates + public.tax_rate_brackets');
 end;
-$function$
-
-
+$function$;
 -- public.install_coretax_template(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text)
 CREATE OR REPLACE FUNCTION public.install_coretax_template(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text)
  RETURNS uuid
@@ -333,9 +323,7 @@ begin
   raise exception 'legacy_coretax_template_installer_disabled_use_audited_overload'
     using errcode='42501';
 end;
-$function$
-
-
+$function$;
 -- public.install_coretax_template(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.install_coretax_template(p_template_code text, p_template_version text, p_official_source_url text, p_official_last_update date, p_xml_template text, p_generator_spec jsonb, p_expected_sha256 text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -369,9 +357,7 @@ begin
   values('GLOBAL',v_actor,btrim(p_device_id),'coretax_template:install:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.log_config_change()
 CREATE OR REPLACE FUNCTION public.log_config_change()
  RETURNS trigger
@@ -389,9 +375,7 @@ begin
   );
   return new;
 end;
-$function$
-
-
+$function$;
 -- public.mark_coretax_submitted(p_outbox_id uuid, p_coretax_reference text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.mark_coretax_submitted(p_outbox_id uuid, p_coretax_reference text, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -421,9 +405,7 @@ begin
   insert into public.tax_document_events(tax_document_id,tenant_id,event_type,details,actor_user_id,device_id,reason)
   values(v_doc.tax_document_id,v_doc.tenant_id,'SUBMITTED',jsonb_build_object('outbox_id',p_outbox_id,'coretax_reference',btrim(p_coretax_reference)),v_actor,btrim(p_device_id),btrim(p_reason));
 end;
-$function$
-
-
+$function$;
 -- public.post_pos_accounting_event(p_pos_tenant_id text, p_event_id text, p_fingerprint text, p_event_type text, p_entity_type text, p_entity_id text, p_details jsonb, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.post_pos_accounting_event(p_pos_tenant_id text, p_event_id text, p_fingerprint text, p_event_type text, p_entity_type text, p_entity_id text, p_details jsonb, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -445,9 +427,7 @@ begin
   insert into public.accounting_events(tenant_id,event_type,event_key,entity_type,entity_id,actor_user_id,actor_subject,device_id,app_version,details)
   values(v_tenant,p_event_type,v_key,p_entity_type,p_entity_id,v_actor,v_actor::text,p_device_id,p_app_version,coalesce(p_details,'{}'::jsonb)||jsonb_build_object('fingerprint',p_fingerprint,'pos_tenant_id',p_pos_tenant_id)) returning event_id into v_id;
   return v_id;
-end $function$
-
-
+end $function$;
 -- public.post_pos_accounting_journal(p_pos_tenant_id text, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.post_pos_accounting_journal(p_pos_tenant_id text, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -459,9 +439,7 @@ declare v_tenant uuid;
 begin
   v_tenant:=accounting_private.resolve_pos_accounting_tenant(p_pos_tenant_id,p_device_id);
   return accounting_private.post_journal(v_tenant,p_idempotency_key,p_transaction_ref,p_journal_date,p_description,p_source_type,p_lines,p_device_id,p_app_version);
-end $function$
-
-
+end $function$;
 -- public.post_pos_accounting_journal(p_pos_tenant_id text, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text, p_client_actor_id text, p_reason text)
 CREATE OR REPLACE FUNCTION public.post_pos_accounting_journal(p_pos_tenant_id text, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text, p_client_actor_id text, p_reason text)
  RETURNS uuid
@@ -553,5 +531,4 @@ begin
 
   return v_journal_id;
 end;
-$function$
-
+$function$;

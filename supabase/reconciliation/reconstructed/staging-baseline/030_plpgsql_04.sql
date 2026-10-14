@@ -69,9 +69,7 @@ begin
     'liability',v_liability
   );
 end;
-$function$
-
-
+$function$;
 -- private.build_salary_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_salary_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -122,9 +120,7 @@ begin
 exception when no_data_found then
   raise exception 'salary_payable_not_found' using errcode='P0002';
 end;
-$function$
-
-
+$function$;
 -- private.build_sale_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_payment_account text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_sale_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_payment_account text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -261,9 +257,7 @@ begin
     'dpp',v_stock_dpp+v_service_dpp,'taxable_dpp',v_taxable_dpp,'vat_amount',v_total_vat,'gross_amount',v_total_gross,'taxable_gross',v_taxable_gross);
 exception when no_data_found then raise exception 'sale_tax_master_dependency_missing' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- private.build_sale_return_lines(p_tenant_id uuid, p_return_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_sale_return_lines(p_tenant_id uuid, p_return_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -324,9 +318,7 @@ begin
   end if;
   return jsonb_build_object('journal_lines',v_journal,'return_lines',v_return_evidence,'original_transaction_ref',v_original_ref,'dpp',v_total_dpp,'vat_amount',v_total_vat,'gross_amount',v_total_dpp+v_total_vat,'cogs_restored',v_total_cogs,'tax_snapshot',v_first_tax);
 end;
-$function$
-
-
+$function$;
 -- private.build_stock_opname_lines(p_tenant_id uuid, p_transaction_ref text, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_stock_opname_lines(p_tenant_id uuid, p_transaction_ref text, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -363,9 +355,7 @@ begin
   if jsonb_array_length(v_journal)<2 then raise exception 'stock_opname_has_no_adjustment' using errcode='22023'; end if;
   return jsonb_build_object('journal_lines',v_journal,'shortage_value',v_short,'overage_value',v_over,'evidence_count',v_evidence_count);
 end;
-$function$
-
-
+$function$;
 -- private.build_supplier_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_supplier_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -510,9 +500,7 @@ begin
 exception when no_data_found then
   raise exception 'supplier_payment_source_dependency_missing' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- private.build_tax_remittance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_tax_remittance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -545,9 +533,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code',v_payment_account,'debit',0,'credit',v_ref.amount,'memo','Pembayaran pajak via e-Billing'));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot',jsonb_build_object('tax_code',v_ref.tax_code,'tax_period_start',v_ref.tax_period_start,'tax_period_end',v_ref.tax_period_end,'billing_code',v_ref.billing_code,'obligation_snapshot',v_ref.obligation_snapshot),'payment_ref_id',v_ref_id,'tax_code',v_ref.tax_code,'amount',v_ref.amount,'payment_reference',v_payment_reference,'settlement_account',v_account);
 exception when no_data_found then raise exception 'tax_payment_reference_not_found' using errcode='P0002';
-end; $function$
-
-
+end; $function$;
 -- private.build_vendor_expense_accrual_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_vendor_expense_accrual_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -679,9 +665,7 @@ begin
 exception when no_data_found then
   raise exception 'vendor_expense_tax_master_dependency_missing' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- private.can_export_coretax(p_tenant_id uuid, p_tax_document_id uuid)
 CREATE OR REPLACE FUNCTION private.can_export_coretax(p_tenant_id uuid, p_tax_document_id uuid)
  RETURNS boolean
@@ -759,9 +743,7 @@ BEGIN
       AND coalesce(t.generator_spec ->> 'status', '') <> 'SOURCE_REGISTERED_NOT_PARSED'
   );
 END;
-$function$
-
-
+$function$;
 -- private.can_read_client_status(p_device_id text)
 CREATE OR REPLACE FUNCTION private.can_read_client_status(p_device_id text)
  RETURNS boolean
@@ -808,9 +790,7 @@ begin
       )
   );
 end;
-$function$
-
-
+$function$;
 -- private.can_read_final_pos_config(config_key text)
 CREATE OR REPLACE FUNCTION private.can_read_final_pos_config(config_key text)
  RETURNS boolean
@@ -826,9 +806,7 @@ begin
   end if;
   return private.can_read_final_pos_config_strict(config_key);
 end;
-$function$
-
-
+$function$;
 -- private.can_write_app_config(p_key text)
 CREATE OR REPLACE FUNCTION private.can_write_app_config(p_key text)
  RETURNS boolean
@@ -861,5 +839,4 @@ begin
   end if;
   return false;
 end;
-$function$
-
+$function$;

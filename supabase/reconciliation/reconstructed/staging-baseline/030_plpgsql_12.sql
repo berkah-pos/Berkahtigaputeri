@@ -36,9 +36,7 @@ begin
   );
 exception when no_data_found then raise exception 'coretax_export_dependency_missing' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- public.reconcile_subscription_expiry()
 CREATE OR REPLACE FUNCTION public.reconcile_subscription_expiry()
  RETURNS jsonb
@@ -58,9 +56,7 @@ begin
   );
   get diagnostics v_expired = row_count;
   return jsonb_build_object('past_due',v_past_due,'expired',v_expired);
-end $function$
-
-
+end $function$;
 -- public.record_coretax_result(p_outbox_id uuid, p_result text, p_reference text, p_details jsonb, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.record_coretax_result(p_outbox_id uuid, p_result text, p_reference text, p_details jsonb, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -86,9 +82,7 @@ begin
   insert into public.tax_document_events(tax_document_id,tenant_id,event_type,details,actor_user_id,device_id,reason)
   values(v_doc.tax_document_id,v_doc.tenant_id,'CORETAX_'||v_result,p_details||jsonb_build_object('outbox_id',p_outbox_id,'reference',p_reference),v_actor,btrim(p_device_id),btrim(p_reason));
 end;
-$function$
-
-
+$function$;
 -- public.record_corporate_fiscal_adjustment(p_tenant_id uuid, p_tax_year integer, p_adjustment_ref text, p_direction text, p_category text, p_amount bigint, p_legal_basis text, p_evidence jsonb, p_reverses_adjustment_id uuid, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.record_corporate_fiscal_adjustment(p_tenant_id uuid, p_tax_year integer, p_adjustment_ref text, p_direction text, p_category text, p_amount bigint, p_legal_basis text, p_evidence jsonb, p_reverses_adjustment_id uuid, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -112,9 +106,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'corporate_fiscal_adjustment:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 exception when no_data_found then raise exception 'fiscal_adjustment_reversal_source_not_found' using errcode='P0002';
-end; $function$
-
-
+end; $function$;
 -- public.register_input_tax_invoice(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.register_input_tax_invoice(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -125,9 +117,7 @@ AS $function$
 begin
   raise exception 'input_tax_invoice_number_required_use_numbered_api' using errcode='55000';
 end;
-$function$
-
-
+$function$;
 -- public.register_input_tax_invoice(p_tenant_id uuid, p_transaction_ref text, p_document_number text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.register_input_tax_invoice(p_tenant_id uuid, p_transaction_ref text, p_document_number text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_object_code text, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -171,9 +161,7 @@ begin
 exception when unique_violation then
   raise exception 'duplicate_input_tax_invoice_number_or_transaction_ref' using errcode='23505';
 end;
-$function$
-
-
+$function$;
 -- public.register_tax_payment_reference(p_tenant_id uuid, p_tax_document_id uuid, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.register_tax_payment_reference(p_tenant_id uuid, p_tax_document_id uuid, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -191,9 +179,7 @@ begin
   values(p_tenant_id,p_tax_document_id,btrim(p_billing_code),p_amount,'CREATED',v_actor,btrim(p_device_id),btrim(p_reason)) returning payment_ref_id into v_id;
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.register_tax_payment_reference_v2(p_tenant_id uuid, p_tax_code text, p_tax_period_start date, p_tax_period_end date, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.register_tax_payment_reference_v2(p_tenant_id uuid, p_tax_code text, p_tax_period_start date, p_tax_period_end date, p_billing_code text, p_amount bigint, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -239,9 +225,7 @@ begin
   ) returning payment_ref_id into v_id;
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.resolve_accounting_tenant(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.resolve_accounting_tenant(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -287,9 +271,7 @@ begin
 exception when no_data_found then
   raise exception 'tenant_accounting_link_dependency_missing' using errcode='23514';
 end;
-$function$
-
-
+$function$;
 -- public.rpc_get_my_pos_role(p_tenant_id text)
 CREATE OR REPLACE FUNCTION public.rpc_get_my_pos_role(p_tenant_id text)
  RETURNS text
@@ -331,9 +313,7 @@ begin
 
   return v_role;
 end;
-$function$
-
-
+$function$;
 -- public.rpc_verify_manager_pin(p_tenant_id text, p_pin text, p_required_action text, p_device_id text)
 CREATE OR REPLACE FUNCTION public.rpc_verify_manager_pin(p_tenant_id text, p_pin text, p_required_action text, p_device_id text)
  RETURNS jsonb
@@ -464,9 +444,7 @@ begin
     'locked_until', v_locked_until
   );
 end;
-$function$
-
-
+$function$;
 -- public.save_coretax_export_internal(p_tax_document_id uuid, p_template_id uuid, p_xml_payload text, p_actor_user_id uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION public.save_coretax_export_internal(p_tax_document_id uuid, p_template_id uuid, p_xml_payload text, p_actor_user_id uuid, p_device_id text, p_reason text)
  RETURNS uuid
@@ -594,5 +572,4 @@ begin
 exception when no_data_found then
   raise exception 'coretax_export_dependency_missing' using errcode='23514';
 end;
-$function$
-
+$function$;

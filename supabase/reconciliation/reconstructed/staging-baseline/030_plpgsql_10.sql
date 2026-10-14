@@ -47,9 +47,7 @@ begin
     p_reason
   );
 end;
-$function$
-
-
+$function$;
 -- public.create_service_tax_profile(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_service_tax_profile(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -73,9 +71,7 @@ begin
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'service_tax_profile:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.create_service_tax_profile_v2(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_service_tax_profile_v2(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -96,9 +92,7 @@ begin
   values(p_tenant_id,upper(btrim(p_service_code)),btrim(p_name_id),p_unit_price,coalesce(p_vat_exempt,false),p_vat_object_code,v_pph,p_valid_from,p_valid_to,btrim(p_legal_basis),v_actor,btrim(p_device_id),btrim(p_reason)) returning service_profile_id into v_id;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'service_tax_profile_v2:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
-end; $function$
-
-
+end; $function$;
 -- public.create_service_tax_profile_v3(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_umkm_final_eligible boolean, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_service_tax_profile_v3(p_tenant_id uuid, p_service_code text, p_name_id text, p_unit_price bigint, p_vat_exempt boolean, p_vat_object_code text, p_pph23_object_code text, p_umkm_final_eligible boolean, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -119,9 +113,7 @@ begin
   values(p_tenant_id,upper(btrim(p_service_code)),btrim(p_name_id),p_unit_price,coalesce(p_vat_exempt,false),p_vat_object_code,v_pph,coalesce(p_umkm_final_eligible,false),p_valid_from,p_valid_to,btrim(p_legal_basis),v_actor,btrim(p_device_id),btrim(p_reason)) returning service_profile_id into v_id;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'service_tax_profile_v3:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
-end; $function$
-
-
+end; $function$;
 -- public.create_tax_party_evidence(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_tax_party_evidence(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -149,9 +141,7 @@ begin
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'tax_party_evidence',btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.create_tax_party_evidence_v2(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_is_withholding_agent boolean, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_tax_party_evidence_v2(p_tenant_id uuid, p_party_kind text, p_display_name text, p_npwp text, p_nik text, p_nitku text, p_is_pkp boolean, p_tax_regime text, p_legal_basis text, p_taxpayer_type text, p_valid_from date, p_valid_to date, p_certificate_status text, p_turnover_eligibility boolean, p_tax_object text, p_is_withholding_agent boolean, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -172,9 +162,7 @@ begin
   values(p_tenant_id,p_party_kind,btrim(p_display_name),nullif(btrim(coalesce(p_npwp,'')),''),nullif(btrim(coalesce(p_nik,'')),''),nullif(btrim(coalesce(p_nitku,'')),''),coalesce(p_is_pkp,false),upper(btrim(p_tax_regime)),btrim(p_legal_basis),upper(btrim(p_taxpayer_type)),p_valid_from,p_valid_to,upper(btrim(p_certificate_status)),p_turnover_eligibility,nullif(upper(btrim(coalesce(p_tax_object,''))),''),coalesce(p_is_withholding_agent,false),p_metadata,v_actor,btrim(p_device_id),btrim(p_reason)) returning party_id into v_id;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'tax_party_evidence_v2',btrim(p_reason),'success');
   return v_id;
-end; $function$
-
-
+end; $function$;
 -- public.create_tax_rate_bracket_version(p_category text, p_lower_bound bigint, p_upper_bound bigint, p_rate numeric, p_effective_date date, p_end_date date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_tax_rate_bracket_version(p_category text, p_lower_bound bigint, p_upper_bound bigint, p_rate numeric, p_effective_date date, p_end_date date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -194,9 +182,7 @@ begin
   values('GLOBAL',v_actor,btrim(p_device_id),'tax_rate_bracket:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.create_tax_rate_version(p_tax_code text, p_object_code text, p_category text, p_statutory_rate numeric, p_dpp_multiplier numeric, p_calculation_method text, p_effective_date date, p_end_date date, p_legal_basis text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_tax_rate_version(p_tax_code text, p_object_code text, p_category text, p_statutory_rate numeric, p_dpp_multiplier numeric, p_calculation_method text, p_effective_date date, p_end_date date, p_legal_basis text, p_metadata jsonb, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -219,9 +205,7 @@ begin
   values('GLOBAL',v_actor,btrim(p_device_id),'tax_rate:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- public.create_tenant_accounting_link(p_config_tenant_id text, p_accounting_tenant_id uuid, p_valid_from date, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_tenant_accounting_link(p_config_tenant_id text, p_accounting_tenant_id uuid, p_valid_from date, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -258,9 +242,7 @@ begin
   values(p_accounting_tenant_id::text,v_actor,btrim(p_device_id),'tenant_accounting_link:create:'||v_link::text,btrim(p_reason),'success');
   return v_link;
 end;
-$function$
-
-
+$function$;
 -- public.get_accounting_hard_gate(p_tenant_id uuid)
 CREATE OR REPLACE FUNCTION public.get_accounting_hard_gate(p_tenant_id uuid)
  RETURNS jsonb
@@ -273,9 +255,7 @@ begin
   if v_role<>'service_role' then perform accounting_private.require_member_role(p_tenant_id,v_actor,array['owner','admin','accountant']); end if;
   return private.compute_accounting_hard_gate(p_tenant_id);
 end;
-$function$
-
-
+$function$;
 -- public.get_compliance_readiness(p_tenant_id uuid, p_business_date date, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.get_compliance_readiness(p_tenant_id uuid, p_business_date date, p_device_id text, p_app_version text)
  RETURNS jsonb
@@ -417,9 +397,7 @@ begin
     'blockers',v_blockers
   );
 end;
-$function$
-
-
+$function$;
 -- public.get_config_tenant_compliance_readiness(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.get_config_tenant_compliance_readiness(p_config_tenant_id text, p_business_date date, p_device_id text, p_app_version text)
  RETURNS jsonb
@@ -456,5 +434,4 @@ begin
     'config_tenant_id', btrim(p_config_tenant_id)
   ) || v_readiness;
 end;
-$function$
-
+$function$;

@@ -17,9 +17,7 @@ begin
   from public.accounting_journal_lines where tenant_id=p_tenant_id and account_code=p_account_code;
   if v_balance<p_amount then raise exception 'insufficient_liquid_funds' using errcode='23514'; end if;
 end;
-$function$
-
-
+$function$;
 -- private.build_bad_debt_allowance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_bad_debt_allowance_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -55,9 +53,7 @@ begin
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot','{}'::jsonb,'source_sale_ref',v_source,'customer_ref',v_rec.customer_ref,'previous_allowance',v_current,'target_allowance',v_target,'delta',v_delta);
 exception when no_data_found then raise exception 'customer_receivable_not_found' using errcode='P0002';
 end;
-$function$
-
-
+$function$;
 -- private.build_customer_receipt_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_customer_receipt_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -87,9 +83,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code','1-1050','debit',0,'credit',v_amount,'memo','Pengurangan piutang pelanggan'));
   return jsonb_build_object('journal_lines',v_journal,'source_sale_ref',v_source,'customer_id',v_customer,'gross_receipt',v_amount);
 end;
-$function$
-
-
+$function$;
 -- private.build_customer_withholding_receipt_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_customer_withholding_receipt_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -134,9 +128,7 @@ begin
     'withholding_base',v_rec.withholding_base_remaining,'withholding_amount',v_tax,'cash_received',v_cash,'gross_receipt',v_rec.remaining_amount
   );
 exception when no_data_found then raise exception 'customer_withholding_source_dependency_missing' using errcode='23514';
-end; $function$
-
-
+end; $function$;
 -- private.build_depreciation_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_depreciation_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -176,9 +168,7 @@ begin
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot','{}'::jsonb,'asset_id',v_asset,'sequence_no',v_seq,'depreciation_month',v_month,'amount',v_amount,'accumulated_after',v_target);
 exception when no_data_found then raise exception 'fixed_asset_not_found' using errcode='P0002';
 end;
-$function$
-
-
+$function$;
 -- private.build_extended_withholding_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_extended_withholding_payment_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -207,9 +197,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code','2-2050','debit',0,'credit',v_tax,'memo','PPh23 dipotong 15%'));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot',v_rule,'vendor_party_id',v_l.counterparty_party_id,'tax_code','PPH23','tax_object',v_l.tax_object_code,'withholding_base',v_l.withholding_base_remaining,'withholding_amount',v_tax,'gross_liability',v_l.remaining_amount,'cash_paid',v_cash,'source_ref',v_source);
 exception when no_data_found then raise exception 'extended_withholding_liability_not_found' using errcode='P0002';
-end; $function$
-
-
+end; $function$;
 -- private.build_extended_withholding_source_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_extended_withholding_source_lines(p_tenant_id uuid, p_transaction_ref text, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -242,9 +230,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code',v_liability_account,'debit',0,'credit',v_amount,'memo','Kewajiban '||lower(v_object)));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot',jsonb_build_object('source_tax_object',v_object,'withholding_base',v_amount,'counterparty_party_id',v_party_id),'counterparty_party_id',v_party_id,'counterparty_ref',v_ref,'tax_object',v_object,'gross_amount',v_amount,'withholding_base',v_amount,'liability_account',v_liability_account);
 exception when no_data_found then raise exception 'extended_withholding_counterparty_evidence_missing' using errcode='23514';
-end; $function$
-
-
+end; $function$;
 -- private.build_fixed_asset_acquisition_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_fixed_asset_acquisition_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -284,9 +270,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code',v_payment_account,'debit',0,'credit',v_cost,'memo','Pembelian peralatan'));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot','{}'::jsonb,'asset_ref',v_ref,'asset_name',v_name,'cost',v_cost,'residual_value',v_residual,'useful_life_months',v_life,'depreciation_start_date',v_start);
 end;
-$function$
-
-
+$function$;
 -- private.build_owner_capital_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_owner_capital_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -304,9 +288,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code','3-3010','debit',0,'credit',v_amount,'memo','Modal pemilik'));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot','{}'::jsonb,'amount',v_amount);
 end;
-$function$
-
-
+$function$;
 -- private.build_owner_draw_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_owner_draw_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -325,9 +307,7 @@ begin
   v_journal:=v_journal||jsonb_build_array(jsonb_build_object('account_code',v_payment,'debit',0,'credit',v_amount,'memo','Pengambilan pemilik'));
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot','{}'::jsonb,'amount',v_amount);
 end;
-$function$
-
-
+$function$;
 -- private.build_owner_turnover_tax_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
 CREATE OR REPLACE FUNCTION private.build_owner_turnover_tax_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb)
  RETURNS jsonb
@@ -378,9 +358,7 @@ begin
     'exempt_turnover_month',v_exempt,'taxable_turnover_month',v_taxable,'tax_amount',v_tax
   );
 exception when no_data_found then raise exception 'owner_umkm_final_tax_dependency_missing' using errcode='23514';
-end; $function$
-
-
+end; $function$;
 -- private.build_payroll_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.build_payroll_lines(p_tenant_id uuid, p_business_date date, p_facts jsonb, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -606,5 +584,4 @@ begin
 
   return jsonb_build_object('journal_lines',v_journal,'tax_snapshot',v_snapshot);
 end;
-$function$
-
+$function$;

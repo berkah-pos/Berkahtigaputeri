@@ -135,9 +135,7 @@ begin
 
   return v_reversal_id;
 end;
-$function$
-
-
+$function$;
 -- inventory_private.average_adjust_to_count(p_tenant_id uuid, p_product_id uuid, p_counted_qty bigint, p_zero_stock_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION inventory_private.average_adjust_to_count(p_tenant_id uuid, p_product_id uuid, p_counted_qty bigint, p_zero_stock_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS jsonb
@@ -188,9 +186,7 @@ begin
   values(p_tenant_id,btrim(p_event_id),p_product_id,'adjustment',v_delta,v_value_delta,btrim(p_business_ref),p_actor,btrim(p_device_id),btrim(p_reason));
   return jsonb_build_object('quantity_delta',v_delta,'value_delta',v_value_delta);
 end;
-$function$
-
-
+$function$;
 -- inventory_private.average_consume(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION inventory_private.average_consume(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS bigint
@@ -245,9 +241,7 @@ begin
   values(p_tenant_id,btrim(p_event_id),p_product_id,'sale',-p_qty,-v_cogs,btrim(p_business_ref),p_actor,btrim(p_device_id),btrim(p_reason));
   return v_cogs;
 end;
-$function$
-
-
+$function$;
 -- inventory_private.average_receive(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION inventory_private.average_receive(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_unit_cost bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS bigint
@@ -280,9 +274,7 @@ begin
   values(p_tenant_id,btrim(p_event_id),p_product_id,'receipt',p_qty,v_add::bigint,btrim(p_business_ref),p_actor,btrim(p_device_id),btrim(p_reason));
   return v_add::bigint;
 end;
-$function$
-
-
+$function$;
 -- inventory_private.average_receive_value(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_total_value bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION inventory_private.average_receive_value(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_total_value bigint, p_event_id text, p_business_ref text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS bigint
@@ -311,9 +303,7 @@ begin
   values(p_tenant_id,btrim(p_event_id),p_product_id,'receipt',p_qty,p_total_value,btrim(p_business_ref),p_actor,btrim(p_device_id),btrim(p_reason));
   return p_total_value;
 end;
-$function$
-
-
+$function$;
 -- inventory_private.average_restore_original(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_original_value bigint, p_event_id text, p_business_ref text, p_original_business_ref text, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION inventory_private.average_restore_original(p_tenant_id uuid, p_product_id uuid, p_qty bigint, p_original_value bigint, p_event_id text, p_business_ref text, p_original_business_ref text, p_actor uuid, p_device_id text, p_reason text)
  RETURNS bigint
@@ -360,9 +350,7 @@ begin
   values(p_tenant_id,btrim(p_event_id),p_product_id,'return',p_qty,p_original_value,btrim(p_business_ref),btrim(p_original_business_ref),p_actor,btrim(p_device_id),btrim(p_reason));
   return p_original_value;
 end;
-$function$
-
-
+$function$;
 -- inventory_private.ingest_inventory_component_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION inventory_private.ingest_inventory_component_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
  RETURNS bigint
@@ -472,9 +460,7 @@ begin
     end if;
   end if;
   return v_sequence;
-end; $function$
-
-
+end; $function$;
 -- inventory_private.ingest_inventory_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION inventory_private.ingest_inventory_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
  RETURNS bigint
@@ -568,9 +554,7 @@ begin
     values(p_tenant_id,btrim(p_cost_layer_id),btrim(p_lot_id),p_product_id,p_quantity_delta,p_unit_cost,1,v_sequence);
   end if;
   return v_sequence;
-end; $function$
-
-
+end; $function$;
 -- inventory_private.reject_event_mutation()
 CREATE OR REPLACE FUNCTION inventory_private.reject_event_mutation()
  RETURNS trigger
@@ -579,9 +563,7 @@ CREATE OR REPLACE FUNCTION inventory_private.reject_event_mutation()
 AS $function$
 begin
   raise exception using errcode='55000', message='immutable_inventory_event';
-end; $function$
-
-
+end; $function$;
 -- private.assert_accounting_hard_gate(p_tenant_id uuid)
 CREATE OR REPLACE FUNCTION private.assert_accounting_hard_gate(p_tenant_id uuid)
  RETURNS void
@@ -596,9 +578,7 @@ begin
     raise exception 'accounting_tax_hard_gate_failed: %',v using errcode='23514';
   end if;
 end;
-$function$
-
-
+$function$;
 -- private.assert_app_config_inventory()
 CREATE OR REPLACE FUNCTION private.assert_app_config_inventory()
  RETURNS void
@@ -619,9 +599,7 @@ begin
       using errcode = '23514';
   end if;
 end;
-$function$
-
-
+$function$;
 -- private.assert_no_accounting_fields(p_value jsonb)
 CREATE OR REPLACE FUNCTION private.assert_no_accounting_fields(p_value jsonb)
  RETURNS void
@@ -665,5 +643,4 @@ begin
     raise exception 'facts_must_be_object' using errcode='22023';
   end if;
 end;
-$function$
-
+$function$;

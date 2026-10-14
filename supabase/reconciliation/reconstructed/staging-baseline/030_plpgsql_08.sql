@@ -18,9 +18,7 @@ begin
     else raise exception 'invalid_vat_facility_context' using errcode='22023';
   end case;
 end;
-$function$
-
-
+$function$;
 -- private.seal_tax_document()
 CREATE OR REPLACE FUNCTION private.seal_tax_document()
  RETURNS trigger
@@ -38,9 +36,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.tax_period_obligation(p_tenant_id uuid, p_tax_code text, p_period_start date, p_period_end date)
 CREATE OR REPLACE FUNCTION private.tax_period_obligation(p_tenant_id uuid, p_tax_code text, p_period_start date, p_period_end date)
  RETURNS bigint
@@ -77,9 +73,7 @@ begin
     if v_amount is null then raise exception 'corporate_annual_tax_must_be_closed_before_PPh29_billing' using errcode='23514'; end if;
   else raise exception 'unsupported_tax_remittance_code' using errcode='22023'; end if;
   return coalesce(v_amount,0);
-end; $function$
-
-
+end; $function$;
 -- private.verify_manager_pin_internal(p_device_id text, p_outlet_id text, p_pin text, p_required_action text)
 CREATE OR REPLACE FUNCTION private.verify_manager_pin_internal(p_device_id text, p_outlet_id text, p_pin text, p_required_action text)
  RETURNS jsonb
@@ -146,9 +140,7 @@ begin
 
   return jsonb_build_object('ok',v_ok,'role',v_role,'isActive',true,'attempts',case when v_ok then 0 else v_attempts end,'lockedUntil',case when v_ok then null else v_locked end);
 end;
-$function$
-
-
+$function$;
 -- public.activate_pph25_authority(p_tenant_id uuid, p_source_annual_period_id uuid, p_effective_from_month date, p_source_reference text, p_source_filed_date date, p_supersedes_authority_id uuid, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.activate_pph25_authority(p_tenant_id uuid, p_source_annual_period_id uuid, p_effective_from_month date, p_source_reference text, p_source_filed_date date, p_supersedes_authority_id uuid, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -183,9 +175,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'pph25_authority:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 exception when no_data_found then raise exception 'PPh25 authority dependency missing' using errcode='P0002';
-end; $function$
-
-
+end; $function$;
 -- public.apply_midtrans_payment(p_sub_id uuid, p_status text, p_transaction_id text, p_amount numeric, p_order_id text, p_checked_at timestamp with time zone)
 CREATE OR REPLACE FUNCTION public.apply_midtrans_payment(p_sub_id uuid, p_status text, p_transaction_id text, p_amount numeric, p_order_id text, p_checked_at timestamp with time zone)
  RETURNS text
@@ -302,9 +292,7 @@ begin
 
   return case when p_status = 'cancelled' then 'expired' else p_status end;
 end
-$function$
-
-
+$function$;
 -- public.apply_play_subscription(p_user_id uuid, p_token text, p_plan_id text, p_state jsonb, p_checked_at timestamp with time zone, p_linked_token text)
 CREATE OR REPLACE FUNCTION public.apply_play_subscription(p_user_id uuid, p_token text, p_plan_id text, p_state jsonb, p_checked_at timestamp with time zone, p_linked_token text DEFAULT NULL::text)
  RETURNS uuid
@@ -348,9 +336,7 @@ begin
     where play_purchase_token = p_linked_token and user_id = p_user_id and sub_id <> result_id;
   end if;
   return result_id;
-end $function$
-
-
+end $function$;
 -- public.assert_config_contract()
 CREATE OR REPLACE FUNCTION public.assert_config_contract()
  RETURNS jsonb
@@ -367,9 +353,7 @@ begin
   end if;
   return jsonb_build_object('count',v_count,'keyset_md5',v_digest,'expected_count',352,'expected_keyset_md5','1fd3d64219ecc7c333453c20da80e295');
 end;
-$function$
-
-
+$function$;
 -- public.assert_financial_report_ready(p_tenant_id uuid)
 CREATE OR REPLACE FUNCTION public.assert_financial_report_ready(p_tenant_id uuid)
  RETURNS jsonb
@@ -386,9 +370,7 @@ begin
   end if;
   return v_gate;
 end;
-$function$
-
-
+$function$;
 -- public.bind_license_device(p_user_id uuid, p_device_id text, p_platform text, p_app_version text, p_plan_id text)
 CREATE OR REPLACE FUNCTION public.bind_license_device(p_user_id uuid, p_device_id text, p_platform text, p_app_version text, p_plan_id text)
  RETURNS void
@@ -454,9 +436,7 @@ begin
     now()
   );
 end;
-$function$
-
-
+$function$;
 -- public.calculate_pph21_final_period(p_annual_taxable_income bigint, p_withheld_before_final_period bigint)
 CREATE OR REPLACE FUNCTION public.calculate_pph21_final_period(p_annual_taxable_income bigint, p_withheld_before_final_period bigint)
  RETURNS jsonb
@@ -477,9 +457,7 @@ begin
   v_final:=round(v_tax)::bigint-p_withheld_before_final_period;
   return jsonb_build_object('annual_taxable_income',v_pkp,'annual_pph21',round(v_tax)::bigint,'withheld_before_final_period',p_withheld_before_final_period,'final_period_adjustment',v_final,'method','ARTICLE_17_FINAL_PERIOD','legal_basis','UU PPh jo. UU HPP; PMK 168/2023');
 end;
-$function$
-
-
+$function$;
 -- public.calculate_pph21_ter(p_marital_status text, p_dependents integer, p_monthly_gross bigint, p_business_date date)
 CREATE OR REPLACE FUNCTION public.calculate_pph21_ter(p_marital_status text, p_dependents integer, p_monthly_gross bigint, p_business_date date)
  RETURNS jsonb
@@ -496,5 +474,4 @@ begin
   v_tax:=round(p_monthly_gross::numeric*(v_rule->>'rate')::numeric)::bigint;
   return jsonb_build_object('category',v_category,'monthly_gross',p_monthly_gross,'withholding',v_tax,'rule',v_rule,'method','TER_PERIODIC');
 end;
-$function$
-
+$function$;

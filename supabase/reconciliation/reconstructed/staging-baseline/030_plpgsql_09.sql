@@ -133,9 +133,7 @@ begin
   end if;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'corporate_tax_year_close:'||p_tax_year::text,btrim(p_reason),'success');
   return v_period;
-end; $function$
-
-
+end; $function$;
 -- public.close_employee_tax_profile(p_tenant_id uuid, p_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_employee_tax_profile(p_tenant_id uuid, p_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -160,9 +158,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'employee_tax_profile:close:'||p_profile_id::text,btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_owner_turnover_tax_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_owner_turnover_tax_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -195,9 +191,7 @@ begin
   values(p_tenant_id,p_period_start,v_end,v_build->>'taxpayer_type',(v_build->>'gross_turnover_month')::bigint,(v_build->>'gross_turnover_ytd_before')::bigint,(v_build->>'gross_turnover_ytd_after')::bigint,(v_build->>'exempt_turnover_month')::bigint,(v_build->>'taxable_turnover_month')::bigint,(v_build->>'tax_amount')::bigint,v_build->'tax_snapshot',v_journal,v_doc,v_actor,btrim(p_device_id),btrim(p_app_version),btrim(p_reason)) returning period_id into v_id;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'owner_umkm_final:'||to_char(p_period_start,'YYYY-MM'),btrim(p_reason),'success');
   return v_id;
-end; $function$
-
-
+end; $function$;
 -- public.close_self_tax_party_for_config_tenant(p_config_tenant_id text, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_self_tax_party_for_config_tenant(p_config_tenant_id text, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -261,9 +255,7 @@ begin
     p_reason
   );
 end;
-$function$
-
-
+$function$;
 -- public.close_service_tax_profile(p_tenant_id uuid, p_service_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_service_tax_profile(p_tenant_id uuid, p_service_profile_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -285,9 +277,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'service_tax_profile:close:'||p_service_profile_id::text,btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_tax_party_evidence(p_tenant_id uuid, p_party_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_tax_party_evidence(p_tenant_id uuid, p_party_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -307,9 +297,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'tax_party_evidence_close',btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_tax_rate_bracket_version(p_bracket_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_tax_rate_bracket_version(p_bracket_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -329,9 +317,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values('GLOBAL',v_actor,btrim(p_device_id),'tax_rate_bracket:close:'||p_bracket_id::text,btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_tax_rate_version(p_tax_rate_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_tax_rate_version(p_tax_rate_id uuid, p_end_date date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -351,9 +337,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values('GLOBAL',v_actor,btrim(p_device_id),'tax_rate:close:'||p_tax_rate_id::text,btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_tenant_accounting_link(p_link_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_tenant_accounting_link(p_link_id uuid, p_valid_to date, p_device_id text, p_app_version text, p_reason text)
  RETURNS void
@@ -375,9 +359,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action)
   values(v_link.accounting_tenant_id::text,v_actor,btrim(p_device_id),'tenant_accounting_link:close:'||p_link_id::text,btrim(p_reason),'success');
 end;
-$function$
-
-
+$function$;
 -- public.close_vat_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.close_vat_period(p_tenant_id uuid, p_period_start date, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -452,9 +434,7 @@ begin
   values(p_tenant_id,p_period_start,v_period_end,v_output,v_returns,v_input,v_carry,v_offset,v_reclass,v_payable,v_carry_out,v_journal,v_actor,btrim(p_device_id),btrim(p_app_version),btrim(p_reason)) returning settlement_id into v_settlement;
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'vat_period_close:'||to_char(p_period_start,'YYYY-MM'),btrim(p_reason),'success');
   return v_settlement;
-end; $function$
-
-
+end; $function$;
 -- public.create_auto_journal(p_tenant_id uuid, p_transaction_type text, p_transaction_ref text, p_business_date date, p_facts jsonb, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_auto_journal(p_tenant_id uuid, p_transaction_type text, p_transaction_ref text, p_business_date date, p_facts jsonb, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -549,9 +529,7 @@ begin
   insert into private.audit_logs(tenant_id,actor_id,device_id,source,reason,action) values(p_tenant_id::text,v_actor,btrim(p_device_id),'auto_journal:'||lower(v_type),btrim(p_reason),'success');
   return v_journal;
 end;
-$function$
-
-
+$function$;
 -- public.create_employee_tax_profile(p_tenant_id uuid, p_employee_party_id uuid, p_marital_status text, p_dependents integer, p_tax_method text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
 CREATE OR REPLACE FUNCTION public.create_employee_tax_profile(p_tenant_id uuid, p_employee_party_id uuid, p_marital_status text, p_dependents integer, p_tax_method text, p_valid_from date, p_valid_to date, p_legal_basis text, p_device_id text, p_app_version text, p_reason text)
  RETURNS uuid
@@ -596,5 +574,4 @@ begin
   values(p_tenant_id::text,v_actor,btrim(p_device_id),'employee_tax_profile:create:'||v_id::text,btrim(p_reason),'success');
   return v_id;
 end;
-$function$
-
+$function$;

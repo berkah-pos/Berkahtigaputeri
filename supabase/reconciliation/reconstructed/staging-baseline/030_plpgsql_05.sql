@@ -374,9 +374,7 @@ begin
     'all_zero',(v_tb=0 and v_bs=0 and v_inv_delta=0 and v_negative=0 and v_sale_missing_cogs=0 and v_cogs_bad=0 and v_duplicate=0 and v_tax_ambiguity=0 and v_tax_missing_snapshot=0 and v_input_vat_invalid=0 and v_tax_mutated=0 and v_closed_post=0 and v_audit_missing=0 and v_supplier_delta=0 and v_supplier_negative=0 and v_div_delta=0 and v_customer_delta=0 and v_customer_negative=0 and v_tax_gl_mismatch=0 and v_tax_line_mismatch=0 and v_tax_event_lineage=0 and v_salary_delta=0 and v_salary_negative=0 and v_pph21_delta=0 and v_asset_cost_delta=0 and v_asset_accum_delta=0 and v_asset_invalid=0 and v_allowance_delta=0 and v_allowance_exceeds=0 and v_negative_liquid=0 and v_tax_payment_errors=0 and v_vat_settlement_errors=0 and v_inbound_pph23_delta=0 and v_pph25_delta=0 and v_pph29_delta=0 and v_corp_tax_exp_delta=0 and v_corp_period_errors=0 and v_corp_loss_errors=0 and v_pph25_authority_errors=0 and v_umkm_period_errors=0)
   );
 end;
-$function$
-
-
+$function$;
 -- private.create_tax_document_internal(p_tenant_id uuid, p_document_type text, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_snapshot jsonb, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_journal_id uuid, p_invoice_status text, p_creditable_input_vat boolean, p_reference_document_id uuid, p_actor uuid, p_device_id text, p_reason text)
 CREATE OR REPLACE FUNCTION private.create_tax_document_internal(p_tenant_id uuid, p_document_type text, p_transaction_ref text, p_business_date date, p_counterparty_id uuid, p_facility_context text, p_tax_snapshot jsonb, p_dpp bigint, p_tax_amount bigint, p_gross_amount bigint, p_journal_id uuid, p_invoice_status text, p_creditable_input_vat boolean, p_reference_document_id uuid, p_actor uuid, p_device_id text, p_reason text)
  RETURNS uuid
@@ -399,9 +397,7 @@ begin
   values(v_id,p_tenant_id,'VALIDATED',jsonb_build_object('document_type',p_document_type,'transaction_ref',btrim(p_transaction_ref)),p_actor,btrim(p_device_id),btrim(p_reason));
   return v_id;
 end;
-$function$
-
-
+$function$;
 -- private.enforce_customer_receivable_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_customer_receivable_evidence()
  RETURNS trigger
@@ -522,9 +518,7 @@ begin
     end if;
   end if;
   return new;
-end; $function$
-
-
+end; $function$;
 -- private.enforce_extended_withholding_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_extended_withholding_evidence()
  RETURNS trigger
@@ -555,9 +549,7 @@ begin
     values(new.tenant_id,new.transaction_ref,v_ref,v_l.counterparty_party_id,v_l.tax_object_code,v_delta,v_cash,v_tax,new.journal_id,new.business_date,new.tax_snapshot,new.actor_user_id,new.device_id,new.reason);
   end if;
   return new;
-end; $function$
-
-
+end; $function$;
 -- private.enforce_owner_adjustment_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_owner_adjustment_evidence()
  RETURNS trigger
@@ -624,9 +616,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.enforce_payroll_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_payroll_evidence()
  RETURNS trigger
@@ -708,9 +698,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.enforce_supplier_liability_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_supplier_liability_evidence()
  RETURNS trigger
@@ -863,9 +851,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- private.enforce_tax_remittance_evidence()
 CREATE OR REPLACE FUNCTION private.enforce_tax_remittance_evidence()
  RETURNS trigger
@@ -886,9 +872,7 @@ begin
   update public.tax_payment_refs set status='PAID',payment_reference=v_payment_reference,paid_at=now(),payment_journal_id=new.journal_id,updated_at=now() where tenant_id=new.tenant_id and payment_ref_id=v_ref_id and status='CREATED';
   if not found then raise exception 'tax_payment_reference_state_conflict' using errcode='40001'; end if;
   return new;
-end; $function$
-
-
+end; $function$;
 -- private.get_pos_role_internal(p_device_id text)
 CREATE OR REPLACE FUNCTION private.get_pos_role_internal(p_device_id text)
  RETURNS text
@@ -911,9 +895,7 @@ begin
   where m.tenant_id = v_tenant and m.user_id = v_actor and m.is_active = true;
   return v_role;
 end;
-$function$
-
-
+$function$;
 -- private.guard_app_config_inventory()
 CREATE OR REPLACE FUNCTION private.guard_app_config_inventory()
  RETURNS trigger
@@ -921,9 +903,7 @@ CREATE OR REPLACE FUNCTION private.guard_app_config_inventory()
  SECURITY DEFINER
  SET search_path TO ''
 AS $function$
-begin perform private.assert_app_config_inventory(); return null; end; $function$
-
-
+begin perform private.assert_app_config_inventory(); return null; end; $function$;
 -- private.guard_coretax_export_gate()
 CREATE OR REPLACE FUNCTION private.guard_coretax_export_gate()
  RETURNS trigger
@@ -969,9 +949,7 @@ BEGIN
 
   RETURN NEW;
 END;
-$function$
-
-
+$function$;
 -- private.guard_coretax_template()
 CREATE OR REPLACE FUNCTION private.guard_coretax_template()
  RETURNS trigger
@@ -993,5 +971,4 @@ begin
   end if;
   return new;
 end;
-$function$
-
+$function$;

@@ -41,9 +41,7 @@ begin
 
   return null;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.close_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION accounting_private.close_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -88,9 +86,7 @@ begin
          v_actor,v_actor::text,btrim(p_device_id),btrim(p_app_version),jsonb_build_object('period_start',p_period_start::text,'period_end',p_period_end::text,'reason',btrim(p_reason),'hard_gate','PASS'));
   return v_period.period_id;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.create_tenant(p_name text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION accounting_private.create_tenant(p_name text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -126,9 +122,7 @@ begin
 
   return v_tenant;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.guard_line_creation_tx()
 CREATE OR REPLACE FUNCTION accounting_private.guard_line_creation_tx()
  RETURNS trigger
@@ -151,9 +145,7 @@ begin
   end if;
   return new;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.post_journal(p_tenant_id uuid, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION accounting_private.post_journal(p_tenant_id uuid, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -325,9 +317,7 @@ begin
 
   return v_journal_id;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.reject_locked_coa_insert()
 CREATE OR REPLACE FUNCTION accounting_private.reject_locked_coa_insert()
  RETURNS trigger
@@ -337,9 +327,7 @@ AS $function$
 begin
   raise exception using errcode = '55000', message = 'locked_coa_contract';
 end;
-$function$
-
-
+$function$;
 -- accounting_private.reject_mutation()
 CREATE OR REPLACE FUNCTION accounting_private.reject_mutation()
  RETURNS trigger
@@ -349,9 +337,7 @@ AS $function$
 begin
   raise exception using errcode = '55000', message = 'immutable_accounting_record';
 end;
-$function$
-
-
+$function$;
 -- accounting_private.reopen_period(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION accounting_private.reopen_period(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -409,9 +395,7 @@ begin
 
   return v_period.period_id;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.require_bound_device(p_actor uuid, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION accounting_private.require_bound_device(p_actor uuid, p_device_id text, p_app_version text)
  RETURNS void
@@ -436,9 +420,7 @@ begin
     raise exception using errcode = '42501', message = 'device_not_bound_to_actor';
   end if;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.require_member_role(p_tenant_id uuid, p_actor uuid, p_allowed_roles text[])
 CREATE OR REPLACE FUNCTION accounting_private.require_member_role(p_tenant_id uuid, p_actor uuid, p_allowed_roles text[] DEFAULT NULL::text[])
  RETURNS text
@@ -465,9 +447,7 @@ begin
   end if;
   return v_role;
 end;
-$function$
-
-
+$function$;
 -- accounting_private.require_open_period(p_tenant_id uuid, p_business_date date)
 CREATE OR REPLACE FUNCTION accounting_private.require_open_period(p_tenant_id uuid, p_business_date date)
  RETURNS void
@@ -491,9 +471,7 @@ BEGIN
     RAISE EXCEPTION 'accounting_period_closed' USING ERRCODE='55000';
   END IF;
 END;
-$function$
-
-
+$function$;
 -- accounting_private.resolve_pos_accounting_tenant(p_pos_tenant_id text, p_device_id text)
 CREATE OR REPLACE FUNCTION accounting_private.resolve_pos_accounting_tenant(p_pos_tenant_id text, p_device_id text)
  RETURNS uuid
@@ -511,5 +489,4 @@ begin
   if v_accounting is null then raise exception using errcode='55000',message='accounting_tenant_mapping_missing'; end if;
   perform accounting_private.require_member_role(v_accounting,v_actor,null);
   return v_accounting;
-end; $function$
-
+end; $function$;

@@ -11,9 +11,7 @@ AS $function$
     p_tenant_id, p_product_id, p_qty, p_event_id, p_business_ref,
     p_actor, p_device_id, p_reason
   );
-$function$
-
-
+$function$;
 -- private.btp_is_super_admin()
 CREATE OR REPLACE FUNCTION private.btp_is_super_admin()
  RETURNS boolean
@@ -24,9 +22,7 @@ AS $function$
   select
     auth.uid() = '49abb5d4-8616-45d3-b2cb-8e0dcb72f100'::uuid
     and lower(coalesce(auth.jwt()->>'email','')) = 'berkahtigaputeri@gmail.com';
-$function$
-
-
+$function$;
 -- private.can_read_final_pos_config_strict(config_key text)
 CREATE OR REPLACE FUNCTION private.can_read_final_pos_config_strict(config_key text)
  RETURNS boolean
@@ -43,9 +39,7 @@ AS $function$
       where d.device_id = split_part(config_key, ':', 2)
         and d.user_id = auth.uid()
     );
-$function$
-
-
+$function$;
 -- private.corporate_commercial_profit_before_tax(p_tenant_id uuid, p_tax_year integer)
 CREATE OR REPLACE FUNCTION private.corporate_commercial_profit_before_tax(p_tenant_id uuid, p_tax_year integer)
  RETURNS bigint
@@ -61,9 +55,7 @@ AS $function$
   join public.accounting_journals j on j.tenant_id=l.tenant_id and j.journal_id=l.journal_id
   join public.accounting_coa c on c.account_code=l.account_code
   where l.tenant_id=p_tenant_id and extract(year from j.journal_date)::integer=p_tax_year;
-$function$
-
-
+$function$;
 -- private.corporate_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)
 CREATE OR REPLACE FUNCTION private.corporate_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)
  RETURNS bigint
@@ -90,9 +82,7 @@ AS $function$
     where r.tenant_id=p_tenant_id and er.business_date between p_from and p_to
   )
   select greatest(coalesce((select sum(gross_before_discount_ex_vat) from sales_period),0)-coalesce((select sum(gross_reversed) from returns_period),0),0)::bigint;
-$function$
-
-
+$function$;
 -- private.is_pos_owner(p_tenant_id text)
 CREATE OR REPLACE FUNCTION private.is_pos_owner(p_tenant_id text)
  RETURNS boolean
@@ -108,9 +98,7 @@ AS $function$
       and m.role = 'owner'
       and m.is_active = true
   );
-$function$
-
-
+$function$;
 -- private.is_pph_final_umkm_evidence_valid(p_tax_regime text, p_taxpayer_type text, p_turnover_eligibility boolean, p_certificate_status text, p_legal_basis text, p_business_date date)
 CREATE OR REPLACE FUNCTION private.is_pph_final_umkm_evidence_valid(p_tax_regime text, p_taxpayer_type text, p_turnover_eligibility boolean, p_certificate_status text, p_legal_basis text, p_business_date date)
  RETURNS boolean
@@ -125,9 +113,7 @@ AS $function$
     and coalesce(p_turnover_eligibility,false)
     and upper(coalesce(p_certificate_status,''))='VALID'
     and length(btrim(coalesce(p_legal_basis,'')))>=3;
-$function$
-
-
+$function$;
 -- private.strip_legacy_tax_config(p_value jsonb)
 CREATE OR REPLACE FUNCTION private.strip_legacy_tax_config(p_value jsonb)
  RETURNS jsonb
@@ -141,9 +127,7 @@ AS $function$
     'ppn', 'ppn rate %', 'ppn account', 'dpp',
     'pph21', 'pph 21', 'pph23', 'pph 23', 'pph final', 'tax rate', 'tax_rate'
   );
-$function$
-
-
+$function$;
 -- private.umkm_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)
 CREATE OR REPLACE FUNCTION private.umkm_gross_turnover_between(p_tenant_id uuid, p_from date, p_to date)
  RETURNS bigint
@@ -180,9 +164,7 @@ AS $function$
     coalesce((select sum(gross_before_discount_ex_vat) from sales_period where umkm_eligible),0)
     - coalesce((select sum(gross_reversed) from returns_period where umkm_eligible),0),0
   )::bigint;
-$function$
-
-
+$function$;
 -- private.verify_coretax_template()
 CREATE OR REPLACE FUNCTION private.verify_coretax_template()
  RETURNS boolean
@@ -209,9 +191,7 @@ AS $function$
         AND coalesce(t.generator_spec ->> 'status', '') <> 'SOURCE_REGISTERED_NOT_PARSED'
     )
   );
-$function$
-
-
+$function$;
 -- public.close_accounting_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.close_accounting_period(p_tenant_id uuid, p_period_start date, p_period_end date, p_reason text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -222,9 +202,7 @@ AS $function$
     p_tenant_id, p_period_start, p_period_end,
     p_reason, p_device_id, p_app_version
   );
-$function$
-
-
+$function$;
 -- public.create_accounting_tenant(p_name text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.create_accounting_tenant(p_name text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -232,9 +210,7 @@ CREATE OR REPLACE FUNCTION public.create_accounting_tenant(p_name text, p_device
  SET search_path TO ''
 AS $function$
   select accounting_private.create_tenant(p_name, p_device_id, p_app_version);
-$function$
-
-
+$function$;
 -- public.get_compliance_readiness(p_tenant_id uuid, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.get_compliance_readiness(p_tenant_id uuid, p_device_id text, p_app_version text)
  RETURNS jsonb
@@ -248,9 +224,7 @@ AS $function$
     p_device_id,
     p_app_version
   );
-$function$
-
-
+$function$;
 -- public.get_hardening_migration_manifest()
 CREATE OR REPLACE FUNCTION public.get_hardening_migration_manifest()
  RETURNS TABLE(version text, name text, sql_bytes bigint, sql_sha256 text)
@@ -265,9 +239,7 @@ AS $function$
   from supabase_migrations.schema_migrations m
   where m.version >= '20261008231304'
   order by m.version;
-$function$
-
-
+$function$;
 -- public.get_license_private_key()
 CREATE OR REPLACE FUNCTION public.get_license_private_key()
  RETURNS text
@@ -280,17 +252,13 @@ AS $function$
   where name = 'berkahtigaputeri_license_private_key'
   order by updated_at desc
   limit 1
-$function$
-
-
+$function$;
 -- public.get_pos_role(p_device_id text)
 CREATE OR REPLACE FUNCTION public.get_pos_role(p_device_id text)
  RETURNS text
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.get_pos_role_internal(p_device_id); $function$
-
-
+AS $function$ select private.get_pos_role_internal(p_device_id); $function$;
 -- public.ingest_inventory_component_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.ingest_inventory_component_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_component text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
  RETURNS bigint
@@ -300,9 +268,7 @@ AS $function$
   select inventory_private.ingest_inventory_component_event(
     p_tenant_id,p_event_id,p_event_type,p_component,p_product_id,p_lot_id,p_cost_layer_id,
     p_quantity_delta,p_unit_cost,p_business_ref,p_occurred_at,p_device_id,p_app_version);
-$function$
-
-
+$function$;
 -- public.ingest_inventory_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.ingest_inventory_event(p_tenant_id uuid, p_event_id text, p_event_type text, p_product_id uuid, p_lot_id text, p_cost_layer_id text, p_quantity_delta bigint, p_unit_cost bigint, p_business_ref text, p_occurred_at timestamp with time zone, p_device_id text, p_app_version text)
  RETURNS bigint
@@ -312,9 +278,7 @@ AS $function$
   select inventory_private.ingest_inventory_event(
     p_tenant_id,p_event_id,p_event_type,p_product_id,p_lot_id,p_cost_layer_id,
     p_quantity_delta,p_unit_cost,p_business_ref,p_occurred_at,p_device_id,p_app_version);
-$function$
-
-
+$function$;
 -- public.post_accounting_journal(p_tenant_id uuid, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.post_accounting_journal(p_tenant_id uuid, p_idempotency_key text, p_transaction_ref text, p_journal_date date, p_description text, p_source_type text, p_lines jsonb, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -325,9 +289,7 @@ AS $function$
     p_tenant_id, p_idempotency_key, p_transaction_ref, p_journal_date,
     p_description, p_source_type, p_lines, p_device_id, p_app_version
   );
-$function$
-
-
+$function$;
 -- public.reopen_accounting_period(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.reopen_accounting_period(p_tenant_id uuid, p_period_id uuid, p_reason text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -337,9 +299,7 @@ AS $function$
   select accounting_private.reopen_period(
     p_tenant_id, p_period_id, p_reason, p_device_id, p_app_version
   );
-$function$
-
-
+$function$;
 -- public.reverse_accounting_journal(p_tenant_id uuid, p_original_journal_id uuid, p_idempotency_key text, p_journal_date date, p_reason text, p_device_id text, p_app_version text)
 CREATE OR REPLACE FUNCTION public.reverse_accounting_journal(p_tenant_id uuid, p_original_journal_id uuid, p_idempotency_key text, p_journal_date date, p_reason text, p_device_id text, p_app_version text)
  RETURNS uuid
@@ -350,13 +310,10 @@ AS $function$
     p_tenant_id, p_original_journal_id, p_idempotency_key, p_journal_date,
     p_reason, p_device_id, p_app_version
   );
-$function$
-
-
+$function$;
 -- public.verify_manager_pin(p_device_id text, p_outlet_id text, p_pin text, p_required_action text)
 CREATE OR REPLACE FUNCTION public.verify_manager_pin(p_device_id text, p_outlet_id text, p_pin text, p_required_action text)
  RETURNS jsonb
  LANGUAGE sql
  SET search_path TO ''
-AS $function$ select private.verify_manager_pin_internal(p_device_id, p_outlet_id, p_pin, p_required_action); $function$
-
+AS $function$ select private.verify_manager_pin_internal(p_device_id, p_outlet_id, p_pin, p_required_action); $function$;
