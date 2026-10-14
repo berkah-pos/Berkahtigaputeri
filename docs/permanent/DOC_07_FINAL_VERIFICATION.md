@@ -52,7 +52,7 @@ Historical replay proves schema behavior against captured references in disposab
 2. Full hostile Tenant A/B testing across direct REST reads/writes, reporting/export, all inventory/accounting RPCs, storage, subscriptions, sync/outbox, and installed APK is incomplete. The 50 pgTAP assertions are targeted coverage, not the complete matrix.
 3. Backup/restore drills, migration failure/retry, representative load/resilience, monitoring checks, and independent release review remain outstanding.
 4. No production Supabase project has been positively identified/authorized. The Phase 6 compatibility migration has not been applied to hosted staging or production.
-5. A full SHA-256 file-by-file comparison between the requested original source commits is still outstanding. The Git bundle and source ZIP have been generated and validated by hosted workflow run 38631992229; links, SHA-256 values, and artifact retention are recorded in Section 6.
+5. Exact original base-versus-fork SHA-256 comparison is complete and archived (Section 7). The single differing workflow was reviewed; the canonical base version was retained. The latest verified Git bundle/ZIP artifacts are also available (Section 6).
 
 ## 5. Current decision
 
@@ -74,3 +74,18 @@ Hosted workflow [Consolidated Main Repo Export — run 38631992229](https://gith
 - The three GitHub Actions artifacts expire on **2026-11-13**. Download and keep a separate copy before that date.
 
 The original base-versus-fork SHA-256 diff report is a separate outstanding artifact; tree/blob screening is not substituted for that report.
+
+## 7. Original base-versus-fork SHA-256 comparison
+
+Hosted comparison: [Original Source SHA256 Comparison — run 38632527070](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632527070). The job completed successfully after checking out the exact source snapshots read-only and hashing all included file contents.
+
+- Base: `berkah-pos/Berkahtigaputeri`, commit `98befcd5807585dd0c1b84085fc4a6e73fd90f2b`, 164 files.
+- Fork patch: `Andisatriawan/Berkahtigaputeri`, commit `b02a47448eddfc2db6efb1c336b6cda0b4c85556`, 164 files.
+- Comparison: **163 IDENTICAL**, **1 MODIFIED**, **0 ONLY_IN_MAIN**, **0 ONLY_IN_FORK**; 164 unique paths in the union.
+- Full CSV and JSON summary: [download comparison artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38632527070/artifacts/11926312229). It includes per-path status, both SHA-256 digests and byte counts. Artifact retention expires **2026-11-13**.
+
+The only modified path is `.github/workflows/berkah-pos-trial-ci.yml`:
+- Base SHA-256 `b4741fdcec2aa142eae5ab3c1d702c7d6e5abf01d339eeda3c80a8adffc41f9f`, 5,654 bytes.
+- Fork SHA-256 `0279c8906a89b87d6c185954e6f4939a6d5bbcf2d0900545d6c9f794b5a89350`, 3,721 bytes.
+
+The base version was retained. Relative to the fork file it includes hosted-runner Android SDK location checks, NDK installation with retry, official stable Flutter archive SHA-256 verification, explicit non-production smoke-build labeling, and upload of debug APK plus release-smoke APK/AAB artifacts. The fork version omits some of these setup/verification steps and uploads only the debug APK. This was a read-only comparison of the specified historical snapshots; it did not change or push to the fork.

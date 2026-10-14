@@ -17,7 +17,7 @@ Discovery was performed through the connected GitHub and Supabase APIs. This ses
 | [Andisatriawan/Berkahtigaputeri](https://github.com/Andisatriawan/Berkahtigaputeri) | `main` | `b02a47448eddfc2db6efb1c336b6cda0b4c85556` | `fix: green base + minimal artifact` |
 | [berkah-ajb-dev/Berkahtigaputeri](https://github.com/berkah-ajb-dev/Berkahtigaputeri) | Not verified | Not accessible in this connector session | File API returned HTTP 404 for the canonical architecture file and AGENTS.md |
 
-The comparison fork was only inspected read-only. A complete cross-repository file-by-file SHA-256 diff and ancestry comparison have **not** been performed. The canonical reference repository could not be read through the connected GitHub API. The matching canonical contract found inside the base repository is used for this discovery report only; the inaccessible reference remains a blocker to full verification.
+The comparison fork remained read-only. The exact-commit cross-repository file-by-file SHA-256 comparison is now complete in hosted run 38632527070: 164 paths, 163 identical, one modified workflow, and zero only-in files on either side. The CSV/summary are in artifact 11926312229. A separate Git ancestry comparison was not part of that report. The designated canonical reference repository still could not be read through the connected GitHub API, and a local worktree/shell was unavailable, so Phase 0 remains YELLOW.
 
 ## 3. Mandatory documents fetched from the base repository
 
@@ -90,7 +90,7 @@ Both projects also return the same read-only fingerprints: ordered keyset MD5 `1
 
 ## Follow-up discovery — repository tree comparison (API-level, not SHA-256 certification)
 
-Recursive Git tree responses for both default branches report 164 tracked blob paths each after excluding generated/build paths. The path sets are identical; the only differing Git blob ID is `.github/workflows/berkah-pos-trial-ci.yml`. That blob-ID screening uses Git object IDs, not the requested SHA-256 implementation. The base version contains additional hosted-runner Android SDK/NDK setup steps absent from the fork's shorter workflow; no fork-only application/config/migration file was found by path inventory. Preserve the base workflow until a full reviewed diff and CI evidence say otherwise. The designated canonical-reference repository still returns 404 through the connected GitHub API.
+Exact source revisions were subsequently compared in the read-only SHA-256 workflow run 38632527070. It verified 164 paths: 163 identical files, one modified `.github/workflows/berkah-pos-trial-ci.yml`, and zero only-in-main/fork paths. The base workflow's additional SDK/NDK setup, Flutter archive checksum validation, and fuller smoke-artifact upload were retained. Report artifact 11926312229 contains all per-file hashes and byte counts. The designated canonical-reference repository still returns 404 through the connected GitHub API.
 
 
 ## Follow-up discovery — PR #39, replay evidence, and live config fingerprints
