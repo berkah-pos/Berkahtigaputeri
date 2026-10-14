@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -39,8 +40,34 @@ EXPECTED_COUNTS = {
 }
 EXPECTED_TEMPLATES = {"BASIC", "PRO", "ENTERPRISE"}
 EXPECTED_KEYS = 352
+EXPECTED_KEYSET_MD5 = "1fd3d64219ecc7c333453c20da80e295"
 BATCH_SIZE = 100
 REQUEST_TIMEOUT_SECONDS = 30
+
+
+def _keyset_md5(keys: Iterable[str]) -> str:
+    """Return the canonical order-independent MD5 fingerprint of newline-joined sorted keys.
+
+    This is an inventory identity check, not a cryptographic integrity/signature mechanism.
+    """
+    normalized = sorted(str(key) for key in keys)
+    return hashlib.md5("\n".join(normalized).encode("utf-8")).hexdigest()
+
+
+def _assert_canonical_key_manifest(label: str, keys: Iterable[str]) -> str:
+    normalized = [str(key) for key in keys]
+    if len(normalized) != EXPECTED_KEYS:
+        raise ValueError(
+            f"{label} must contain exactly {EXPECTED_KEYS} canonical keys; got {len(normalized)}"
+        )
+    if len(set(normalized)) != EXPECTED_KEYS:
+        raise ValueError(f"{label} contains duplicate keys")
+    digest = _keyset_md5(normalized)
+    if digest != EXPECTED_KEYSET_MD5:
+        raise ValueError(
+            f"{label} key manifest MD5 mismatch: expected {EXPECTED_KEYSET_MD5}, got {digest}"
+        )
+    return digest
 
 
 @dataclass(frozen=True)
@@ -175,6 +202,7 @@ def _load_app_config(export_rows: list[dict[str, Any]]) -> tuple[list[dict[str, 
     if missing:
         raise ValueError(f"Missing required app_config keys: {sorted(missing)}")
 
+    _assert_canonical_key_manifest("APP_CONFIG_EXPORT", seen)
     return payloads, counts, seen
 
 
@@ -527,11 +555,11 @@ def verify_remote(payloads: WorkbookPayloads, url: str, service_key: str) -> Non
         service_key=service_key,
     )
 
-    _assert_exact_inventory(
-        "app_config",
-        (row["key"] for row in payloads.app_config),
-        (row.get("key") for row in app_rows),
-    )
+    expected_app_keys = [str(row["key"]) for row in payloads.app_config]
+    actual_app_keys = [str(row["key"]) for row in app_rows if row.get("key") is not None]
+    _assert_exact_inventory("app_config", expected_app_keys, actual_app_keys)
+    digest = _assert_canonical_key_manifest("Post-sync remote app_config", actual_app_keys)
+    print(f"VERIFIED canonical app_config key manifest MD5: {digest}")
     _assert_exact_inventory(
         "tenants",
         (row["tenant_id"] for row in payloads.tenants),
@@ -609,6 +637,8 @@ def _print_inventory(payloads: WorkbookPayloads) -> None:
         f"devices={len(payloads.devices)}"
     )
     print("352 keys validated")
+    digest = _assert_canonical_key_manifest("Workbook", (row["key"] for row in payloads.app_config))
+    print(f"Canonical key manifest MD5 verified: {digest}")
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
