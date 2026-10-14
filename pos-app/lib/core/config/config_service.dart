@@ -76,7 +76,11 @@ class ConfigService {
       );
       await _preferences.setString(cacheKey, jsonEncode(effective));
       return EffectiveConfigResult(value: effective, fromCache: false);
-    } catch (_) {
+    } catch (error) {
+      if (error is CentralApiException &&
+          const <int>{401, 402, 403, 422}.contains(error.statusCode)) {
+        rethrow;
+      }
       final cached = _preferences.getString(cacheKey);
       if (cached == null) rethrow;
       return EffectiveConfigResult(
