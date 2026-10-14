@@ -110,7 +110,7 @@ jobs:
           supabase db reset --help
           supabase test db --help
 
-      - name: Assemble disposable single-migration project
+      - name: Assemble disposable baseline and runner-only config fixture
         shell: bash
         run: |
           set -euo pipefail
@@ -136,6 +136,9 @@ jobs:
           cat supabase/reconciliation/reconstructed/staging-baseline/060_target_default_privilege_hardening.sql >> "$migration"
           cp supabase/reconciliation/reconstructed/staging-baseline/replay_validation.test.sql "$REPLAY_DIR/supabase/tests/replay_validation.test.sql"
           cp supabase/tests/tenant_isolation.test.sql "$REPLAY_DIR/supabase/tests/tenant_isolation.test.sql"
+          "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
+            --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
+            --output "$REPLAY_DIR/supabase/migrations/20261014110000_replay_only_canonical_config_fixture.sql"
           test -s "$migration"
           printf 'assembled_sql_bytes=%s\n' "$(wc -c < "$migration")"
 
