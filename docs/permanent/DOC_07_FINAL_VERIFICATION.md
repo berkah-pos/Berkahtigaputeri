@@ -1,63 +1,64 @@
-# DOC_07 - FINAL POS CURRENT-HEAD VERIFICATION
+# DOC_07 — FINAL POS CURRENT-BRANCH VERIFICATION
 
-## Head
-Repo: berkah-pos/Berkahtigaputeri
-Main: 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
-Date: 2026-10-13
-Commit: 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
+**Status: PARTIAL / RELEASE BLOCKED.** Canonical source contracts and targeted disposable CI suites are green, but this document is not a production security certification or approval to merge/deploy.
+**Repository:** berkah-pos/Berkahtigaputeri  
+**Working branch:** chore/consolidate-single-main-repo  
+**Architecture authority:** DOC_00_CANONICAL_ARCHITECTURE_DECISION.md  
+**Captured:** 2026-10-15 (Asia/Jakarta)  
+**Implementation revision exercised by Phase 6 replay:** d620161a5f67d58c2dbc0f260b4c651cffe70e96  
+**Disposable replay revision:** 3a9cd7254698381827e4863418e55c876e9ed9a2  
+**Backend CI/path-filter verification:** dc9c13bdf36662435e0d8bc7a70d6004cf7c063b
 
-## Architecture - Final Pos
-Canonical merge order: GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-Authority: DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
-Table: app_config(key TEXT PRIMARY KEY, value JSONB, updated_at TIMESTAMPTZ)
-Version: value->>'version' positive int, server-owned bump N->N+1 via update_app_config_atomic
-Inventory: 352 keys = 1 global + 3 templates (BASIC,PRO,ENTERPRISE) + 100 tenants + 140 services + 108 devices
-Keyset MD5: 1fd3d64219ecc7c333453c20da80e295
+## 1. Canonical architecture and inventory
 
-## Phase 5 - Tenant isolation - certified 96baa2d + real DB 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
-- SELECT * FROM pg_policies WHERE 'anon'=ANY(roles) AND tablename IN ('app_config','tenants','devices') = 0 rows PASS (live staging query)
-- rowsecurity true on tenants, devices, licences, app_config (live query)
-- Device ownership: get_effective_config denies cross-tenant IF device.tenant_id!= p_tenant_id THEN 403 (real RPC test)
-- 50-tenant concurrency: real DB test scripts/test_50_tenant_concurrency.py with concurrent update_app_config_atomic same N -> 1 success 1x40001 PASS
-- Artifact: berkahtigaputeri-pos-debug-aab 73,422,413 bytes 71M from run 38373824842
+Canonical inheritance remains exactly:
 
-## Phase 6 - Atomic versioning - certified 719025a + real DB 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
-- RPC: public.update_app_config_atomic(p_key text, p_new_value jsonb, p_expected_version int) SECURITY DEFINER search_path='' (live definition checked)
-- Lock: SELECT... FOR UPDATE, Fail P0002 if key missing, FAIL 40001 if version mismatch, second guard WHERE version=expected, server bumps N->N+1
-- Authorization: service_role + super admin, anon denied (grant check live)
-- Workbook sync: missing->bootstrap v1, existing N->N+1 via RPC, fail-closed, --force-version refresh+retry
-- Prevents v5->v1 silent reset
+GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 
-## APK verification includes TEMPLATE
-- POS CI runs: 38415548150 SUCCESS (analyzer 0 issues, 45 tests, Android compile), 38417424854 SUCCESS 352 keys
-- Artifact: berkahtigaputeri-pos-debug-aab 71M built at 96baa2d (docs-only changes after, source identical to 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
-- Template merge verified: config_service.dart implements GLOBAL->TEMPLATE->TENANT->SERVICE->DEVICE
-- BASIC, PRO, ENTERPRISE inheritance: tenant row template_id
+The workbook is config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx with sheets README_PRODUCTION, TEMPLATES, GLOBAL, TENANTS_MASTER, DEVICES, SERVICES, and APP_CONFIG_EXPORT.
 
-## Release notes - only behavior reachable from current entry UI
-Entry: pos-app/lib/main.dart
-Reachable:
-- POS sales FEFO physical allocation + FIFO financial costing (intentionally different)
-- Tenant isolation via device binding auth.uid()
-- Config inheritance GLOBAL->TEMPLATE->TENANT->SERVICE->DEVICE
-- Atomic saves 40001 "Data changed by another admin, please reload"
-- Template package defaults BASIC/PRO/ENTERPRISE
+Canonical inventory confirmed by workbook dry-run and archived manifest:
+- 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 tenants + 140 service keys + 108 devices = 352 keys.
+- Keyset MD5: 1fd3d64219ecc7c333453c20da80e295.
+- Supabase shape: app_config(key PRIMARY KEY, value JSONB, updated_at).
+- Runtime resolves only requested pos or akuntansi service and merges top-level values in canonical order.
 
-## Permanent document index
-- DOC_00_MASTER_ROADMAP.md, DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
-- DOC_01_3_LAYER_CONFIG.md, DOC_02_SUPABASE_SCHEMA_V1.sql
-- DOC_03_RLS_AUTH.sql, DOC_05_TENANT_ISOLATION_CERT.md
-- DOC_06_ATOMIC_VERSIONING_RPC.sql, DOC_06_AUDIT_VERSIONING.md, DOC_06_VERSIONING_CERT.md
-- DOC_07_FINAL_VERIFICATION.md (this file), DOC_08_RPC_EFFECTIVE_CONFIG.sql, DOC_09_APK_VERIFICATION.md
-- README.md: historical snapshots remain in docs/permanent/ (no separate docs/historical/ dir)
+Evidence: [Canonical Workbook Validation run 38629719283](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629719283) passed 21 Python tests and printed EXPECTED KEY COUNT VERIFIED: 352, the canonical keyset digest, and DRY-RUN OK without Supabase credentials or network writes.
 
-Live query (correct separator E'\n'):
-SELECT count(*) as app_config_count, md5(string_agg(key, E'\n' ORDER BY key)) as keyset_md5,
-count(*) filter (where key='global') as global,
-count(*) filter (where key like 'template:%') as templates,
-count(*) filter (where key like 'tenant:%' and key not like '%:service:%') as tenants,
-count(*) filter (where key like 'tenant:%:service:%') as services,
-count(*) filter (where key like 'device:%') as devices FROM public.app_config;
-Expected: 352, 1fd3d64219ecc7c333453c20da80e295, 1,3,100,140,108
+## 2. Admin, Flutter, RPC and synchronization
 
-Certified: PHASE 7 current-head 4fa72bf Phase 8 - trial CI green (Gradle 8.14.3 AGP 8.11.1 Kotlin 2.2.20 SDK 36)
+- Admin parity fixture checks the exact five requested rows for POS and Akuntansi independently, verifies top-level precedence/device override, and tests a versioned tenant save that preserves hidden canonical fields. The fixture passed in workbook validation CI.
+- Flutter ConfigService uses authenticated get_effective_config(p_tenant, p_device, p_service) as its only cloud configuration resolver. [Canonical POS App CI run 38629719307](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629719307) succeeded and reported no Dart analyzer issues. This is CI evidence, not evidence that a production-signed APK was installed on physical hardware.
+- Workbook synchronization retains versioned update_app_config_atomic, fail-closed missing-credential/RPC-error handling, exact inventory verification, and canonical key-manifest assertion.
+- The backend push filter now reruns source-recovery and historical replay preconditions when relevant scripts/workbook/manifest files change. [Supabase Backend Foundation CI run 38630659808](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38630659808) passed on the reviewed trigger definition.
+
+## 3. Phase 5 and Phase 6 database evidence
+
+[Supabase Reconstructed Baseline Clean Replay run 38629812613](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38629812613) passed on a GitHub-hosted runner using only disposable local Supabase databases:
+- Reconstructed target baseline + targeted Tenant A/B security tests: 50 pgTAP tests across 2 files, PASS.
+- Atomic versioning after the forward-only migration 20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql: 19 pgTAP assertions, PASS.
+- Historical staging: all 139 recorded migration bodies replayed unchanged and matched the captured staging catalog fingerprint.
+- Historical staging-clone: all 12 recorded migration bodies replayed unchanged under a clone-specific pre-history baseline; 37 pgTAP tests and its captured clone catalog fingerprint passed.
+
+Atomic version assertions cover positive version, expected-version CAS, stale-version rejection with SQLSTATE 40001, server-owned N-to-N+1 bump, direct-DML bypass denial, template/device identity guards, audit history, and legacy-tax compatibility. Unchanged old tax fields may be echoed by Admin and are stripped before persistence; new/changed protected tax fields remain denied.
+
+Historical replay proves schema behavior against captured references in disposable environments. No hosted database was written, and replaying each database against its own captured fingerprint does not make staging-clone equivalent to staging.
+
+## 4. Security and operational disposition
+
+**Still open — do not merge to main or deploy to production yet:**
+
+1. Read-only catalog evidence still shows staging-clone broad effective anon permissions, including 32 public-schema SECURITY DEFINER routines executable by anon and effective anon SELECT on 55 application relations. These need object-by-object review and an independently reviewed, narrow forward-only ACL migration.
+2. Full hostile Tenant A/B testing across direct REST reads/writes, reporting/export, all inventory/accounting RPCs, storage, subscriptions, sync/outbox, and installed APK is incomplete. The 50 pgTAP assertions are targeted coverage, not the complete matrix.
+3. Backup/restore drills, migration failure/retry, representative load/resilience, monitoring checks, and independent release review remain outstanding.
+4. No production Supabase project has been positively identified/authorized. The Phase 6 compatibility migration has not been applied to hosted staging or production.
+5. The requested SHA-256 file-by-file two-repository comparison and generated git bundle / release ZIP are not yet delivered from a local Git worktree. Do not claim those artifacts exist.
+
+## 5. Current decision
+
+- Source / CI contract acceptance: GREEN for the checks listed above.
+- Phase 6 atomic RPC test acceptance: GREEN in disposable local PostgreSQL.
+- Overall migration reconciliation: BLOCKED by hosted clone ACL drift and release/restore/security gates.
+- Main merge / production release: NOT APPROVED until the remaining gates are independently completed.
+
+This updates older historical DOC_07 snapshots only for the scoped evidence above; it does not turn their old live-verification claims into current verification.
