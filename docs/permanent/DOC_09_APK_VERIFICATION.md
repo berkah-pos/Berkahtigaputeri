@@ -1,129 +1,26 @@
-# DOC_09 — APK / CONFIG VERIFICATION CURRENT
+# DOC_09 — Android App and Laravel API Verification
 
-Status: **CURRENT FINAL POS CODE CONTRACT / PHASE 7**
+**Status:** Active release checklist; do not infer success from source presence or historical reports.
 
-Flutter app: `pos-app/`
+## Client and runtime contract
 
-## Current entry surface
+- App identity must remain aligned with the approved package ID and version unless deliberately version-bumped.
+- Flutter cloud API uses `CENTRAL_API_BASE_URL` and the authenticated Laravel Central API; no Supabase SDK/Auth/RPC is an active dependency.
+- Effective config uses `GET /api/v1/effective-config?tenant_id=&device_id=&service=`.
+- Logical merge contract: `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
+- Token storage uses the platform secure storage implementation; server/database/payment secrets never belong in Flutter.
+- When the API base is absent, the client must label itself local-only; it must not silently point at staging.
 
-`lib/main.dart` constructs the Supabase client and opens `HomeScreen`.
+## Required verification
 
-Current HomeScreen provides a UAT/configuration surface:
+1. Run `flutter pub get`, `flutter analyze`, and all `flutter test` suites.
+2. Build the AAB and identify whether it is publisher-signed or test/debug-signed.
+3. Verify the signed certificate SHA-256 against the accepted previous release before describing it as an in-place update.
+4. Install on a real Android device and test local checkout/restart/data migration, token login/logout, config fetch, timeout/offline cache and unauthorized device/tenant behavior.
+5. Against a disposable/staging Laravel API, prove Tenant A cannot retrieve Tenant B data by altering tenant/device IDs.
+6. Verify the deployed API uses HTTPS, no server secrets are embedded, and the tenant DB routing matches the central registered device/domain.
+7. Record exact artifact checksum, workflow run, tests executed, API target environment and gaps.
 
-- tenant selection;
-- device ID input;
-- config refresh;
-- Supabase/config source status;
-- effective POS MDR preview;
-- POS/Akuntansi availability cards.
+## Evidence boundary
 
-The service cards are informational. They do not navigate into cashier checkout, QRIS transaction, or PPN-report screens.
-
-## Canonical effective-config order
-
-`config_service.dart` is already aligned with the Final Pos architecture:
-
-```text
-GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE
-```
-
-For one `(tenant_id, device_id, requested_service)` request, the keyset is:
-
-```text
-global
-template:<tenant.template_id>
-tenant:<tenant_id>
-tenant:<tenant_id>:service:<requested_service>
-device:<device_id>
-```
-
-Only the requested service participates. POS and Akuntansi are not merged together.
-
-Later layers replace earlier fields at the top JSON-object level. This matches classic Admin `Object.assign` semantics and PostgreSQL `jsonb ||` semantics.
-
-## TEMPLATE and MDR inheritance
-
-TEMPLATE is a mandatory runtime layer. Template ID is resolved from tenant configuration and normalized to uppercase (`BASIC`, `PRO`, `ENTERPRISE`).
-
-If a service row has non-empty `inherited_from_template`, `config_service.dart` removes the service MDR aliases:
-
-```text
-mdr
-mdr_pos
-qris_mdr
-mdr_%
-```
-
-before merging, preserving the inherited template MDR.
-
-## RPC first, fallback parity
-
-`ConfigService.getEffectiveConfig()` first calls:
-
-```text
-get_effective_config(p_tenant, p_device, p_service)
-```
-
-The fallback SELECT path resolves the same five service-specific keys and applies the same merge order. A cached effective config may be used only after a compatible value has previously been stored locally.
-
-Feature flags are app_config-first. The old `tenants.features` path is deprecated compatibility only.
-
-## Final RLS/auth contract
-
-Cloud config access is authenticated:
-
-- anon direct SELECT on Final Pos backing tables is denied;
-- anon EXECUTE on `get_effective_config(...)` is denied;
-- authenticated callers may execute the RPC;
-- every RPC validates `device_id -> tenant_id`;
-- normal authenticated callers must own the device through `devices.user_id = auth.uid()`;
-- service-role access is server-side only and must never be embedded in the APK.
-
-`lib/main.dart` creates the publishable-key Supabase client but does not itself establish a device authentication session. Therefore a production/UAT deployment must provision/sign in the device before live protected config reads can succeed. Publishable-key-only anonymous access is not a supported fallback.
-
-## Admin ↔ APK ↔ RPC parity
-
-The effective-config contract is the same in:
-
-```text
-btp-admin/editor-core.js
-pos-app/lib/core/config/config_service.dart
-public.get_effective_config(...)
-```
-
-All three use:
-
-```text
-GLOBAL → TEMPLATE → TENANT → requested SERVICE → DEVICE
-```
-
-with top-level overwrite and the same `inherited_from_template` MDR behavior.
-
-## Release boundary
-
-The current Play Store build description may claim:
-
-- Final Pos UAT;
-- tenant/device selection;
-- Supabase sync/config verification;
-- effective config preview;
-- service availability status.
-
-It must not claim as currently reachable HomeScreen UX:
-
-- offline cashier checkout;
-- QRIS transaction flow;
-- PPN reporting flow.
-
-## Verification
-
-```text
-python3 scripts/sync_excel_to_supabase.py --dry-run
-→ 352 keys validated
-
-node --check btp-admin/editor-core.js
-→ PASS
-
-DEV app_config count
-→ 352
-```
+This document is a checklist, not a test report. Source code, a CI definition or an AAB artifact alone does not prove that API login works against an actual deployment, a publisher signing certificate matches, or a tenant-isolation test passed.
