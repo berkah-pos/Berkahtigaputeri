@@ -9,15 +9,6 @@ on:
       - "scripts/check_supabase_source_recovery.py"
       - "scripts/compare_reconstructed_catalog_fingerprint.py"
       - ".github/workflows/supabase-reconstructed-clean-replay.yml"
-  push:
-    branches: ["**"]
-    paths:
-      - "supabase/reconciliation/reconstructed/staging-baseline/**"
-      - "supabase/reconciliation/source-recovery-manifest-2026-10-14.json"
-      - "supabase/reconciliation/catalog_fingerprint.sql"
-      - "scripts/check_supabase_source_recovery.py"
-      - "scripts/compare_reconstructed_catalog_fingerprint.py"
-      - ".github/workflows/supabase-reconstructed-clean-replay.yml"
   workflow_dispatch:
 
 permissions:
