@@ -125,11 +125,15 @@ VALUES
   ('bb000000-0000-4000-8000-000000000002',
    'a1000000-0000-4000-8000-000000000001', 'cashier', false);
 
+-- The production COA contract deliberately forbids inserts after seeding.
+-- This is a rollback-only fixture in a disposable local test database; re-enable immediately.
+ALTER TABLE public.accounting_coa DISABLE TRIGGER accounting_coa_no_insert;
 INSERT INTO public.accounting_coa
   (account_code, name_id, name_en, account_type, normal_balance, description)
 VALUES
   ('9-ISO-TEST-DEBIT', 'Akun Tes Debit', 'Isolation Test Debit', 'Aset Lancar', 'debit', 'Disposable RLS test fixture'),
   ('9-ISO-TEST-CREDIT', 'Akun Tes Kredit', 'Isolation Test Credit', 'Pendapatan', 'credit', 'Disposable RLS test fixture');
+ALTER TABLE public.accounting_coa ENABLE TRIGGER accounting_coa_no_insert;
 
 INSERT INTO public.accounting_journals
   (journal_id, tenant_id, idempotency_key, request_fingerprint, transaction_ref,
