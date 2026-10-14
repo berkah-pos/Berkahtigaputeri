@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/config/app_identity_store.dart';
+import 'core/config/central_api_client.dart';
 import 'core/config/config_service.dart';
 import 'core/database/pos_database.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_screen.dart';
 
-const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const String _supabasePublishableKey =
-    String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const String _centralApiBaseUrl =
+    String.fromEnvironment('CENTRAL_API_BASE_URL');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,37 +18,27 @@ Future<void> main() async {
   final database = await PosDatabase.openDefault();
   final identityStore = AppIdentityStore(preferences);
 
-  SupabaseClient? authClient;
+  CentralApiClient? apiClient;
   ConfigService? configService;
   String cloudConfigurationMessage;
 
-  if (_supabaseUrl.trim().isEmpty ||
-      _supabasePublishableKey.trim().isEmpty) {
+  if (_centralApiBaseUrl.trim().isEmpty) {
     cloudConfigurationMessage =
-        'Cloud login belum dikonfigurasi pada build ini. '
-        'Atur SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY saat build. '
-        'Mode lokal tetap tersedia.';
+        'Laravel Central API belum dikonfigurasi pada build ini. '
+        'Atur CENTRAL_API_BASE_URL saat build. Mode lokal tetap tersedia.';
   } else {
-    try {
-      // supabase_flutter persists/restores user sessions across app restarts.
-      await Supabase.initialize(
-        url: _supabaseUrl,
-        publishableKey: _supabasePublishableKey,
-      );
-      authClient = Supabase.instance.client;
-      configService = ConfigService(authClient, preferences);
-      cloudConfigurationMessage = '';
-    } catch (_) {
-      cloudConfigurationMessage =
-          'Supabase tidak dapat diinisialisasi. Periksa konfigurasi build '
-          'dan koneksi; mode lokal tetap tersedia.';
-    }
+    apiClient = CentralApiClient(
+      baseUrl: _centralApiBaseUrl,
+      preferences: preferences,
+    );
+    configService = ConfigService(apiClient, preferences);
+    cloudConfigurationMessage = '';
   }
 
   runApp(
     BerkahTigaPuteriApp(
       database: database,
-      authClient: authClient,
+      apiClient: apiClient,
       configService: configService,
       identityStore: identityStore,
       cloudConfigurationMessage: cloudConfigurationMessage,
@@ -61,14 +50,14 @@ class BerkahTigaPuteriApp extends StatelessWidget {
   const BerkahTigaPuteriApp({
     super.key,
     this.database,
-    this.authClient,
+    this.apiClient,
     this.configService,
     this.identityStore,
     this.cloudConfigurationMessage,
   });
 
   final PosDatabase? database;
-  final SupabaseClient? authClient;
+  final CentralApiClient? apiClient;
   final ConfigService? configService;
   final AppIdentityStore? identityStore;
   final String? cloudConfigurationMessage;
@@ -88,7 +77,7 @@ class BerkahTigaPuteriApp extends StatelessWidget {
             )
           : _AppGate(
               database: database!,
-              authClient: authClient,
+              apiClient: apiClient,
               configService: configService,
               identityStore: identityStore!,
               cloudConfigurationMessage: cloudConfigurationMessage,
@@ -97,20 +86,18 @@ class BerkahTigaPuteriApp extends StatelessWidget {
   }
 }
 
-/// Keeps the auth/local-mode switch inside one stable route. Login/logout
-/// therefore replaces the app's current screen without leaving Settings on top
-/// of an obsolete authenticated route.
+/// Keeps the cloud/local-mode switch inside one stable route.
 class _AppGate extends StatefulWidget {
   const _AppGate({
     required this.database,
-    required this.authClient,
+    required this.apiClient,
     required this.configService,
     required this.identityStore,
     required this.cloudConfigurationMessage,
   });
 
   final PosDatabase database;
-  final SupabaseClient? authClient;
+  final CentralApiClient? apiClient;
   final ConfigService? configService;
   final AppIdentityStore identityStore;
   final String? cloudConfigurationMessage;
@@ -122,26 +109,15 @@ class _AppGate extends StatefulWidget {
 class _AppGateState extends State<_AppGate> {
   bool _localOnly = false;
 
-  void _continueLocalOnly() {
-    setState(() => _localOnly = true);
-  }
+  void _continueLocalOnly() => setState(() => _localOnly = true);
 
-  void _authenticated() {
-    setState(() => _localOnly = false);
-  }
+  void _authenticated() => setState(() => _localOnly = false);
 
   Future<void> _signOut() async {
     try {
-      await widget.authClient?.auth.signOut();
-      if (!mounted) return;
-      // Successful local sign-out removes the session; the gate returns to
-      // LoginScreen on the next build.
-      setState(() => _localOnly = false);
-    } catch (_) {
-      if (!mounted) return;
-      // Fail closed: even if remote sign-out fails, do not leave this route
-      // using the cloud configuration client until the session is resolved.
-      setState(() => _localOnly = true);
+      await widget.apiClient?.signOut();
+    } finally {
+      if (mounted) setState(() => _localOnly = false);
     }
   }
 
@@ -150,7 +126,7 @@ class _AppGateState extends State<_AppGate> {
       database: widget.database,
       identityStore: widget.identityStore,
       configService: localOnly ? null : widget.configService,
-      onSignOut: !localOnly && widget.authClient != null ? _signOut : null,
+      onSignOut: !localOnly && widget.apiClient != null ? _signOut : null,
     );
   }
 
@@ -158,25 +134,16 @@ class _AppGateState extends State<_AppGate> {
   Widget build(BuildContext context) {
     if (_localOnly) return _home(localOnly: true);
 
-    final client = widget.authClient;
-    if (client == null) {
+    final client = widget.apiClient;
+    if (client == null || !client.hasSession) {
       return LoginScreen(
-        client: null,
+        client: client,
         configurationMessage: widget.cloudConfigurationMessage,
         onAuthenticated: _authenticated,
         onContinueLocal: _continueLocalOnly,
       );
     }
 
-    if (client.auth.currentSession != null) {
-      return _home(localOnly: false);
-    }
-
-    return LoginScreen(
-      client: client,
-      configurationMessage: widget.cloudConfigurationMessage,
-      onAuthenticated: _authenticated,
-      onContinueLocal: _continueLocalOnly,
-    );
+    return _home(localOnly: false);
   }
 }
