@@ -103,12 +103,15 @@ def main() -> int:
             fail(f"unexpected source classification for {record.get('path')}")
 
     active_files = sorted(p.name for p in ACTIVE_MIGRATIONS.glob("*.sql"))
+    # The recovered catalog baseline stays under reconciliation/reconstructed/.
+    # Only the existing reviewed migrations and the narrow Phase 6 forward fix are active.
     expected_active = [
         "20261008131700_p0_rls_identity_config_runtime_prep.sql",
         "20261013120000_phase5_tenant_isolation_hardening.sql",
+        "20261014201000_phase6_atomic_versioning_legacy_tax_compat.sql",
     ]
     if active_files != expected_active:
-        fail("recovered/reconstructed source must remain outside supabase/migrations/ until a reviewed baseline is approved")
+        fail("unexpected active migration set; recovered/reconstructed baseline fragments must remain outside supabase/migrations/")
 
     required = [
         "config.toml",
