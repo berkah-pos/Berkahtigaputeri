@@ -2,34 +2,6 @@
 -- Runs wholly inside a transaction; fixture users, device assignments, and licence roll back.
 begin;
 
--- A clean disposable replay has canonical workbook app_config rows but may not
--- have tenant/device relational projections. Fill only missing rows for that
--- isolated test; existing rows are never overwritten, and the transaction below
--- rolls all fixture writes back.
-insert into public.tenants (tenant_id, toko_name, template_id)
-select
-  substr(c.key, 8),
-  coalesce(nullif(btrim(c.value->>'toko_name'), ''), substr(c.key, 8)),
-  nullif(btrim(coalesce(c.value->>'template_id', c.value->>'template', '')), '')
-from public.app_config c
-where c.key ~ '^tenant:[^:]+$'
-on conflict (tenant_id) do nothing;
-
-insert into public.devices (device_id, tenant_id, user_id)
-select
-  substr(d.key, 8),
-  nullif(btrim(d.value->>'tenant_id'), ''),
-  null
-from public.app_config d
-where d.key ~ '^device:[^:]+$'
-  and nullif(btrim(d.value->>'tenant_id'), '') is not null
-  and exists (
-    select 1
-    from public.app_config t
-    where t.key = 'tenant:' || btrim(d.value->>'tenant_id')
-  )
-on conflict (device_id) do nothing;
-
 create schema if not exists extensions;
 create extension if not exists pgtap with schema extensions;
 grant usage on schema extensions to authenticated;

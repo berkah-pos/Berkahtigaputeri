@@ -62,6 +62,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--archive", type=Path, required=True, help="Verified recovered SQL archive JSON")
     parser.add_argument("--output", type=Path, help="Optional output path inside the isolated runner migration directory")
+    parser.add_argument("--seed-relational-projections", action="store_true", help="Seed workbook-derived tenant/device projections in disposable baseline replay only")
     args = parser.parse_args()
 
     try:
@@ -168,6 +169,50 @@ def main() -> int:
             "COMMIT;",
             "",
         ])
+        if args.seed_relational_projections:
+            tenant_rows = payloads.tenants
+            device_rows = payloads.devices
+            if len(tenant_rows) != legacy.EXPECTED_COUNTS["tenant"]:
+                raise ValueError("tenant projection fixture count does not match the canonical workbook")
+            if len(device_rows) != legacy.EXPECTED_COUNTS["device"]:
+                raise ValueError("device projection fixture count does not match the canonical workbook")
+
+            projection_sql = [
+                "-- Disposable replay only: materialize tenant/device projections from workbook rows.",
+                "-- Existing migration history is unchanged; these rows are never applied to a hosted project.",
+                "INSERT INTO public.tenants (tenant_id, toko_name, template_id)",
+                "VALUES",
+            ]
+            tenant_values = [
+                "  ("
+                + sql_literal(str(row["tenant_id"]))
+                + ", "
+                + sql_literal(str(row["toko_name"]))
+                + ", "
+                + sql_literal(str(row["template_id"]))
+                + ")"
+                for row in tenant_rows
+            ]
+            projection_sql.append(", ".join(tenant_values))
+            projection_sql.append("ON CONFLICT (tenant_id) DO NOTHING;")
+            projection_sql.extend([
+                "",
+                "INSERT INTO public.devices (device_id, tenant_id, user_id)",
+                "VALUES",
+            ])
+            device_values = [
+                "  ("
+                + sql_literal(str(row["device_id"]))
+                + ", "
+                + sql_literal(str(row["tenant_id"]))
+                + ", NULL)"
+                for row in device_rows
+            ]
+            projection_sql.append(", ".join(device_values))
+            projection_sql.append("ON CONFLICT (device_id) DO NOTHING;")
+            commit_index = lines.index("COMMIT;")
+            lines[commit_index:commit_index] = projection_sql
+
         if "DELETE FROM public.app_config;" not in "\n".join(lines):
             raise ValueError("replay-only fixture must remove noncanonical bootstrap config keys before seeding canonical workbook")
         args.output.write_text("\n".join(lines), encoding="utf-8")
@@ -176,6 +221,8 @@ def main() -> int:
             "non-authenticating auth.users guard row); values were not printed."
         )
         print(f"FIXTURE: version={REPLAY_FIXTURE_VERSION} bytes={args.output.stat().st_size}")
+        if args.seed_relational_projections:
+            print(f"PASS: generated disposable workbook relational projections: tenants={len(payloads.tenants)} devices={len(payloads.devices)}; values not printed.")
         return 0
     except (OSError, json.JSONDecodeError, ValueError, KeyError, TypeError) as exc:
         print(f"FAIL: replay fixture preflight: {exc}", file=sys.stderr)

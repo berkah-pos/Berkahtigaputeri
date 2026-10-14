@@ -138,7 +138,7 @@ jobs:
           cp supabase/tests/tenant_isolation.test.sql "$REPLAY_DIR/supabase/tests/tenant_isolation.test.sql"
           "$RUNNER_TEMP/replay-fixture-venv/bin/python" scripts/prepare_supabase_historical_replay_fixtures.py \
             --archive supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json \
-            --output "$REPLAY_DIR/supabase/migrations/20261014110000_replay_only_canonical_config_fixture.sql"
+            --output "$REPLAY_DIR/supabase/migrations/20261014110000_replay_only_canonical_config_fixture.sql" --seed-relational-projections
           test -s "$migration"
           printf 'assembled_sql_bytes=%s\n' "$(wc -c < "$migration")"
 
