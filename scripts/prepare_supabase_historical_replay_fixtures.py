@@ -164,7 +164,7 @@ def main() -> int:
         ])
         if "DELETE FROM public.app_config;" not in "\n".join(lines):
             raise ValueError("replay-only fixture must remove noncanonical bootstrap config keys before seeding canonical workbook")
-                args.output.write_text("\n".join(lines), encoding="utf-8")
+        args.output.write_text("\n".join(lines), encoding="utf-8")
         print(
             f"PASS: wrote one runner-only replay fixture ({len(rows)} app_config records and one "
             "non-authenticating auth.users guard row); values were not printed."
