@@ -1841,11 +1841,7 @@ ALTER TABLE ONLY public.vat_period_settlements ADD CONSTRAINT vat_period_settlem
 -- public.vat_period_settlements.vat_period_settlements_tenant_id_fkey
 ALTER TABLE ONLY public.vat_period_settlements ADD CONSTRAINT vat_period_settlements_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES accounting_tenants(tenant_id);
 
--- public.accounting_journal_lines.accounting_journal_lines_balance
-ALTER TABLE ONLY public.accounting_journal_lines ADD CONSTRAINT accounting_journal_lines_balance TRIGGER DEFERRABLE INITIALLY DEFERRED;
 
--- public.accounting_journals.accounting_journal_parent_balance
-ALTER TABLE ONLY public.accounting_journals ADD CONSTRAINT accounting_journal_parent_balance TRIGGER DEFERRABLE INITIALLY DEFERRED;
 -- Non-constraint indexes.
 
 -- private.tenant_accounting_links.tenant_accounting_links_accounting_start_uq
