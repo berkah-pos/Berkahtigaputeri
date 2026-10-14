@@ -1,7 +1,40 @@
 (function(){
-const $=id=>document.getElementById(id);let tenant='';
-function toggle(){const pos=$('featurePos')?.checked!==false;const acc=$('featureAkuntansi')?.checked===true;document.querySelectorAll('[data-scope="pos"] input,[data-scope="pos"] select,[data-scope="pos"] textarea').forEach(e=>e.disabled=!pos);document.querySelectorAll('[data-scope="akuntansi"] input,[data-scope="akuntansi"] select,[data-scope="akuntansi"] textarea').forEach(e=>e.disabled=!acc);const ppnAccount=$('ppnAccount');if(ppnAccount)ppnAccount.disabled=!acc;const note=$('featureNote');if(note)note.textContent=`POS ${pos?'ON':'OFF'} · AKUNTANSI ${acc?'ON':'OFF'}${acc?'':' — field akuntansi termasuk akun 2-2010 dinonaktifkan'}`;}
-async function init(){tenant=BTP_EDITOR.getTenant();if(!tenant)return;const c=BTP_AUTH.client();const {data,error}=await c.from('tenants').select('features').eq('tenant_id',tenant).maybeSingle();if(error)throw error;const f=data?.features||{pos:true,akuntansi:false};$('featurePos').checked=f.pos!==false;$('featureAkuntansi').checked=f.akuntansi===true;$('featurePos').addEventListener('change',toggle);$('featureAkuntansi').addEventListener('change',toggle);toggle();}
-async function save(){const user=await BTP_AUTH.requireAdmin();if(!user)throw new Error('Login wajib');tenant=tenant||BTP_EDITOR.getTenant();const features={pos:$('featurePos').checked,akuntansi:$('featureAkuntansi').checked};const {error}=await BTP_AUTH.client().from('tenants').update({features,updated_at:new Date().toISOString()}).eq('tenant_id',tenant);if(error)throw error;toggle();return features;}
-window.BTP_FEATURES={init,save,toggle};
+const $=id=>document.getElementById(id);
+let tenant='',initial=null;
+function current(){return {pos:$('featurePos').checked===true,akuntansi:$('featureAkuntansi').checked===true};}
+function toggle(){
+  const pos=$('featurePos')?.checked!==false;
+  const acc=$('featureAkuntansi')?.checked===true;
+  document.querySelectorAll('[data-scope="pos"] input,[data-scope="pos"] select,[data-scope="pos"] textarea').forEach(e=>e.disabled=!pos);
+  document.querySelectorAll('[data-scope="akuntansi"] input,[data-scope="akuntansi"] select,[data-scope="akuntansi"] textarea').forEach(e=>e.disabled=!acc);
+  const ppnAccount=$('ppnAccount');
+  if(ppnAccount)ppnAccount.disabled=!acc;
+  const note=$('featureNote');
+  if(note)note.textContent=`POS ${pos?'ON':'OFF'} · AKUNTANSI ${acc?'ON':'OFF'}${acc?'':' — field akuntansi termasuk akun 2-2010 dinonaktifkan'}`;
+}
+function effectiveFeatures(){
+  const config=BTP_EDITOR.getEffectiveConfig();
+  const raw=config?.features;
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw))return {pos:raw.pos===true,akuntansi:raw.akuntansi===true};
+  if('pos_enabled' in config||'akuntansi_enabled' in config)return {pos:config.pos_enabled===true,akuntansi:config.akuntansi_enabled===true};
+  throw new Error('Konfigurasi efektif tidak memuat feature flags; periksa template dan canonical workbook.');
+}
+async function init(){
+  tenant=BTP_EDITOR.getTenant();
+  if(!tenant)return;
+  const f=effectiveFeatures();
+  initial={...f};
+  $('featurePos').checked=f.pos;
+  $('featureAkuntansi').checked=f.akuntansi;
+  $('featurePos').onchange=toggle;
+  $('featureAkuntansi').onchange=toggle;
+  toggle();
+}
+function patch(){
+  if(!initial)throw new Error('Feature flags belum dimuat');
+  const next=current();
+  return next.pos===initial.pos&&next.akuntansi===initial.akuntansi?{}:{features:next};
+}
+function markSaved(){initial=current();}
+window.BTP_FEATURES={init,patch,markSaved,toggle};
 })();
