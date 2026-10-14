@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "captured_at": "2026-10-14",
+  "status": "RECONSTRUCTED_SCHEMA_SNAPSHOT_CLEAN_REPLAY_PENDING",
+  "purpose": "Disposable clean schema replay and structural comparison only; not historical migration SQL and not approval to apply to a hosted project.",
+  "source": {
+    "repository": "berkah-pos/Berkahtigaputeri",
+    "mirror_repository": "Andisatriawan/Berkahtigaputeri",
+    "supabase_project_id": "cztlmwzfrhyafgawphgw",
+    "environment": "staging",
+    "postgres_version": "17.6",
+    "captured_by": "read-only pg_catalog and information_schema introspection",
+    "reference_fingerprint": "supabase/reconciliation/reconstructed/staging-baseline/source-catalog-fingerprint.json"
+  },
+  "inventory": {
+    "source_relations": 67,
+    "source_application_tables": 67,
+    "source_custom_views": 0,
+    "source_functions": 169,
+    "source_plpgsql_functions": 147,
+    "source_sql_functions": 22,
+    "source_constraints": 615,
+    "non_constraint_indexes": 49,
+    "source_rls_enabled_tables": 66,
+    "target_rls_enabled_tables": 67,
+    "source_rls_policies": 42,
+    "target_rls_policies": 44,
+    "source_non_internal_triggers": 49,
+    "explicit_non_identity_sequences": 1,
+    "custom_enum_domain_range_types": 0
+  },
+  "historical_migration_recovery": {
+    "staging_registry_rows": 139,
+    "staging_exact_sql_and_version_matches": 0,
+    "staging_candidate_not_exact": 2,
+    "staging_missing_source": 137,
+    "staging_clone_registry_rows": 12,
+    "staging_clone_exact_sql_and_version_matches": 0,
+    "staging_clone_candidate_not_exact": 7,
+    "staging_clone_missing_source": 5,
+    "state": "BLOCKED_HISTORICAL_SQL_INCOMPLETE"
+  },
+  "target_only_reviewed_deltas": [
+    "Enable RLS on private.tenant_accounting_links (source staging had RLS disabled).",
+    "Add deny-anon policy and authenticated membership-scoped SELECT policy to private.tenant_accounting_links. No direct SELECT grant is introduced for authenticated or anon.",
+    "Revoke anonymous/PUBLIC direct sequence privileges in the isolated target.",
+    "Revoke anonymous/PUBLIC direct execution on public.log_config_change() and public.set_updated_at(); triggers still invoke these as trigger routines.",
+    "Remove blanket global and schema-specific default table/sequence/function privileges for PUBLIC, anon, authenticated, and service_role in future objects. New callers require explicit grants."
+  ],
+  "omissions_and_limits": [
+    "No business table rows are included; app_config's 352 key/value rows are intentionally not copied.",
+    "No Supabase migration history rows are created or repaired by the baseline.",
+    "pg_cron's installed extension and scheduled jobs are not reconstructed by this schema snapshot.",
+    "The current staging-clone has four relations and multiple routine/schema differences; this staging baseline does not claim clone parity.",
+    "No tenant A/B runtime test is performed against real seed identities or business data."
+  ],
+  "clean_replay": {
+    "workflow": ".github/workflows/supabase-reconstructed-baseline-replay.yml",
+    "local_cli_version": "2.120.0",
+    "uses_hosted_supabase_credentials": false,
+    "uses_remote_database": false,
+    "runs_local_supabase_db_reset": true,
+    "runs_pgtap_assertions": true,
+    "compares_structural_fingerprint": true,
+    "state": "PENDING_GITHUB_ACTIONS"
+  }
+}
