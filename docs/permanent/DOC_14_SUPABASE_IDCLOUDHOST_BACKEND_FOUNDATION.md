@@ -2,7 +2,7 @@
 
 **Status:** FOUNDATION ONLY — NOT A PRODUCTION CERTIFICATION  
 **Date:** 2026-10-14  
-**Repository:** berkah-ajb-dev/Berkahtigaputeri  
+**Repository:** berkah-pos/Berkahtigaputeri  
 **Authority:** DOC_00_CANONICAL_ARCHITECTURE_DECISION.md, DOC_00_MASTER_ROADMAP.md, and DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md
 
 ## 1. Decision
@@ -18,7 +18,7 @@ This keeps managed Supabase capabilities without putting PostgreSQL, Auth, Stora
 
 ## 2. IDCloudHost sizing boundary
 
-The intended selection is Basic Standard, quoted at Rp225,000/month, with 2 CPU cores, 4 GB RAM, and 60 GB storage. IDCloudHost's documented VM creation flow explicitly asks the operator to choose an OS and Ubuntu version; the price tier does not itself mean Ubuntu is already installed. Choose **Ubuntu Server 24.04 LTS (64-bit)** if it is offered in the provisioning catalogue. Confirm the actual OS image, exact resources, location, public IPv4, SSH public-key support, backup/snapshot options, renewal amount, and taxes/add-ons in the live console before payment. Official OS selection guide: https://idcloudhost.com/panduan/cara-melakukan-building-instalasi-server-private-cloud-dengan-menggunakan-os-ubuntu/. Follow `DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md` for the approved provisioning and hardening steps.
+The target selection follows the current owner-provided requirement: IDCloudHost Basic Standard, 2 CPU cores, 8 GB RAM, and 60 GB storage, with an approximately Rp375,000/month quote observed in the user's configurator. Treat the price as an estimate, not a verified current tariff or purchase. Before payment, confirm the live SKU, monthly renewal price, taxes/add-ons, actual CPU/RAM/disk allocation, OS image, region, public IPv4, SSH public-key support, and backup/snapshot options. Choose **Ubuntu Server 24.04 LTS (64-bit)** if it is offered in the actual provisioning catalogue. Official OS selection guide: https://idcloudhost.com/panduan/cara-melakukan-building-instalasi-server-private-cloud-dengan-menggunakan-os-ubuntu/.
 
 Supabase's official self-hosting guide lists 4 GB RAM / 2 cores / 40 GB SSD as the minimum for the full stack and recommends 8 GB+ RAM / 4 cores+ / 80 GB+ SSD. Self-hosting moves OS patching, secret rotation, TLS, database operations, monitoring, backups, and disaster recovery to the operator. The managed platform also offers capabilities not included in self-hosted deployments, including managed backups/PITR and branching. Therefore this VM is **not the recommended place to host the full Supabase stack plus the Berkah POS API**.
 

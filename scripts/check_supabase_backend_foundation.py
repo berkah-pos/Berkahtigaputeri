@@ -86,6 +86,22 @@ def main() -> int:
         if secret_path.exists():
             failures.append(f"local secret file must not exist in the repository checkout: {secret_path.relative_to(ROOT)}")
 
+    # Keep the VPS plan consistent with the owner-approved target. The quote is an estimate,
+    # not evidence that the provider currently offers or has provisioned these resources.
+    foundation_text = FOUNDATION.read_text(encoding="utf-8") if FOUNDATION.is_file() else ""
+    runbook_text = RUNBOOK.read_text(encoding="utf-8") if RUNBOOK.is_file() else ""
+    target_spec = "2 CPU cores, 8 GB RAM, and 60 GB storage"
+    for relative, document in (
+        ("docs/permanent/DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md", foundation_text),
+        ("docs/permanent/DOC_15_PRODUCTION_BACKEND_DEPLOYMENT_RUNBOOK.md", runbook_text),
+    ):
+        if target_spec not in document:
+            failures.append(f"{relative} must preserve the target VPS resources: {target_spec}")
+        if "Rp375,000/month" not in document:
+            failures.append(f"{relative} must preserve the owner-observed approximate VPS quote Rp375,000/month")
+        if "Rp225,000/month" in document or "Basic Standard, Rp225,000/month" in document:
+            failures.append(f"{relative} contains the superseded VPS price assumption")
+
     if failures:
         for message in failures:
             fail(message)

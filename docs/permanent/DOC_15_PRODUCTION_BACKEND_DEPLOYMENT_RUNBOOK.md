@@ -2,7 +2,7 @@
 
 **Status:** ACTIONABLE RUNBOOK — deployment not yet performed  
 **Created:** 2026-10-14  
-**Repository:** `berkah-ajb-dev/Berkahtigaputeri`  
+**Repository:** `berkah-pos/Berkahtigaputeri`  
 **PR:** [#39 — Supabase backend foundation and IDCloudHost rollout guardrails](https://github.com/berkah-pos/Berkahtigaputeri/pull/39)  
 **Read with:** `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, `DOC_00_MASTER_ROADMAP.md`, `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md`, `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md`, and `DOC_14_SUPABASE_IDCLOUDHOST_BACKEND_FOUNDATION.md`.
 
@@ -10,7 +10,7 @@
 
 ## 1. Direct decision: will IDCloudHost use Ubuntu?
 
-**Yes, Ubuntu is the selected operating system for the Berkah POS application VM. It is not automatically guaranteed by the Rp225,000/month plan name.** IDCloudHost's own provisioning guide tells the operator to choose an OS and the Ubuntu version during VM creation.
+**Ubuntu Server 24.04 LTS (64-bit) is the target OS, not a verified provisioned image. The target VPS is Basic Standard with 2 CPU cores, 8 GB RAM, and 60 GB storage; the approximately Rp375,000/month quote is user-observed and must be rechecked at live checkout.**
 
 - Select **Ubuntu Server 24.04 LTS, 64-bit** if listed in the live provisioning catalogue.
 - Do not install Ubuntu Desktop or a graphical desktop environment on the production VM.
@@ -23,7 +23,7 @@ Official references:
 
 ### Pre-purchase checks
 
-The current working assumption is **Basic Standard, Rp225,000/month, 2 CPU cores, 4 GB RAM, 60 GB storage**. Verify all of the following in the live checkout; pricing, quota, availability, and tax can change:
+The current target, per the owner-provided requirement, is **Basic Standard, approximately Rp375,000/month, 2 CPU cores, 8 GB RAM, and 60 GB storage**. This is a planning estimate from the configurator, not proof of current checkout price or provisioning. Verify the live checkout; pricing, quota, availability, and taxes can change:
 
 - Exact product SKU, billing interval, renewal rate, taxes, and any public IPv4 or storage/network add-on charge.
 - Available region and actual OS image/version.
@@ -119,7 +119,7 @@ Run this section only after the VM is purchased and the actual Ubuntu Server ima
 ### 7.1 Provisioning choices
 
 - OS: Ubuntu Server 24.04 LTS, 64-bit (or a reviewed compatible supported LTS if not offered).
-- Initial size: selected Basic Standard as quoted; record actual CPU/RAM/disk from the live VM.
+- Initial size target: Basic Standard, 2 CPU cores, 8 GB RAM, and 60 GB storage, with an approximately Rp375,000/month user-observed quote. Verify the exact SKU, monthly price, taxes/add-ons, and actual provisioned resources in the live console.
 - Authentication: use an SSH public key belonging to the deployment/operator identity; do not put private keys in the VM creation form.
 - Create a named administrator account with sudo. Do not run app containers as root.
 - Add a public IPv4 only if needed for direct ingress. DNS and TLS require a confirmed domain; do not invent a domain name.
