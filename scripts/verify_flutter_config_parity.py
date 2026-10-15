@@ -151,10 +151,46 @@ def expected_effective_config(
         services[(tenant_id, service)]["config"],
         devices[device_id]["config"],
     ]
+    # Match EffectiveConfigResolver::deepMerge exactly: recurse only when
+    # both values are non-empty associative maps. Lists, scalars, and empty
+    # maps replace prior values; an empty root layer is a no-op.
+    return merge_effective_layers(layers)
+
+
+def _is_associative(value: Any) -> bool:
+    # Laravel's isAssoc treats an empty decoded PHP array as a list/replacement.
+    return isinstance(value, dict) and len(value) > 0
+
+
+def _merge_associative(
+    base: dict[str, Any], override: dict[str, Any]
+) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in override.items():
+        existing = merged.get(key)
+        if (
+            key in merged
+            and isinstance(existing, dict)
+            and isinstance(value, dict)
+            and _is_associative(existing)
+            and _is_associative(value)
+        ):
+            merged[key] = _merge_associative(existing, value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def merge_effective_layers(layers: list[dict[str, Any]]) -> dict[str, Any]:
     merged: dict[str, Any] = {}
-    # DOC_00 canonical behavior is top-level overwrite; resolve one service only.
-    for layer in layers:
-        merged.update(without_version(layer))
+    for raw_layer in layers:
+        layer = without_version(raw_layer)
+        if not layer:
+            continue
+        if not _is_associative(merged) or not _is_associative(layer):
+            merged = layer
+            continue
+        merged = _merge_associative(merged, layer)
     return merged
 
 
