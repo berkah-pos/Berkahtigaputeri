@@ -9,11 +9,11 @@ class Subscription extends Model
 {
     protected $connection = 'central';
 
-    protected $fillable = ['tenant_id', 'plan', 'status', 'expires_at', 'provider_reference'];
+    protected $fillable = ['tenant_id', 'plan', 'status', 'expires_at', 'provider_reference', 'max_users'];
 
     protected function casts(): array
     {
-        return ['expires_at' => 'datetime'];
+        return ['expires_at' => 'datetime', 'max_users' => 'integer'];
     }
 
     public function tenant(): BelongsTo

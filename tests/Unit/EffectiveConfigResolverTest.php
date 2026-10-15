@@ -29,6 +29,14 @@ class EffectiveConfigResolverTest extends TestCase
 
         DB::purge('central');
 
+        Schema::connection('central')->create('tenant_configs', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->string('tenant_id');
+            $table->string('service_scope');
+            $table->text('config');
+            $table->unsignedInteger('version')->default(1);
+            $table->dateTime('updated_at')->nullable();
+        });
         Schema::connection('central')->create('subscriptions', function (Blueprint $table): void {
             $table->increments('id');
             $table->string('tenant_id');
@@ -75,6 +83,31 @@ class EffectiveConfigResolverTest extends TestCase
             ['receipt' => ['paper_width' => 58]],
         ]);
         $this->assertSame(['enabled' => true, 'paper_width' => 58], $withMissingLayer['receipt']);
+    }
+
+    public function test_pos_and_akuntansi_requests_exclude_each_others_overrides_for_same_tenant(): void
+    {
+        DB::connection('central')->table('tenant_configs')->insert([
+            [
+                'tenant_id' => 'tenant-a', 'service_scope' => 'pos',
+                'config' => json_encode(['pos_only' => 'POS-OVERRIDE'], JSON_THROW_ON_ERROR),
+                'version' => 1, 'updated_at' => now(),
+            ],
+            [
+                'tenant_id' => 'tenant-a', 'service_scope' => 'akuntansi',
+                'config' => json_encode(['accounting_only' => 'ACCOUNTING-OVERRIDE'], JSON_THROW_ON_ERROR),
+                'version' => 1, 'updated_at' => now(),
+            ],
+        ]);
+        $resolver = new EffectiveConfigResolver();
+        $posRow = $this->invokePrivate($resolver, 'loadRequestedServiceRow', ['tenant-a', 'pos']);
+        $accountingRow = $this->invokePrivate($resolver, 'loadRequestedServiceRow', ['tenant-a', 'akuntansi']);
+        $pos = json_decode($posRow->config, true, 512, JSON_THROW_ON_ERROR);
+        $accounting = json_decode($accountingRow->config, true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(['pos_only' => 'POS-OVERRIDE'], $pos);
+        $this->assertArrayNotHasKey('accounting_only', $pos);
+        $this->assertSame(['accounting_only' => 'ACCOUNTING-OVERRIDE'], $accounting);
+        $this->assertArrayNotHasKey('pos_only', $accounting);
     }
 
     public function test_active_subscription_outranks_a_trial_with_a_later_expiry(): void

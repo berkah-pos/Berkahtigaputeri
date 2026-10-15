@@ -23,7 +23,7 @@ class EffectiveConfigResolver
      *
      * @return array{config: array, meta: array}
      */
-    public function resolve(User $user, string $tenantId, string $deviceId, string $service): array
+    public function resolve(User $user, string $tenantId, string $deviceId, string $service, ?string $domain = null): array
     {
         if (! in_array($service, self::SERVICES, true)) {
             abort(422, 'service must be pos or akuntansi');
@@ -41,26 +41,21 @@ class EffectiveConfigResolver
             throw new AuthorizationException('Account is inactive.');
         }
 
-        if (! $user->is_super_admin && (string) $user->tenant_id !== $tenantId) {
-            throw new AuthorizationException('User is not assigned to this tenant.');
+        // Client IDs/domain are selectors, not authorization proof. Authorize the
+        // tenant and membership on the central connection before any tenant DB access.
+        $tenant = Tenant::on('central')->find($tenantId);
+        if ($tenant === null || ! (bool) $tenant->is_active) {
+            throw new AuthorizationException('Tenant is missing or inactive.');
         }
-
-        // The client-supplied tenant/device IDs are selectors, not authority.
-        // Resolve the active registry record on the central connection.
-        $device = DB::connection('central')->table('device_registry')
-            ->where('device_id', $deviceId)
-            ->where('tenant_id', $tenantId)
-            ->where('status', 'active')
-            ->first();
+        $this->assertTenantMembership($user, $tenantId);
+        $this->assertDomainBelongsToTenant($tenantId, $domain);
+        $device = $this->loadActiveDeviceForTenant($tenantId, $deviceId);
 
         if (! $device) {
             throw new AuthorizationException('Device is not registered as active for this tenant.');
         }
 
-        if (! $user->is_super_admin && $device->owner_user_id !== null
-            && (int) $device->owner_user_id !== (int) $user->getKey()) {
-            throw new AuthorizationException('Device is assigned to another user.');
-        }
+        $this->assertDeviceOwnership($user, $device);
 
         $subscription = $this->selectAuthoritativeSubscription($tenantId);
 
@@ -78,9 +73,7 @@ class EffectiveConfigResolver
             throw new AuthorizationException('Requested service is not enabled for this tenant.');
         }
 
-        // Tenant is the one model-based central lookup used to initialize tenancy.
-        $tenant = Tenant::on('central')->findOrFail($tenantId);
-
+        // Tenant and device identities were already resolved against central records.
         // All configuration-layer reads use the explicit central connection.
         // Order by updated_at as a deterministic fallback for legacy duplicates.
         $globalRow = DB::connection('central')->table('global_configs')
@@ -102,13 +95,8 @@ class EffectiveConfigResolver
                 ->first()
             : null;
 
-        // Deliberately query only the selected service_scope. Never merge both
-        // the POS and Akuntansi configuration rows into one result.
-        $serviceRow = DB::connection('central')->table('tenant_configs')
-            ->where('tenant_id', $tenantId)
-            ->where('service_scope', $service)
-            ->orderByDesc('updated_at')
-            ->first();
+        // Load one exact requested service scope; never merge sibling service rows.
+        $serviceRow = $this->loadRequestedServiceRow($tenantId, $service);
 
         $global = $this->withoutVersion($this->normalizeConfig($globalRow->config ?? null, 'global'));
         $template = $this->withoutVersion($this->normalizeConfig($templateRow->config ?? null, 'template'));
@@ -145,6 +133,72 @@ class EffectiveConfigResolver
                 $subscription,
             ),
         ];
+    }
+
+    private function assertTenantMembership(User $user, string $tenantId): void
+    {
+        if ($user->is_super_admin) {
+            return;
+        }
+        $active = DB::connection('central')->table('tenant_memberships')
+            ->where('tenant_id', $tenantId)
+            ->where('user_id', $user->getKey())
+            ->where('is_active', true)
+            ->exists();
+        if (! $active) {
+            throw new AuthorizationException('User does not have an active tenant membership.');
+        }
+    }
+
+    private function assertDomainBelongsToTenant(string $tenantId, ?string $domain): void
+    {
+        if ($domain === null || trim($domain) === '') {
+            return;
+        }
+        $normalized = strtolower(rtrim(trim($domain), '.'));
+        if (strlen($normalized) > 253 || str_contains($normalized, '..') ||
+            ! preg_match('/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$/', $normalized)) {
+            throw new AuthorizationException('Supplied domain is invalid.');
+        }
+        $matches = DB::connection('central')->table('domains')
+            ->where('domain', $normalized)
+            ->where('tenant_id', $tenantId)
+            ->exists();
+        if (! $matches) {
+            throw new AuthorizationException('Registered domain does not belong to the selected tenant.');
+        }
+    }
+
+    private function assertDeviceOwnership(User $user, object $device): void
+    {
+        if ($user->is_super_admin) {
+            return;
+        }
+
+        if ($device->owner_user_id === null || (int) $device->owner_user_id !== (int) $user->getKey()) {
+            throw new AuthorizationException('Device is not assigned to the authenticated user.');
+        }
+    }
+
+    private function loadActiveDeviceForTenant(string $tenantId, string $deviceId): ?object
+    {
+        return DB::connection('central')->table('device_registry')
+            ->where('device_id', $deviceId)
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->first();
+    }
+
+    private function loadRequestedServiceRow(string $tenantId, string $service): ?object
+    {
+        if (! in_array($service, self::SERVICES, true)) {
+            throw new AuthorizationException('Requested service is not supported.');
+        }
+        return DB::connection('central')->table('tenant_configs')
+            ->where('tenant_id', $tenantId)
+            ->where('service_scope', $service)
+            ->orderByDesc('updated_at')
+            ->first();
     }
 
     /**
