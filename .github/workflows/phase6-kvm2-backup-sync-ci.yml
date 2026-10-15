@@ -104,7 +104,7 @@ jobs:
           sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip age rclone gnupg curl
           curl -fsSL https://r.mariadb.com/downloads/mariadb_repo_setup -o "$RUNNER_TEMP/mariadb_repo_setup"
           chmod 700 "$RUNNER_TEMP/mariadb_repo_setup"
-          "$RUNNER_TEMP/mariadb_repo_setup" --mariadb-server-version="mariadb-11.4"
+          sudo bash "$RUNNER_TEMP/mariadb_repo_setup" --mariadb-server-version="mariadb-11.4"
           sudo apt-get update
           sudo apt-get install --yes mariadb-client
           mariadb-dump --version
