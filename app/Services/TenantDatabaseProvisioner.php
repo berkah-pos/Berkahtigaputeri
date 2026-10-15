@@ -299,6 +299,10 @@ class TenantDatabaseProvisioner
         $this->audit($tenantId, $provisioningId, 'database.empty_retry_verified', [
             'database_name' => $databaseName,
         ]);
+        $this->audit($tenantId, $provisioningId, 'database.create.recovered_after_interruption', [
+            'database_name' => $databaseName,
+            'recovery_condition' => 'provisioning reservation present, prior absence audit present, schema empty',
+        ]);
     }
 
     private function ensureOwnershipMarker(
