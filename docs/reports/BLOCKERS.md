@@ -37,3 +37,15 @@ The measured resource-budget and k6 burst, real-engine credential/grant separati
 ## Required disposition
 
 Keep PR [#46](https://github.com/berkah-pos/Berkahtigaputeri/pull/46) draft. No Phase 4 work starts until the backend CI starts real jobs, PHP/database tests pass on the candidate head, and the owner reviews the remaining Section 8 evidence gates. No production or remote database changes were made as part of this Phase 3 work.
+
+
+## Latest exact-head check — 2026-10-15 22:30 WIB
+
+After reconciling Phase 3 against the latest Phase 2 base (branch comparison: 22 commits ahead, 0 behind), the newest candidate-head runs remain blocked before jobs start:
+
+- [Canonical Workbook Validation — run 38751971667](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751971667): **PASS**.
+- [KVM2 Laravel Backend CI — run 38751973605](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751973605): **startup_failure**, no jobs.
+- [Canonical POS App CI — run 38751978004](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751978004): **startup_failure**, no jobs.
+- [Phase 2 Tenant Grant Security CI — run 38751975962](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751975962): **startup_failure**, no jobs.
+
+Source-review fixes corrected an over-escaped PHP namespace separator and a Python integer-string regex. These fixes are not substitutes for a successful PHP lint/test run. Phase 3 remains blocked pending actual backend job execution, PHPUnit, disposable-MariaDB migration/security evidence, and owner review.
