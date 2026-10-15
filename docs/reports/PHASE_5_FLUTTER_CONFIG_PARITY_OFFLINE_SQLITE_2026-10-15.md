@@ -29,9 +29,9 @@ The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days
 ## Tests and exact output
 
 Final independent Phase 5 CI run: **PASS**  
-- Run: [38776187146](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776187146)
-- Tested commit: `f6b69ade99b378330bdb1b2f73eea89396a84068`
-- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776187146/artifacts/11993797086)
+- Run: [38776963937](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963937)
+- Tested commit: `b544678f2debf4de919657784cc61f936632b077`
+- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963937/artifacts/11993997302)
 - Flutter version: `3.47.7`; official archive SHA-256: `af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230`
 - Runtime outcome: `flutter pub get` completed successfully; canonical workbook validation, workbook-contract tests, parity-harness unit tests and forbidden-table-fallback guard all passed.
 - The Phase 5 CI step outcomes were all successful, including `flutter analyze`, `flutter test` and log artifact upload.
@@ -45,14 +45,14 @@ PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 14
 
 Workbook contract regression suite:
 ```text
-Ran 5 tests in 0.103s
+Ran 5 tests in 0.173s
 
 OK
 ```
 
 Parity harness unit suite:
 ```text
-Ran 5 tests in 0.040s
+Ran 5 tests in 0.066s
 
 OK
 ```
@@ -65,15 +65,15 @@ PASS: no raw app_config table fallback found in pos-app/lib.
 `cd pos-app && flutter analyze --no-pub`:
 ```text
 Analyzing pos-app...
-No issues found! (ran in 5.9s)
+No issues found! (ran in 8.2s)
 ```
 
 `cd pos-app && flutter test --no-pub --reporter expanded`:
 ```text
-00:07 +58: All tests passed!
+00:09 +60: All tests passed!
 ```
 
-The passing Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test also verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event.
+The passing 60-test Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test also verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event. Two additional config regressions prove distinct tenant/device identifiers containing dots cannot collide in the effective-config cache, and the dual-mode sunset blocks even a fresh parity cache when the emergency cache switch is enabled.
 
 Fix history: earlier run [38775817406](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38775817406) failed due to a missing secure-storage argument in `login_screen_test.dart` and the migration assuming every historical database already had `outbox_events`. Both issues were fixed before the successful tested commit above. That run is retained as diagnostic history, not the final test result.
 
