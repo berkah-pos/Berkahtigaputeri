@@ -89,21 +89,34 @@ jobs:
     needs: contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      mariadb:
-        image: mariadb:11.4
-        env:
-          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
-          MARIADB_ROOT_HOST: "%"
-          MARIADB_DATABASE: berkahpos_central
-        ports: ["3306:3306"]
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
     steps:
       - name: Checkout repository
+      - name: Start disposable MariaDB 11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name kvm2-mariadb \
+            --publish 127.0.0.1:3306:3306 \
+            --env MARIADB_ROOT_PASSWORD="$MARIADB_ROOT_PASSWORD" \
+            --env MARIADB_ROOT_HOST="%" \
+            --env MARIADB_DATABASE=berkahpos_central \
+            mariadb:11.4
+          ready=false
+          for attempt in $(seq 1 60); do
+            if docker exec -e MYSQL_PWD="$MARIADB_ROOT_PASSWORD" kvm2-mariadb mariadb-admin ping --user=root --silent >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" != true ]]; then
+            docker logs kvm2-mariadb
+            exit 1
+          fi
+          echo "PASS: disposable MariaDB 11.4 container is ready."
+
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up PHP 8.3 and Composer v2
@@ -249,3 +262,12 @@ jobs:
         env:
           MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
         run: python3 scripts/check_central_app_grants.py
+
+
+      - name: Remove disposable MariaDB container
+        if: always()
+        shell: bash
+        run: |
+          if docker container inspect kvm2-mariadb >/dev/null 2>&1; then
+            docker rm --force kvm2-mariadb >/dev/null
+          fi
