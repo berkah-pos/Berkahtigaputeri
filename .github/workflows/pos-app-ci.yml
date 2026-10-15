@@ -15,9 +15,13 @@ on:
       - "docker-compose.yml"
       - ".env.example"
       - "scripts/check_kvm2_contract.py"
+      - "scripts/check_provisioning_env_contract.py"
+      - "scripts/check_provisioner_grants.py"
+      - "scripts/check_central_app_grants.py"
       - "scripts/export_workbook_for_laravel.py"
       - ".github/workflows/pos-app-ci.yml"
       - ".github/workflows/kvm2-laravel-ci.yml"
+      - ".github/workflows/phase2-tenant-grants-ci.yml"
   push:
     branches: ["**"]
     paths: *kvm2_paths
@@ -57,7 +61,7 @@ jobs:
           (cd "$RUNNER_TEMP" && grep "actionlint_${version}_linux_amd64.tar.gz" "$checksums" | sha256sum --check --status)
           mkdir -p "$RUNNER_TEMP/actionlint"
           tar -xzf "$archive" -C "$RUNNER_TEMP/actionlint"
-          "$RUNNER_TEMP/actionlint/actionlint" .github/workflows/kvm2-laravel-ci.yml .github/workflows/pos-app-ci.yml
+          "$RUNNER_TEMP/actionlint/actionlint" .github/workflows/kvm2-laravel-ci.yml .github/workflows/pos-app-ci.yml .github/workflows/phase2-tenant-grants-ci.yml
 
       - name: Install workbook validator dependencies
         shell: bash
