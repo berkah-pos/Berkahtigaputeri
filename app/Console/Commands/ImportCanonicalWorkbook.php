@@ -14,7 +14,7 @@ use Stancl\Tenancy\Facades\Tenancy;
 
 class ImportCanonicalWorkbook extends Command
 {
-    protected $signature = 'config:import-workbook {file : JSON manifest produced by scripts/export_workbook_for_laravel.py}';
+    protected $signature = 'config:import-workbook {file : JSON manifest produced by scripts/export_workbook_for_laravel.py} {--dry-run : Validate the manifest without making database changes}';
     protected $description = 'Import validated workbook configuration into the central DB and isolated tenant DBs without dropping existing data.';
 
     public function handle(): int
@@ -27,7 +27,22 @@ class ImportCanonicalWorkbook extends Command
 
         try {
             $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($manifest)) {
+                throw new \InvalidArgumentException('Manifest root must be a JSON object.');
+            }
             $this->validateManifest($manifest);
+            $keyCount = array_sum($manifest['counts']);
+            $this->info(sprintf(
+                'Validated canonical workbook: %d keys; keyset_md5=%s.',
+                $keyCount,
+                $manifest['keyset_md5'],
+            ));
+
+            if ($this->option('dry-run')) {
+                $this->info('Dry run only; no database writes or tenant provisioning were performed.');
+                return self::SUCCESS;
+            }
+
             $this->warn('This operation can provision up to 100 tenant databases. Use only after verifying target identity, backup, disk capacity, and migration approval.');
             if (! $this->confirm('Import this validated configuration manifest into the current database environment?', false)) {
                 $this->line('Import cancelled; no records changed.');
@@ -48,36 +63,134 @@ class ImportCanonicalWorkbook extends Command
 
     private function validateManifest(array $manifest): void
     {
-        $expectedCounts = ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108];
+        $expectedCounts = [
+            'global' => 1,
+            'template' => 3,
+            'tenant' => 100,
+            'service' => 140,
+            'device' => 108,
+        ];
+
+        foreach (['templates', 'tenants', 'services', 'devices'] as $field) {
+            if (! is_array($manifest[$field] ?? null)) {
+                throw new \InvalidArgumentException("Manifest field {$field} must be an array.");
+            }
+        }
         if (($manifest['schema_version'] ?? null) !== 1 ||
-            ($manifest['keyset_md5'] ?? null) !== '1fd3d64219ecc7c333453c20da80e295' ||
             ($manifest['counts'] ?? null) !== $expectedCounts ||
-            count($manifest['templates'] ?? []) !== 3 ||
-            count($manifest['tenants'] ?? []) !== 100 ||
-            count($manifest['services'] ?? []) !== 140 ||
-            count($manifest['devices'] ?? []) !== 108 ||
+            count($manifest['templates']) !== $expectedCounts['template'] ||
+            count($manifest['tenants']) !== $expectedCounts['tenant'] ||
+            count($manifest['services']) !== $expectedCounts['service'] ||
+            count($manifest['devices']) !== $expectedCounts['device'] ||
             ! is_array($manifest['global_config'] ?? null)) {
-            throw new \InvalidArgumentException('Manifest is not the exact validated canonical 352-key contract.');
+            throw new \InvalidArgumentException(
+                'Manifest does not satisfy the canonical 352-key inventory counts/schema.'
+            );
         }
-        $seen = [];
+
+        $expectedTemplates = ['BASIC', 'ENTERPRISE', 'PRO'];
+        $templateIds = [];
+        $keys = ['global'];
+        foreach ($manifest['templates'] as $row) {
+            if (! is_array($row)) {
+                throw new \InvalidArgumentException('Manifest contains a malformed template row.');
+            }
+            $templateId = strtoupper((string) ($row['id'] ?? ''));
+            if (! in_array($templateId, $expectedTemplates, true) ||
+                isset($templateIds[$templateId]) ||
+                ! is_array($row['config'] ?? null)) {
+                throw new \InvalidArgumentException(
+                    'Manifest contains an invalid or duplicate template ID/configuration.'
+                );
+            }
+            $templateIds[$templateId] = true;
+            $keys[] = 'template:'.$templateId;
+        }
+        if (count($templateIds) !== 3) {
+            throw new \InvalidArgumentException(
+                'Manifest must contain exactly BASIC, PRO, and ENTERPRISE templates.'
+            );
+        }
+
+        $tenantIds = [];
         foreach ($manifest['tenants'] as $row) {
+            if (! is_array($row)) {
+                throw new \InvalidArgumentException('Manifest contains a malformed tenant row.');
+            }
             $tenantId = (string) ($row['tenant_id'] ?? '');
-            if (! preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $tenantId) || isset($seen[$tenantId])) {
-                throw new \InvalidArgumentException('Manifest contains invalid or duplicate tenant identifiers.');
+            $templateId = strtoupper((string) ($row['template_id'] ?? ''));
+            if (! preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $tenantId) ||
+                isset($tenantIds[$tenantId]) ||
+                ! in_array($templateId, $expectedTemplates, true) ||
+                ! is_array($row['config'] ?? null)) {
+                throw new \InvalidArgumentException(
+                    'Manifest contains an invalid or duplicate tenant identifier/template.'
+                );
             }
-            $seen[$tenantId] = true;
+            $tenantIds[$tenantId] = true;
+            $keys[] = 'tenant:'.$tenantId;
         }
+
+        $servicePairs = [];
         foreach ($manifest['services'] as $row) {
-            if (! isset($seen[$row['tenant_id'] ?? '']) ||
-                ! in_array($row['service'] ?? null, ['pos', 'akuntansi'], true)) {
-                throw new \InvalidArgumentException('Manifest has a service mapping for an unknown tenant or service.');
+            if (! is_array($row)) {
+                throw new \InvalidArgumentException('Manifest contains a malformed service row.');
             }
+            $tenantId = (string) ($row['tenant_id'] ?? '');
+            $service = (string) ($row['service'] ?? '');
+            $pair = $tenantId.':'.$service;
+            if (! isset($tenantIds[$tenantId]) ||
+                ! in_array($service, ['pos', 'akuntansi'], true) ||
+                isset($servicePairs[$pair]) ||
+                ! is_array($row['config'] ?? null)) {
+                throw new \InvalidArgumentException(
+                    "Manifest contains an invalid or duplicate tenant-service pair: {$pair}."
+                );
+            }
+            $servicePairs[$pair] = true;
+            $keys[] = 'tenant:'.$tenantId.':service:'.$service;
         }
+
+        $deviceIds = [];
         foreach ($manifest['devices'] as $row) {
-            if (! isset($seen[$row['tenant_id'] ?? '']) ||
-                ! preg_match('/^[a-zA-Z0-9_.:-]{1,150}$/', (string) ($row['device_id'] ?? ''))) {
-                throw new \InvalidArgumentException('Manifest has an invalid device mapping.');
+            if (! is_array($row)) {
+                throw new \InvalidArgumentException('Manifest contains a malformed device row.');
             }
+            $tenantId = (string) ($row['tenant_id'] ?? '');
+            $deviceId = (string) ($row['device_id'] ?? '');
+            if (! isset($tenantIds[$tenantId]) ||
+                ! preg_match('/^[a-zA-Z0-9_.:-]{1,150}$/', $deviceId) ||
+                isset($deviceIds[$deviceId]) ||
+                ! is_array($row['config'] ?? null)) {
+                throw new \InvalidArgumentException(
+                    "Manifest contains an invalid or duplicate device_id/tenant mapping: {$deviceId}."
+                );
+            }
+            $deviceIds[$deviceId] = true;
+            $keys[] = 'device:'.$deviceId;
+        }
+
+        sort($keys, SORT_STRING);
+        if (count($keys) !== 352 || count(array_unique($keys)) !== 352) {
+            throw new \InvalidArgumentException(sprintf(
+                'Manifest key set must contain 352 unique keys; got %d keys / %d unique.',
+                count($keys),
+                count(array_unique($keys)),
+            ));
+        }
+
+        // Recompute from sorted logical keys; never trust the supplied manifest hash.
+        $calculatedHash = md5(implode("\n", $keys));
+        $canonicalHash = '1fd3d64219ecc7c333453c20da80e295';
+        if (! is_string($manifest['keyset_md5'] ?? null) ||
+            ! hash_equals($canonicalHash, $calculatedHash) ||
+            ! hash_equals($calculatedHash, $manifest['keyset_md5'])) {
+            throw new \InvalidArgumentException(sprintf(
+                'Canonical keyset MD5 mismatch: calculated=%s; manifest=%s; expected=%s.',
+                $calculatedHash,
+                (string) ($manifest['keyset_md5'] ?? ''),
+                $canonicalHash,
+            ));
         }
     }
 

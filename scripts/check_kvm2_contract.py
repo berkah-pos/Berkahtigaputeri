@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed checks for the KVM2/Laravel migration and canonical config contract."""
+"""Fail-closed checks for active KVM2/Laravel runtime and canonical config contract."""
 
 from pathlib import Path
 import sys
@@ -13,6 +13,13 @@ ACTIVE_FILES = [
     "pos-app/lib/features/auth/login_screen.dart",
     "pos-app/test/auth/login_screen_test.dart",
     ".github/workflows/berkah-pos-aab.yml",
+    ".github/workflows/kvm2-backend-ci.yml",
+    "app/Services/EffectiveConfigResolver.php",
+    "app/Http/Controllers/Api/V1/EffectiveConfigController.php",
+    "routes/api.php",
+    "composer.json",
+    "Dockerfile",
+    "docker-compose.yml",
 ]
 FORBIDDEN = (
     "supabase_flutter",
@@ -21,6 +28,7 @@ FORBIDDEN = (
     "SUPABASE_PUBLISHABLE_KEY",
     "SUPABASE_SERVICE_ROLE_KEY",
     "get_effective_config",
+    "supabase-js",
 )
 REQUIRED = [
     ("composer.json", '"laravel/framework": "^11.0"'),
@@ -30,9 +38,14 @@ REQUIRED = [
     ("docker-compose.yml", "mariadb:11"),
     ("config/tenancy.php", "'template_tenant_connection' => 'tenant'"),
     ("routes/api.php", "'/effective-config'"),
-    ("app/Services/EffectiveConfigResolver.php", "array_merge($global, $template, $tenantLayer, $serviceLayer, $deviceLayer)"),
+    ("app/Services/EffectiveConfigResolver.php", "$this->deepMerge("),
+    ("app/Services/EffectiveConfigResolver.php", "hash('sha256', $this->canonicalJson($merged))"),
+    ("app/Http/Controllers/Api/V1/EffectiveConfigController.php", "'effective_version' => $meta['effective_version']"),
+    ("app/Console/Commands/ImportCanonicalWorkbook.php", '$calculatedHash = md5(implode("\\n", $keys));'),
+    ("app/Console/Commands/ImportCanonicalWorkbook.php", "{--dry-run"),
     ("docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md", "**Status:** CANONICAL"),
 ]
+
 
 def main() -> int:
     errors: list[str] = []
@@ -41,25 +54,27 @@ def main() -> int:
         if not path.is_file():
             errors.append(f"missing active file: {relative}")
             continue
+
         source = path.read_text(encoding="utf-8")
         for token in FORBIDDEN:
-            if token in source:
-                errors.append(f"{relative} contains forbidden runtime reference {token!r}")
+            if token.lower() in source.lower():
+                errors.append(f"{relative} contains forbidden active-runtime reference {token!r}")
 
     for relative, token in REQUIRED:
         path = ROOT / relative
         if not path.is_file() or token not in path.read_text(encoding="utf-8"):
             errors.append(f"missing contract: {relative} -> {token}")
 
-    if (ROOT / "supabase").exists():
-        errors.append("active supabase/ directory remains in the repository")
-
     if errors:
         print("\n".join(f"FAIL: {item}" for item in errors), file=sys.stderr)
         return 1
 
-    print("PASS: active mobile, API, tenancy, deployment and documentation contracts are Supabase-free.")
+    print(
+        "PASS: active Flutter/Laravel runtime is Supabase-free; deep merge, SHA-256 "
+        "version hashes, CLI import validation and KVM2 contracts are present."
+    )
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

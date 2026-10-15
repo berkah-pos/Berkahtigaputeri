@@ -53,10 +53,11 @@ jobs:
       mariadb:
         image: mariadb:11
         env:
+          MARIADB_ROOT_PASSWORD: ci-root-password
+          MARIADB_ROOT_HOST: "%"
           MARIADB_DATABASE: berkahpos_central
           MARIADB_USER: berkahpos_app
           MARIADB_PASSWORD: ci-central-password
-          MARIADB_ROOT_PASSWORD: ci-root-password
         ports:
           - 3306:3306
         options: >-
@@ -67,21 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Install isolated Python dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
-          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
-
-      - name: Verify current architecture contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 scripts/check_kvm2_contract.py
-          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
-
-      - name: Set up PHP
+      - name: Set up PHP 8.3
         uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91c4a30c7dc
         with:
           php-version: "8.3"
@@ -89,36 +76,120 @@ jobs:
           tools: composer:v2
           coverage: none
 
-      - name: Validate Composer manifest
-        run: composer validate --no-check-publish
+      - name: Prepare environment
+        run: cp .env.example .env
 
-      - name: Install backend dependencies
+      - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Check PHP syntax
+      - name: Run Laravel Pint style checks
+        run: vendor/bin/pint --test
+
+      - name: Generate Laravel application key
+        run: php artisan key:generate --force
+
+      - name: Install workbook validator dependency
         shell: bash
         run: |
           set -euo pipefail
-          find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
-      - name: Boot Laravel and run central schema migrations
+      - name: Validate active Supabase-free contract and canonical 352-key workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_kvm2_contract.py
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --output build/central-config-import.json
+          test -s build/central-config-import.json
+
+      - name: Install MariaDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes mariadb-client
+
+      - name: Apply least-privilege app and CLI provisioner grants
         env:
-          APP_KEY: base64:QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=
+          PROVISIONER_INIT_HOST: 127.0.0.1
+          PROVISIONER_INIT_PORT: "3306"
+          MARIADB_ROOT_PASSWORD: ci-root-password
+          TENANT_PROVISIONER_DB_PASSWORD: ci-provision-password
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash docker/mysql-init/00-create-provisioner.sh
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" < docker/mysql-init/10-tenant-db-privileges.sql
+
+      - name: Migrate central schema and verify API routes
+        env:
           APP_ENV: testing
-          APP_DEBUG: true
+          APP_DEBUG: "true"
+          DB_CONNECTION: central
           CENTRAL_DB_HOST: 127.0.0.1
-          CENTRAL_DB_PORT: 3306
+          CENTRAL_DB_PORT: "3306"
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: root
+          CENTRAL_DB_PASSWORD: ci-root-password
+          TENANT_DB_HOST: 127.0.0.1
+          TENANT_DB_PORT: "3306"
+          TENANT_DB_DATABASE: berkahpos_central
+          TENANT_DB_USERNAME: berkahpos_app
+          TENANT_DB_PASSWORD: ci-central-password
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan migrate --database=central --path=database/migrations/central --force
+          php artisan route:list --path=api/v1
+
+      - name: Run Laravel automated tests
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          DB_CONNECTION: central
+          CENTRAL_DB_HOST: 127.0.0.1
+          CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: berkahpos_app
           CENTRAL_DB_PASSWORD: ci-central-password
           TENANT_DB_HOST: 127.0.0.1
-          TENANT_DB_PORT: 3306
+          TENANT_DB_PORT: "3306"
           TENANT_DB_DATABASE: berkahpos_central
           TENANT_DB_USERNAME: berkahpos_app
           TENANT_DB_PASSWORD: ci-central-password
+        run: php artisan test
+
+      - name: Dry-run canonical workbook import
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
           DB_CONNECTION: central
+          CENTRAL_DB_HOST: 127.0.0.1
+          CENTRAL_DB_PORT: "3306"
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-password
+          TENANT_DB_HOST: 127.0.0.1
+          TENANT_DB_PORT: "3306"
+          TENANT_DB_DATABASE: berkahpos_central
+          TENANT_DB_USERNAME: berkahpos_app
+          TENANT_DB_PASSWORD: ci-central-password
+        run: php artisan config:import-workbook build/central-config-import.json --dry-run
+
+      - name: Prove berkahpos_app has no global privileges
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-password
+        shell: bash
         run: |
-          php artisan package:discover --ansi
-          php artisan migrate --database=central --path=database/migrations/central --force
-          php artisan route:list --path=api/v1
-          php artisan test --testsuite=Unit
+          set -euo pipefail
+          grants="$(mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names --execute="SHOW GRANTS FOR 'berkahpos_app'@'%';")"
+          printf '%s\n' "$grants"
+          # MariaDB emits USAGE for accounts with no global privileges.
+          global_privileges="$(printf '%s\n' "$grants" | grep -F " ON *.* TO 'berkahpos_app'@'%' " | grep -Fv "GRANT USAGE ON *.* TO 'berkahpos_app'@'%'" || true)"
+          if [[ -n "$global_privileges" ]]; then
+            echo "::error::berkahpos_app has global privileges: $global_privileges"
+            exit 1
+          fi
+          grep -Fq "berkahpos_central" <<< "$grants"
+          grep -Fq "berkahpos_tenant" <<< "$grants"
+          echo "PASS: app account only has scoped CRUD/index/reference privileges; no global privilege grant."
