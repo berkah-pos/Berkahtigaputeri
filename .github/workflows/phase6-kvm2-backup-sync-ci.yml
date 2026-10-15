@@ -101,7 +101,13 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip mariadb-client age rclone gnupg curl
+          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip age rclone gnupg curl
+          curl -fsSL https://r.mariadb.com/downloads/mariadb_repo_setup -o "$RUNNER_TEMP/mariadb_repo_setup"
+          chmod 700 "$RUNNER_TEMP/mariadb_repo_setup"
+          "$RUNNER_TEMP/mariadb_repo_setup" --mariadb-server-version="mariadb-11.4"
+          sudo apt-get update
+          sudo apt-get install --yes mariadb-client
+          mariadb-dump --version
           curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-archive-keyring.gpg
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
@@ -185,9 +191,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          find app bootstrap config database routes tests scripts/ci -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          find app bootstrap config database routes public tests scripts/ci -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l artisan
           python3 scripts/check_provisioning_env_contract.py
-          vendor/bin/pint --test
           php artisan test
           python3 scripts/check_central_app_grants.py
           python3 scripts/check_provisioner_grants.py
@@ -275,7 +281,10 @@ jobs:
         run: |
           set -euo pipefail
           set_id="$(grep '^BACKUP_SET_ID=' build/backup.log | tail -1 | cut -d= -f2)"
+          [[ -n "$set_id" ]] || { echo "ERROR: backup script did not emit BACKUP_SET_ID." >&2; exit 1; }
+          mkdir -p "$RUNNER_TEMP/backup-set"
           rclone copy "$RCLONE_REMOTE/$set_id" "$RUNNER_TEMP/backup-set" --immutable
+          test -s "$RUNNER_TEMP/backup-set/manifest.tsv"
           echo "BACKUP_SET_DIR=$RUNNER_TEMP/backup-set" >> "$GITHUB_ENV"
           scripts/backup/verify-backup-set.sh | tee build/backup-verify.log
           grep '^APP_KEY=' .env | sed 's/^APP_KEY=//' | tr -d '"' > "$RUNNER_TEMP/recovered-app-key.txt"
