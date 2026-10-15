@@ -31,7 +31,6 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $this->assertSame(404, $this->requestOnHost('GET', 'attacker.invalid', '/')->getStatusCode());
         $this->assertSame(404, $this->requestOnHost('GET', 'central.test', '/tenant/context')->getStatusCode());
 
-        // This is an actual central-only login route; tenant-domain dispatch must stop at middleware.
         $tenantToCentral = $this->requestOnHost(
             'POST',
             $pair['hostA'],
@@ -184,7 +183,6 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $domain->save();
         $this->assertFalse(Cache::has($cacheKey), 'Domain suspension must invalidate its cached mapping.');
 
-        // Matching forwarding metadata cannot revive the suspended domain.
         $this->assertSame(404, $this->requestOnHost(
             'GET',
             $pair['hostA'],
@@ -268,12 +266,20 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         array $headers = [],
         array $payload = []
     ): TestResponse {
+        // Laravel's testing client retains default headers until explicitly flushed.
+        // Clear both before and after each request so a previous spoofing header
+        // cannot accidentally affect the next assertion.
+        $this->flushHeaders();
         $requestHeaders = array_merge(['Host' => $host, 'Accept' => 'application/json'], $headers);
         if ($token !== null) {
             $requestHeaders['Authorization'] = 'Bearer ' . $token;
         }
 
-        return $this->withHeaders($requestHeaders)->json($method, $uri, $payload);
+        try {
+            return $this->withHeaders($requestHeaders)->json($method, $uri, $payload);
+        } finally {
+            $this->flushHeaders();
+        }
     }
 
     private function seedProduct(Tenant $tenant, string $productId, string $price): void
