@@ -60,7 +60,7 @@ class TenantResource extends Resource
     {
         return [
             'index' => Pages\ListTenants::route('/'),
-            'create' => Pages\CreateTenant::route('/create'),
+            // Physical database provisioning uses an explicitly credentialed Artisan CLI only.
             'edit' => Pages\EditTenant::route('/{record}/edit'),
         ];
     }

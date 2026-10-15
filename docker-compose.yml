@@ -6,6 +6,11 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Do not expose the provisioning credential to the long-running web process.
+      # Explicitly pass it only to an approved one-off Artisan CLI command.
+      TENANT_PROVISIONER_DB_USERNAME: ""
+      TENANT_PROVISIONER_DB_PASSWORD: ""
     depends_on:
       mysql:
         condition: service_healthy
@@ -29,6 +34,7 @@ services:
       MARIADB_DATABASE: berkahpos_central
       MARIADB_USER: berkahpos_app
       MARIADB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}
+      TENANT_PROVISIONER_DB_PASSWORD: ${TENANT_PROVISIONER_DB_PASSWORD:?Set TENANT_PROVISIONER_DB_PASSWORD in .env}
     volumes:
       - mysql-data:/var/lib/mysql
       - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
