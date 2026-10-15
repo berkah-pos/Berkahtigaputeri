@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:berkahtigaputeri_pos/core/config/central_api_client.dart';
 import 'package:berkahtigaputeri_pos/core/config/config_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -128,6 +130,37 @@ void main() {
       );
     });
 
+    test('dual-mode expiry blocks even a fresh parity cache under kill switch',
+        () async {
+      api.responses['pos'] = <String, dynamic>{'value': 1};
+      final legacy = _FakeLegacySource(<String, dynamic>{'value': 1});
+      final normal = ConfigService(
+        api, preferences,
+        sourceMode: ConfigSourceMode.dual,
+        legacySource: legacy,
+        dualModeStartedAt: DateTime.utc(2026, 10, 15),
+        dualModeDeadline: DateTime.utc(2026, 11, 12),
+        clock: () => now,
+      );
+      await normal.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+      now = DateTime.utc(2026, 11, 12);
+      final emergency = ConfigService(
+        api, preferences,
+        sourceMode: ConfigSourceMode.dual,
+        legacySource: legacy,
+        killSwitch: true,
+        dualModeStartedAt: DateTime.utc(2026, 10, 15),
+        dualModeDeadline: DateTime.utc(2026, 11, 12),
+        clock: () => now,
+      );
+      await expectLater(
+        emergency.getEffectiveConfig(
+          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
+        throwsStateError,
+      );
+    });
+
     test('dual mode expires at the explicit deadline', () async {
       now = DateTime.utc(2026, 11, 12);
       final service = ConfigService(
@@ -142,6 +175,26 @@ void main() {
         service.getEffectiveConfig(
           tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
         throwsStateError,
+      );
+    });
+
+    test('cache keys isolate tenant/device identifiers containing dots', () async {
+      api.scopedResponses[jsonEncode(<String>['a.b', 'c', 'pos'])] =
+          <String, dynamic>{'scope': 'tenant-dot'};
+      api.scopedResponses[jsonEncode(<String>['a', 'b.c', 'pos'])] =
+          <String, dynamic>{'scope': 'device-dot'};
+      final service = ConfigService(api, preferences);
+      final first = await service.getEffectiveConfig(
+        tenantId: 'a.b', deviceId: 'c', service: 'pos');
+      final second = await service.getEffectiveConfig(
+        tenantId: 'a', deviceId: 'b.c', service: 'pos');
+      expect(first.value['scope'], 'tenant-dot');
+      expect(second.value['scope'], 'device-dot');
+      expect(
+        preferences.getKeys()
+            .where((key) => key.startsWith('central.effective.'))
+            .length,
+        2,
       );
     });
 
@@ -242,6 +295,7 @@ class _FakeCentralApiClient extends CentralApiClient {
         );
 
   final Map<String, Map<String, dynamic>> responses = <String, Map<String, dynamic>>{};
+  final Map<String, Map<String, dynamic>> scopedResponses = <String, Map<String, dynamic>>{};
   Object? failure;
   int calls = 0;
 
@@ -256,8 +310,11 @@ class _FakeCentralApiClient extends CentralApiClient {
   }) async {
     calls++;
     if (failure != null) throw failure!;
+    final scopeKey = jsonEncode(<String>[tenantId, deviceId, service]);
     return Map<String, dynamic>.from(
-      responses[service] ?? <String, dynamic>{'service': service},
+      scopedResponses[scopeKey] ??
+          responses[service] ??
+          <String, dynamic>{'service': service},
     );
   }
 }
