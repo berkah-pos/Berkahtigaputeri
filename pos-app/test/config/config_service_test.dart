@@ -84,6 +84,8 @@ void main() {
       expect(result.parityVerified, isTrue);
       expect(result.fromCache, isFalse);
       expect(legacy.calls, 1);
+      expect(preferences.getString('central.config.transition.last_status'),
+          contains('parity_passed'));
     });
 
     test('parity mismatch blocks result and does not cache divergent values', () async {
@@ -106,6 +108,9 @@ void main() {
         preferences.getKeys().where((key) => key.startsWith('central.effective.')),
         isEmpty,
       );
+      expect(preferences.getInt('central.config.transition.parity_mismatch_count'), 1);
+      expect(preferences.getString('central.config.transition.last_status'),
+          contains('parity_failed'));
     });
 
     test('dual mode fails closed without a legacy adapter', () async {
