@@ -330,7 +330,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
 
         try {
             DB::connection($connectionName)->selectOne('SELECT DATABASE() AS db');
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             $this->assertPrivilegeDenial($exception);
             return;
         } finally {
@@ -345,7 +345,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
     {
         try {
             $query();
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             $this->assertPrivilegeDenial($exception);
             return;
         }
@@ -353,7 +353,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $this->fail('MariaDB unexpectedly allowed a forbidden privilege operation.');
     }
 
-    private function assertPrivilegeDenial(\\Throwable $exception): void
+    private function assertPrivilegeDenial(\Throwable $exception): void
     {
         $driverCode = (int) ($exception->errorInfo[1] ?? 0);
         $this->assertContains(
