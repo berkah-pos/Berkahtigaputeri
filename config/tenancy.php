@@ -19,19 +19,9 @@ return [
     'bootstrappers' => [
         DatabaseTenancyBootstrapper::class,
     ],
-    'events' => [
-        TenantCreated::class => [
-            JobPipeline::make([
-                CreateDatabase::class,
-                MigrateDatabase::class,
-            ])->send(function (TenantCreated $event) {
-                return $event->tenant;
-            })->shouldBeQueued(false),
-        ],
-    ],
     'database' => [
         'central_connection' => 'central',
-        'template_tenant_connection' => 'tenant',
+        'template_tenant_connection' => 'tenant_template',
         'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_tenant_'),
         'suffix' => '',
         'managers' => [
