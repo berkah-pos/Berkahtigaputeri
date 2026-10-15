@@ -100,7 +100,7 @@ def positive_integer(value: Any, label: str) -> int | None:
         result = value
     elif isinstance(value, float) and value.is_integer():
         result = int(value)
-    elif isinstance(value, str) and re.fullmatch(r"\\d+", value.strip()):
+    elif isinstance(value, str) and re.fullmatch(r"\d+", value.strip()):
         result = int(value.strip())
     else:
         raise ValueError(f"{label}: expected positive integer, got {value!r}")
