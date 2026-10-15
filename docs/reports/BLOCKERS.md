@@ -4,7 +4,7 @@
 
 ## 1. GitHub Actions backend workflow startup failure
 
-Multiple candidate-head runs terminate with `startup_failure` before a job is created. Latest evidence:
+Multiple candidate-head runs terminate with `startup_failure` before a job is created. Representative evidence from repeated candidate-head runs:
 
 - [KVM2 Laravel Backend CI — run 38751380158](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751380158): `startup_failure`, jobs API returned an empty list.
 - [Canonical POS App CI — run 38751378044](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751378044): `startup_failure`, jobs API returned an empty list.
