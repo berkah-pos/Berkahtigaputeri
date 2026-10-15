@@ -92,12 +92,10 @@ class EffectiveConfigResult {
 class _CachedEffectiveConfig {
   const _CachedEffectiveConfig({
     required this.value,
-    required this.cachedAt,
     required this.parityVerified,
   });
 
   final Map<String, dynamic> value;
-  final DateTime cachedAt;
   final bool parityVerified;
 }
 
@@ -323,7 +321,6 @@ class ConfigService {
       if (age.isNegative || age > cacheTtl) return null;
       return _CachedEffectiveConfig(
         value: _asJsonMap(envelope['value']),
-        cachedAt: cachedAt,
         parityVerified: parityVerified,
       );
     } on FormatException {
