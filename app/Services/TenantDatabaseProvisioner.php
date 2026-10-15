@@ -117,9 +117,12 @@ class TenantDatabaseProvisioner
                 ]);
                 // Password is a prepared binding and is never written to the audit
                 // record, command output, or application log.
+                $quotedPassword = $provisioner->getPdo()->quote($runtimePassword);
+                if ($quotedPassword === false) {
+                    throw new RuntimeException('Could not safely encode the generated tenant password.');
+                }
                 $provisioner->statement(
-                    "CREATE USER IF NOT EXISTS '{$runtimeUsername}'@'%' IDENTIFIED BY ?",
-                    [$runtimePassword]
+                    "CREATE USER IF NOT EXISTS '{$runtimeUsername}'@'%' IDENTIFIED BY ".$quotedPassword
                 );
                 $this->audit($tenantId, $provisioningId, 'runtime_user.create.completed', [
                     'runtime_username' => $runtimeUsername,
