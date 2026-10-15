@@ -428,7 +428,7 @@ class TenantDatabaseProvisioner
 
         foreach ($grants as $row) {
             $grant = (string) array_values((array) $row)[0];
-            if (preg_match('/^GRANT USAGE ON \\*\\.\\* TO /i', $grant)) {
+            if (preg_match('/^GRANT USAGE ON \*\.\* TO /i', $grant)) {
                 continue;
             }
             if (stripos($grant, 'WITH GRANT OPTION') !== false) {
