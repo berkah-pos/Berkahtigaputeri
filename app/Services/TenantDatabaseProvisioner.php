@@ -199,7 +199,7 @@ class TenantDatabaseProvisioner
                 'privileges' => ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
             ]);
             $provisioner->statement(
-                'GRANT SELECT, INSERT, UPDATE, DELETE ON '.$this->quoteIdentifier($databaseName).".* TO '{$runtimeUsername}'@'%'"
+                'GRANT SELECT, INSERT, UPDATE, DELETE ON '.$this->quotePrivilegeDatabasePattern($databaseName).".* TO '{$runtimeUsername}'@'%'"
             );
             $this->assertRuntimeGrants($runtimeUsername, $databaseName);
             $this->audit($tenantId, $provisioningId, 'runtime_grant.completed', [
@@ -517,10 +517,12 @@ class TenantDatabaseProvisioner
             throw new RuntimeException('Runtime tenant account must have exactly SELECT, INSERT, UPDATE, DELETE on its own database.');
         }
 
+        // MariaDB 11.4 has no information_schema.ROUTINE_PRIVILEGES view.
+        // New runtime accounts receive no routine-level grants; pre-existing
+        // accounts are refused before their grants can be reused.
         foreach ([
             'TABLE_PRIVILEGES',
             'COLUMN_PRIVILEGES',
-            'ROUTINE_PRIVILEGES',
         ] as $privilegeView) {
             $count = DB::connection('provisioner')->table('information_schema.'.$privilegeView)
                 ->where('GRANTEE', $grantee)
@@ -628,6 +630,18 @@ class TenantDatabaseProvisioner
         }
 
         return $exception::class;
+    }
+
+    private function quotePrivilegeDatabasePattern(string $databaseName): string
+    {
+        // Wildcards have meaning in database-level GRANT scopes. Escape each
+        // underscore so this statement names one exact canonical tenant DB
+        // and remains a subset of the provisioner's tenant-prefix grant.
+        if (! preg_match('/^berkahpos_t_[0-9abcdefghjkmnpqrstvwxyz]{26}$/', $databaseName)) {
+            throw new RuntimeException('GRANT target must be one canonical lowercase-ULID tenant database.');
+        }
+
+        return chr(96).str_replace('_', '\\_', $databaseName).chr(96);
     }
 
     private function quoteIdentifier(string $identifier): string

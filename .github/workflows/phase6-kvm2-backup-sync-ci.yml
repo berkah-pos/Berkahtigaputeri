@@ -165,6 +165,7 @@ jobs:
           export PROVISIONER_INIT_HOST=127.0.0.1 PROVISIONER_INIT_PORT=3306
           bash docker/mysql-init/00-create-provisioner.sh
           mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" < docker/mysql-init/10-tenant-db-privileges.sql
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names --execute="SHOW GRANTS FOR 'berkahpos_provisioner'@'%'; SHOW GRANTS FOR 'berkahpos_migrator'@'%';"
           echo "CENTRAL_DB_PASSWORD=$CENTRAL_DB_PASSWORD" >> "$GITHUB_ENV"
           echo "PROVISIONER_DB_PASSWORD=$PROVISIONER_DB_PASSWORD" >> "$GITHUB_ENV"
           echo "MIGRATOR_DB_PASSWORD=$MIGRATOR_DB_PASSWORD" >> "$GITHUB_ENV"
