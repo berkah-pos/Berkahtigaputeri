@@ -7,7 +7,7 @@ Status: **RED / NOT VERIFIED — review gate remains closed before Phase 6.**
 
 ## Scope and inherited precondition
 
-This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED. The latest parent-branch Laravel run [38776963931](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963931) passed PHP syntax checks but failed at `composer install`: Composer refused Laravel 11 / Filament 3 dependency candidates due to security advisories. Pint, central migrations, MariaDB privilege provisioning and MariaDB tenant-isolation integration tests were skipped. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
+This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED. The latest reviewed-head Laravel run [38778107422](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107422) passed PHP syntax checks but failed at `composer install`: Composer refused Laravel 11 / Filament 3 dependency candidates due to security advisories. Pint, central migrations, MariaDB privilege provisioning and MariaDB tenant-isolation integration tests were skipped. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
 
 ## Source-verified findings
 
@@ -29,9 +29,9 @@ The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days
 ## Tests and exact output
 
 Final independent Phase 5 CI run: **PASS**  
-- Run: [38777744858](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38777744858)
-- Tested commit: `db29da3bf113d2d8a55bdd8be96036d948b642b8`
-- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38777744858/artifacts/11994572373)
+- Run: [38778107415](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107415)
+- Tested commit: `6fe02dd727fbc6ac9c12b65645938967c1a6b7b4`
+- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107415/artifacts/11994497826)
 - Flutter version: `3.47.7`; official archive SHA-256: `af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230`
 - Runtime outcome: `flutter pub get` completed successfully; canonical workbook validation, workbook-contract tests, parity-harness unit tests and forbidden-table-fallback guard all passed.
 - The Phase 5 CI step outcomes were all successful, including `flutter analyze`, `flutter test` and log artifact upload.
@@ -45,14 +45,14 @@ PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 14
 
 Workbook contract regression suite:
 ```text
-Ran 5 tests in 0.172s
+Ran 5 tests in 0.098s
 
 OK
 ```
 
 Parity harness unit suite:
 ```text
-Ran 5 tests in 0.065s
+Ran 5 tests in 0.038s
 
 OK
 ```
@@ -65,12 +65,12 @@ PASS: no raw app_config table fallback found in pos-app/lib.
 `cd pos-app && flutter analyze --no-pub`:
 ```text
 Analyzing pos-app...
-No issues found! (ran in 8.1s)
+No issues found! (ran in 5.8s)
 ```
 
 `cd pos-app && flutter test --no-pub --reporter expanded`:
 ```text
-00:09 +60: All tests passed!
+00:08 +60: All tests passed!
 ```
 
 The passing 60-test Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test also verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event. Two additional config regressions prove distinct tenant/device identifiers containing dots cannot collide in the effective-config cache, and the dual-mode sunset blocks even a fresh parity cache when the emergency cache switch is enabled.
