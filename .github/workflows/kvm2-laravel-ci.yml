@@ -94,7 +94,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up PHP 8.3 and Composer v2
-        uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91c4a30c7dc
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
         with:
           php-version: "8.3"
           extensions: bcmath, ctype, curl, dom, fileinfo, intl, mbstring, openssl, pdo_mysql, pdo_sqlite, tokenizer, xml, zip
