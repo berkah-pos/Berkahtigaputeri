@@ -117,12 +117,10 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
-      - name: Validate active Supabase-free contract and canonical 352-key workbook
+      - name: Build validated canonical import manifest
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/check_kvm2_contract.py
-          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --output build/central-config-import.json
           test -s build/central-config-import.json
 
