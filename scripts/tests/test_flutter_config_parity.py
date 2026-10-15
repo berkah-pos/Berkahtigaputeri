@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import contextlib
+from datetime import datetime, timezone
 import io
 import json
 import sys
@@ -115,7 +116,7 @@ class FlutterConfigParityTest(unittest.TestCase):
             {"device_id": "d3", "tenant_id": "t3", "active": True, "config": {}},
         ])
         fixtures = parity.build_valid_fixtures(
-            manifest, now_utc=__import__("datetime").datetime(2026, 10, 15, tzinfo=__import__("datetime").timezone.utc)
+            manifest, now_utc=datetime(2026, 10, 15, tzinfo=timezone.utc)
         )
         self.assertEqual({"t1"}, {fixture["tenant_id"] for fixture in fixtures})
         self.assertEqual({"pos", "akuntansi"}, {fixture["service"] for fixture in fixtures})
