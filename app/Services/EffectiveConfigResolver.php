@@ -55,10 +55,7 @@ class EffectiveConfigResolver
             throw new AuthorizationException('Device is not registered as active for this tenant.');
         }
 
-        if (! $user->is_super_admin && $device->owner_user_id !== null
-            && (int) $device->owner_user_id !== (int) $user->getKey()) {
-            throw new AuthorizationException('Device is assigned to another user.');
-        }
+        $this->assertDeviceOwnership($user, $device);
 
         $subscription = $this->selectAuthoritativeSubscription($tenantId);
 
@@ -169,6 +166,17 @@ class EffectiveConfigResolver
             ->exists();
         if (! $matches) {
             throw new AuthorizationException('Registered domain does not belong to the selected tenant.');
+        }
+    }
+
+    private function assertDeviceOwnership(User $user, object $device): void
+    {
+        if ($user->is_super_admin) {
+            return;
+        }
+
+        if ($device->owner_user_id === null || (int) $device->owner_user_id !== (int) $user->getKey()) {
+            throw new AuthorizationException('Device is not assigned to the authenticated user.');
         }
     }
 
