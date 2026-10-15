@@ -21,11 +21,13 @@ class Tenant extends BaseTenant implements TenantWithDatabase, TenantWithDomains
     protected $casts = [
         'data' => 'array',
         'config' => 'array',
+        'is_active' => 'boolean',
+        'store_name' => 'string',
     ];
 
     public static function getCustomColumns(): array
     {
-        return ['id', 'template_id'];
+        return ['id', 'template_id', 'store_name', 'is_active'];
     }
 
     public function subscriptions(): HasMany
