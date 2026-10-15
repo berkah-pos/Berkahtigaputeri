@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Central\Tenant;
 use App\Services\TenantDatabaseProvisioner;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -277,7 +276,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $denied = false;
         try {
             DB::connection($connectionName)->selectOne('SELECT DATABASE() AS db');
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             $denied = true;
         } finally {
             DB::purge($connectionName);
@@ -295,7 +294,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $denied = false;
         try {
             $query();
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             $denied = true;
         }
 
