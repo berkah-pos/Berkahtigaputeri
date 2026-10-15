@@ -26,7 +26,7 @@ def show_grants(username: str) -> list[str]:
         # Do not emit stderr/stdout; connector errors can expose implementation detail.
         raise RuntimeError("SHOW GRANTS failed for a disposable database principal")
     return [
-        line.strip().replace("\\\\", "\\").replace(chr(96), "")
+        line.strip().replace("\\\\", "\\").replace(chr(96), "").replace("\\_", "_").replace("\\%", "%")
         for line in result.stdout.splitlines()
         if line.strip()
     ]
@@ -44,7 +44,7 @@ def main() -> int:
     except RuntimeError as error:
         return fail(str(error))
 
-    tenant_pattern = r"berkahpos\\?_tenant\\?_%\\.\\*"
+    tenant_pattern = "berkahpos_tenant_%.*"
 
     # The only allowed global provisioner grants are USAGE and CREATE USER.
     for grant in provisioner:
@@ -56,11 +56,11 @@ def main() -> int:
             return fail("provisioner has an unexpected global privilege grant")
 
         if re.search(r"\bWITH GRANT OPTION\b", grant, re.IGNORECASE):
-            if not re.search(r"^GRANT SELECT, INSERT, UPDATE, DELETE ON " + tenant_pattern, grant, re.IGNORECASE):
+            if not re.search(r"^GRANT SELECT, INSERT, UPDATE, DELETE ON " + re.escape(tenant_pattern), grant, re.IGNORECASE):
                 return fail("provisioner GRANT OPTION is not confined to the tenant database pattern")
 
         if re.search(r"^GRANT CREATE ON ", grant, re.IGNORECASE):
-            if not re.search(r"^GRANT CREATE ON " + tenant_pattern, grant, re.IGNORECASE):
+            if not re.search(r"^GRANT CREATE ON " + re.escape(tenant_pattern), grant, re.IGNORECASE):
                 return fail("provisioner CREATE privilege is not confined to tenant-prefixed databases")
 
         if re.search(r"^GRANT (?:CREATE|ALTER|DROP|SELECT|INSERT|UPDATE|DELETE)(?:,| ON)", grant, re.IGNORECASE):
@@ -79,7 +79,7 @@ def main() -> int:
         return fail("migrator must have exactly one tenant-pattern-scoped privilege grant")
 
     migration_grant = meaningful_migrator_grants[0]
-    expected = r"^GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON " + tenant_pattern
+    expected = r"^GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON " + re.escape(tenant_pattern)
     if not re.search(expected, migration_grant, re.IGNORECASE):
         return fail("migrator grant set or tenant database pattern differs from the reviewed contract")
     if re.search(r"\bDROP\b|\bGRANT OPTION\b|\bON\s+\*\.\*", migration_grant, re.IGNORECASE):
