@@ -93,7 +93,7 @@ jobs:
       mariadb:
         image: mariadb:11.4
         env:
-          MARIADB_ROOT_PASSWORD: ci-root-password
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
           MARIADB_ROOT_HOST: "%"
           MARIADB_DATABASE: berkahpos_central
         ports: ["3306:3306"]
@@ -155,10 +155,10 @@ jobs:
         env:
           PROVISIONER_INIT_HOST: 127.0.0.1
           PROVISIONER_INIT_PORT: "3306"
-          MARIADB_ROOT_PASSWORD: ci-root-password
-          CENTRAL_DB_PASSWORD: ci-central-password
-          PROVISIONER_DB_PASSWORD: ci-provision-password
-          MIGRATOR_DB_PASSWORD: ci-migrator-password
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
@@ -174,7 +174,7 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: root
-          CENTRAL_DB_PASSWORD: ci-root-password
+          CENTRAL_DB_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
         shell: bash
@@ -192,19 +192,19 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: berkahpos_app
-          CENTRAL_DB_PASSWORD: ci-central-password
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
           PROVISIONER_DB_HOST: 127.0.0.1
           PROVISIONER_DB_PORT: "3306"
           PROVISIONER_DB_DATABASE: information_schema
           PROVISIONER_DB_USERNAME: berkahpos_provisioner
-          PROVISIONER_DB_PASSWORD: ci-provision-password
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
           MIGRATOR_DB_HOST: 127.0.0.1
           MIGRATOR_DB_PORT: "3306"
           MIGRATOR_DB_DATABASE: information_schema
           MIGRATOR_DB_USERNAME: berkahpos_migrator
-          MIGRATOR_DB_PASSWORD: ci-migrator-password
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
         run: php artisan test
 
       - name: Dry-run canonical workbook import
@@ -216,12 +216,12 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: berkahpos_app
-          CENTRAL_DB_PASSWORD: ci-central-password
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
         run: php artisan config:import-workbook build/central-config-import.json --dry-run
 
       - name: Prove central app account has CRUD on central only
         env:
-          MARIADB_ROOT_PASSWORD: ci-root-password
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
         run: python3 scripts/check_central_app_grants.py
