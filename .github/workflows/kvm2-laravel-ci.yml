@@ -18,6 +18,12 @@ on:
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
+      - "AGENTS.md"
+      - ".cursor/rules/**"
+      - ".github/muse-instructions.md"
+      - "audit/**"
+      - "docs/archive/supabase-historical/**"
+      - "docs/reports/**"
   push:
     branches: ["**"]
     paths:
@@ -36,6 +42,12 @@ on:
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
+      - "AGENTS.md"
+      - ".cursor/rules/**"
+      - ".github/muse-instructions.md"
+      - "audit/**"
+      - "docs/archive/supabase-historical/**"
+      - "docs/reports/**"
   workflow_dispatch:
 
 permissions:
@@ -76,7 +88,7 @@ jobs:
     timeout-minutes: 30
     services:
       mariadb:
-        image: mariadb:11
+        image: mariadb:11.4
         env:
           MARIADB_ROOT_PASSWORD: ci-root-password
           MARIADB_ROOT_HOST: "%"
