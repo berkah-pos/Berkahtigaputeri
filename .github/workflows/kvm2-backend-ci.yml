@@ -63,10 +63,19 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Verify current architecture contracts
+      - name: Install isolated Python dependencies
+        shell: bash
         run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+
+      - name: Verify current architecture contracts
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 scripts/check_kvm2_contract.py
-          python3 scripts/export_workbook_for_laravel.py --validate-only
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
 
       - name: Set up PHP
         uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91c4a30c7dc
