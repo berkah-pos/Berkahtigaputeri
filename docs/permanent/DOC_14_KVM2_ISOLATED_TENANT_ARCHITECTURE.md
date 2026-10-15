@@ -70,7 +70,7 @@ Previous proposal summed to 8.5GB before OS. Corrected — must include OS + Coo
 | Component | Request / Limit | Notes |
 |-----------|-----------------|-------|
 | OS + Coolify + Traefik proxy | 1.2GB reserved | Not limitable, must leave headroom |
-| MariaDB 11.4 or PostgreSQL 17 | 3.0-3.5GB | buffer_pool 2.5G (Maria) or shared_buffers 1.5G + effective_cache 3G (PG) |
+| MariaDB 11.4 or PostgreSQL 17 | 3.0-3.5 GiB | MariaDB buffer pool target 2.5 GiB; PostgreSQL shared_buffers target 1.5 GiB and effective_cache_size is a planner estimate, not allocated RAM. Tune per process/connection after load testing. |
 | Laravel App (FPM/Octane) | 1.0GB | |
 | Queue workers (provisioner + default) | 512MB total | 1 default + 1 provisioner, not per tenant |
 | Redis | 256MB maxmemory allkeys-lru | private network, separate DB indexes |
@@ -96,6 +96,8 @@ Required for single-node MVP:
 Future: Move control plane to cheap $6 VPS, KVM2 as worker.
 
 ## 5. Tenant Provisioning — Non-Root, Separated Privileges, Idempotent
+
+Runbook: `docs/runbooks/provisioning-state-machine.md`. The grants/role model remains blocked until DG-3 passes with real database users and adversarial tests.
 
 Correction: DO NOT put `DB_ROOT_PASSWORD` in provisioner. Use dedicated least-privilege identity.
 
