@@ -21,7 +21,7 @@ return [
     'database' => [
         'central_connection' => 'central',
         'template_tenant_connection' => 'tenant_template',
-        'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_tenant_'),
+        'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_t_'),
         'suffix' => '',
         'managers' => [
             'mysql' => TenantDatabaseManager::class,
