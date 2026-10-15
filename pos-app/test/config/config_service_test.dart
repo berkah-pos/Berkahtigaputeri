@@ -24,7 +24,7 @@ void main() {
     test('parses only declared source modes', () {
       expect(ConfigSourceMode.parse('laravel'), ConfigSourceMode.laravel);
       expect(ConfigSourceMode.parse('dual'), ConfigSourceMode.dual);
-      expect(ConfigSourceMode.parse('supabase'), ConfigSourceMode.supabase);
+      expect(() => ConfigSourceMode.parse('supabase'), throwsFormatException);
       expect(() => ConfigSourceMode.parse('unknown'), throwsFormatException);
     });
 
@@ -234,14 +234,8 @@ void main() {
       expect(api.calls, calls);
     });
 
-    test('Supabase mode cannot run without an explicit effective-config adapter', () async {
-      final service = ConfigService(
-        api, preferences, sourceMode: ConfigSourceMode.supabase);
-      await expectLater(
-        service.getEffectiveConfig(
-          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
-        throwsStateError,
-      );
+    test('superseded Supabase runtime mode is rejected', () {
+      expect(() => ConfigSourceMode.parse('supabase'), throwsFormatException);
     });
 
     test('parity JSON ignores map key order only', () {
