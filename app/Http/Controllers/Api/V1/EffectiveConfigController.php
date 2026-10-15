@@ -14,6 +14,7 @@ class EffectiveConfigController extends Controller
         $input = $request->validate([
             'tenant_id' => ['required', 'string', 'max:100', 'regex:/^[a-zA-Z0-9_-]+$/'],
             'device_id' => ['required', 'string', 'max:150', 'regex:/^[a-zA-Z0-9_.:-]+$/'],
+            'domain' => ['sometimes', 'nullable', 'string', 'max:253', 'regex:/^[A-Za-z0-9.-]+$/'],
             'service' => ['required', 'in:pos,akuntansi'],
         ]);
 
@@ -21,7 +22,8 @@ class EffectiveConfigController extends Controller
         abort_unless($user, 401, 'Authentication required.');
 
         $token = $user->currentAccessToken();
-        if ($token && ! $token->can('config:read')) {
+        abort_unless($token, 401, 'Authenticated token context required.');
+        if (! $token->can('config:read')) {
             abort(403, 'Token does not have config:read permission.');
         }
 
@@ -30,6 +32,7 @@ class EffectiveConfigController extends Controller
             $input['tenant_id'],
             $input['device_id'],
             $input['service'],
+            $input['domain'] ?? null,
         );
         $meta = $resolved['meta'];
 
