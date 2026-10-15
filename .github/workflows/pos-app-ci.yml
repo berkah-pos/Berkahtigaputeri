@@ -44,6 +44,13 @@ jobs:
       - name: Check Laravel KVM2 contract
         run: python3 scripts/check_kvm2_contract.py
 
+      - name: Install workbook validator dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/final-pos-venv"
+          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+
       - name: Validate canonical workbook
         run: "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
 
