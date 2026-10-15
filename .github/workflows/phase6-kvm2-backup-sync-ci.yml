@@ -144,6 +144,9 @@ jobs:
         run: |
           set -euo pipefail
           cp .env.example .env
+          # Laravel's cache/storage directories are runtime-generated and may not exist in a clean checkout.
+          mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
+          chmod -R u+rwX bootstrap/cache storage
           # Existing Laravel 11 / Filament 3 dependency resolution has a Composer advisory blocker.
           # --no-blocking is test-runner-only; composer audit is retained as a release blocker.
           composer install --no-interaction --prefer-dist --no-progress --no-blocking
