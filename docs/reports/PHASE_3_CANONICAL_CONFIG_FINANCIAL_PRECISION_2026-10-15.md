@@ -2,76 +2,101 @@
 
 **Date:** 2026-10-15  
 **Branch:** `audit/phase-3-config-contract-20261015`  
-**Review state:** **RED — CI evidence pending; do not merge or proceed to Phase 4**  
-**Canonical source:** `AGENTS.md`, `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the canonical production workbook and the Section 2/4/8 requirements.
+**Review state:** **RED / PARTIAL — workbook contract passes; Laravel/PHP runtime gates are blocked; do not merge or proceed to Phase 4.**  
+**Canonical source:** `AGENTS.md`, `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the canonical production workbook and the Phase 3 Sections 2, 4 and 8 requirements.
 
-## Scope completed in the candidate branch
+## Canonical workbook result
 
-### 1. Workbook and manifest contract
+**PASS — verified against the actual repository workbook by GitHub Actions.**
 
-Updated `scripts/export_workbook_for_laravel.py` to normalize header names, fail closed on unrecognized boolean values, validate the canonical workbook filename and sheet order, require the fixed 352-entry inventory, validate the sorted key-set MD5, and require exact service/device-to-key mappings. Manifest fields now include available workbook metadata for store names/domains, tenant active flags, tenant/template max-user limits, subscription plan/status/expiry, and device platform/hardware mode/model.
+Workflow: [Canonical Workbook Validation — run 38751002851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751002851)  
+Checked-out PR merge commit: `273e1d9` (merge of Phase 3 head `ea571f1` into Phase 2 base `f1d1a9f`).
 
-The enforced inventory is:
+Observed successful steps:
+- Workflow lint — PASS.
+- Existing workbook-parser suite — **9 tests passed**.
+- `scripts/export_workbook_for_laravel.py --validate-only` — **PASS**.
+- `scripts/test_canonical_workbook_contract.py` — **5 tests passed**.
 
-| Layer | Required count |
-|---|---:|
-| GLOBAL | 1 |
-| TEMPLATES: BASIC, PRO, ENTERPRISE | 3 |
-| TENANTS | 100 |
-| SERVICES | 140 |
-| DEVICES | 108 |
-| **Total** | **352** |
+The exporter printed this exact result:
 
-The canonical sorted-keyset MD5 is `1fd3d64219ecc7c333453c20da80e295`. This is a **keyset fingerprint**; it is not represented as a checksum of all JSON configuration values.
+```text
+PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 140, 'device': 108}; keyset_md5=1fd3d64219ecc7c333453c20da80e295
+```
 
-Added `scripts/test_canonical_workbook_contract.py` to compare manifest fields with the workbook values and to assert the inventory, template IDs, keyset MD5, strict boolean parsing, stable manifest export, and monetary schema constraints. Added the test command and its path triggers to the KVM2 Laravel CI workflow. Extended `ImportCanonicalWorkbookTest` to validate the generated import manifest against the same inventory and hash.
+Canonical inventory:
 
-### 2. Import and metadata persistence
+| Layer | Required | Verified |
+|---|---:|---:|
+| GLOBAL | 1 | 1 |
+| TEMPLATES (BASIC, PRO, ENTERPRISE) | 3 | 3 |
+| TENANTS | 100 | 100 |
+| SERVICES | 140 | 140 |
+| DEVICES | 108 | 108 |
+| **Total** | **352** | **352** |
 
-Updated `ImportCanonicalWorkbook.php` to reject manifests from a non-canonical workbook, validate metadata types/ranges and duplicate domain mappings, require actual boolean values for service/device flags, and persist the available tenant, subscription, template and device metadata. Import now refuses to silently reassign an existing registered device or domain to a different tenant. The pre-existing fail-closed tenant-provisioning check remains in place before tenant-database access.
+The MD5 is a sorted canonical-keyset fingerprint, not a checksum of all JSON configuration values.
 
-Configuration persistence for global, template, tenant-base, service and device configuration rows now uses the allowlisted `VersionedConfigWriter` compare-and-swap service instead of unguarded configuration upserts/saves. A new positive-integer version must equal 1 for a create, remain unchanged for a no-op, or increment by exactly one for a changed configuration. Updates are guarded by the persisted expected version and stale writes raise `StaleConfigurationVersionException`.
+## Changes in the Phase 3 branch
 
-### 3. Single-service merge and server-side authorization
+### 1. Workbook parsing and import manifest
 
-The resolver continues to merge in the canonical order `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`. Service resolution now goes through a helper that queries only the requested `service_scope`; sibling service rows are not included in the merge input. Added a regression test for the same tenant demonstrating that the POS request excludes the Akuntansi-only override and the Akuntansi request excludes the POS-only override.
+Updated `scripts/export_workbook_for_laravel.py` to normalize workbook headers, validate expected sheets and the canonical filename, enforce the 352-entry layer breakdown and expected keyset MD5, validate the canonical key grammar and service/device key mappings, and reject unrecognized boolean values rather than silently translating them to `false`.
 
-The effective-config API now requires an authenticated Sanctum token with `config:read`. The resolver checks the authenticated user's active state, active tenant, active `tenant_memberships` record (except the explicit super-admin path), the central registered domain when a domain selector is supplied, an active device-registry record bound to the selected tenant, subscription status/expiry, and the requested service entitlement before loading the tenant database. An explicit `owner_user_id` on a device is also checked against the authenticated user. The new central migration adds membership and workbook metadata columns and backfills explicit membership records from existing tenant assignments where the tenant exists.
+Manifest parsing now preserves workbook values when present for tenant/store name, domain, active flag, max-user limit, subscription plan/status/expiry, template max users, and device active/platform/hardware mode/model. Boolean, integer and date parsing is strict.
 
-### 4. Financial precision
+Added `scripts/test_canonical_workbook_contract.py` and ran it successfully in the Canonical Workbook Validation lane. It compares workbook values to exported fields, checks exact inventory/template IDs/keyset MD5, rejects unknown booleans, checks deterministic export, and scans central/tenant migrations plus models for float/double schema declarations or casts. It also checks representative monetary columns remain `DECIMAL(18,2)`.
 
-Source inspection of the existing tenant migration found monetary columns represented as `DECIMAL(18,2)` (including price, cost, subtotal, tax, total, debit and credit). Added a regression scan over central/tenant migrations and central models to reject Laravel `float`/`double` schema declarations and float/double model casts, and to assert the existing monetary columns stay fixed precision. No `FLOAT`/`DOUBLE` replacement, data migration, or hosted-database operation has been run.
+### 2. Laravel importer and metadata persistence
 
-## Automated tests added or extended
+Updated `app/Console/Commands/ImportCanonicalWorkbook.php` to reject non-canonical workbook manifests, validate typed workbook metadata and duplicate domains, require boolean service/device flags, persist tenant/template/subscription/device metadata, and reject reassigning an existing domain or registered device to another tenant. The existing fail-closed tenant-provisioning guard remains before tenant-database initialization.
 
-- `scripts/test_canonical_workbook_contract.py`: exact inventory/hash, workbook-to-manifest metadata/flags, strict boolean rejection, deterministic output, and monetary precision scan.
-- `tests/Unit/ImportCanonicalWorkbookTest.php`: generated manifest inventory/hash and Laravel importer validation.
-- `tests/Unit/EffectiveConfigResolverTest.php`: POS/Akuntansi service-row isolation for a shared tenant.
-- `tests/Unit/EffectiveConfigAuthorizationTest.php`: active membership, domain-to-tenant matching, and active tenant-scoped device lookup.
-- `tests/Unit/VersionedConfigWriterTest.php`: version increment, integer version enforcement, create-at-version-1, and stale-write rejection.
-- `.github/workflows/kvm2-laravel-ci.yml` and `scripts/check_kvm2_contract.py`: CI wiring and static contract assertions.
+Import writes for global, template, tenant-base, service and device config use the new allowlisted `VersionedConfigWriter` compare-and-swap path. Added a PHPUnit test that checks the generated manifest's inventory/hash against the importer's `validateManifest` validator, but **that PHPUnit test has not run** because the Laravel backend workflow failed before creating any jobs.
 
-## Test executions and outcomes
+### 3. Five-layer merge and single-service resolution
 
-| Check | Outcome | Evidence / explanation |
-|---|---|---|
-| Canonical workbook exporter against the actual XLSX | **NOT RUN / NOT VERIFIED** | The source changes are committed on the isolated branch; no successful execution result is available in this report. |
-| Python workbook regression suite | **NOT RUN / NOT VERIFIED** | Added to the contract job immediately after `--validate-only`; no passing run is claimed. |
-| PHP syntax / Composer / Pint | **NOT RUN / NOT VERIFIED** | Requires the backend CI runner. |
-| Laravel PHPUnit suite, including new tests | **NOT RUN / NOT VERIFIED** | No PHPUnit output has been observed for the candidate head. |
-| Central schema migration and tenant-database integration | **NOT RUN / NOT VERIFIED** | No migration has been applied by this task to a live or disposable database. |
-| GitHub Actions runtime | **BLOCKED / NOT VERIFIED** | The latest reported upstream Phase 2 backend run, `38721452254`, ended in `startup_failure` with zero jobs. That is a runner/workflow startup failure, not a passing test result and not proof of an application test failure. |
-| Live API / cross-tenant authorization tests | **NOT RUN / NOT VERIFIED** | Unit-test source has been added; no live runtime attack matrix was executed. |
-| Monetary migration scan | **NOT RUN / NOT VERIFIED** | The automated scan is wired into the Python suite; its result awaits execution. |
+The resolver loads configuration in canonical order:
 
-## Remaining review gates
+`GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`
 
-1. Run the Python workbook contract suite against the exact repository XLSX and verify all 352 entries and the canonical MD5 on the candidate commit.
-2. Obtain a successful exact-head CI run for PHP syntax, Pint, central migrations, and the Laravel unit/feature suite; diagnose the upstream zero-job startup failure if it persists.
-3. Review and execute the new central metadata/membership migration against a disposable MariaDB database. No production or remote database migration was performed.
-4. Review the device ownership model: tenant binding is enforced from the central registry, and an explicitly assigned `owner_user_id` is enforced; workbook input does not establish a per-user owner for every device.
-5. Keep Phase 3 **unmerged** until the exact-head checks pass and the owner reviews the results. **Do not proceed to Phase 4** from this report alone.
+Each merge input is a single layer. Service resolution uses one exact `tenant_id + service_scope` query; a request for `pos` never loads the `akuntansi` row, and vice versa. Added a unit test that seeds both overrides for the same tenant and asserts POS results exclude the Akuntansi-only field, while Akuntansi results exclude the POS-only field.
+
+### 4. Server-side authorization
+
+The API requires an authenticated Sanctum access token with `config:read`. The resolver checks server-side user active state, active tenant record, active `tenant_memberships`, registered domain-to-tenant association when a domain selector is supplied, active device registry association to the tenant, explicit device ownership for non-super-admins, active subscription entitlement/expiry, and the requested service being enabled before tenant-database reads.
+
+Added `TenantMembership` and a central migration for tenant active/store fields, template/subscription max-user fields, device platform/hardware metadata, and active membership records. The migration backfills prior user-to-tenant assignments where the referenced tenant exists. The migration has **not yet been run against disposable MariaDB**.
+
+### 5. Financial precision and versioning
+
+The new passing regression suite found no Laravel `float`, `double`, or `doublePrecision` migration declarations and no `float`/`double` model casts in scanned migrations/models. It also confirms monetary columns including price, cost, subtotal, tax, total, unit price, line total, debit and credit remain `DECIMAL(18,2)` in the existing tenant migration. No money-column migration or hosted-database operation was performed.
+
+The new `VersionedConfigWriter` uses allowlisted tables/identity columns, requires positive integer versions, only permits new rows at version 1, requires exactly one version increment for a changed config, preserves the version for an unchanged config, and uses `WHERE version = expectedVersion` to reject stale updates. Added PHPUnit coverage for incrementing and stale-write rejection; it remains **NOT RUN / NOT VERIFIED**.
+
+## Full test execution ledger
+
+| Date / run | Check | Outcome | Details |
+|---|---|---|---|
+| 2026-10-15 — [run 38750327383](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38750327383) | Existing workbook parser tests | **FAIL — corrected** | Existing test still expected missing/unknown booleans to default false; contradicted fail-closed contract. Updated it to accept explicit false-like values and reject missing/unknown values. |
+| 2026-10-15 — [run 38750671137](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38750671137) | Existing parser tests + exporter validation | **FAIL — corrected** | Parser tests passed, exporter failed with `name 're' is not defined`. Added the missing `import re`. |
+| 2026-10-15 — [run 38751002851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751002851) | Workflow lint | **PASS** | All four configured workflow files passed Actionlint. |
+| 2026-10-15 — [run 38751002851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751002851) | Existing Python parser suite | **PASS** | 9 tests passed. |
+| 2026-10-15 — [run 38751002851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751002851) | Canonical exporter validation | **PASS** | Exact 352 count/layer breakdown and expected keyset MD5 printed above. No import/apply/database writes were performed. |
+| 2026-10-15 — [run 38751002851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751002851) | New workbook metadata and financial regression suite | **PASS** | 5 tests passed, including workbook-to-manifest field comparison and migration/model float/double checks. |
+| 2026-10-15 — [run 38751004652](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751004652) | KVM2 Laravel Backend CI | **BLOCKED — startup_failure** | GitHub Actions returned `startup_failure`; jobs API returned an empty job list. PHP syntax, Composer/Pint, Laravel migrations and PHPUnit did not execute. |
+| 2026-10-15 — [run 38751008502](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751008502) | Canonical POS App CI | **BLOCKED — startup_failure** | Jobs API returned an empty job list; app tests/build did not execute in this run. |
+| 2026-10-15 — [run 38751006578](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751006578) | Phase 2 Tenant Grant Security CI | **BLOCKED — startup_failure** | Jobs API returned an empty job list; actual MariaDB tenant-grant checks did not execute in this run. |
+| 2026-10-15 | Laravel PHPUnit (including new service/auth/CAS/import tests) | **NOT RUN / NOT VERIFIED** | No passing Laravel test output observed for this candidate. |
+| 2026-10-15 | Central membership/metadata migration on disposable MariaDB | **NOT RUN / NOT VERIFIED** | No migration was applied by this task to disposable, staging, or production data. |
+| 2026-10-15 | Live cross-tenant/device authorization attack matrix | **NOT RUN / NOT VERIFIED** | Tests were added, but no deployed/live API security test was executed. |
+
+## Remaining review gates — Phase 3 is not complete
+
+1. Obtain an exact-head backend CI run that starts jobs and passes PHP lint, Composer/Pint, central migration validation and Laravel PHPUnit. Current repeated `startup_failure` results are infrastructure/workflow startup blockers, not passing evidence.
+2. Run the new importer, service-isolation, authorization and compare-and-swap PHPUnit tests; inspect the actual migration result on a disposable MariaDB database.
+3. Confirm device owner assignment lifecycle. Non-super-admin requests intentionally fail closed if a device has no explicit registered `owner_user_id`.
+4. Have the owner review the evidence and unresolved gates before merging. Keep PR #46 draft and do not proceed to Phase 4 until the backend gates are green.
 
 ## Safety boundary
 
-All edits are confined to `audit/phase-3-config-contract-20261015`. This work did not push to `main`, change production data, run a remote migration/import, or claim deployment readiness.
+Changes are limited to `audit/phase-3-config-contract-20261015` and draft PR #46. Nothing was pushed to `main`; no remote/prod database import, migration, reset, migration repair, or deployment was performed. No production-readiness claim is made.
