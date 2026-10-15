@@ -1,5 +1,10 @@
 # DOC_13 — Unified Flutter POS App Integration Report
 
+
+> **Platform supersession notice — 2026-10-15:** This report records the existing Flutter/Supabase implementation and its verification gaps at the revisions described below. It is not the target platform architecture. The target for new implementation is defined by `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`: authenticated Laravel Central API, central relational configuration tables, and database-per-tenant operational data. References here to Supabase client initialization, `get_effective_config` RPC, Supabase schema/RLS, and old workflow outcomes are historical/source evidence and must not be copied as the new design. The current code still needs a separately verified migration; this notice does not claim that migration is complete.
+
+---
+
 **Status:** IMPLEMENTATION IN PROGRESS — compile/test result NOT VERIFIED  
 **Date:** 2026-10-12  
 **Base:** `main` commit `62659fbec4b3b084383d9d3e08948aee7772e280`  
