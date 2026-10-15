@@ -16,7 +16,7 @@ class PosDatabase {
 
   String? get legacyImportError => _legacyImportError;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
@@ -57,7 +57,9 @@ class PosDatabase {
         onUpgrade: _upgradeSchema,
       ),
     );
-    return PosDatabase._(db);
+    final target = PosDatabase._(db);
+    await target._recoverInterruptedOutbox();
+    return target;
   }
 
   Future<T> transaction<T>(
@@ -84,6 +86,31 @@ class PosDatabase {
       _legacyImportError = error.toString();
       rethrow;
     }
+  }
+
+  /// Recover rows claimed by a process that exited before server acceptance.
+  Future<void> _recoverInterruptedOutbox() async {
+    await database.transaction<void>((transaction) async {
+      final rows = await transaction.query(
+        'outbox_events',
+        columns: <String>['id', 'retry_count'],
+        where: 'status = ?',
+        whereArgs: <Object?>['syncing'],
+      );
+      for (final row in rows) {
+        await transaction.update(
+          'outbox_events',
+          <String, Object?>{
+            'status': 'pending',
+            'retry_count': (row['retry_count'] as num).toInt() + 1,
+            'last_error':
+                'Recovered interrupted sync; server acknowledgement was not confirmed.',
+          },
+          where: 'id = ? AND status = ?',
+          whereArgs: <Object?>[row['id'], 'syncing'],
+        );
+      }
+    });
   }
 
   Future<void> close() => database.close();
@@ -132,6 +159,16 @@ class PosDatabase {
       ''');
       await _createLegacyArchiveTables(database);
       current = 3;
+    }
+
+    if (current < 4) {
+      await database.execute(
+        'ALTER TABLE outbox_events ADD COLUMN last_error TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE outbox_events ADD COLUMN last_attempt_at_utc TEXT',
+      );
+      current = 4;
     }
 
     if (current != newVersion) {
@@ -488,7 +525,9 @@ class PosDatabase {
         payload TEXT NOT NULL,
         status TEXT NOT NULL,
         retry_count INTEGER NOT NULL DEFAULT 0,
-        created_at_utc TEXT NOT NULL
+        created_at_utc TEXT NOT NULL,
+        last_error TEXT,
+        last_attempt_at_utc TEXT
       )
     ''');
 
