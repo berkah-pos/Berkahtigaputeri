@@ -30,6 +30,7 @@ on:
       - ".env.example"
       - ".github/workflows/phase2-tenant-grants-ci.yml"
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -62,7 +63,6 @@ jobs:
         run: |
           set -euo pipefail
           cp .env.example .env
-          php artisan key:generate --force
 
       - name: Start disposable MariaDB 11.4
         env:
@@ -97,6 +97,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes mariadb-client
           composer install --no-interaction --prefer-dist --no-progress
+          php artisan key:generate --force
           find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Create isolated DB accounts and apply grants
