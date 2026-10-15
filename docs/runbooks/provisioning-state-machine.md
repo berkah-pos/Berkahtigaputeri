@@ -5,6 +5,8 @@ PR: #42 branch docs/kvm2-isolated-saas-architecture
 ## Goal
 Safe, idempotent, auditable tenant DB/user creation without root, without duplicate resources.
 
+**Status:** proposed runbook, not yet executed. Engine-specific DDL and role grants are intentionally gated on DG-0/DG-3. Treat command examples as design guidance until tested against the locked framework, package, and engine.
+
 **Status:** proposed runbook, not yet executed. Engine-specific DDL and role grants are intentionally gated on DG-0/DG-3. Do not treat pseudocode below as portable SQL.
 
 ## Roles
@@ -17,25 +19,18 @@ Web containers must NOT receive provisioner or migrator credentials.
 
 ## Central Table
 
-```sql
-Logical schema for `tenant_provisioning_jobs` (choose engine-specific types/constraints in migrations; this is not executable DDL):
+The central database must store a durable provisioning-job record with these logical fields. This is a schema contract, not portable SQL; implement the correct migration types and constraints only after DG-0 is resolved.
 
-```text
-TABLE tenant_provisioning_jobs (
-  id: BIGINT PRIMARY KEY,
-  tenant_id: CHAR(26) NOT NULL UNIQUE, -- ULID
-  state: VARCHAR NOT NULL CHECK (state IN pending, validating, creating_db, creating_users, migrating, seeding_domain, smoke_testing, ready, failed, cleanup_pending),
-  db_name: VARCHAR(63) NOT NULL UNIQUE, -- berkahpos_t_<ulid>; respect chosen engine identifier limit
-  attempt: INTEGER NOT NULL DEFAULT 0,
-  last_error: TEXT NULL,
-  locked_at: TIMESTAMP NULL,
-  created_at: TIMESTAMP NOT NULL,
-  updated_at: TIMESTAMP NOT NULL,
-);
-```
+- `id`: primary key
+- `tenant_id`: immutable ULID, NOT NULL, UNIQUE
+- `state`: NOT NULL; constrain to `pending`, `validating`, `creating_db`, `creating_users`, `migrating`, `seeding_domain`, `smoke_testing`, `ready`, `failed`, `cleanup_pending`
+- `db_name`: generated `berkahpos_t_<ulid_lower>`, NOT NULL, UNIQUE; respect selected engine's identifier length/format
+- `attempt`: integer, NOT NULL, default 0
+- `last_error`: nullable text, redacted to avoid storing secrets
+- `locked_at`: nullable timestamp
+- `created_at`, `updated_at`: required timestamps
 
-Create real migrations separately for the selected engine; use a database-native enum or a VARCHAR plus validated CHECK/constraint as appropriate.
-```
+In addition, persist an append-only provisioning audit record for each privileged create/grant/revoke/drop action. Never include passwords or secret values in error/audit output.
 
 ## State Transitions (must be resumable)
 
@@ -45,15 +40,15 @@ Create real migrations separately for the selected engine; use a database-native
 
 2. **validating -> creating_db**
    - Acquire a shared atomic Redis lock, e.g. via Laravel's cache-lock API: `Cache::lock('provision:'.$tenantId, 60)->block(10, fn () => ...)`. Confirm API syntax against the locked Laravel version and release the lock on all exits.
-   - Use an engine-specific existence check and create operation (PostgreSQL does not support MariaDB's `CREATE DATABASE IF NOT EXISTS`). If the database exists, verify ownership, expected migration state, and tenant identity before resuming. If it contains unexpected operational data, fail with an alert; do not overwrite or clean up automatically.
+   - Use an engine-specific existence check and create operation (PostgreSQL does not support the MariaDB `CREATE DATABASE IF NOT EXISTS` syntax). If the database exists, verify ownership, expected migration state, and tenant identity before resuming. If it contains unexpected operational data, fail with an alert; do not overwrite or clean up automatically.
 
 3. **creating_db -> creating_users**
-   - Create `u_t_xxx_runtime` and `m_t_xxx_migrator` if not exists.
+   - Create `u_t_xxx_runtime` and `m_t_xxx_migrator` only after a safe idempotent existence check; verify ownership and existing grants before reusing an account.
    - Apply only the engine-specific privilege design approved at DG-3. Do not copy broad `CREATEDB`/`CREATEROLE` or global MariaDB grants from an unreviewed snippet; keep provisioning blocked until real grants/roles pass adversarial tests.
-   - Store credential refs in central vault (not plaintext in central DB). Use Coolify secrets / vault.
+   - Store credential references in a secret manager (not plaintext passwords in the central DB). Limit secret retrieval and rotation; never pass secrets in process arguments.
 
 4. **creating_users -> migrating**
-   - Run migrations using the tenant-scoped migrator credential only. The shown Artisan command is a placeholder until the selected tenancy package/version and command are verified.
+   - Run migrations using the tenant-scoped migrator credential only. The migration command is a placeholder until the selected tenancy package/version and command are verified.
    - Migrations must NOT run with runtime user.
 
 5. **migrating -> seeding_domain**
