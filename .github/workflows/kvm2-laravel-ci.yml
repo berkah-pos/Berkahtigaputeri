@@ -1,6 +1,6 @@
 name: KVM2 Laravel Backend CI
 
-'on':
+on:
   pull_request:
     paths:
       - "app/**"
@@ -36,7 +36,7 @@ name: KVM2 Laravel Backend CI
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   actions: read
