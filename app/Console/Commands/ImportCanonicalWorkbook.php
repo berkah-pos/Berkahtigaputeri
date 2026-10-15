@@ -226,8 +226,8 @@ class ImportCanonicalWorkbook extends Command
             $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
             $isNew = ! $tenant->exists;
             $tenant->template_id = $row['template_id'];
-            // The configured TenantCreated pipeline creates the tenant DB and
-            // applies database/migrations/tenant. Never drop existing DBs here.
+            // TenantCreated queues provisioning on the private worker. This importer
+            // is resumable, but must not initialize a DB until that worker verifies it.
             $tenant->save();
 
             $base = TenantConfig::query()->firstOrNew([
@@ -306,6 +306,13 @@ class ImportCanonicalWorkbook extends Command
                     'registered_at' => $row['active'] ? now() : null,
                 ]
             );
+
+            $provisioning = $tenant->data['database_provisioning'] ?? null;
+            if (! is_array($provisioning) || ($provisioning['status'] ?? null) !== 'provisioned') {
+                throw new \\RuntimeException(
+                    'Tenant database provisioning is not complete for '.$row['tenant_id'].'. Run the private tenant-provisioning worker, then resume this import.'
+                );
+            }
 
             Tenancy::initialize($tenant);
             try {
