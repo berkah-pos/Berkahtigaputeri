@@ -3,11 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\Central\DeviceRegistry;
+use App\Models\Central\Domain;
 use App\Models\Central\GlobalConfig;
 use App\Models\Central\Subscription;
 use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
+use App\Services\VersionedConfigWriter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Stancl\Tenancy\Facades\Tenancy;
@@ -63,6 +65,10 @@ class ImportCanonicalWorkbook extends Command
 
     private function validateManifest(array $manifest): void
     {
+        if (($manifest['source_workbook'] ?? null) !== 'FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx') {
+            throw new \\InvalidArgumentException('Manifest must originate from the canonical production workbook.');
+        }
+
         $expectedCounts = [
             'global' => 1,
             'template' => 3,
@@ -103,6 +109,9 @@ class ImportCanonicalWorkbook extends Command
                     'Manifest contains an invalid or duplicate template ID/configuration.'
                 );
             }
+            if (array_key_exists('max_users', $row) && $row['max_users'] !== null && (! is_int($row['max_users']) || $row['max_users'] < 1)) {
+                throw new \\InvalidArgumentException('Template max_users must be a positive integer when specified.');
+            }
             $templateIds[$templateId] = true;
             $keys[] = 'template:'.$templateId;
         }
@@ -113,6 +122,7 @@ class ImportCanonicalWorkbook extends Command
         }
 
         $tenantIds = [];
+        $domainOwners = [];
         foreach ($manifest['tenants'] as $row) {
             if (! is_array($row)) {
                 throw new \InvalidArgumentException('Manifest contains a malformed tenant row.');
@@ -127,6 +137,7 @@ class ImportCanonicalWorkbook extends Command
                     'Manifest contains an invalid or duplicate tenant identifier/template.'
                 );
             }
+            $this->validateTenantMetadata($row, $domainOwners);
             $tenantIds[$tenantId] = true;
             $keys[] = 'tenant:'.$tenantId;
         }
@@ -142,7 +153,8 @@ class ImportCanonicalWorkbook extends Command
             if (! isset($tenantIds[$tenantId]) ||
                 ! in_array($service, ['pos', 'akuntansi'], true) ||
                 isset($servicePairs[$pair]) ||
-                ! is_array($row['config'] ?? null)) {
+                ! is_array($row['config'] ?? null) ||
+                ! is_bool($row['enabled'] ?? null)) {
                 throw new \InvalidArgumentException(
                     "Manifest contains an invalid or duplicate tenant-service pair: {$pair}."
                 );
@@ -161,7 +173,9 @@ class ImportCanonicalWorkbook extends Command
             if (! isset($tenantIds[$tenantId]) ||
                 ! preg_match('/^[a-zA-Z0-9_.:-]{1,150}$/', $deviceId) ||
                 isset($deviceIds[$deviceId]) ||
-                ! is_array($row['config'] ?? null)) {
+                ! is_array($row['config'] ?? null) ||
+                ! is_bool($row['active'] ?? null) ||
+                ! $this->validOptionalDeviceMetadata($row)) {
                 throw new \InvalidArgumentException(
                     "Manifest contains an invalid or duplicate device_id/tenant mapping: {$deviceId}."
                 );
@@ -194,6 +208,47 @@ class ImportCanonicalWorkbook extends Command
         }
     }
 
+    private function validateTenantMetadata(array $row, array &$domainOwners): void
+    {
+        foreach (['name', 'store_name', 'domain', 'subscription_status', 'plan'] as $field) {
+            if (array_key_exists($field, $row) && $row[$field] !== null && ! is_string($row[$field])) {
+                throw new \InvalidArgumentException("Tenant metadata {$field} must be a string or null.");
+            }
+        }
+        if (array_key_exists('is_active', $row) && $row['is_active'] !== null && ! is_bool($row['is_active'])) {
+            throw new \InvalidArgumentException('Tenant is_active must be boolean or null.');
+        }
+        if (array_key_exists('max_users', $row) && $row['max_users'] !== null &&
+            (! is_int($row['max_users']) || $row['max_users'] < 1)) {
+            throw new \InvalidArgumentException('Tenant max_users must be a positive integer or null.');
+        }
+        if (array_key_exists('expires_at', $row) && $row['expires_at'] !== null &&
+            (! is_string($row['expires_at']) || strtotime($row['expires_at']) === false)) {
+            throw new \InvalidArgumentException('Tenant expires_at must be an ISO date/datetime or null.');
+        }
+        $domain = strtolower(rtrim(trim((string) ($row['domain'] ?? '')), '.'));
+        if ($domain !== '') {
+            if (strlen($domain) > 253 || str_contains($domain, '..') ||
+                ! preg_match('/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$/', $domain)) {
+                throw new \InvalidArgumentException("Invalid tenant domain: {$domain}");
+            }
+            if (isset($domainOwners[$domain]) && $domainOwners[$domain] !== $row['tenant_id']) {
+                throw new \InvalidArgumentException("Domain is mapped to multiple tenants: {$domain}");
+            }
+            $domainOwners[$domain] = $row['tenant_id'];
+        }
+    }
+
+    private function validOptionalDeviceMetadata(array $row): bool
+    {
+        foreach (['platform', 'hardware_mode', 'device_model'] as $field) {
+            if (array_key_exists($field, $row) && $row[$field] !== null && ! is_string($row[$field])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private function importCentral(array $manifest): void
     {
         // This is deliberately resumable instead of one long transaction over
@@ -206,9 +261,11 @@ class ImportCanonicalWorkbook extends Command
             $manifest['global_config'],
             (int) ($global->version ?? 0)
         );
-        $global->config = $globalConfig;
-        $global->version = (int) $globalConfig['version'];
-        $global->save();
+        app(VersionedConfigWriter::class)->compareAndSwap(
+            'central', 'global_configs', ['key' => 'global'],
+            $global->exists ? (int) $global->version : 0,
+            $globalConfig,
+        );
 
         foreach ($manifest['templates'] as $row) {
             $model = Template::query()->firstOrNew(['id' => $row['id']]);
@@ -217,45 +274,106 @@ class ImportCanonicalWorkbook extends Command
                 $row['config'],
                 (int) ($model->version ?? 0)
             );
-            $model->config = $config;
-            $model->version = (int) $config['version'];
-            $model->save();
+            $extra = array_key_exists('max_users', $row) && $row['max_users'] !== null
+                ? ['max_users' => $row['max_users']]
+                : [];
+            app(VersionedConfigWriter::class)->compareAndSwap(
+                'central', 'templates', ['id' => $row['id']],
+                $model->exists ? (int) $model->version : 0,
+                $config,
+                $extra,
+            );
         }
 
         foreach ($manifest['tenants'] as $row) {
             $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
             $isNew = ! $tenant->exists;
             $tenant->template_id = $row['template_id'];
+            if (array_key_exists('store_name', $row) && $row['store_name'] !== null) {
+                $tenant->store_name = $row['store_name'];
+            } elseif (array_key_exists('name', $row) && $row['name'] !== null) {
+                $tenant->store_name = $row['name'];
+            }
+            if (array_key_exists('is_active', $row) && $row['is_active'] !== null) {
+                $tenant->is_active = $row['is_active'];
+            }
             // The configured TenantCreated pipeline creates the tenant DB and
             // applies database/migrations/tenant. Never drop existing DBs here.
             $tenant->save();
+
+            $domainName = strtolower(rtrim(trim((string) ($row['domain'] ?? '')), '.'));
+            if ($domainName !== '') {
+                $domain = Domain::query()->where('domain', $domainName)->first();
+                if ($domain !== null && (string) $domain->tenant_id !== (string) $row['tenant_id']) {
+                    throw new RuntimeException('Refusing to reassign a registered domain to another tenant: '.$domainName);
+                }
+                Domain::query()->updateOrCreate(
+                    ['domain' => $domainName],
+                    ['tenant_id' => $row['tenant_id']],
+                );
+            }
 
             $base = TenantConfig::query()->firstOrNew([
                 'tenant_id' => $row['tenant_id'],
                 'service_scope' => '__base__',
             ]);
+            $oldVersion = (int) ($base->version ?? 0);
+            $templateChanged = $base->exists &&
+                (string) ($base->template_id ?? '') !== (string) $row['template_id'];
             $base->service = null;
             $base->service_scope = '__base__';
             $base->template_id = $row['template_id'];
             $baseConfig = $this->nextConfig(
                 $base->exists ? $base->config : null,
                 $row['config'],
-                (int) ($base->version ?? 0)
+                $oldVersion
             );
-            $base->config = $baseConfig;
-            $base->version = (int) $baseConfig['version'];
-            $base->save();
-
-            if ($isNew) {
-                Subscription::query()->firstOrCreate(
-                    ['tenant_id' => $row['tenant_id']],
-                    [
-                        'plan' => strtolower($row['template_id']),
-                        'status' => 'trial',
-                        'expires_at' => now()->addDays(14),
-                    ]
-                );
+            if ($templateChanged && (int) $baseConfig['version'] <= $oldVersion) {
+                $baseConfig['version'] = $oldVersion + 1;
             }
+            app(VersionedConfigWriter::class)->compareAndSwap(
+                'central', 'tenant_configs',
+                ['tenant_id' => $row['tenant_id'], 'service_scope' => '__base__'],
+                $base->exists ? $oldVersion : 0,
+                $baseConfig,
+                ['service' => null, 'template_id' => $row['template_id']],
+            );
+
+            $templateMaxUsers = null;
+            foreach ($manifest['templates'] as $templateRecord) {
+                if ($templateRecord['id'] === $row['template_id']) {
+                    $templateMaxUsers = $templateRecord['max_users'] ?? null;
+                    break;
+                }
+            }
+            $subscription = Subscription::query()
+                ->where('tenant_id', $row['tenant_id'])
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->first();
+            $newSubscription = $subscription === null;
+            if ($newSubscription) {
+                $subscription = new Subscription([
+                    'tenant_id' => $row['tenant_id'],
+                    'plan' => $row['plan'] ?? strtolower($row['template_id']),
+                    'status' => $row['subscription_status'] ?? 'trial',
+                    'expires_at' => $row['expires_at'] ?? now()->addDays(14),
+                ]);
+            }
+            if (! empty($row['plan'])) {
+                $subscription->plan = $row['plan'];
+            }
+            if (! empty($row['subscription_status'])) {
+                $subscription->status = $row['subscription_status'];
+            }
+            $maxUsers = $row['max_users'] ?? ($newSubscription ? $templateMaxUsers : null);
+            if ($maxUsers !== null) {
+                $subscription->max_users = $maxUsers;
+            }
+            if (! empty($row['expires_at'])) {
+                $subscription->expires_at = $row['expires_at'];
+            }
+            $subscription->save();
         }
 
         foreach ($manifest['services'] as $row) {
@@ -266,15 +384,19 @@ class ImportCanonicalWorkbook extends Command
             $model->service = $row['service'];
             $model->service_scope = $row['service'];
             $desired = $row['config'];
-            $desired['enabled'] = (bool) $row['enabled'];
+            $desired['enabled'] = $row['enabled'];
             $next = $this->nextConfig(
                 $model->exists ? $model->config : null,
                 $desired,
                 (int) ($model->version ?? 0)
             );
-            $model->config = $next;
-            $model->version = (int) $next['version'];
-            $model->save();
+            app(VersionedConfigWriter::class)->compareAndSwap(
+                'central', 'tenant_configs',
+                ['tenant_id' => $row['tenant_id'], 'service_scope' => $row['service']],
+                $model->exists ? (int) $model->version : 0,
+                $next,
+                ['service' => $row['service'], 'template_id' => null],
+            );
 
             $serviceQuery = DB::connection('central')->table('tenant_services')
                 ->where('tenant_id', $row['tenant_id'])
@@ -298,14 +420,21 @@ class ImportCanonicalWorkbook extends Command
     {
         foreach ($manifest['devices'] as $row) {
             $tenant = Tenant::query()->findOrFail($row['tenant_id']);
-            DeviceRegistry::query()->updateOrCreate(
-                ['device_id' => $row['device_id']],
-                [
-                    'tenant_id' => $row['tenant_id'],
-                    'status' => $row['active'] ? 'active' : 'suspended',
-                    'registered_at' => $row['active'] ? now() : null,
-                ]
-            );
+            $existingRegistry = DeviceRegistry::query()->where('device_id', $row['device_id'])->first();
+            if ($existingRegistry !== null && (string) $existingRegistry->tenant_id !== (string) $row['tenant_id']) {
+                throw new RuntimeException('Refusing to reassign registered device to another tenant: '.$row['device_id']);
+            }
+            $deviceValues = [
+                'tenant_id' => $row['tenant_id'],
+                'status' => $row['active'] ? 'active' : 'suspended',
+                'registered_at' => $row['active'] ? now() : null,
+            ];
+            foreach (['platform', 'hardware_mode', 'device_model'] as $field) {
+                if (array_key_exists($field, $row) && $row[$field] !== null) {
+                    $deviceValues[$field] = $row[$field];
+                }
+            }
+            DeviceRegistry::query()->updateOrCreate(['device_id' => $row['device_id']], $deviceValues);
 
             Tenancy::initialize($tenant);
             try {
@@ -315,14 +444,10 @@ class ImportCanonicalWorkbook extends Command
                     $old = json_decode($old, true, 512, JSON_THROW_ON_ERROR);
                 }
                 $next = $this->nextConfig(is_array($old) ? $old : null, $row['config'], (int) ($existing->version ?? 0));
-                DB::connection('tenant')->table('device_configs')->updateOrInsert(
-                    ['device_id' => $row['device_id']],
-                    [
-                        'config' => json_encode($next, JSON_THROW_ON_ERROR),
-                        'version' => (int) $next['version'],
-                        'updated_at' => now(),
-                        'created_at' => $existing?->created_at ?? now(),
-                    ]
+                app(VersionedConfigWriter::class)->compareAndSwap(
+                    'tenant', 'device_configs', ['device_id' => $row['device_id']],
+                    $existing === null ? 0 : (int) $existing->version,
+                    $next,
                 );
             } finally {
                 Tenancy::end();
