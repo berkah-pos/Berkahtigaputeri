@@ -105,6 +105,34 @@ class EffectiveConfigResolverTest extends TestCase
         $this->assertSame('active', $subscription->status);
     }
 
+    public function test_latest_suspended_subscription_cannot_be_revived_by_an_older_trial(): void
+    {
+        $now = now();
+
+        DB::connection('central')->table('subscriptions')->insert([
+            [
+                'tenant_id' => 'tenant-a',
+                'status' => 'trial',
+                'expires_at' => $now->copy()->addDays(10)->toDateTimeString(),
+                'created_at' => $now->copy()->subDay()->toDateTimeString(),
+            ],
+            [
+                'tenant_id' => 'tenant-a',
+                'status' => 'suspended',
+                'expires_at' => null,
+                'created_at' => $now->copy()->toDateTimeString(),
+            ],
+        ]);
+
+        $subscription = $this->invokePrivate(
+            new EffectiveConfigResolver(),
+            'selectAuthoritativeSubscription',
+            ['tenant-a'],
+        );
+
+        $this->assertNull($subscription);
+    }
+
     public function test_scoped_hash_differs_between_tenants_with_identical_configuration(): void
     {
         $resolver = new EffectiveConfigResolver();
@@ -123,6 +151,8 @@ class EffectiveConfigResolverTest extends TestCase
         );
 
         $this->assertSame($tenantA['config_hash'], $tenantB['config_hash']);
+        $this->assertSame(hash('sha256', '{"receipt":{"enabled":true,"paper_width":58}}'), $tenantA['config_hash']);
+        $this->assertMatchesRegularExpression('/^5-[a-f0-9]{12}$/', $tenantA['effective_version']);
         $this->assertNotSame($tenantA['scoped_hash'], $tenantB['scoped_hash']);
         $this->assertSame('g:1/t:2/ten:5/s:3/d:0', $tenantA['version_vector']);
         $this->assertSame($tenantA['version_vector'].'#'.substr($tenantA['config_hash'], 0, 12), $tenantA['effective_revision']);

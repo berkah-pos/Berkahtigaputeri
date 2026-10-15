@@ -153,34 +153,40 @@ class EffectiveConfigResolver
      */
     private function selectAuthoritativeSubscription(string $tenantId): ?object
     {
-        $subscription = DB::connection('central')->table('subscriptions')
-            ->where('tenant_id', $tenantId)
+        $subscriptions = DB::connection('central')->table('subscriptions')
+            ->where('tenant_id', $tenantId);
+
+        // First determine the latest persisted state irrespective of status.
+        // A newest suspended/cancelled/expired row must not be bypassed by an
+        // older trial that still has a future expiry.
+        $latest = (clone $subscriptions)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->first(['id', 'status', 'expires_at', 'created_at']);
+
+        if ($latest === null ||
+            ! in_array($latest->status, ['active', 'trial'], true) ||
+            ($latest->expires_at !== null && now()->greaterThanOrEqualTo($latest->expires_at))) {
+            Log::warning('No valid authoritative subscription for effective configuration.', [
+                'tenant_id' => $tenantId,
+                'latest_any_status' => $latest->status ?? null,
+            ]);
+
+            return null;
+        }
+
+        // Active ranks ahead of trial when both are valid. The all-status
+        // latest-state gate above prevents a stale row from restoring access.
+        return (clone $subscriptions)
             ->whereIn('status', ['active', 'trial'])
             ->where(function ($query): void {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
             })
-            ->orderByRaw("CASE WHEN status = 'active' THEN 0 ELSE 1 END ASC")
-            ->orderByRaw('expires_at IS NULL DESC')
-            ->orderByDesc('expires_at')
+            ->orderByRaw("CASE WHEN status = 'active' THEN 0 WHEN status = 'trial' THEN 1 ELSE 2 END ASC")
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->first();
-
-        if ($subscription !== null) {
-            return $subscription;
-        }
-
-        $latestAny = DB::connection('central')->table('subscriptions')
-            ->where('tenant_id', $tenantId)
-            ->orderByDesc('created_at')
-            ->first(['status', 'created_at']);
-
-        Log::warning('No valid subscription candidate for effective configuration.', [
-            'tenant_id' => $tenantId,
-            'latest_any_status' => $latestAny->status ?? null,
-        ]);
-
-        return null;
     }
 
     /**
