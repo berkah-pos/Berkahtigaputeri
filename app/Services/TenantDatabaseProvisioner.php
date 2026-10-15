@@ -94,6 +94,19 @@ class TenantDatabaseProvisioner
 
             $databaseExists = $this->databaseExists($databaseName);
             if (! $databaseExists) {
+                $hasLaterProvisioningEvidence = ($state['status'] ?? null) === 'provisioned'
+                    || $this->hasAuditAction($provisioningId, 'runtime_user.create.intent')
+                    || $this->hasAuditAction($provisioningId, 'ownership_marker.create.intent')
+                    || $this->hasAuditAction($provisioningId, 'tenant_migrations.started')
+                    || $this->hasAuditAction($provisioningId, 'provisioning.completed');
+                if ($hasLaterProvisioningEvidence) {
+                    $this->audit($tenantId, $provisioningId, 'provisioning.missing_database.refused', [
+                        'database_name' => $databaseName,
+                        'reason' => 'prior provisioning evidence indicates this database may have held data',
+                    ]);
+                    throw new RuntimeException('Previously provisioned tenant database is missing; automatic recreation refused for review.');
+                }
+
                 $this->audit($tenantId, $provisioningId, 'database.create.intent', [
                     'database_name' => $databaseName,
                 ]);
