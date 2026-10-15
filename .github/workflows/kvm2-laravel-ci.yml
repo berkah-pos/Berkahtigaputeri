@@ -91,6 +91,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
       - name: Start disposable MariaDB 11.4
         env:
           MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
@@ -117,7 +119,6 @@ jobs:
           fi
           echo "PASS: disposable MariaDB 11.4 container is ready."
 
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Set up PHP 8.3 and Composer v2
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
