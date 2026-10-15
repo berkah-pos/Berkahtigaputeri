@@ -68,6 +68,7 @@ jobs:
           set -euo pipefail
           python3 scripts/check_kvm2_contract.py
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/test_canonical_workbook_contract.py
 
   backend:
     name: Laravel backend, tenant isolation and privilege proof
