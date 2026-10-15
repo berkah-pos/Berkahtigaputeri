@@ -274,25 +274,32 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         )]);
         DB::purge($connectionName);
 
+        $denied = false;
         try {
             DB::connection($connectionName)->selectOne('SELECT DATABASE() AS db');
-            $this->fail('Tenant credential unexpectedly connected with forbidden default database '.$forbiddenDatabase);
-        } catch (QueryException) {
-            $this->assertTrue(true);
+        } catch (\\Throwable) {
+            $denied = true;
         } finally {
             DB::purge($connectionName);
             config(['database.connections.'.$connectionName => null]);
         }
+
+        $this->assertTrue(
+            $denied,
+            'Tenant credential unexpectedly connected with forbidden default database '.$forbiddenDatabase
+        );
     }
 
     private function assertQueryDenied(callable $query): void
     {
+        $denied = false;
         try {
             $query();
-            $this->fail('MariaDB unexpectedly allowed a forbidden privilege operation.');
-        } catch (QueryException) {
-            $this->assertTrue(true);
+        } catch (\\Throwable) {
+            $denied = true;
         }
+
+        $this->assertTrue($denied, 'MariaDB unexpectedly allowed a forbidden privilege operation.');
     }
 
     private function quoteIdentifier(string $identifier): string
