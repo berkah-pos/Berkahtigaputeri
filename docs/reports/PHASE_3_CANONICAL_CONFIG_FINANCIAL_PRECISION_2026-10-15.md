@@ -97,6 +97,24 @@ The new `VersionedConfigWriter` uses allowlisted tables/identity columns, requir
 3. Confirm device owner assignment lifecycle. Non-super-admin requests intentionally fail closed if a device has no explicit registered `owner_user_id`.
 4. Have the owner review the evidence and unresolved gates before merging. Keep PR #46 draft and do not proceed to Phase 4 until the backend gates are green.
 
+## Additional AGENTS.md Section 8 gates
+
+The Section 8 platform/security evidence gates remain **NOT RUN / NOT VERIFIED** and are separate from the workbook contract pass:
+
+| Mandatory gate | Status |
+|---|---|
+| DG-1 measured host/container resource budget, memory headroom and k6 sync-burst evidence | NOT RUN / NOT VERIFIED |
+| DG-0 reviewed engine decision backed by a sanitized, executable schema/extension/function/grant inventory | NOT VERIFIED as runtime evidence |
+| DG-3 real engine grants: runtime cannot use DDL or access a different tenant database; actual `SHOW GRANTS` / role privilege evidence | BLOCKED; CI jobs did not start |
+| Public web/normal queue credential separation and private provisioner ingress | NOT VERIFIED by an executed CI assertion for this candidate |
+| Host/domain boundary, malicious Host handling, cache invalidation and trusted-proxy behavior | NOT RUN / NOT VERIFIED |
+| Adversarial Tenant A/B isolation with real disposable database users and cross-tenant read/write denials | NOT RUN / NOT VERIFIED |
+| Concurrent/interrupted provisioning idempotency and privileged-action audit | NOT RUN / NOT VERIFIED |
+| DG-4 off-host central + tenant backup/restore, PITR and single-tenant restore drill | NOT RUN / NOT VERIFIED |
+| Flutter effective-config parity against workbook fixtures and local-first outbox behavior | NOT RUN / NOT VERIFIED |
+
+These gates are not declared completed merely because documents, migrations, tests or runbooks exist. They remain owner-review/implementation gates on this architecture branch.
+
 ## Safety boundary
 
 Changes are limited to `audit/phase-3-config-contract-20261015` and draft PR #46. Nothing was pushed to `main`; no remote/prod database import, migration, reset, migration repair, or deployment was performed. No production-readiness claim is made.
