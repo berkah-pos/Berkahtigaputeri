@@ -29,9 +29,9 @@ The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days
 ## Tests and exact output
 
 Final independent Phase 5 CI run: **PASS**  
-- Run: [38776963937](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963937)
-- Tested commit: `b544678f2debf4de919657784cc61f936632b077`
-- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963937/artifacts/11993997302)
+- Run: [38777744858](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38777744858)
+- Tested commit: `db29da3bf113d2d8a55bdd8be96036d948b642b8`
+- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38777744858/artifacts/11994572373)
 - Flutter version: `3.47.7`; official archive SHA-256: `af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230`
 - Runtime outcome: `flutter pub get` completed successfully; canonical workbook validation, workbook-contract tests, parity-harness unit tests and forbidden-table-fallback guard all passed.
 - The Phase 5 CI step outcomes were all successful, including `flutter analyze`, `flutter test` and log artifact upload.
@@ -45,14 +45,14 @@ PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 14
 
 Workbook contract regression suite:
 ```text
-Ran 5 tests in 0.173s
+Ran 5 tests in 0.172s
 
 OK
 ```
 
 Parity harness unit suite:
 ```text
-Ran 5 tests in 0.066s
+Ran 5 tests in 0.065s
 
 OK
 ```
@@ -65,7 +65,7 @@ PASS: no raw app_config table fallback found in pos-app/lib.
 `cd pos-app && flutter analyze --no-pub`:
 ```text
 Analyzing pos-app...
-No issues found! (ran in 8.2s)
+No issues found! (ran in 8.1s)
 ```
 
 `cd pos-app && flutter test --no-pub --reporter expanded`:
