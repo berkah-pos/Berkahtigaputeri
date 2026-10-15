@@ -412,7 +412,8 @@ class TenantDatabaseProvisioner
             $expected = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
             sort($expected);
 
-            if ($matches[2] !== $databaseName || $privileges !== $expected) {
+            $grantedDatabase = str_replace(['\\_', '\\%'], ['_', '%'], $matches[2]);
+            if ($grantedDatabase !== $databaseName || $privileges !== $expected) {
                 throw new RuntimeException('Runtime tenant account has grants outside its exact CRUD contract.');
             }
             $applicationGrants[] = $grant;
