@@ -23,6 +23,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: phase5-flutter-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   flutter:
     name: Flutter analysis, tests, and canonical harness
@@ -135,6 +139,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: phase5-flutter-check-output
-          path: $RUNNER_TEMP/phase5-logs
+          path: ${{ runner.temp }}/phase5-logs
           if-no-files-found: warn
           retention-days: 30
