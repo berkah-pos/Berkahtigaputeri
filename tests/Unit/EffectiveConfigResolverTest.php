@@ -68,6 +68,13 @@ class EffectiveConfigResolverTest extends TestCase
         $this->assertSame('Tenant Shop', $result['receipt']['branding']['name']);
         $this->assertSame(['sales'], $result['enabled_features']);
         $this->assertSame(12, $result['tax_rate']);
+
+        $withMissingLayer = $this->invokePrivate($resolver, 'deepMerge', [
+            ['receipt' => ['enabled' => true]],
+            [],
+            ['receipt' => ['paper_width' => 58]],
+        ]);
+        $this->assertSame(['enabled' => true, 'paper_width' => 58], $withMissingLayer['receipt']);
     }
 
     public function test_active_subscription_outranks_a_trial_with_a_later_expiry(): void
