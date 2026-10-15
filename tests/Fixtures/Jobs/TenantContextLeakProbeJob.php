@@ -73,7 +73,7 @@ class TenantContextLeakProbeJob implements ShouldQueue
             'tenancy_uninitialized' => ! Tenancy::initialized(),
             'auth_user_is_null' => Auth::user() === null,
             'database_default_restored' => config('database.default') === $this->expectedDatabaseDefault,
-            'tenant_database_host_restored' => config('database.connections.tenant.host') === $this->expectedTenantDatabaseHost,
+            'tenant_database_host_restored' => (string) config('database.connections.tenant.host') === $this->expectedTenantDatabaseHost,
             'tenant_database_name_restored' => config('database.connections.tenant.database') === $this->expectedTenantDatabaseName,
             'cache_prefix_restored' => config('cache.prefix') === $this->expectedCachePrefix,
             'app_locale_restored' => config('app.locale') === $this->expectedAppLocale,

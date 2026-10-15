@@ -87,6 +87,15 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         );
         $this->assertSame(404, $readBFromAHost->getStatusCode());
 
+        $forgedDeviceSelector = $this->requestOnHost(
+            'GET',
+            $pair['hostA'],
+            '/tenant/products/' . $productA . '?device_id=' . urlencode($pair['deviceBId']),
+            $pair['tokenA'],
+            ['X-Device-ID' => $pair['deviceAId']]
+        );
+        $this->assertSame(404, $forgedDeviceSelector->getStatusCode());
+
         $forgedTenantRead = $this->requestOnHost(
             'GET',
             $pair['hostA'],
