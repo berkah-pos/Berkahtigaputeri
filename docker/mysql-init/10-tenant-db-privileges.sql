@@ -5,10 +5,11 @@ REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'berkahpos_app'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON `berkahpos\_central`.* TO 'berkahpos_app'@'%';
 
--- The private provisioner can create schemas and users, but has no global
--- DML grants and no DROP/ALTER privilege. Its data grants are restricted to
--- tenant database names; GRANT OPTION is limited to those CRUD privileges.
-GRANT CREATE, CREATE USER ON *.* TO 'berkahpos_provisioner'@'%';
+-- The private provisioner has CREATE only on tenant-prefixed databases (not
+-- globally), plus global CREATE USER because MariaDB account creation is a
+-- global privilege. It has no global DROP/ALTER or global DML privileges.
+GRANT CREATE ON `berkahpos\\_tenant\\_%`.* TO 'berkahpos_provisioner'@'%';
+GRANT CREATE USER ON *.* TO 'berkahpos_provisioner'@'%';
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON `berkahpos\_tenant\_%`.* TO 'berkahpos_provisioner'@'%' WITH GRANT OPTION;
 
