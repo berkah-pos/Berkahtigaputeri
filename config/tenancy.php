@@ -27,6 +27,12 @@ return [
             'mysql' => TenantDatabaseManager::class,
         ],
     ],
+    // Database manager operations (for example databaseExists) use the
+    // provisioner connection. Public services do not receive its credentials.
+    'database_manager_connections' => [
+        'mysql' => 'provisioner',
+    ],
+
     'migration_parameters' => [
         '--force' => true,
         '--path' => [database_path('migrations/tenant')],
