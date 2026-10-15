@@ -34,10 +34,16 @@ class ManifestParsingTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertTrue(flag(value))
 
-    def test_flag_defaults_unknown_values_to_false(self) -> None:
-        for value in (False, None, "no", "disabled", "unknown"):
+    def test_flag_handles_supported_false_values(self) -> None:
+        for value in (False, "FALSE", "0", "no", "inactive", "disabled", "nonaktif", "suspended"):
             with self.subTest(value=value):
                 self.assertFalse(flag(value))
+
+    def test_flag_rejects_missing_or_unknown_values(self) -> None:
+        for value in (None, "", "unknown", "maybe", 2):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "boolean"):
+                    flag(value)
 
 
 if __name__ == "__main__":
