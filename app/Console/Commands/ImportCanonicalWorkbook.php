@@ -66,7 +66,7 @@ class ImportCanonicalWorkbook extends Command
     private function validateManifest(array $manifest): void
     {
         if (($manifest['source_workbook'] ?? null) !== 'FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx') {
-            throw new \\InvalidArgumentException('Manifest must originate from the canonical production workbook.');
+            throw new \InvalidArgumentException('Manifest must originate from the canonical production workbook.');
         }
 
         $expectedCounts = [
@@ -110,7 +110,7 @@ class ImportCanonicalWorkbook extends Command
                 );
             }
             if (array_key_exists('max_users', $row) && $row['max_users'] !== null && (! is_int($row['max_users']) || $row['max_users'] < 1)) {
-                throw new \\InvalidArgumentException('Template max_users must be a positive integer when specified.');
+                throw new \InvalidArgumentException('Template max_users must be a positive integer when specified.');
             }
             $templateIds[$templateId] = true;
             $keys[] = 'template:'.$templateId;
