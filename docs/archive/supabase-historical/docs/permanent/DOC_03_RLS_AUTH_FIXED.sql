@@ -1,0 +1,16 @@
+-- HISTORICAL / SUPERSEDED
+--
+-- This compatibility filename is retained to avoid breaking old references.
+-- DO NOT APPLY this file as a migration.
+--
+-- Canonical RLS/auth contract:
+--   docs/permanent/DOC_03_RLS_AUTH.sql
+-- Canonical effective resolver:
+--   docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql
+-- Executable P0 migration:
+--   supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql
+--
+-- The former contents referenced the retired super-admin identity
+-- satria@berkahtigaputeri.com and did not enforce the current direct-read rule
+-- that authenticated devices may read only their exact device:<device_id> row.
+-- Keeping that executable SQL would risk reintroducing the P0 vulnerability.
