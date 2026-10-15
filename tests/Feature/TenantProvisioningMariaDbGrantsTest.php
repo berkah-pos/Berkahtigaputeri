@@ -33,8 +33,8 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
 
         $tenantA->refresh();
         $tenantB->refresh();
-        $stateA = $tenantA->data['database_provisioning'];
-        $stateB = $tenantB->data['database_provisioning'];
+        $stateA = $tenantA->database_provisioning;
+        $stateB = $tenantB->database_provisioning;
         $databaseA = $stateA['database_name'];
         $databaseB = $stateB['database_name'];
         $userA = $stateA['runtime_username'];
@@ -149,9 +149,9 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $provisioningId = $stateA['provisioning_id'];
         $service->provision($tenantA);
         $tenantA->refresh();
-        $this->assertSame($databaseA, $tenantA->data['database_provisioning']['database_name']);
-        $this->assertSame($userA, $tenantA->data['database_provisioning']['runtime_username']);
-        $this->assertSame($provisioningId, $tenantA->data['database_provisioning']['provisioning_id']);
+        $this->assertSame($databaseA, $tenantA->database_provisioning['database_name']);
+        $this->assertSame($userA, $tenantA->database_provisioning['runtime_username']);
+        $this->assertSame($provisioningId, $tenantA->database_provisioning['provisioning_id']);
 
         $completed = DB::connection('central')->table('audit_events')
             ->where('scope_type', 'tenant_db_provisioning')
@@ -176,8 +176,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
 
         $tenant->setAttribute('database_ulid', $databaseUlid);
         $tenant->setAttribute('tenancy_db_name', $databaseName);
-        $data = $tenant->data ?? [];
-        $data['database_provisioning'] = [
+        $tenant->database_provisioning = [
             'status' => 'provisioning',
             'tenant_id' => $tenantId,
             'database_name' => $databaseName,
@@ -187,7 +186,6 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
             'provisioning_id' => $provisioningId,
             'reserved_at' => now()->toIso8601String(),
         ];
-        $tenant->data = $data;
         $tenant->save();
 
         // Simulate a process interruption immediately after CREATE DATABASE:
@@ -206,7 +204,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $provisioner->provision($tenant);
         $tenant->refresh();
 
-        $state = $tenant->data['database_provisioning'];
+        $state = $tenant->database_provisioning;
         $this->assertSame('provisioned', $state['status']);
         $this->assertSame($databaseName, $state['database_name']);
         $this->assertSame($username, $state['runtime_username']);
@@ -239,7 +237,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $this->assertSame(0, $second->getExitCode(), 'Second concurrent provisioner process failed.');
 
         $tenant = Tenant::on('central')->findOrFail($tenantId);
-        $state = $tenant->data['database_provisioning'];
+        $state = $tenant->database_provisioning;
         $id = (string) $state['provisioning_id'];
 
         $databaseCreates = DB::connection('central')->table('audit_events')

@@ -26,7 +26,7 @@ for ($i = 1; $i <= 2; $i++) {
     ]);
     $provisioner->provision($tenant);
     $tenant->refresh();
-    if (($tenant->data['database_provisioning']['status'] ?? null) !== 'provisioned') {
+    if (($tenant->database_provisioning['status'] ?? null) !== 'provisioned') {
         throw new RuntimeException('Restore fixture tenant provisioning did not complete.');
     }
     $results[] = $databaseName;

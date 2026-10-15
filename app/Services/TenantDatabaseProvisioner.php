@@ -48,7 +48,7 @@ class TenantDatabaseProvisioner
 
         try {
             $tenant->refresh();
-            $state = $tenant->data['database_provisioning'] ?? null;
+            $state = $tenant->database_provisioning ?? null;
 
             // Persist a canonical lowercase ULID before creating external DB resources.
             // Refuse old hash-based names; never rename/adopt a data-bearing database blindly.
@@ -83,8 +83,7 @@ class TenantDatabaseProvisioner
                 $runtimePassword = Str::random(64);
                 $tenant->setAttribute('database_ulid', $databaseUlid);
                 $tenant->setAttribute('tenancy_db_name', $databaseName);
-                $data = $tenant->data ?? [];
-                $data['database_provisioning'] = [
+                $state = [
                     'status' => 'provisioning',
                     'tenant_id' => $tenantId,
                     'database_name' => $databaseName,
@@ -94,9 +93,9 @@ class TenantDatabaseProvisioner
                     'provisioning_id' => $provisioningId,
                     'reserved_at' => now()->toIso8601String(),
                 ];
-                $tenant->data = $data;
+                $tenant->database_provisioning = $state;
                 $tenant->save();
-                $state = $tenant->data['database_provisioning'];
+                $state = $tenant->database_provisioning;
                 $reservationCreatedThisRun = true;
                 $this->audit($tenantId, $provisioningId, 'provisioning.reserved', [
                     'database_name' => $databaseName,
@@ -222,11 +221,11 @@ class TenantDatabaseProvisioner
             $this->assertRuntimeLogin($databaseName, $runtimeUsername, $runtimePassword);
 
             $tenant->refresh();
-            $data = $tenant->data ?? [];
-            $data['database_provisioning']['status'] = 'provisioned';
-            $data['database_provisioning']['provisioned_at'] = now()->toIso8601String();
-            unset($data['database_provisioning']['last_failure_code']);
-            $tenant->data = $data;
+            $state = $tenant->database_provisioning ?? [];
+            $state['status'] = 'provisioned';
+            $state['provisioned_at'] = now()->toIso8601String();
+            unset($state['last_failure_code']);
+            $tenant->database_provisioning = $state;
             $tenant->save();
 
             $this->audit($tenantId, $provisioningId, 'provisioning.completed', [
@@ -242,11 +241,11 @@ class TenantDatabaseProvisioner
             if ($provisioningId !== null && $provisioningId !== '') {
                 try {
                     $tenant->refresh();
-                    $data = $tenant->data ?? [];
-                    if (isset($data['database_provisioning'])) {
-                        $data['database_provisioning']['status'] = 'provisioning';
-                        $data['database_provisioning']['last_failure_code'] = $this->safeFailureCode($exception);
-                        $tenant->data = $data;
+                    $state = $tenant->database_provisioning ?? null;
+                    if (is_array($state)) {
+                        $state['status'] = 'provisioning';
+                        $state['last_failure_code'] = $this->safeFailureCode($exception);
+                        $tenant->database_provisioning = $state;
                         $tenant->save();
                     }
                     $this->audit($tenantId, $provisioningId, 'provisioning.failed', [

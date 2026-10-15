@@ -38,8 +38,8 @@ trait ProvisionedTenantPair
         $tenantA->refresh();
         $tenantB->refresh();
 
-        $stateA = $tenantA->data['database_provisioning'] ?? [];
-        $stateB = $tenantB->data['database_provisioning'] ?? [];
+        $stateA = $tenantA->database_provisioning ?? [];
+        $stateB = $tenantB->database_provisioning ?? [];
         Assert::assertSame('provisioned', $stateA['status'] ?? null);
         Assert::assertSame('provisioned', $stateB['status'] ?? null);
         Assert::assertNotSame($stateA['database_name'] ?? null, $stateB['database_name'] ?? null);
