@@ -210,7 +210,10 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             tenant_ids.add(tenant_id)
             store_name = optional_text(row, "store_name", "nama_toko", "name", "tenant_name") or ""
             domain = validated_domain(pick(row, "domain", "store_domain", "custom_domain"), f"{tenant_id}.domain")
-            active = flag(pick(row, "is_active", "active", "enabled"), f"{tenant_id}.is_active", required=False)
+            active_aliases = ("is_active", "active", "enabled")
+            active_value = pick(row, *active_aliases)
+            active_column_present = any(re.sub(r"[^a-z0-9]+", "_", name).strip("_") in row for name in active_aliases)
+            active = flag(active_value, f"{tenant_id}.is_active", required=active_column_present)
             max_users = positive_integer(pick(row, "max_users", "max_user", "maksimal_user", "batas_user"), f"{tenant_id}.max_users")
             expires_at = iso_date(pick(row, "expires_at", "expiry_date", "subscription_expires_at", "tanggal_kedaluwarsa", "tanggal_berakhir"), f"{tenant_id}.expires_at")
             tenants.append({
