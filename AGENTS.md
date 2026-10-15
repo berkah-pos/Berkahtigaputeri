@@ -1,59 +1,83 @@
-AGENTS.md - Berkah POS SaaS - CANONICAL FOR KVM2
-Repository: berkah-pos/Berkahtigaputeri
-Live Admin: https://berkah-pos.github.io/Berkahtigaputeri/btp-admin/ (legacy) -> New Central Admin will be at app.berkahtigaputeri.co.id/central/admin
-Target Infra: Hostinger Cloud VPS KVM2 (8GB RAM, 100GB NVMe) + Coolify Self-Hosted PaaS
+# AGENTS.md — Berkah POS SaaS
 
-MANDATORY READ ORDER BEFORE CODING
-docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md - Keep 3-layer inheritance logic
-docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md - SaaS/offline rules
-docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md - Current evidence
-NEW: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md - KVM2 + Coolify + tenancyforlaravel DATABASE PER TENANT (this overrides Supabase RLS docs)
-docs/permanent/DOC_01_3_LAYER_CONFIG.md - Final Pos contract (inheritance)
-DEPRECATED (Do NOT follow for new code, keep for historical reference only):
+**Mandatory agent operating contract.** Read this file before any code, schema, infrastructure, workflow, or architecture-document change.
 
-docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql - OLD Supabase schema, replaced by Laravel tenant migrations
-docs/permanent/DOC_03_RLS_AUTH.sql - OLD RLS, replaced by physical isolated DB
-If any doc conflicts, follow DOC_14 KVM2 + this AGENTS.md.
+## 1. Required reading order
 
-INFRASTRUCTURE TARGET - KVM2 + COOLIFY (NEW CANONICAL)
-Host: Hostinger Cloud VPS KVM2 (ex-Niagahoster) - Full Root, 2 vCPU, 8GB RAM, 100GB NVMe
-PaaS: Coolify (self-hosted). All deployments must be Coolify-ready: Dockerfile, docker-compose.yml, healthcheck /up, ENV-based, wildcard *.berkahtigaputeri.co.id
-Database: MariaDB 11 / PostgreSQL 16 SELF-HOSTED inside KVM2. 1 MySQL server hosts unlimited tenant DBs (berkahpos_central + berkahpos_tenant_{id}). FREE, not paid per DB. Do NOT use Supabase Cloud Pro.
-Stack: Laravel 11, PHP 8.3, FilamentPHP 3.x, stancl/tenancy v3 (DATABASE PER TENANT mode), Redis
-FORBIDDEN:
+1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — the configuration inheritance and canonical workbook contract.
+2. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — proposed target platform, database-per-tenant design, deployment, security, and operational acceptance gates. This design is the target for this architecture branch; it becomes an accepted repository decision only after review and merge.
+3. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and phase acceptance.
+4. `docs/permanent/README.md` — permanent-document index and current authority map.
+5. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting, and evidence protocols, subject to the DOC_14 platform supersession notice.
+6. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — implementation snapshot and known gaps; its Supabase implementation references are historical evidence, not the new target.
+7. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve its five-layer Final POS behavior, subject to the DOC_14 runtime-storage decision.
+8. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this file.
+9. `scripts/sync_excel_to_supabase.py` — inspect for workbook validation semantics when working on configuration migration. It is legacy-named; its name does not authorize new Supabase writes.
+10. Scoped source, migrations, tests, workflow files, deployment config, and existing reports relevant to the assigned task.
 
-supabase-js, Supabase RLS, Row Level Security, shared DB tenant_id, PlanetScale, Supabase Pro billing
-Creating 1 container per tenant. Use 1 container app serving 100+ tenant DBs.
-CANONICAL FINAL POS CONFIGURATION (PRESERVED + MIGRATED)
-Inheritance order remains:
+Do not claim to have read or verified a file that was not actually accessible.
 
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-Canonical workbook config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx (352 keys = 1 global + 3 templates + 100 tenants + 140 services + 108 devices) is still source for config values.
+## 2. Split architecture authority
 
-BUT implementation moves:
-OLD: app_config(key PRIMARY KEY, value JSONB) in Supabase
-NEW: Central DB tables in Laravel: central.global_configs, central.templates, central.tenant_configs + tenant DBs isolated. ConfigService now calls Laravel Central API GET /api/v1/effective-config?tenant_id=&device_id=&service= instead of Supabase RPC get_effective_config. Merge logic GLOBAL->TEMPLATE->TENANT->SERVICE->DEVICE stays same as pos-app/lib/core/config/config_service.dart reference.
+- **Configuration behavior:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`, merge precedence, the canonical workbook, and the exact 352-entry inventory.
+- **Target platform:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` defines the proposed Laravel/Coolify runtime, central relational configuration storage, MariaDB database-per-tenant model, per-tenant database credentials, and the migration away from Supabase runtime RPC.
+- **Execution order:** `DOC_00_MASTER_ROADMAP.md` governs phase gates.
+- **Implementation status:** current repository sources, executed CI, staging observations, test artifacts, and production evidence determine what is actually delivered. Documentation alone is not runtime proof.
 
-For one (tenant_id, device_id, service) request, merge only requested service row. Never combine POS and Akuntansi service rows into the same effective configuration.
+When sources conflict about the layer order or 352 workbook entries, DOC_00 wins. When they conflict about the proposed platform/deployment/data-storage model, use DOC_14 for this branch and record unresolved acceptance/review status; do not silently rewrite history or report an unmerged proposal as a deployed fact.
 
-BEHAVIORAL REFERENCE - UPDATED
-pos-app/lib/core/config/config_service.dart must now call Laravel Central API (not Supabase RPC) as its only remote config path. It may cache effective result for exact (tenant_id, device_id, service) tuple.
-ConfigService.mergeLayers() remains reference for precedence.
-TENANCY RULES (NEW)
-Each tenant gets physically separate MariaDB/MySQL database: berkahpos_tenant_{id}, provisioned automatically via tenancyforlaravel HasDatabase, HasDomains
-Tenant identification via subdomain: {tenant}.berkahtigaputeri.co.id
-Use database/migrations/central and database/migrations/tenant separation
-Filament Central Admin at /central/admin manages tenants, subscriptions, suspend/activate/impersonate/migrate-all
-ENGINEERING CONSTRAINTS (UPDATED)
-Make changes on branch and PR, never direct to main
-GitHub Actions must use ubuntu-24.04 runners only, no self-hosted
-Do not restore architecture that omits TEMPLATE
-Do not restore app_config(device_id, key, value) - use new central tables
-Keep btp-admin/ as legacy, new central admin is Filament at /central/admin
-All new code must be Coolify-ready: Dockerfile, docker-compose.yml, .env.example, /up healthcheck
-Every tenant DB creation must be inside ONE MySQL server (free unlimited) - not creating new MySQL server per tenant
-EXECUTION ORDER
-Complete DOC_14 KVM2 architecture setup (Coolify + tenancyforlaravel scaffold)
-Migrate Supabase schema to Laravel tenant migrations (remove RLS)
-Build Central Admin (Filament) for subscription management on KVM2
-Follow DOC_00_MASTER_ROADMAP phases in sequence
+## 3. Target platform decisions
+
+The target design in DOC_14 is:
+
+- Hostinger KVM2 workload node (2 vCPU, 8 GB RAM, 100 GB NVMe), Ubuntu 24.04 LTS, Docker, and Coolify.
+- Target stack: Laravel 13.x, PHP 8.4, Filament 5.x, a Composer-locked/tested `stancl/tenancy` v3.10.x release, and MariaDB 11.4 LTS unless a reviewed ADR replaces the selection.
+- One Laravel application image serves standard tenants; one MariaDB server hosts the central database plus one database and restricted database user per tenant.
+- The normal app runtime must not use the database root or provisioning credentials. Tenant provisioning runs in an isolated, private worker with only the specific elevated credentials it requires.
+- Central tables own tenant/domain/membership/subscription/device/configuration metadata. Tenant databases own operational POS and accounting data.
+- Flutter effective configuration and cloud sync use the authenticated Laravel Central API. Supabase RPC is not the target runtime configuration path.
+- Keep the device's SQLite transaction store and durable outbox for offline checkout.
+- Coolify/database/Redis ports are private. Only required web traffic is public; SSH and Coolify administration are restricted and hardened.
+- The KVM2 is a single-node MVP/starting point, not HA. Do not claim a tenant capacity or production SLA without measured load and recovery evidence.
+
+DOC_14 is a design proposal until the PR is reviewed and merged. Do not create production resources, move live data, delete a Supabase project, or perform destructive migrations merely because the target has been documented.
+
+## 4. Protected product contracts
+
+1. Configuration inheritance is exactly `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`; later layers override only fields they explicitly define.
+2. The workbook `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx` must retain 352 canonical exported entries: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 tenants + 140 services + 108 devices.
+3. Resolve one requested service at a time. Never merge POS and Akuntansi service rows into the same effective configuration.
+4. Preserve local-first/offline checkout, atomic local sale/outbox writes, stable idempotency, server acceptance before outbox acknowledgement, and explicit sync/conflict states.
+5. Preserve FEFO physical allocation and FIFO financial costing where required by the existing business contract.
+6. Use rupiah-safe integer/fixed-precision representations; never use binary floating-point for authoritative monetary amounts.
+7. Never treat tenant/domain/device IDs supplied by a client as proof of authorization. Validate identity, active membership, tenant ownership, and device ownership server-side.
+8. Tenant isolation must be tested against adversarial cross-tenant reads/writes, background job context, configuration, cache, files, and backup/restore behavior.
+
+## 5. Engineering and security constraints
+
+- Work on a dedicated branch and merge via reviewed PR; never push implementation directly to `main`.
+- Do not force-push, remove `.git`, reset/restore a legacy schema blindly, or delete existing main-branch files without an audited reason and review.
+- Do not create one app container or one database server per standard tenant.
+- Do not restore an architecture that omits TEMPLATE or depends only on a caller-supplied `tenant_id` filter.
+- Do not put DB/provisioning credentials, service-admin keys, signing keys, or billing secrets in Flutter, public HTML, committed environment files, logs, or API responses.
+- Do not expose MariaDB or Redis publicly. Do not expose an unauthenticated Central Admin. Do not automatically drop tenant data when a subscription expires.
+- Treat `btp-admin/` as legacy/static unless a reviewed migration explicitly changes that status; privileged management moves to authenticated Laravel/Filament panels.
+- New GitHub Actions workflows use GitHub-hosted `ubuntu-24.04` runners unless a reviewed compatibility decision documents an exception.
+- Use immutable image tags/digests and deploy only revisions whose required checks passed. Do not build production images on the live KVM2 during routine deployments.
+- Keep historical Supabase SQL/migration material for audit/migration as needed, but explicitly label superseded operational paths. Do not let legacy file names dictate the new runtime.
+- Before any database, provisioning, DNS, TLS, or deployment change, identify the target environment and require a backup plus rollback/forward-recovery plan. Default testing to isolated dev/staging, never production.
+
+## 6. Evidence, reports, and phase status
+
+- Write a scoped report under `docs/reports/` for each completed roadmap phase. Include tested commit SHA, exact commands/checks, outcomes, linked logs/artifacts, known limitations, and the next gate.
+- Distinguish **SOURCE-VERIFIED**, **TEST-EXECUTED**, **CI-OBSERVED**, **STAGING-OBSERVED**, and **PRODUCTION-OBSERVED** evidence.
+- A file existing is not proof a test passed. A green unrelated workflow is not proof the target build passed. A written RLS/database design is not proof of tenant isolation. A successful backup is not proof of a successful restore.
+- If a required check is not executed or evidence cannot be accessed, report **NOT RUN / NOT VERIFIED**; do not infer a green result.
+- Never declare 100% GREEN while any required phase, security gate, database restore test, or acceptance test is red, unknown, or unexecuted.
+- If a phase is blocked after two focused attempts, record the precise blocker and required owner decision in `docs/reports/BLOCKERS.md` instead of looping indefinitely.
+
+## 7. Definition of production-readiness
+
+Do not recommend production launch until all applicable gates have direct evidence: supported locked dependencies; CI green for the candidate commit; clean Laravel install and migrations; workbook 352-entry validation; verified tenant provisioning and per-tenant DB grants; adversarial tenant A/B tests; authenticated API and effective-config parity; offline sale/outbox/idempotent sync tests; TLS/host-routing checks; encrypted off-host backup coverage for central and every tenant database; successful restore including single-tenant restore; monitored load test; secrets/access review; and documented rollback/incident procedures.
+
+The immediate task is always to inspect the current branch and follow DOC_00, DOC_14, and the roadmap in order. Do not infer completion from prior conversation summaries or historical reports.
