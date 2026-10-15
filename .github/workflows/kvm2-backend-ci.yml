@@ -46,7 +46,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  contract:
+    name: Validate canonical workbook and active runtime contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install isolated Python dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+
+      - name: Check runtime contract and canonical 352-key workbook
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_kvm2_contract.py
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+
   backend:
+    needs: contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
