@@ -50,13 +50,27 @@ jobs:
           set -euo pipefail
           python3 scripts/check_provisioning_env_contract.py
 
-      - name: Set up PHP 8.3 and Composer v2
-        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
-        with:
-          php-version: "8.3"
-          extensions: bcmath, ctype, curl, dom, fileinfo, intl, mbstring, openssl, pdo_mysql, pdo_sqlite, tokenizer, xml, zip
-          tools: composer:v2
-          coverage: none
+      - name: Install and verify runner-provided PHP 8.3 and Composer
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip
+          php --version
+          composer --version
+          php -r '
+            if (PHP_MAJOR_VERSION !== 8 || PHP_MINOR_VERSION !== 3) {
+              fwrite(STDERR, "Expected PHP 8.3, got ".PHP_VERSION.PHP_EOL);
+              exit(1);
+            }
+            $required = ["bcmath", "ctype", "curl", "dom", "fileinfo", "intl", "mbstring", "openssl", "pdo_mysql", "pdo_sqlite", "tokenizer", "xml", "zip"];
+            $missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
+            if ($missing !== []) {
+              fwrite(STDERR, "Missing required PHP extensions: ".implode(", ", $missing).PHP_EOL);
+              exit(1);
+            }
+            echo "PASS: PHP 8.3 and required extensions are available.".PHP_EOL;
+          '
 
       - name: Prepare Laravel environment
         shell: bash
