@@ -28,21 +28,70 @@ The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days
 
 ## Tests and exact output
 
-Pending the independent Phase 5 Flutter CI run. This section must be updated with the exact run ID, candidate commit SHA, actual flutter analyze output, actual flutter test --reporter expanded output and artifact references. Do not substitute source inspection or workbook-only checks for executed Flutter tests.
+Final independent Phase 5 CI run: **PASS**  
+- Run: [38776187146](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776187146)
+- Tested commit: `f6b69ade99b378330bdb1b2f73eea89396a84068`
+- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776187146/artifacts/11993797086)
+- Flutter version: `3.47.7`; official archive SHA-256: `af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230`
+- Runtime outcome: `flutter pub get` completed successfully; canonical workbook validation, workbook-contract tests, parity-harness unit tests and forbidden-table-fallback guard all passed.
+- The Phase 5 CI step outcomes were all successful, including `flutter analyze`, `flutter test` and log artifact upload.
+
+Exact console output captured by CI:
+
+Canonical workbook validation:
+```text
+PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 140, 'device': 108}; keyset_md5=1fd3d64219ecc7c333453c20da80e295
+```
+
+Workbook contract regression suite:
+```text
+Ran 5 tests in 0.103s
+
+OK
+```
+
+Parity harness unit suite:
+```text
+Ran 5 tests in 0.040s
+
+OK
+```
+
+Forbidden direct table fallback check:
+```text
+PASS: no raw app_config table fallback found in pos-app/lib.
+```
+
+`cd pos-app && flutter analyze --no-pub`:
+```text
+Analyzing pos-app...
+No issues found! (ran in 5.9s)
+```
+
+`cd pos-app && flutter test --no-pub --reporter expanded`:
+```text
+00:07 +58: All tests passed!
+```
+
+The passing Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test also verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event.
+
+Fix history: earlier run [38775817406](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38775817406) failed due to a missing secure-storage argument in `login_screen_test.dart` and the migration assuming every historical database already had `outbox_events`. Both issues were fixed before the successful tested commit above. That run is retained as diagnostic history, not the final test result.
+
+The passing checks above **do not** establish live central-inventory parity or live cloud outbox synchronization. Those gates remain `NOT VERIFIED`, as documented below. Do not infer their status from unit tests or from the workbook-only comparison logic.
 
 ## Acceptance ledger
 
 | Gate | Current status | Evidence / limitation |
 |---|---|---|
-| Secure Sanctum token storage | SOURCE-VERIFIED; TEST-EXECUTED pending | Flutter client now requires secure storage; CI pending |
-| Feature flag and bounded dual mode | SOURCE-VERIFIED; TEST-EXECUTED pending | Unit tests added; full legacy adapter intentionally absent |
-| Workbook 352-key inventory | SOURCE-VERIFIED; TEST-EXECUTED pending | Canonical exporter/contract tests included in independent CI |
+| Secure Sanctum token storage | SOURCE-VERIFIED; CI compile/test PASS | Client now requires secure storage and has no plaintext SharedPreferences token fallback; live login/token-vault flow is not tested against a deployed Laravel API |
+| Feature flag and bounded dual mode | UNIT TESTS PASS; LIVE PARITY NOT VERIFIED | Source-mode/expiry/mismatch tests pass; the deployed production app has no reviewed legacy adapter, so dual/Supabase compatibility modes intentionally fail closed |
+| Workbook 352-key inventory | PASS | Exact output above; exporter verifies the canonical key count/hash and both 5-test Python suites pass |
 | Actual 352-entry backend inventory parity | NOT VERIFIED | Requires authorized Laravel-side JSON snapshot |
 | Effective-config parity for valid fixtures | NOT VERIFIED | Requires authenticated staging Laravel API responses; POS/Akuntansi separately |
 | Atomic local sale + outbox write | SOURCE-VERIFIED | SqliteSaleRepository inserts both in one transaction; rollback/idempotency tests exist |
-| Stable idempotency across retries | SOURCE-VERIFIED; TEST-EXECUTED pending | Transaction ID and outbox key derive from the same stable transaction ID |
-| Acknowledgement after server acceptance only | SOURCE-VERIFIED; TEST-EXECUTED pending | Local repository enforces accepted IDs; actual endpoint is absent/unverified |
-| Explicit conflict/retry states and no silent drop | SOURCE-VERIFIED; TEST-EXECUTED pending | Added SQLite tests and interrupted-sync recovery |
+| Stable idempotency across retries | FLUTTER TEST PASS | Existing payment-service retry test confirms only one stable outbox event and no duplicate sale/stock mutation |
+| Acknowledgement after server acceptance only | LOCAL FLUTTER TEST PASS; ENDPOINT NOT VERIFIED | Local repository marks synced only on explicit accepted IDs; actual endpoint is absent/unverified |
+| Explicit conflict/retry states and no silent drop | FLUTTER TEST PASS | SQLite tests cover pending, syncing, synced, conflict, transport retry and disk-reopen recovery |
 | Laravel Transaction Outbox Cloud Sync endpoint | NOT VERIFIED | POST /api/v1/sync not present in inspected routes |
 | Phase 4 gate | RED / NOT VERIFIED | See PHASE_4_HOST_DOMAIN_TENANT_ISOLATION_2026-10-15.md and PR #47 |
 | Phase 6 | NOT STARTED | Stop here pending review and all Phase 5 acceptance evidence |
