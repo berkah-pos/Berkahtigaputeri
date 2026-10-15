@@ -1,8 +1,8 @@
 <?php
 
-namespace App\\Models\\Central;
+namespace App\Models\Central;
 
-use Stancl\\Tenancy\\Database\\Models\\Domain as BaseDomain;
+use Stancl\Tenancy\Database\Models\Domain as BaseDomain;
 
 class Domain extends BaseDomain
 {
