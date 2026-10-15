@@ -292,8 +292,8 @@ void main() {
       expect(await _count(database, 'outbox_events'), 1);
       final outboxRows = await database.database.query(
         'outbox_events',
-        where: 'entity_id = ?',
-        whereArgs: <Object?>['sale:TRX-IDEMP-001'],
+        where: 'id = ?',
+        whereArgs: <Object?>['outbox:sale:TRX-IDEMP-001'],
       );
       expect(outboxRows, hasLength(1));
       expect(outboxRows.single['id'], 'outbox:sale:TRX-IDEMP-001');
