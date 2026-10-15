@@ -287,7 +287,6 @@ class ImportCanonicalWorkbook extends Command
 
         foreach ($manifest['tenants'] as $row) {
             $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
-            $isNew = ! $tenant->exists;
             $tenant->template_id = $row['template_id'];
             if (array_key_exists('store_name', $row) && $row['store_name'] !== null) {
                 $tenant->store_name = $row['store_name'];
@@ -435,6 +434,13 @@ class ImportCanonicalWorkbook extends Command
                 }
             }
             DeviceRegistry::query()->updateOrCreate(['device_id' => $row['device_id']], $deviceValues);
+
+            $provisioning = $tenant->data['database_provisioning'] ?? null;
+            if (! is_array($provisioning) || ($provisioning['status'] ?? null) !== 'provisioned') {
+                throw new RuntimeException(
+                    'Tenant database provisioning is not complete for '.$row['tenant_id'].'. Run the private tenant-provisioning worker, then resume this import.'
+                );
+            }
 
             Tenancy::initialize($tenant);
             try {
