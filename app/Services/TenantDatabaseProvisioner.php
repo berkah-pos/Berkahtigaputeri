@@ -18,6 +18,17 @@ class TenantDatabaseProvisioner
 
     public function provision(Tenant $tenant): void
     {
+        foreach ([
+            'database.connections.provisioner.username',
+            'database.connections.provisioner.password',
+            'database.connections.migrator.username',
+            'database.connections.migrator.password',
+        ] as $credentialConfigKey) {
+            if (trim((string) config($credentialConfigKey, '')) === '') {
+                throw new RuntimeException('Provisioning requires the dedicated private worker credentials.');
+            }
+        }
+
         $tenantId = (string) $tenant->getTenantKey();
         if (! preg_match('/^[a-zA-Z0-9_-]{1,100}$/', $tenantId)) {
             throw new RuntimeException('Tenant key is not in the accepted identifier format.');
