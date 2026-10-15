@@ -183,6 +183,30 @@ jobs:
           php artisan migrate --database=central --path=database/migrations/central --force
           php artisan route:list --path=api/v1
 
+      - name: Run real MariaDB 11.4 tenant grant feature test
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          DB_CONNECTION: central
+          CENTRAL_DB_HOST: 127.0.0.1
+          CENTRAL_DB_PORT: "3306"
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          TENANT_DB_HOST: 127.0.0.1
+          TENANT_DB_PORT: "3306"
+          PROVISIONER_DB_HOST: 127.0.0.1
+          PROVISIONER_DB_PORT: "3306"
+          PROVISIONER_DB_DATABASE: information_schema
+          PROVISIONER_DB_USERNAME: berkahpos_provisioner
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_HOST: 127.0.0.1
+          MIGRATOR_DB_PORT: "3306"
+          MIGRATOR_DB_DATABASE: information_schema
+          MIGRATOR_DB_USERNAME: berkahpos_migrator
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+        run: php artisan test --filter=TenantProvisioningMariaDbGrantsTest
+
       - name: Run Laravel automated tests
         env:
           APP_ENV: testing
