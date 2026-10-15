@@ -17,7 +17,7 @@ on:
       - ".env.example"
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
-      - ".github/workflows/kvm2-backend-ci.yml"
+      - ".github/workflows/kvm2-laravel-ci.yml"
   push:
     branches: ["**"]
     paths:
@@ -35,7 +35,7 @@ on:
       - ".env.example"
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
-      - ".github/workflows/kvm2-backend-ci.yml"
+      - ".github/workflows/kvm2-laravel-ci.yml"
   workflow_dispatch:
 
 permissions:

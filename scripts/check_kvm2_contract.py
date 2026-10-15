@@ -13,7 +13,7 @@ ACTIVE_FILES = [
     "pos-app/lib/features/auth/login_screen.dart",
     "pos-app/test/auth/login_screen_test.dart",
     ".github/workflows/berkah-pos-aab.yml",
-    ".github/workflows/kvm2-backend-ci.yml",
+    ".github/workflows/kvm2-laravel-ci.yml",
     "app/Services/EffectiveConfigResolver.php",
     "app/Http/Controllers/Api/V1/EffectiveConfigController.php",
     "routes/api.php",
