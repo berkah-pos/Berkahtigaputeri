@@ -2,6 +2,7 @@
 """Fail-closed checks for active KVM2/Laravel runtime and canonical config contract."""
 
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,11 @@ ACTIVE_FILES = [
     "app/Services/EffectiveConfigResolver.php",
     "app/Services/VersionedConfigWriter.php",
     "app/Models/Central/TenantMembership.php",
+    "app/Services/TenantDatabaseProvisioner.php",
+    "app/Database/TenantDatabaseManager.php",
+    "app/Jobs/ProvisionTenantDatabase.php",
+    "app/Console/Commands/ProvisionTenantDatabaseCommand.php",
+    "scripts/check_provisioning_env_contract.py",
     "app/Http/Controllers/Api/V1/EffectiveConfigController.php",
     "routes/api.php",
     "composer.json",
@@ -38,7 +44,10 @@ REQUIRED = [
     ("composer.json", '"stancl/tenancy": "^3.8"'),
     ("Dockerfile", "HEALTHCHECK"),
     ("docker-compose.yml", "mariadb:11"),
-    ("config/tenancy.php", "'template_tenant_connection' => 'tenant'"),
+    ("config/tenancy.php", "'template_tenant_connection' => 'tenant_template'"),
+    ("config/tenancy.php", "TenantDatabaseManager::class"),
+    ("app/Console/Commands/ProvisionTenantDatabaseCommand.php", "database.connections.provisioner.username"),
+    ("docker/mysql-init/10-tenant-db-privileges.sql", "GRANT SELECT, INSERT, UPDATE, DELETE"),
     ("routes/api.php", "'/effective-config'"),
     ("app/Services/EffectiveConfigResolver.php", "$this->deepMerge("),
     ("app/Services/EffectiveConfigResolver.php", "tenant_memberships"),
@@ -75,9 +84,16 @@ def main() -> int:
         print("\n".join(f"FAIL: {item}" for item in errors), file=sys.stderr)
         return 1
 
+    env_contract = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check_provisioning_env_contract.py")],
+        check=False,
+    )
+    if env_contract.returncode != 0:
+        return env_contract.returncode
+
     print(
         "PASS: active Flutter/Laravel runtime is Supabase-free; deep merge, SHA-256 "
-        "version hashes, CLI import validation and KVM2 contracts are present."
+        "version hashes, CLI import validation, and provisioning credential contracts are present."
     )
     return 0
 
