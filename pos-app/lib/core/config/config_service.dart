@@ -126,6 +126,31 @@ class ConfigService {
   final DateTime? dualModeStartedAt;
   final DateTime? dualModeDeadline;
 
+  static const String _telemetryKey = 'central.config.transition.last_status';
+  static const String _parityMismatchCountKey =
+      'central.config.transition.parity_mismatch_count';
+
+  Future<void> _recordTelemetry({
+    required String service,
+    required String status,
+    bool parityVerified = false,
+  }) async {
+    await _preferences.setString(
+      _telemetryKey,
+      jsonEncode(<String, dynamic>{
+        'source_mode': sourceMode.name,
+        'service': service,
+        'status': status,
+        'parity_verified': parityVerified,
+        'observed_at_utc': _clock().toUtc().toIso8601String(),
+      }),
+    );
+    if (status == 'parity_failed') {
+      final count = _preferences.getInt(_parityMismatchCountKey) ?? 0;
+      await _preferences.setInt(_parityMismatchCountKey, count + 1);
+    }
+  }
+
   bool get hasAuthenticatedSession {
     switch (sourceMode) {
       case ConfigSourceMode.supabase:
@@ -147,7 +172,11 @@ class ConfigService {
 
     if (killSwitch) {
       final cached = _readFreshCache(cacheKey);
-      if (cached != null) return _cacheResult(cached);
+      if (cached != null) {
+        await _recordTelemetry(service: service, status: 'kill_switch_cache');
+        return _cacheResult(cached);
+      }
+      await _recordTelemetry(service: service, status: 'kill_switch_blocked');
       throw StateError(
         'Configuration kill switch is active and no fresh exact-scope cache exists.',
       );
@@ -157,6 +186,7 @@ class ConfigService {
       case ConfigSourceMode.supabase:
         final legacy = legacySource;
         if (legacy == null) {
+          await _recordTelemetry(service: service, status: 'legacy_adapter_missing');
           throw StateError(
             'Supabase mode is unavailable: no reviewed legacy effective-config adapter is installed. '
             'Direct client-side table queries are forbidden.',
@@ -168,6 +198,7 @@ class ConfigService {
           service: service,
         );
         await _writeCache(cacheKey, value, parityVerified: false);
+        await _recordTelemetry(service: service, status: 'legacy_resolved');
         return EffectiveConfigResult(
           value: value,
           fromCache: false,
@@ -187,6 +218,7 @@ class ConfigService {
             service: service,
           );
           await _writeCache(cacheKey, value, parityVerified: false);
+          await _recordTelemetry(service: service, status: 'laravel_resolved');
           return EffectiveConfigResult(
             value: value,
             fromCache: false,
@@ -199,6 +231,7 @@ class ConfigService {
           }
           final cached = _readFreshCache(cacheKey);
           if (cached == null) rethrow;
+          await _recordTelemetry(service: service, status: 'laravel_cache_fallback');
           return _cacheResult(cached);
         }
 
@@ -211,6 +244,7 @@ class ConfigService {
         }
         final legacy = legacySource;
         if (legacy == null) {
+          await _recordTelemetry(service: service, status: 'dual_adapter_missing');
           throw StateError(
             'Dual-mode parity is blocked: no reviewed legacy effective-config adapter is installed.',
           );
@@ -228,9 +262,13 @@ class ConfigService {
           service: service,
         );
         if (_canonicalJson(laravelValue) != _canonicalJson(legacyValue)) {
+          await _recordTelemetry(service: service, status: 'parity_failed');
           throw ConfigParityException(service);
         }
         await _writeCache(cacheKey, laravelValue, parityVerified: true);
+        await _recordTelemetry(
+          service: service, status: 'parity_passed', parityVerified: true);
+
         return EffectiveConfigResult(
           value: laravelValue,
           fromCache: false,
