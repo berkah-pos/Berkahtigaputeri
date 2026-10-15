@@ -64,7 +64,7 @@ def main() -> int:
                 return fail("provisioner CREATE privilege is not confined to tenant-prefixed databases")
 
         if re.search(r"^GRANT (?:CREATE|ALTER|DROP|SELECT|INSERT|UPDATE|DELETE)(?:,| ON)", grant, re.IGNORECASE):
-            if not re.search(r"\bON\s+" + tenant_pattern, grant, re.IGNORECASE):
+            if not re.search(r"\bON\s+" + re.escape(tenant_pattern), grant, re.IGNORECASE):
                 return fail("provisioner has DDL/DML outside the tenant database pattern")
 
         if re.search(r"\bDROP\b|\bALTER\b", grant, re.IGNORECASE):
