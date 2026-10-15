@@ -43,7 +43,7 @@ REQUIRED = [
     ("docker-compose.yml", "mariadb:11"),
     ("config/tenancy.php", "'template_tenant_connection' => 'tenant_template'"),
     ("config/tenancy.php", "TenantDatabaseManager::class"),
-    ("app/Console/Commands/ProvisionTenantDatabaseCommand.php", "PROVISIONER_DB_USERNAME"),
+    ("app/Console/Commands/ProvisionTenantDatabaseCommand.php", "database.connections.provisioner.username"),
     ("docker/mysql-init/10-tenant-db-privileges.sql", "GRANT SELECT, INSERT, UPDATE, DELETE"),
     ("routes/api.php", "'/effective-config'"),
     ("app/Services/EffectiveConfigResolver.php", "$this->deepMerge("),
