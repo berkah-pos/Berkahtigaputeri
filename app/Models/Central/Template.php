@@ -11,8 +11,9 @@ class Template extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $fillable = ['id', 'config', 'version'];
-    protected function casts(): array
-    {
-        return ['config' => 'array', 'version' => 'integer'];
-    }
+
+    protected $casts = [
+        'config' => 'array',
+        'version' => 'integer',
+    ];
 }
