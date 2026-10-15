@@ -23,19 +23,22 @@ def main() -> int:
         return 1
 
     grants = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    scoped = [g for g in grants if not re.match(r"^GRANT USAGE ON \\*\\.\\* TO\\b", g, re.IGNORECASE)]
+    scoped = [
+        grant for grant in grants
+        if not re.match(r"^GRANT USAGE ON \*\.\* TO\b", grant, re.IGNORECASE)
+    ]
     if len(scoped) != 1:
         print("FAIL: central app account must have exactly one non-USAGE grant.")
         return 1
 
     grant = scoped[0].upper()
-    if not re.search(r"GRANT SELECT, INSERT, UPDATE, DELETE ON .+CENTRAL.+\\.\\* TO", grant):
+    if not re.search(r"GRANT SELECT, INSERT, UPDATE, DELETE ON .+CENTRAL.+\.\* TO", grant):
         print("FAIL: central app account does not have the exact central CRUD grant.")
         return 1
     if any(token in grant for token in ("CREATE", "ALTER", "DROP", "INDEX", "REFERENCES", "GRANT OPTION")):
         print("FAIL: central app account includes DDL or grant delegation.")
         return 1
-    if "TENANT" in grant or re.search(r"\\bON\\s+\\*\\.\\*", grant):
+    if "TENANT" in grant or re.search(r"\bON\s+\*\.\*", grant):
         print("FAIL: central app account has tenant-scope or global privileges.")
         return 1
 
