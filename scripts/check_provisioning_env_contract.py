@@ -103,17 +103,15 @@ def main():
         errors.append("default unrestricted tenant creation pipeline remains enabled")
 
     grants = GRANTS_SQL.read_text(encoding="utf-8")
-    app_grants = re.findall(
-        r"GRANT\s+(.+?)\s+ON\s+(.+?)\.\*\s+TO\s+'berkahpos_app'@'%'", grants,
-        re.IGNORECASE | re.DOTALL
+    normalized_grants = " ".join(
+        grants.replace(chr(96), "").replace("\\_", "_").replace("\\%", "%").split()
     )
-    central_pattern = "berkahpos" + chr(92) + "_central"
-    central_only = len(app_grants) == 1 and app_grants[0][1].replace(chr(96), "").strip() == central_pattern
-    if not central_only:
-        errors.append("central app user must have exactly one central-only database grant")
-    if re.search(r"GRANT\s+.+?\s+ON\s+\*\.\*\s+TO\s+'berkahpos_app'@'%'", grants, re.IGNORECASE | re.DOTALL):
+    central_grant = "GRANT SELECT, INSERT, UPDATE, DELETE ON berkahpos_central.* TO 'berkahpos_app'@'%'"
+    app_grants = re.findall(r"GRANT [^;]+? TO 'berkahpos_app'@'%'", normalized_grants, re.IGNORECASE)
+    if normalized_grants.count(central_grant) != 1 or len(app_grants) != 1:
+        errors.append("central app user must have exactly one central-only CRUD grant")
+    if re.search(r"GRANT\s+.+?\s+ON\s+\*\.\*\s+TO 'berkahpos_app'@'%'", normalized_grants, re.IGNORECASE):
         errors.append("central app user has a global grant")
-
     if errors:
         for item in errors:
             print("FAIL: " + item)
