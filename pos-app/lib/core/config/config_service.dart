@@ -353,12 +353,43 @@ class ConfigService {
     );
   }
 
+  /// Mirrors Laravel EffectiveConfigResolver::deepMerge:
+  /// non-empty maps merge recursively; lists, scalars and nested empty maps
+  /// replace; an empty root layer has no effect.
   static Map<String, dynamic> mergeLayers(
     Iterable<Map<String, dynamic>> layers,
   ) {
-    final merged = <String, dynamic>{};
+    var merged = <String, dynamic>{};
     for (final layer in layers) {
-      merged.addAll(layer);
+      if (layer.isEmpty) continue;
+      if (merged.isEmpty) {
+        merged = Map<String, dynamic>.from(layer);
+      } else {
+        merged = _mergeAssociativeMaps(merged, layer);
+      }
+    }
+    return merged;
+  }
+
+  static Map<String, dynamic> _mergeAssociativeMaps(
+    Map<String, dynamic> base,
+    Map<String, dynamic> override,
+  ) {
+    final merged = Map<String, dynamic>.from(base);
+    for (final entry in override.entries) {
+      final existing = merged[entry.key];
+      final value = entry.value;
+      if (existing is Map &&
+          existing.isNotEmpty &&
+          value is Map &&
+          value.isNotEmpty) {
+        merged[entry.key] = _mergeAssociativeMaps(
+          Map<String, dynamic>.from(existing),
+          Map<String, dynamic>.from(value),
+        );
+      } else {
+        merged[entry.key] = value;
+      }
     }
     return merged;
   }
