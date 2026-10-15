@@ -12,15 +12,15 @@ This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration 
 ## Source-verified findings
 
 - The Flutter API client resolves effective configuration through Laravel Central API and uses flutter_secure_storage in main.dart, but the client previously allowed a plaintext SharedPreferences token fallback. The updated client makes secure storage mandatory and removes the legacy plaintext token on hydrate/login/logout.
-- ConfigService previously had no explicit source-mode gate or cache freshness metadata and cached config indefinitely. The update adds CONFIG_SOURCE_MODE (laravel, dual, supabase), a kill switch, exact-scope TTL caching, fail-closed dual parity, POS/Akuntansi request isolation and a 28-day maximum dual-mode window.
-- No active Supabase SDK/table fallback was added. The supabase compatibility mode refuses to run unless an explicit reviewed adapter is supplied; dual mode refuses to return config on mismatch or when its adapter is absent.
+- ConfigService previously had no explicit source-mode gate or cache freshness metadata and cached config indefinitely. The update adds CONFIG_SOURCE_MODE (laravel, dual), a kill switch, exact-scope TTL caching, fail-closed dual parity, POS/Akuntansi request isolation and a 28-day maximum dual-mode window.
+- No Supabase `app_config`/RPC runtime mode was added: DOC_00 marks that path as historical only. No active raw client-side table fallback exists. Dual mode compares Laravel against a separately reviewed legacy effective-config provider and refuses to return config on mismatch or when the provider is absent.
 - SQLite checkout already inserted the sale, accounting records and outbox_events inside one SQLite transaction. The update adds last_error / last_attempt_at_utc metadata and startup recovery for interrupted syncing events.
 - The new local outbox repository retains pending, syncing, synced and conflict states. An event becomes synced only if an explicit server acceptance ID covers it. Omitted acknowledgements and transport failures return events to pending; conflicts remain visible. No unsynced event is deleted.
 - The new Python parity harness reconstructs the workbook inventory, verifies 352 exact keys/config values against an authorized JSON inventory snapshot, then separately compares server-resolved effective-config results for valid tenant/device fixtures, including POS and Akuntansi. Missing snapshot or staging credentials returns exit code 2 and NOT VERIFIED; a mismatch fails.
 
 ## Time-bounded transition
 
-The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days). CONFIG_SOURCE_MODE=laravel remains the default. The production app currently has no reviewed Supabase adapter, so dual mode intentionally fails closed rather than pretending parity is active. Before the deadline, the owner must either provide a reviewed adapter and direct parity evidence or explicitly authorize Laravel-only cutover after the full gate passes. At expiry, dual mode blocks configuration; it will not silently become permanent or auto-cut over.
+The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days). CONFIG_SOURCE_MODE=laravel remains the default. The app does not inject a legacy provider, so dual mode intentionally fails closed rather than pretending parity is active. Before the deadline, the owner must either supply a reviewed comparison provider and direct parity evidence or explicitly approve the retirement of dual mode after the full gate passes. At expiry, dual mode blocks configuration; it will not silently become permanent or auto-cut over.
 
 ## Transaction outbox cloud endpoint gate
 
@@ -84,7 +84,7 @@ The passing checks above **do not** establish live central-inventory parity or l
 | Gate | Current status | Evidence / limitation |
 |---|---|---|
 | Secure Sanctum token storage | SOURCE-VERIFIED; CI compile/test PASS | Client now requires secure storage and has no plaintext SharedPreferences token fallback; live login/token-vault flow is not tested against a deployed Laravel API |
-| Feature flag and bounded dual mode | UNIT TESTS PASS; LIVE PARITY NOT VERIFIED | Source-mode/expiry/mismatch tests pass; the deployed production app has no reviewed legacy adapter, so dual/Supabase compatibility modes intentionally fail closed |
+| Feature flag and bounded dual mode | UNIT TESTS PASS; LIVE PARITY NOT VERIFIED | Source-mode/expiry/mismatch tests pass; the deployed app has no reviewed legacy comparison provider, so dual mode intentionally fails closed; the superseded Supabase runtime mode is rejected |
 | Workbook 352-key inventory | PASS | Exact output above; exporter verifies the canonical key count/hash and both 5-test Python suites pass |
 | Actual 352-entry backend inventory parity | NOT VERIFIED | Requires authorized Laravel-side JSON snapshot |
 | Effective-config parity for valid fixtures | NOT VERIFIED | Requires authenticated staging Laravel API responses; POS/Akuntansi separately |
