@@ -302,27 +302,45 @@ class EffectiveConfigResolver
         $merged = [];
 
         foreach ($layers as $layer) {
+            // Central layers may be absent or explicitly empty. An empty layer
+            // at the root is a no-op; it must never erase previously inherited
+            // configuration. Empty nested arrays still replace nested values.
+            if ($layer === []) {
+                continue;
+            }
+
             if (! $this->isAssoc($merged) || ! $this->isAssoc($layer)) {
                 $merged = $layer;
                 continue;
             }
 
-            foreach ($layer as $key => $value) {
-                if (
-                    array_key_exists($key, $merged)
-                    && is_array($merged[$key])
-                    && is_array($value)
-                    && $this->isAssoc($merged[$key])
-                    && $this->isAssoc($value)
-                ) {
-                    $merged[$key] = $this->deepMerge($merged[$key], $value);
-                } else {
-                    $merged[$key] = $value;
-                }
-            }
+            $merged = $this->mergeAssociative($merged, $layer);
         }
 
         return $merged;
+    }
+
+    /**
+     * Recursively merge two known associative maps. Lists and scalars from
+     * the override always replace their earlier values instead of appending.
+     */
+    private function mergeAssociative(array $base, array $override): array
+    {
+        foreach ($override as $key => $value) {
+            if (
+                array_key_exists($key, $base)
+                && is_array($base[$key])
+                && is_array($value)
+                && $this->isAssoc($base[$key])
+                && $this->isAssoc($value)
+            ) {
+                $base[$key] = $this->mergeAssociative($base[$key], $value);
+            } else {
+                $base[$key] = $value;
+            }
+        }
+
+        return $base;
     }
 
     /**
