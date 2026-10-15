@@ -210,7 +210,8 @@ class EffectiveConfigResolverTest extends TestCase
         $tenancyManager->shouldReceive('end')->once()->ordered();
         $tenancyManager->shouldReceive('initialize')->once()->with($previous)->ordered();
         app()->instance('tenancy', $tenancyManager);
-        Tenancy::clearResolvedInstance('tenancy');
+        app()->instance(\Stancl\Tenancy\Tenancy::class, $tenancyManager);
+        Tenancy::swap($tenancyManager);
 
         $deviceQuery = Mockery::mock();
         $deviceQuery->shouldReceive('where')->once()->with('device_id', 'device-1')->andReturnSelf();

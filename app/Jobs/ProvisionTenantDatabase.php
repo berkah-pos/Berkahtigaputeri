@@ -21,7 +21,6 @@ class ProvisionTenantDatabase implements ShouldQueue
 
     public int $timeout = 1800;
 
-    public string $queue = 'tenant-provisioning';
 
     public function __construct(public readonly string $tenantId)
     {

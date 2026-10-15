@@ -170,7 +170,7 @@ class TenantDatabaseProvisioner
                     throw new RuntimeException('Could not safely encode the generated tenant password.');
                 }
                 $provisioner->statement(
-                    "CREATE USER IF NOT EXISTS '{$runtimeUsername}'@'%' IDENTIFIED BY ".$quotedPassword
+                    "CREATE USER '{$runtimeUsername}'@'%' IDENTIFIED BY ".$quotedPassword
                 );
                 $this->audit($tenantId, $provisioningId, 'runtime_user.create.completed', [
                     'runtime_username' => $runtimeUsername,
@@ -318,15 +318,25 @@ class TenantDatabaseProvisioner
 
     private function runtimeUserExists(string $username): bool
     {
-        try {
-            DB::connection('provisioner')->select("SHOW GRANTS FOR '{$username}'@'%'");
-            return true;
-        } catch (QueryException $exception) {
-            if ((int) ($exception->errorInfo[1] ?? 0) === 1141) {
-                return false;
+        // Do not grant the provisioner access to mysql grant tables just to
+        // test account existence. INFORMATION_SCHEMA exposes the grantee and
+        // privilege metadata without exposing authentication hashes.
+        $grantee = "'".$username."'@'%'";
+        foreach ([
+            'USER_PRIVILEGES',
+            'SCHEMA_PRIVILEGES',
+            'TABLE_PRIVILEGES',
+            'COLUMN_PRIVILEGES',
+            'ROUTINE_PRIVILEGES',
+        ] as $view) {
+            if (DB::connection('provisioner')->table('information_schema.'.$view)
+                ->where('GRANTEE', $grantee)
+                ->exists()) {
+                return true;
             }
-            throw $exception;
         }
+
+        return false;
     }
 
     private function verifyOrResumeExistingDatabase(
