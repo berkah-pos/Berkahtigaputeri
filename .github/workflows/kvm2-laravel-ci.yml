@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: kvm2-laravel-ci-${'{'}{ github.ref }}
+  group: kvm2-laravel-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
