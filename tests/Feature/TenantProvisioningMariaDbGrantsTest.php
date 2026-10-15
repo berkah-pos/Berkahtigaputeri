@@ -40,6 +40,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $userA = $stateA['runtime_username'];
         $passwordA = Crypt::decryptString($stateA['runtime_password_encrypted']);
         $userB = $stateB['runtime_username'];
+        $passwordB = Crypt::decryptString($stateB['runtime_password_encrypted']);
 
         $this->assertNotSame($databaseA, $databaseB);
         $this->assertNotSame($userA, $userB);
@@ -68,6 +69,44 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $own->table('products')->where('id', $productId)->update(['price' => 2]);
         $this->assertSame(2.0, (float) $own->table('products')->where('id', $productId)->value('price'));
         $own->table('products')->where('id', $productId)->delete();
+
+        // Seed a real row in tenant B using tenant B's own restricted account.
+        $runtimeB = $this->runtimeConnection('phase2_runtime_b', $databaseB, $userB, $passwordB);
+        $productIdB = 'phase2-b-'.substr($suffix, 0, 10);
+        DB::connection($runtimeB)->table('products')->insert([
+            'id' => $productIdB, 'name' => 'Tenant B grant test', 'price' => 3,
+        ]);
+
+        $quotedTenantB = $this->quoteIdentifier($databaseB);
+        $quotedCentral = $this->quoteIdentifier('berkahpos_central');
+        $quotedProducts = $this->quoteIdentifier('products');
+        $quotedTenants = $this->quoteIdentifier('tenants');
+        $this->assertQueryDenied(fn () => $own->statement(
+            'INSERT INTO '.$quotedTenantB.'.'.$quotedProducts.' (id, name, price) VALUES (?, ?, ?)',
+            ['cross-tenant-insert-'.$suffix, 'must be denied', 1]
+        ));
+        $this->assertQueryDenied(fn () => $own->statement(
+            'UPDATE '.$quotedTenantB.'.'.$quotedProducts.' SET price = ? WHERE id = ?',
+            [99, $productIdB]
+        ));
+        $this->assertQueryDenied(fn () => $own->statement(
+            'DELETE FROM '.$quotedTenantB.'.'.$quotedProducts.' WHERE id = ?',
+            [$productIdB]
+        ));
+
+        // Explicit central data-manipulation probes prove central isolation as well.
+        $this->assertQueryDenied(fn () => $own->statement(
+            'INSERT INTO '.$quotedCentral.'.'.$quotedTenants.' (id, template_id) VALUES (?, ?)',
+            ['cross-central-'.$suffix, 'BASIC']
+        ));
+        $this->assertQueryDenied(fn () => $own->statement(
+            'UPDATE '.$quotedCentral.'.'.$quotedTenants.' SET template_id = ? WHERE id = ?',
+            ['PRO', (string) $tenantA->getTenantKey()]
+        ));
+        $this->assertQueryDenied(fn () => $own->statement(
+            'DELETE FROM '.$quotedCentral.'.'.$quotedTenants.' WHERE id = ?',
+            [(string) $tenantA->getTenantKey()]
+        ));
 
         $this->assertQueryDenied(fn () => $own->statement(
             'CREATE TABLE '.$this->quoteIdentifier('ddl_probe_'.$suffix).' (id INT PRIMARY KEY)'
