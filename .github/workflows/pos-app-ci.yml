@@ -17,6 +17,7 @@ on:
       - "scripts/check_kvm2_contract.py"
       - "scripts/export_workbook_for_laravel.py"
       - ".github/workflows/pos-app-ci.yml"
+      - ".github/workflows/kvm2-backend-ci.yml"
   push:
     branches: ["**"]
     paths: *kvm2_paths
