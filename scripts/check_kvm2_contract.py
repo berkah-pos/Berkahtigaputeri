@@ -2,6 +2,7 @@
 """Fail-closed checks for active KVM2/Laravel runtime and canonical config contract."""
 
 from pathlib import Path
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -77,9 +78,16 @@ def main() -> int:
         print("\n".join(f"FAIL: {item}" for item in errors), file=sys.stderr)
         return 1
 
+    env_contract = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/check_provisioning_env_contract.py")],
+        check=False,
+    )
+    if env_contract.returncode != 0:
+        return env_contract.returncode
+
     print(
         "PASS: active Flutter/Laravel runtime is Supabase-free; deep merge, SHA-256 "
-        "version hashes, CLI import validation and KVM2 contracts are present."
+        "version hashes, CLI import validation, and provisioning credential contracts are present."
     )
     return 0
 
