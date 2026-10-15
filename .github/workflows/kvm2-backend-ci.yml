@@ -185,7 +185,7 @@ jobs:
           grants="$(mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names --execute="SHOW GRANTS FOR 'berkahpos_app'@'%';")"
           printf '%s\n' "$grants"
           # MariaDB emits USAGE for accounts with no global privileges.
-          global_privileges="$(printf '%s\n' "$grants" | grep -F " ON *.* TO 'berkahpos_app'@'%' " | grep -Fv "GRANT USAGE ON *.* TO 'berkahpos_app'@'%'" || true)"
+          global_privileges="$(printf '%s\n' "$grants" | grep -F " ON *.* TO 'berkahpos_app'@'%'" | grep -Fv "GRANT USAGE ON *.* TO 'berkahpos_app'@'%'" || true)"
           if [[ -n "$global_privileges" ]]; then
             echo "::error::berkahpos_app has global privileges: $global_privileges"
             exit 1
