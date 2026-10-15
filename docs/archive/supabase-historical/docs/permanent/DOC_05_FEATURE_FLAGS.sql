@@ -1,0 +1,18 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE.
+--
+-- This file was an old two-service UAT seed for tenant IDs clientA/clientB.
+-- It mutates public.tenants.features and inserts legacy app_config service keys,
+-- which conflicts with the current canonical workbook-owned Final Pos inventory.
+--
+-- Current authorities:
+--   docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
+--   docs/permanent/DOC_02_FINAL_POS_RELATIONAL_OWNERSHIP.sql
+--   scripts/sync_excel_to_supabase.py
+--
+-- The only canonical app_config inventory is 352 keys from the workbook:
+-- 1 global + 3 templates + 100 tenants + 140 service rows + 108 devices.
+-- Runtime feature flags are resolved through canonical app_config; tenants.features
+-- is only a deprecated compatibility projection.
+--
+-- Do not copy/paste the former seed into a live or staging database. Use a reviewed
+-- workbook-sync workflow after the Phase 2/Phase 4 gates are satisfied.
