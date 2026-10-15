@@ -17,6 +17,8 @@ on:
       - ".env.example"
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/check_kvm2_contract.py"
+      - "scripts/check_provisioning_env_contract.py"
+      - "scripts/check_central_app_grants.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
       - "AGENTS.md"
       - ".cursor/rules/**"
@@ -74,11 +76,12 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
-      - name: Check runtime contract and canonical 352-key workbook
+      - name: Check runtime and privileged environment contracts
         shell: bash
         run: |
           set -euo pipefail
           python3 scripts/check_kvm2_contract.py
+          python3 scripts/check_provisioning_env_contract.py
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
 
   backend:
@@ -93,8 +96,6 @@ jobs:
           MARIADB_ROOT_PASSWORD: ci-root-password
           MARIADB_ROOT_HOST: "%"
           MARIADB_DATABASE: berkahpos_central
-          MARIADB_USER: berkahpos_app
-          MARIADB_PASSWORD: ci-central-password
         ports: ["3306:3306"]
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
@@ -155,7 +156,9 @@ jobs:
           PROVISIONER_INIT_HOST: 127.0.0.1
           PROVISIONER_INIT_PORT: "3306"
           MARIADB_ROOT_PASSWORD: ci-root-password
-          TENANT_PROVISIONER_DB_PASSWORD: ci-provision-password
+          CENTRAL_DB_PASSWORD: ci-central-password
+          PROVISIONER_DB_PASSWORD: ci-provision-password
+          MIGRATOR_DB_PASSWORD: ci-migrator-password
         shell: bash
         run: |
           set -euo pipefail
@@ -217,65 +220,7 @@ jobs:
           TENANT_DB_PASSWORD: ci-central-password
         run: php artisan config:import-workbook build/central-config-import.json --dry-run
 
-      - name: Prove app grants are database-scoped only
+      - name: Prove central app account has CRUD on central only
         env:
           MARIADB_ROOT_PASSWORD: ci-root-password
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import os
-          import re
-          import subprocess
-          import sys
-
-          password = os.environ["MARIADB_ROOT_PASSWORD"]
-          command = [
-              "mariadb",
-              "--host=127.0.0.1",
-              "--port=3306",
-              "--user=root",
-              f"--password={password}",
-              "--batch",
-              "--skip-column-names",
-              "--execute=SHOW GRANTS FOR 'berkahpos_app'@'%';",
-          ]
-          result = subprocess.run(command, capture_output=True, text=True, check=False)
-          if result.returncode:
-              print(result.stderr, file=sys.stderr)
-              raise SystemExit(f"SHOW GRANTS failed with exit code {result.returncode}")
-
-          grants = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-          for grant in grants:
-              print(grant)
-
-          app_account = re.compile(r"TO\s+[\x60']berkahpos_app[\x60']@[\x60']%[\x60']", re.IGNORECASE)
-          global_grants = [
-              grant for grant in grants
-              if app_account.search(grant)
-              and re.search(r"\bON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
-              and not re.match(r"^GRANT\s+USAGE\s+ON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
-          ]
-          if global_grants:
-              print("ERROR: berkahpos_app has global privileges:", file=sys.stderr)
-              print("\n".join(global_grants), file=sys.stderr)
-              raise SystemExit(1)
-
-          scoped = [
-              grant for grant in grants
-              if app_account.search(grant)
-              and "berkahpos" in grant.lower()
-              and re.search(r"\bON\s+\x60?berkahpos", grant, re.IGNORECASE)
-              and not re.search(r"\bON\s+\*\.\*", grant, re.IGNORECASE)
-          ]
-          has_central = any("central" in grant.lower() for grant in scoped)
-          has_tenant = any("tenant" in grant.lower() for grant in scoped)
-          if len(scoped) < 2 or not has_central or not has_tenant:
-              print("ERROR: expected central and tenant-scoped grants; observed:", file=sys.stderr)
-              print("\n".join(scoped) or "<none>", file=sys.stderr)
-              raise SystemExit(1)
-          if any("WITH GRANT OPTION" in grant.upper() for grant in scoped):
-              print("ERROR: app account unexpectedly has GRANT OPTION", file=sys.stderr)
-              raise SystemExit(1)
-          print("PASS: berkahpos_app has central and tenant-scoped grants only; no global privileges or GRANT OPTION.")
-          PY
+        run: python3 scripts/check_central_app_grants.py
