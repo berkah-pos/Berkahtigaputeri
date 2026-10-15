@@ -27,7 +27,7 @@ services:
     networks: [berkah-internal]
 
   mysql:
-    image: mariadb:11
+    image: mariadb:11.4
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}

@@ -5,6 +5,8 @@
 **Runtime architecture:** root `AGENTS.md` and `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
 **Logical config authority:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
 
+**Observed stack discrepancy:** the inspected migration branch still declares Laravel `^11.0`, PHP `^8.3`, Filament `^3.2`, and tenancy `^3.8`, and its `composer.lock` is absent. The Section 3 target remains authoritative unless a stack exception is reviewed and accepted; see `audit/ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md`.
+
 ## 1. Mandatory preflight and evidence
 
 Before changing code or operations, read root AGENTS.md, DOC_00, DOC_00_MASTER_ROADMAP, this document, DOC_13 and DOC_14; then inspect the exact application entry point, routes, data models, migrations, workflows and scoped tests. Do not claim a test, deploy, tenant isolation, backup/restore, signing result or migration succeeded without current evidence.
@@ -23,12 +25,12 @@ Never perform unrelated work outside the assigned scope. Branch and PR only; nev
 ## 2. Canonical runtime architecture
 
 - **Android:** Flutter/Dart; SQLite is the immediate local persistence source for offline checkout.
-- **API:** Laravel 11 / PHP 8.3.
-- **Central Admin:** Filament 3 at `/central/admin`.
+- **API:** Laravel 13.x / PHP 8.4.
+- **Central Admin:** Filament 5.x at `/central/admin`.
 - **Identity:** Laravel Auth plus Sanctum for API token use; never treat client-stored tenant/device IDs as authority.
-- **Tenant model:** stancl/tenancy v3 database-per-tenant.
-- **Data plane:** MariaDB 11, one private server holding `berkahpos_central` and `berkahpos_tenant_{safe_id}` databases.
-- **Deployment target:** Hostinger KVM2 (2 vCPU / 8 GB RAM / 100 GB NVMe) via Coolify; DOC_14 specifies Ubuntu 22.04 as its host target. GitHub CI uses hosted ubuntu-24.04.
+- **Tenant model:** Composer-locked and tested `stancl/tenancy` v3.10.x database-per-tenant.
+- **Data plane:** MariaDB 11.4 LTS, one private server holding `berkahpos_central` and `berkahpos_tenant_{safe_id}` databases.
+- **Deployment target:** Hostinger KVM2 (2 vCPU / 8 GB RAM / 100 GB NVMe) via Coolify; DOC_14 specifies Ubuntu 24.04 LTS as its host target. GitHub CI uses hosted ubuntu-24.04.
 - **Redis:** optional queue/cache dependency in the intended stack; secrets are managed through environment/Coolify.
 - **Health:** `GET /up` must return 200 when Laravel is responsive.
 - **Network:** never expose MariaDB, Redis, Docker daemon or internal services publicly.

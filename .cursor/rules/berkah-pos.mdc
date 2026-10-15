@@ -1,18 +1,12 @@
-# Cursor Rules — Berkah POS KVM2
+# Cursor Rules — Berkah POS
 
-- Read root `AGENTS.md`, then follow its mandatory read order without skipping documents.
-- Runtime source of truth: `AGENTS.md` and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
-- Logical config source of truth: `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- Runtime: Laravel 11 / PHP 8.3 / Filament 3 / Sanctum / stancl/tenancy v3 / MariaDB 11; one central DB and physically isolated database per tenant on the same private DB server.
-- Active client code must not use Supabase SDK/Auth/RPC/Edge Functions, Supabase-hosted runtime config, RLS, or old Supabase sync tooling.
-- Canonical config precedence is `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
-- Canonical workbook: `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`.
-- Run `python3 scripts/export_workbook_for_laravel.py --validate-only`; it must validate all 352 keys and the canonical hash before import.
-- Do not merge POS and Akuntansi service rows.
-- Central config tables are `global_configs`, `templates`, and `tenant_configs`; device overrides are in a tenant database's `device_configs`.
-- Runtime cloud config uses the authenticated Laravel Central API, never direct mobile reads of configuration backing tables.
-- Keep SQLite checkout writes and the local outbox atomic; do not claim cloud sync works until Laravel sync acceptance, acknowledgement, retry and conflict behavior are implemented and tested.
-- Keep `btp-admin/` as a retired legacy/static notice only. New Admin is Filament at `/central/admin`, after a verified deployment.
-- All changes through feature/fix/docs branches and reviewed PRs; no implementation commits directly to `main`.
-- GitHub Actions use GitHub-hosted `ubuntu-24.04`.
-- Do not claim staging/production readiness without executed evidence. Legacy hosted resources are deleted only after backup, reconciliation, cutover, retention review and explicit authorization.
+- Read root `AGENTS.md` Sections 1–8 and follow its mandatory reading order before any change.
+- Target stack per root `AGENTS.md` Section 3 and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`: Laravel 13.x, PHP 8.4, Filament 5.x, Composer-locked/tested `stancl/tenancy` v3.10.x, MariaDB 11.4 LTS, Ubuntu 24.04 LTS, hosted `ubuntu-24.04` CI runners.
+- The inspected Laravel migration-branch baseline is Laravel 11/PHP 8.3/Filament 3 and has no `composer.lock`; the proposal in `audit/ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md` is **not approved** and does not replace Section 3 until reviewed.
+- Logical config contract: `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`; preserve exactly 352 canonical workbook entries and the canonical keyset hash. Resolve only one requested service (`pos` or `akuntansi`).
+- Keep SQLite checkout and outbox writes atomic. Do not claim cloud sync until authenticated Laravel acceptance, idempotency, durable acknowledgement, retry and conflict behavior are tested.
+- Active cloud configuration uses the authenticated Laravel Central API. Historical Supabase SQL/migrations in `docs/archive/supabase-historical/` are source archives only; never apply or wire them into CI/deploy/runtime.
+- Keep `btp-admin/` retired/static. The target Central Admin is authenticated Filament at `/central/admin` after deployment verification.
+- Never commit credentials, URLs/tokens, production data, signing keys or hard-coded secrets. Do not expose MariaDB/Redis or provisioning credentials to the normal web process.
+- Use branches and reviewed PRs only; never push implementation commits directly to `main`.
+- Report source inspection, test execution, CI, staging and production evidence separately. Missing evidence is `NOT RUN / NOT VERIFIED`; do not infer acceptance from source presence.

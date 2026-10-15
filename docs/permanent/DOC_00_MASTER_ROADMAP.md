@@ -7,8 +7,8 @@
 
 Deliver a secure, offline-first POS and accounting SaaS:
 - Flutter/SQLite for local POS transactions and durable outbox;
-- Laravel 11 / PHP 8.3 Central API and Filament administration;
-- MariaDB 11 central database plus physically isolated database per tenant on one private DB server;
+- Laravel 13.x / PHP 8.4 Central API and Filament 5.x administration (unless a reviewed ADR replaces this selection);
+- MariaDB 11.4 LTS central database plus physically isolated database per tenant on one private DB server;
 - Coolify deployment on the Hostinger KVM2 target;
 - a server-enforced subscription model, controlled tenant/device identity and durable cloud sync.
 
@@ -25,8 +25,8 @@ Keep the canonical workbook's 352-key inventory and the exact `GLOBAL -> TEMPLAT
 
 ## Phase 1 — Laravel foundation
 
-- Laravel 11, PHP 8.3, Sanctum, Filament 3 and stancl/tenancy v3 resolve in Composer.
-- MariaDB 11 supports central schema plus isolated tenant databases.
+- Target stack per root AGENTS.md Section 3: Laravel 13.x, PHP 8.4, Sanctum, Filament 5.x, and Composer-locked/tested `stancl/tenancy` v3.10.x resolve in Composer. The inspected migration branch is not compliant yet; see the proposed stack-baseline ADR for review.
+- MariaDB 11.4 LTS supports the target central schema plus isolated tenant databases.
 - Root Dockerfile, Compose, .env.example, health check `/up`, Coolify-ready environment and GitHub-hosted CI are present.
 - Central migrations run on a clean disposable MariaDB.
 - CI boots the app and enumerates API routes.

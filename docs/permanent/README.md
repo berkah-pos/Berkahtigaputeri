@@ -33,8 +33,8 @@ Canonical template IDs: `BASIC`, `PRO`, `ENTERPRISE`.
 
 ## Runtime architecture
 
-- Laravel 11 / PHP 8.3 / Filament 3 / Sanctum / stancl/tenancy v3.
-- MariaDB 11 on one private server, with `berkahpos_central` and a distinct `berkahpos_tenant_{id}` DB per tenant.
+- Target stack per root AGENTS.md Section 3: Laravel 13.x / PHP 8.4 / Filament 5.x / Sanctum / Composer-locked and tested `stancl/tenancy` v3.10.x.
+- MariaDB 11.4 LTS on one private server, with `berkahpos_central` and a distinct `berkahpos_tenant_{id}` DB per tenant.
 - Mobile client remains local-first with SQLite; active cloud runtime uses authenticated Laravel APIs.
 - Effective config endpoint: `GET /api/v1/effective-config?tenant_id=&device_id=&service=`.
 - Deployment target: Hostinger KVM2 + Coolify; app health check `GET /up`.
@@ -51,3 +51,11 @@ Anonymous or client-authorized cross-tenant access is prohibited. Database ident
 
 Live Admin legacy URL: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
 New Central Admin target: https://app.berkahtigaputeri.co.id/central/admin (not to be described as live until deployment evidence exists).
+
+
+## Phase 1 decision records and historical-source boundary
+
+- Proposed stack exception (not accepted until review): [ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md](../../audit/ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md).
+- MariaDB 11.4 LTS engine decision and migration-cost record: [ADR-2026-10-15-MARIADB-11.4-DG-0.md](../../audit/ADR-2026-10-15-MARIADB-11.4-DG-0.md).
+- Sanitized source-level schema/extension/function/RPC/RLS inventory: [DG-0 inventory](../../audit/DG-0-SUPABASE-SCHEMA-INVENTORY-2026-10-15.md).
+- Historical SQL/migration copies are under [docs/archive/supabase-historical](../archive/supabase-historical/README.md); they are not active migrations or runtime dependencies.

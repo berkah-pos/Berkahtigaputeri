@@ -4,9 +4,10 @@
 **Date:** 2026-10-15
 **Repository:** berkah-pos/Berkahtigaputeri
 **Infrastructure target:** Hostinger Cloud VPS KVM2, 2 vCPU, 8 GB RAM, 100 GB NVMe, Coolify.
-**Application:** Laravel 11 / PHP 8.3 / Filament 3 / Sanctum / stancl/tenancy v3.
-**Database:** MariaDB 11 on the same private database server for central data and physically isolated tenant databases.
-**Host operating system:** Ubuntu 22.04 as the DOC_14 target; CI continues to use GitHub-hosted ubuntu-24.04.
+**Target application stack (root AGENTS.md Section 3):** Laravel 13.x / PHP 8.4 / Filament 5.x / Sanctum / Composer-locked and tested `stancl/tenancy` v3.10.x.
+**Observed migration-branch baseline:** `composer.json` declares PHP `^8.3`, Laravel `^11.0`, Filament `^3.2`, and `stancl/tenancy` `^3.8`. No `composer.lock` was found at the inspected migration-branch ref. See `audit/ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md` (proposed, not approved).
+**Database:** MariaDB 11.4 LTS on the same private database server for central data and physically isolated tenant databases.
+**Host operating system:** Ubuntu 24.04 LTS aligned with root AGENTS.md; CI uses GitHub-hosted `ubuntu-24.04` runners.
 
 This document and the latest root `AGENTS.md` are authoritative for runtime architecture. The configuration inheritance contract in `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` remains authoritative for the logical order and canonical workbook inventory. Supabase/RLS artifacts are historical migration inputs only and are not an active runtime architecture.
 
@@ -137,7 +138,7 @@ The app image health check calls `/up`. CI must run on disposable GitHub-hosted 
 
 A repository source change alone is not production completion. All are required:
 - Correctly named and indexed canonical architecture file.
-- Laravel 11/PHP 8.3 dependency graph resolves; app boots and API routes register.
+- Laravel 13.x/PHP 8.4 dependency graph resolves from a committed lockfile; app boots and API routes register.
 - Central migrations run on clean MariaDB; tenant provisioning creates two separate tenant databases within the same DB service.
 - Test proves tenant A cannot reach tenant B through API, configuration, domain routing, DB switching, reporting or sync.
 - Five-layer merge matches the canonical workbook with one service per request.
