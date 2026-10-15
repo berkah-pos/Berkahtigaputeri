@@ -12,8 +12,9 @@ class DeviceRegistry extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     protected $fillable = ['device_id', 'tenant_id', 'owner_user_id', 'status', 'registered_at'];
-    protected function casts(): array
-    {
-        return ['registered_at' => 'datetime'];
-    }
+
+    protected $casts = [
+        'config' => 'array',
+        'registered_at' => 'datetime',
+    ];
 }
