@@ -289,7 +289,21 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
 
     private function assertExactRuntimeGrants(string $username, string $databaseName): void
     {
-        $rows = DB::connection('provisioner')->select("SHOW GRANTS FOR '{$username}'@'%'");
+        $adminPassword = (string) env('MARIADB_ROOT_PASSWORD', '');
+        $this->assertNotSame('', $adminPassword, 'Grant assertions require a separate, disposable admin inspection credential.');
+        $inspectorConnection = 'grant_inspector';
+        $inspectorConfig = array_merge(
+            config('database.connections.provisioner'),
+            ['username' => 'root', 'password' => $adminPassword, 'database' => 'information_schema'],
+        );
+        config(['database.connections.'.$inspectorConnection => $inspectorConfig]);
+        DB::purge($inspectorConnection);
+        try {
+            $rows = DB::connection($inspectorConnection)->select("SHOW GRANTS FOR '{$username}'@'%'");
+        } finally {
+            DB::purge($inspectorConnection);
+            config(['database.connections.'.$inspectorConnection => null]);
+        }
         $grants = array_map(static fn ($row): string => (string) array_values((array) $row)[0], $rows);
         $scoped = array_values(array_filter(
             $grants,

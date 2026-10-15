@@ -76,9 +76,9 @@ class ImportCanonicalWorkbookTest extends TestCase
 
         $services = [];
         foreach ($tenants as $i => $tenant) {
-            $services[] = ['tenant_id' => $tenant['tenant_id'], 'service' => 'pos', 'config' => []];
+            $services[] = ['tenant_id' => $tenant['tenant_id'], 'service' => 'pos', 'config' => [], 'enabled' => true];
             if ($i < 40) {
-                $services[] = ['tenant_id' => $tenant['tenant_id'], 'service' => 'akuntansi', 'config' => []];
+                $services[] = ['tenant_id' => $tenant['tenant_id'], 'service' => 'akuntansi', 'config' => [], 'enabled' => true];
             }
         }
 

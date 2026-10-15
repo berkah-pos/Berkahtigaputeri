@@ -470,34 +470,52 @@ class TenantDatabaseProvisioner
 
     private function assertRuntimeGrants(string $username, string $databaseName): void
     {
-        $grants = DB::connection('provisioner')->select("SHOW GRANTS FOR '{$username}'@'%'");
-        $applicationGrants = [];
+        // A tenant provisioner must not have SELECT on MariaDB's mysql grant
+        // tables merely to inspect another account's grants. Check the safe
+        // INFORMATION_SCHEMA privilege views instead; the CI security tests
+        // independently inspect SHOW GRANTS using a separate admin identity.
+        $grantee = "'".$username."'@'%'";
 
-        foreach ($grants as $row) {
-            $grant = (string) array_values((array) $row)[0];
-            if (preg_match('/^GRANT USAGE ON \*\.\* TO /i', $grant)) {
-                continue;
+        $globalRows = DB::connection('provisioner')->table('information_schema.USER_PRIVILEGES')
+            ->where('GRANTEE', $grantee)
+            ->get(['PRIVILEGE_TYPE']);
+        foreach ($globalRows as $row) {
+            $privilege = strtoupper((string) $row->PRIVILEGE_TYPE);
+            if ($privilege !== 'USAGE') {
+                throw new RuntimeException('Runtime tenant account unexpectedly has a global privilege.');
             }
-            if (stripos($grant, 'WITH GRANT OPTION') !== false) {
-                throw new RuntimeException('Runtime tenant account unexpectedly has GRANT OPTION.');
-            }
-            if (! preg_match('/^GRANT (.+) ON [\x60]([^\x60]+)[\x60]\.\* TO /i', $grant, $matches)) {
-                throw new RuntimeException('Runtime tenant account has an unrecognized or global privilege grant.');
-            }
-            $privileges = array_map('trim', explode(',', strtoupper($matches[1])));
-            sort($privileges);
-            $expected = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
-            sort($expected);
-
-            $grantedDatabase = str_replace(['\\_', '\\%'], ['_', '%'], $matches[2]);
-            if ($grantedDatabase !== $databaseName || $privileges !== $expected) {
-                throw new RuntimeException('Runtime tenant account has grants outside its exact CRUD contract.');
-            }
-            $applicationGrants[] = $grant;
         }
 
-        if (count($applicationGrants) !== 1) {
-            throw new RuntimeException('Runtime tenant account must have exactly one tenant-database CRUD grant.');
+        $schemaRows = DB::connection('provisioner')->table('information_schema.SCHEMA_PRIVILEGES')
+            ->where('GRANTEE', $grantee)
+            ->get(['TABLE_SCHEMA', 'PRIVILEGE_TYPE', 'IS_GRANTABLE']);
+
+        $actual = [];
+        foreach ($schemaRows as $row) {
+            if ((string) $row->TABLE_SCHEMA !== $databaseName
+                || strtoupper((string) $row->IS_GRANTABLE) !== 'NO') {
+                throw new RuntimeException('Runtime tenant account has a schema grant outside its exact CRUD contract.');
+            }
+            $actual[] = strtoupper((string) $row->PRIVILEGE_TYPE);
+        }
+        sort($actual);
+        $expected = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
+        sort($expected);
+        if ($actual !== $expected) {
+            throw new RuntimeException('Runtime tenant account must have exactly SELECT, INSERT, UPDATE, DELETE on its own database.');
+        }
+
+        foreach ([
+            'TABLE_PRIVILEGES',
+            'COLUMN_PRIVILEGES',
+            'ROUTINE_PRIVILEGES',
+        ] as $privilegeView) {
+            $count = DB::connection('provisioner')->table('information_schema.'.$privilegeView)
+                ->where('GRANTEE', $grantee)
+                ->count();
+            if ($count > 0) {
+                throw new RuntimeException('Runtime tenant account has table-, column-, or routine-level grants outside its reviewed contract.');
+            }
         }
     }
 

@@ -52,7 +52,10 @@ class VersionedConfigWriter
         $db = DB::connection($connection);
         $existing = $db->table($table)->where($identity)->first();
         if ($expectedVersion === 0) {
-            if ($existing !== null || $newVersion !== 1) {
+            if ($newVersion !== 1) {
+                throw new InvalidArgumentException('A new configuration row must start at version one.');
+            }
+            if ($existing !== null) {
                 throw new StaleConfigurationVersionException('Configuration create conflicted with an existing row.');
             }
             $values = array_merge($identity, $extra, [

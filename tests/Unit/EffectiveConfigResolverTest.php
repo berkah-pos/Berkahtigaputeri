@@ -206,7 +206,11 @@ class EffectiveConfigResolverTest extends TestCase
 
         $tenancyManager = Mockery::mock();
         $tenancyManager->tenant = $previous;
+        $tenancyManager->shouldReceive('initialize')->once()->with($target)->ordered();
+        $tenancyManager->shouldReceive('end')->once()->ordered();
+        $tenancyManager->shouldReceive('initialize')->once()->with($previous)->ordered();
         app()->instance('tenancy', $tenancyManager);
+        Tenancy::clearResolvedInstance('tenancy');
 
         $deviceQuery = Mockery::mock();
         $deviceQuery->shouldReceive('where')->once()->with('device_id', 'device-1')->andReturnSelf();
@@ -218,10 +222,6 @@ class EffectiveConfigResolverTest extends TestCase
 
         DB::shouldReceive('connection')->once()->with('tenant')->andReturn($tenantConnection);
         DB::shouldReceive('purge')->once()->with('tenant');
-
-        Tenancy::shouldReceive('initialize')->once()->with($target)->ordered();
-        Tenancy::shouldReceive('end')->once()->ordered();
-        Tenancy::shouldReceive('initialize')->once()->with($previous)->ordered();
 
         $result = $this->invokePrivate(
             new EffectiveConfigResolver(),

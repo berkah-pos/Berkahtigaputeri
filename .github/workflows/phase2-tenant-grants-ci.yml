@@ -164,6 +164,7 @@ jobs:
           MIGRATOR_DB_DATABASE: information_schema
           MIGRATOR_DB_USERNAME: berkahpos_migrator
           MIGRATOR_DB_PASSWORD: phase2-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+          MARIADB_ROOT_PASSWORD: phase2-root-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
