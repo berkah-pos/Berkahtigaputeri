@@ -42,6 +42,30 @@ void main() {
       expect(merged['printer'], 'PDF Preview');
     });
 
+    test('mergeLayers matches Laravel nested map and replacement semantics', () {
+      final merged = ConfigService.mergeLayers(<Map<String, dynamic>>[
+        <String, dynamic>{
+          'nested': <String, dynamic>{
+            'keep': true,
+            'override': 'base',
+          },
+          'items': <int>[1, 2],
+          'nestedEmpty': <String, dynamic>{'old': true},
+        },
+        <String, dynamic>{},
+        <String, dynamic>{
+          'nested': <String, dynamic>{'override': 'device', 'new': 3},
+          'items': <int>[9],
+          'nestedEmpty': <String, dynamic>{},
+        },
+      ]);
+      expect(merged['nested'], <String, dynamic>{
+        'keep': true, 'override': 'device', 'new': 3,
+      });
+      expect(merged['items'], <int>[9]);
+      expect(merged['nestedEmpty'], <String, dynamic>{});
+    });
+
     test('resolves requested services independently', () async {
       api.responses['pos'] = <String, dynamic>{'service': 'pos', 'value': 1};
       api.responses['akuntansi'] = <String, dynamic>{
