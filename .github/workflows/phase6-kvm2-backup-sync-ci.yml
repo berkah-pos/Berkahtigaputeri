@@ -427,43 +427,6 @@ jobs:
             echo "Local sandbox: NOT RUN IN LOCAL SANDBOX."
           } >> "$RESTORE_EVIDENCE_PATH"
 
-      - name: Upload restore evidence, k6 summary and logs
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: phase6-evidence-${{ github.run_id }}-attempt-${{ github.run_attempt }}
-          path: |
-            docs/evidence/restore-*.md
-            docs/evidence/k6-offline-sync-burst-*.json
-            build/*.log
-            build/composer-audit.json
-          if-no-files-found: warn
-          retention-days: 30
-
-      - name: Fail if any required execution gate failed
-        if: always()
-        shell: bash
-        env:
-          DEPENDENCIES: ${{ steps.dependencies.outcome }}
-          MIGRATION: ${{ steps.centralmigration.outcome }}
-          PHPUNIT: ${{ steps.phpunit.outcome }}
-          FIXTURES: ${{ steps.restorefixtures.outcome }}
-          BACKUP: ${{ steps.backup.outcome }}
-          RECOVERY: ${{ steps.recoverychecks.outcome }}
-          K6: ${{ steps.k6.outcome }}
-          FULL: ${{ steps.restorefull.outcome }}
-          SAMPLE: ${{ steps.restoresample.outcome }}
-          SINGLE: ${{ steps.restoresingle.outcome }}
-          PITR: ${{ steps.restorepitr.outcome }}
-        run: |
-          set -euo pipefail
-          failed=0
-          for name in DEPENDENCIES MIGRATION PHPUNIT FIXTURES BACKUP RECOVERY K6 FULL SAMPLE SINGLE PITR; do
-            value="${!name}"
-            if [[ "$value" != "success" ]]; then echo "FAIL: $name outcome=$value"; failed=1; fi
-          done
-          [[ "$failed" -eq 0 ]]
-
       - name: Upload dated restore evidence, k6 summaries, composer audit and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -503,7 +466,7 @@ jobs:
             fi
           done
           if [[ "${COMPOSER_AUDIT_NONZERO:-false}" == "true" ]]; then
-            echo "FAIL: Composer audit reported advisories. This stays a release blocker."
+            echo "FAIL: Composer audit reported advisories. This remains a release blocker."
             failed=1
           fi
           [[ "$failed" -eq 0 ]]
