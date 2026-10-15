@@ -16,8 +16,17 @@ on:
       - "docker-compose.yml"
       - ".env.example"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/test_canonical_workbook_contract.py"
       - "scripts/check_kvm2_contract.py"
+      - "scripts/check_provisioning_env_contract.py"
+      - "scripts/check_central_app_grants.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
+      - "AGENTS.md"
+      - ".cursor/rules/**"
+      - ".github/muse-instructions.md"
+      - "audit/**"
+      - "docs/archive/supabase-historical/**"
+      - "docs/reports/**"
   push:
     branches: ["**"]
     paths:
@@ -34,8 +43,15 @@ on:
       - "docker-compose.yml"
       - ".env.example"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/test_canonical_workbook_contract.py"
       - "scripts/check_kvm2_contract.py"
       - ".github/workflows/kvm2-laravel-ci.yml"
+      - "AGENTS.md"
+      - ".cursor/rules/**"
+      - ".github/muse-instructions.md"
+      - "audit/**"
+      - "docs/archive/supabase-historical/**"
+      - "docs/reports/**"
   workflow_dispatch:
 
 permissions:
@@ -62,11 +78,12 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
-      - name: Check runtime contract and canonical 352-key workbook
+      - name: Check runtime and privileged environment contracts
         shell: bash
         run: |
           set -euo pipefail
           python3 scripts/check_kvm2_contract.py
+          python3 scripts/check_provisioning_env_contract.py
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/test_canonical_workbook_contract.py
 
@@ -75,24 +92,36 @@ jobs:
     needs: contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    services:
-      mariadb:
-        image: mariadb:11
-        env:
-          MARIADB_ROOT_PASSWORD: ci-root-password
-          MARIADB_ROOT_HOST: "%"
-          MARIADB_DATABASE: berkahpos_central
-          MARIADB_USER: berkahpos_app
-          MARIADB_PASSWORD: ci-central-password
-        ports: ["3306:3306"]
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Start disposable MariaDB 11.4
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name kvm2-mariadb \
+            --publish 127.0.0.1:3306:3306 \
+            --env MARIADB_ROOT_PASSWORD="$MARIADB_ROOT_PASSWORD" \
+            --env MARIADB_ROOT_HOST="%" \
+            --env MARIADB_DATABASE=berkahpos_central \
+            mariadb:11.4
+          ready=false
+          for ((attempt=1; attempt<=60; attempt++)); do
+            if docker exec -e MYSQL_PWD="$MARIADB_ROOT_PASSWORD" kvm2-mariadb mariadb-admin ping --user=root --silent >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" != true ]]; then
+            docker logs kvm2-mariadb
+            exit 1
+          fi
+          echo "PASS: disposable MariaDB 11.4 container is ready."
+
 
       - name: Set up PHP 8.3 and Composer v2
         uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
@@ -143,8 +172,10 @@ jobs:
         env:
           PROVISIONER_INIT_HOST: 127.0.0.1
           PROVISIONER_INIT_PORT: "3306"
-          MARIADB_ROOT_PASSWORD: ci-root-password
-          TENANT_PROVISIONER_DB_PASSWORD: ci-provision-password
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
           set -euo pipefail
@@ -160,17 +191,38 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: root
-          CENTRAL_DB_PASSWORD: ci-root-password
+          CENTRAL_DB_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
-          TENANT_DB_DATABASE: berkahpos_central
-          TENANT_DB_USERNAME: berkahpos_app
-          TENANT_DB_PASSWORD: ci-central-password
         shell: bash
         run: |
           set -euo pipefail
           php artisan migrate --database=central --path=database/migrations/central --force
           php artisan route:list --path=api/v1
+
+      - name: Run real MariaDB 11.4 tenant grant feature test
+        env:
+          APP_ENV: testing
+          APP_DEBUG: "true"
+          DB_CONNECTION: central
+          CENTRAL_DB_HOST: 127.0.0.1
+          CENTRAL_DB_PORT: "3306"
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          TENANT_DB_HOST: 127.0.0.1
+          TENANT_DB_PORT: "3306"
+          PROVISIONER_DB_HOST: 127.0.0.1
+          PROVISIONER_DB_PORT: "3306"
+          PROVISIONER_DB_DATABASE: information_schema
+          PROVISIONER_DB_USERNAME: berkahpos_provisioner
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_HOST: 127.0.0.1
+          MIGRATOR_DB_PORT: "3306"
+          MIGRATOR_DB_DATABASE: information_schema
+          MIGRATOR_DB_USERNAME: berkahpos_migrator
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+        run: php artisan test --filter=TenantProvisioningMariaDbGrantsTest
 
       - name: Run Laravel automated tests
         env:
@@ -181,12 +233,19 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: berkahpos_app
-          CENTRAL_DB_PASSWORD: ci-central-password
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
-          TENANT_DB_DATABASE: berkahpos_central
-          TENANT_DB_USERNAME: berkahpos_app
-          TENANT_DB_PASSWORD: ci-central-password
+          PROVISIONER_DB_HOST: 127.0.0.1
+          PROVISIONER_DB_PORT: "3306"
+          PROVISIONER_DB_DATABASE: information_schema
+          PROVISIONER_DB_USERNAME: berkahpos_provisioner
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_HOST: 127.0.0.1
+          MIGRATOR_DB_PORT: "3306"
+          MIGRATOR_DB_DATABASE: information_schema
+          MIGRATOR_DB_USERNAME: berkahpos_migrator
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
         run: php artisan test
 
       - name: Dry-run canonical workbook import
@@ -198,73 +257,21 @@ jobs:
           CENTRAL_DB_PORT: "3306"
           CENTRAL_DB_DATABASE: berkahpos_central
           CENTRAL_DB_USERNAME: berkahpos_app
-          CENTRAL_DB_PASSWORD: ci-central-password
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
-          TENANT_DB_DATABASE: berkahpos_central
-          TENANT_DB_USERNAME: berkahpos_app
-          TENANT_DB_PASSWORD: ci-central-password
         run: php artisan config:import-workbook build/central-config-import.json --dry-run
 
-      - name: Prove app grants are database-scoped only
+      - name: Prove central app account has CRUD on central only
         env:
-          MARIADB_ROOT_PASSWORD: ci-root-password
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        run: python3 scripts/check_central_app_grants.py
+
+
+      - name: Remove disposable MariaDB container
+        if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          python3 <<'PY'
-          import os
-          import re
-          import subprocess
-          import sys
-
-          password = os.environ["MARIADB_ROOT_PASSWORD"]
-          command = [
-              "mariadb",
-              "--host=127.0.0.1",
-              "--port=3306",
-              "--user=root",
-              f"--password={password}",
-              "--batch",
-              "--skip-column-names",
-              "--execute=SHOW GRANTS FOR 'berkahpos_app'@'%';",
-          ]
-          result = subprocess.run(command, capture_output=True, text=True, check=False)
-          if result.returncode:
-              print(result.stderr, file=sys.stderr)
-              raise SystemExit(f"SHOW GRANTS failed with exit code {result.returncode}")
-
-          grants = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-          for grant in grants:
-              print(grant)
-
-          app_account = re.compile(r"TO\s+[\x60']berkahpos_app[\x60']@[\x60']%[\x60']", re.IGNORECASE)
-          global_grants = [
-              grant for grant in grants
-              if app_account.search(grant)
-              and re.search(r"\bON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
-              and not re.match(r"^GRANT\s+USAGE\s+ON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
-          ]
-          if global_grants:
-              print("ERROR: berkahpos_app has global privileges:", file=sys.stderr)
-              print("\n".join(global_grants), file=sys.stderr)
-              raise SystemExit(1)
-
-          scoped = [
-              grant for grant in grants
-              if app_account.search(grant)
-              and "berkahpos" in grant.lower()
-              and re.search(r"\bON\s+\x60?berkahpos", grant, re.IGNORECASE)
-              and not re.search(r"\bON\s+\*\.\*", grant, re.IGNORECASE)
-          ]
-          has_central = any("central" in grant.lower() for grant in scoped)
-          has_tenant = any("tenant" in grant.lower() for grant in scoped)
-          if len(scoped) < 2 or not has_central or not has_tenant:
-              print("ERROR: expected central and tenant-scoped grants; observed:", file=sys.stderr)
-              print("\n".join(scoped) or "<none>", file=sys.stderr)
-              raise SystemExit(1)
-          if any("WITH GRANT OPTION" in grant.upper() for grant in scoped):
-              print("ERROR: app account unexpectedly has GRANT OPTION", file=sys.stderr)
-              raise SystemExit(1)
-          print("PASS: berkahpos_app has central and tenant-scoped grants only; no global privileges or GRANT OPTION.")
-          PY
+          if docker container inspect kvm2-mariadb >/dev/null 2>&1; then
+            docker rm --force kvm2-mariadb >/dev/null
+          fi
