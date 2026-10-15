@@ -168,6 +168,8 @@ class ConfigService {
     required String service,
   }) async {
     _validateScope(tenantId: tenantId, deviceId: deviceId, service: service);
+    // Expiry dominates even a cached-parity result under the emergency kill switch.
+    if (sourceMode == ConfigSourceMode.dual) _validateDualWindow();
     final cacheKey = _effectiveCacheKey(tenantId, deviceId, service);
 
     if (killSwitch) {
@@ -236,7 +238,6 @@ class ConfigService {
         }
 
       case ConfigSourceMode.dual:
-        _validateDualWindow();
         if (!_client.hasSession) {
           throw StateError(
             'Dual-mode parity requires an authenticated Laravel Central API session.',
@@ -421,5 +422,12 @@ class ConfigService {
     String deviceId,
     String service,
   ) =>
-      'central.effective.' + tenantId + '.' + deviceId + '.' + service;
+      'central.effective.' +
+      _cacheSegment(tenantId) + '.' +
+      _cacheSegment(deviceId) + '.' +
+      _cacheSegment(service);
+
+  // Base64url has no period separator, so arbitrary IDs cannot collide across scopes.
+  static String _cacheSegment(String value) =>
+      base64Url.encode(utf8.encode(value)).replaceAll('=', '');
 }
