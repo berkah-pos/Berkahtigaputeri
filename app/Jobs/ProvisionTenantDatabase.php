@@ -6,12 +6,11 @@ use App\Models\Central\Tenant;
 use App\Services\TenantDatabaseProvisioner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
-class ProvisionTenantDatabase implements ShouldQueue, ShouldBeUnique
+class ProvisionTenantDatabase implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -22,18 +21,11 @@ class ProvisionTenantDatabase implements ShouldQueue, ShouldBeUnique
 
     public int $timeout = 1800;
 
-    public int $uniqueFor = 3600;
-
     public string $queue = 'tenant-provisioning';
 
     public function __construct(public readonly string $tenantId)
     {
         $this->onQueue('tenant-provisioning');
-    }
-
-    public function uniqueId(): string
-    {
-        return 'tenant-database-provisioning:'.hash('sha256', $this->tenantId);
     }
 
     public function backoff(): array
