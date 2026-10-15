@@ -123,7 +123,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $scoped = array_values(array_filter($grants, static fn (string $grant): bool => ! str_contains(strtoupper($grant), 'GRANT USAGE ON *.*')));
 
         $this->assertCount(1, $scoped, 'Tenant runtime user must have exactly one non-USAGE grant.');
-        $grant = strtoupper($scoped[0]);
+        $grant = strtoupper(str_replace('\\_', '_', $scoped[0]));
         $this->assertStringContainsString('SELECT, INSERT, UPDATE, DELETE', $grant);
         $this->assertStringContainsString(chr(96).strtoupper($databaseName).chr(96).'.*', $grant);
         $this->assertStringNotContainsString('CREATE', $grant);
