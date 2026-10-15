@@ -134,7 +134,6 @@ class EffectiveConfigResolverTest extends TestCase
         $previous = new Tenant();
         $target = new Tenant();
 
-        // The tenancy helper reads the active manager from the app container.
         $tenancyManager = Mockery::mock();
         $tenancyManager->tenant = $previous;
         app()->instance('tenancy', $tenancyManager);
