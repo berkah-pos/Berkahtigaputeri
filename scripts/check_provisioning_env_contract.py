@@ -107,7 +107,8 @@ def main():
         r"GRANT\s+(.+?)\s+ON\s+(.+?)\.\*\s+TO\s+'berkahpos_app'@'%'", grants,
         re.IGNORECASE | re.DOTALL
     )
-    central_only = len(app_grants) == 1 and app_grants[0][1].replace(chr(96), "").strip() == r"berkahpos\_central"
+    central_pattern = "berkahpos" + chr(92) + "_central"
+    central_only = len(app_grants) == 1 and app_grants[0][1].replace(chr(96), "").strip() == central_pattern
     if not central_only:
         errors.append("central app user must have exactly one central-only database grant")
     if re.search(r"GRANT\s+.+?\s+ON\s+\*\.\*\s+TO\s+'berkahpos_app'@'%'", grants, re.IGNORECASE | re.DOTALL):
