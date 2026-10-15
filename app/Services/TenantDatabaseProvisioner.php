@@ -45,6 +45,7 @@ class TenantDatabaseProvisioner
         }
 
         $provisioningId = null;
+        $reservationCreatedThisRun = false;
 
         try {
             $tenant->refresh();
@@ -78,6 +79,7 @@ class TenantDatabaseProvisioner
                 $tenant->data = $data;
                 $tenant->save();
                 $state = $tenant->data['database_provisioning'];
+                $reservationCreatedThisRun = true;
                 $this->audit($tenantId, $provisioningId, 'provisioning.reserved', [
                     'database_name' => $databaseName,
                     'runtime_username' => $runtimeUsername,
@@ -155,8 +157,18 @@ class TenantDatabaseProvisioner
                     'database_name' => $databaseName,
                 ]);
             } else {
-                // An existing user is acceptable only when central metadata holds
-                // the matching provisioning reservation (checked above).
+                // A previously absent account that appears after this invocation
+                // reserved the tenant ID is an external collision. Do not adopt it.
+                if ($reservationCreatedThisRun) {
+                    $this->audit($tenantId, $provisioningId, 'runtime_user.collision.detected', [
+                        'runtime_username' => $runtimeUsername,
+                        'reason' => 'account appeared after reservation and was absent at initial verification',
+                    ]);
+                    throw new RuntimeException('Tenant runtime account appeared during provisioning; resources were preserved for review.');
+                }
+
+                // A retry with an existing reservation can recover a create that
+                // completed before its completion audit was written.
                 $this->audit($tenantId, $provisioningId, 'runtime_user.create.recovered_or_existing_for_retry', [
                     'runtime_username' => $runtimeUsername,
                 ]);
