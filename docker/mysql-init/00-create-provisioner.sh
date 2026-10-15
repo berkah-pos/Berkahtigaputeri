@@ -27,9 +27,9 @@ run_sql() {
 }
 
 # These messages contain no credential material and provide a bootstrap audit trail.
-printf '%s\\n' 'AUDIT db_account.ensure account=berkahpos_app host=%'
-printf '%s\\n' 'AUDIT db_account.ensure account=berkahpos_provisioner host=%'
-printf '%s\\n' 'AUDIT db_account.ensure account=berkahpos_migrator host=%'
+printf '%s\n' 'AUDIT db_account.ensure account=berkahpos_app host=%'
+printf '%s\n' 'AUDIT db_account.ensure account=berkahpos_provisioner host=%'
+printf '%s\n' 'AUDIT db_account.ensure account=berkahpos_migrator host=%'
 
 run_sql <<SQL
 CREATE USER IF NOT EXISTS 'berkahpos_app'@'%' IDENTIFIED BY '$central_password';
@@ -37,8 +37,8 @@ CREATE USER IF NOT EXISTS 'berkahpos_provisioner'@'%' IDENTIFIED BY '$provisione
 CREATE USER IF NOT EXISTS 'berkahpos_migrator'@'%' IDENTIFIED BY '$migrator_password';
 SQL
 
-printf '%s\\n' 'AUDIT db_account.ensure.completed account=berkahpos_app host=%'
-printf '%s\\n' 'AUDIT db_account.ensure.completed account=berkahpos_provisioner host=%'
-printf '%s\\n' 'AUDIT db_account.ensure.completed account=berkahpos_migrator host=%'
+printf '%s\n' 'AUDIT db_account.ensure.completed account=berkahpos_app host=%'
+printf '%s\n' 'AUDIT db_account.ensure.completed account=berkahpos_provisioner host=%'
+printf '%s\n' 'AUDIT db_account.ensure.completed account=berkahpos_migrator host=%'
 
 unset central_password provisioner_password migrator_password
