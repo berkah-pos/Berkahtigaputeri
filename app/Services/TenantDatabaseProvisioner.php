@@ -322,12 +322,15 @@ class TenantDatabaseProvisioner
         // test account existence. INFORMATION_SCHEMA exposes the grantee and
         // privilege metadata without exposing authentication hashes.
         $grantee = "'".$username."'@'%'";
+        // MariaDB 11.4 exposes account/schema/table/column privilege views,
+        // but not MySQL's information_schema.ROUTINE_PRIVILEGES view.
+        // The provisioner never issues routine grants; the separate administrative
+        // SHOW GRANTS CI test also verifies the account's exact grant surface.
         foreach ([
             'USER_PRIVILEGES',
             'SCHEMA_PRIVILEGES',
             'TABLE_PRIVILEGES',
             'COLUMN_PRIVILEGES',
-            'ROUTINE_PRIVILEGES',
         ] as $view) {
             if (DB::connection('provisioner')->table('information_schema.'.$view)
                 ->where('GRANTEE', $grantee)
