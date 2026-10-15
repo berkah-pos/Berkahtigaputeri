@@ -72,7 +72,7 @@ The engine ADR proposes MariaDB 11.4 LTS and explains qualitative migration cost
 
 ## 5. Files changed
 
-The comparison summary below is the GitHub compare API’s file-level equivalent of main...branch. A local git diff command was not run. Immediately before adding this report, the branch comparison contained **24 changed paths, 1,963 additions and 157 deletions** relative to feat/kvm2-laravel-remove-supabase.
+The Phase 1 delta summary below is from the GitHub compare API between feat/kvm2-laravel-remove-supabase and audit/phase-1-contract-alignment-20261015; it is not a local git diff. The deleted-file inventory in Section 3 came from comparing main against the migration branch. Immediately before the initial report commit, the Phase 1 delta contained **24 changed paths, 1,963 additions and 157 deletions** relative to feat/kvm2-laravel-remove-supabase.
 
 **Modified (9):**
 - .cursor/rules/berkah-pos.mdc
@@ -116,8 +116,8 @@ This report is the additional Phase 1 deliverable and was added after the compar
 | Sanitized inventory and ADR files | **SOURCE-VERIFIED** | Source-level only; both ADRs await review |
 | PHP syntax / Composer resolution / Laravel tests | **NOT RUN / NOT VERIFIED** | No local runtime was executed |
 | Workbook validation | **NOT RUN / NOT VERIFIED** | No local command run; workflow run was pending at last query |
-| KVM2 Backend CI | **CI-OBSERVED — STARTUP_FAILURE** | Run 38716816545 at SHA b5bc5ce4d044718b5e79c740b343a7334ba44697; no passing backend job evidence |
-| Canonical Workbook Validation | **CI-OBSERVED — PENDING at last query** | Run 38716797187; not a pass unless success is observed |
+| KVM2 Backend CI | **CI-OBSERVED — STARTUP_FAILURE in the pre-report snapshot** | Run 38716816545 at SHA b5bc5ce4d044718b5e79c740b343a7334ba44697; no passing backend job evidence in that snapshot. Check the Actions link for later runs. |
+| Canonical Workbook Validation | **CI-OBSERVED — PENDING in the pre-report snapshot** | Run 38716797187; later runs must be checked separately for a final result |
 | Disposable MariaDB migrations and grant tests | **NOT RUN / NOT VERIFIED** | No disposable database provisioned by this task |
 | Hosted Supabase catalog export / production state | **NOT RUN / NOT VERIFIED** | No remote connection or mutation performed |
 | Staging / restore / tenant A-B security / production | **NOT RUN / NOT VERIFIED** | No current direct evidence was produced |
