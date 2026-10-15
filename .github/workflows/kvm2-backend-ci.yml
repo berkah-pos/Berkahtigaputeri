@@ -39,6 +39,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -210,6 +211,9 @@ jobs:
             echo "::error::berkahpos_app has global privileges: $global_privileges"
             exit 1
           fi
-          grep -Fq "berkahpos_central" <<< "$grants"
-          grep -Fq "berkahpos_tenant" <<< "$grants"
-          echo "PASS: app account only has scoped CRUD/index/reference privileges; no global privilege grant."
+          scoped_count="$(printf '%s\\n' "$grants" | grep -F " TO 'berkahpos_app'@'%' " | grep -F "berkahpos" | wc -l)"
+          if [[ "$scoped_count" -lt 2 ]]; then
+            echo "::error::Expected central and tenant database-scoped grants; found $scoped_count."
+            exit 1
+          fi
+          echo "PASS: app account has scoped grants and no global privilege grant."
