@@ -316,7 +316,7 @@ jobs:
           set -euo pipefail
           php artisan serve --host=127.0.0.1 --port=8000 > "$RUNNER_TEMP/laravel-server.log" 2>&1 &
           for ((i=1;i<=30;i++)); do
-            if curl --silent --fail -H 'Host: central.test' http://127.0.0.1:8000/up >/dev/null; then exit 0; fi
+            if curl --connect-timeout 1 --max-time 2 --silent --show-error --fail -H 'Host: central.test' http://127.0.0.1:8000/up >/dev/null; then exit 0; fi
             sleep 2
           done
           cat "$RUNNER_TEMP/laravel-server.log"
@@ -459,6 +459,7 @@ jobs:
           FIXTURES: ${{ steps.restorefixtures.outcome }}
           BACKUP: ${{ steps.backup.outcome }}
           RECOVERY: ${{ steps.recoverychecks.outcome }}
+          WEBSERVER: ${{ steps.webserver.outcome }}
           K6: ${{ steps.k6.outcome }}
           FULL: ${{ steps.restorefull.outcome }}
           SAMPLE: ${{ steps.restoresample.outcome }}
@@ -467,7 +468,7 @@ jobs:
         run: |
           set -euo pipefail
           failed=0
-          for name in DEPENDENCIES MIGRATION PHPUNIT FIXTURES BACKUP RECOVERY K6 FULL SAMPLE SINGLE PITR; do
+          for name in DEPENDENCIES MIGRATION PHPUNIT FIXTURES BACKUP RECOVERY WEBSERVER K6 FULL SAMPLE SINGLE PITR; do
             value="${!name}"
             if [[ "$value" != "success" ]]; then
               echo "FAIL: $name outcome=$value"
