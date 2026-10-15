@@ -6,7 +6,7 @@ use App\Models\Central\Tenant;
 use App\Models\Central\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\AuthorizationException;
+use Illuminate\Auth\Access\AuthorizationException;
 use JsonException;
 use RuntimeException;
 use Stancl\Tenancy\Facades\Tenancy;

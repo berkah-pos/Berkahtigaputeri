@@ -7,7 +7,7 @@ use App\Services\EffectiveConfigResolver;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\AuthorizationException;
+use Illuminate\Auth\Access\AuthorizationException;
 use ReflectionMethod;
 use Tests\TestCase;
 
