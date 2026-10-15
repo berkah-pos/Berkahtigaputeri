@@ -131,7 +131,7 @@ class TenantDatabaseProvisioner
             } else {
                 // An existing user is acceptable only when central metadata holds
                 // the matching provisioning reservation (checked above).
-                $this->audit($tenantId, $provisioningId, 'runtime_user.existing_for_retry', [
+                $this->audit($tenantId, $provisioningId, 'runtime_user.create.recovered_or_existing_for_retry', [
                     'runtime_username' => $runtimeUsername,
                 ]);
             }
