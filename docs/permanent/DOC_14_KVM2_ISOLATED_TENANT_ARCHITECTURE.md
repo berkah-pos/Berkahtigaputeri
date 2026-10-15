@@ -177,3 +177,13 @@ Protected: SQLite atomic sale/outbox with pending/synced/conflict preserved.
 - No elevated DB creds in web container env dump
 
 Implementation and runtime verification remain outstanding — this is documentation only.
+
+## 10. References
+
+- PostgreSQL 17 `CREATE ROLE`: https://www.postgresql.org/docs/17/sql-createrole.html
+- PostgreSQL 17 role attributes: https://www.postgresql.org/docs/17/role-attributes.html
+- MariaDB GRANT and privilege levels: https://mariadb.com/docs/server/reference/sql-statements/account-management-sql-statements/grant
+- Coolify instance backup/recovery and APP_KEY handling: https://coolify.io/docs/core/backup-and-recovery/instance-backup
+- Coolify database backup guide: https://coolify.io/docs/databases/backups
+
+**Implementation status:** this branch contains documentation only. The database engine audit, grant/role tests, k6 capacity test, Coolify private-access verification, backup/restore exercise, Laravel implementation, Flutter parity tests, and infrastructure deployment remain **NOT RUN / NOT VERIFIED**.
