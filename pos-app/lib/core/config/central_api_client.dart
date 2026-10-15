@@ -99,8 +99,11 @@ class CentralApiClient {
       }
     } finally {
       _cachedToken = null;
-      await secureStorage?.delete(key: _tokenKey);
-      await preferences.remove(_tokenKey);
+      try {
+        await secureStorage.delete(key: _tokenKey);
+      } finally {
+        await preferences.remove(_tokenKey);
+      }
     }
   }
 
