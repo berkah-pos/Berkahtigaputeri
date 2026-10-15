@@ -26,7 +26,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase, TenantWithDomains
 
     public static function getCustomColumns(): array
     {
-        return ['id', 'template_id', 'store_name', 'is_active'];
+        return ['id', 'template_id', 'store_name', 'is_active', 'database_ulid', 'tenancy_db_name'];
     }
 
     public function subscriptions(): HasMany

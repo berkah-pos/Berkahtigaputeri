@@ -44,7 +44,7 @@ def main() -> int:
     except RuntimeError as error:
         return fail(str(error))
 
-    tenant_pattern = "berkahpos_tenant_%.*"
+    tenant_pattern = "berkahpos_t_%.*"
 
     # The only allowed global provisioner grants are USAGE and CREATE USER.
     for grant in provisioner:

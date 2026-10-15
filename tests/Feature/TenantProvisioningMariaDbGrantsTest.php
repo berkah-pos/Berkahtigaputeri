@@ -43,6 +43,10 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $passwordB = Crypt::decryptString($stateB['runtime_password_encrypted']);
 
         $this->assertNotSame($databaseA, $databaseB);
+        $this->assertMatchesRegularExpression('/^berkahpos_t_[0-9abcdefghjkmnpqrstvwxyz]{26}$/', $databaseA);
+        $this->assertMatchesRegularExpression('/^berkahpos_t_[0-9abcdefghjkmnpqrstvwxyz]{26}$/', $databaseB);
+        $this->assertSame(substr($databaseA, strlen('berkahpos_t_')), (string) $tenantA->database_ulid);
+        $this->assertSame(substr($databaseB, strlen('berkahpos_t_')), (string) $tenantB->database_ulid);
         $this->assertNotSame($userA, $userB);
         $this->assertSame('provisioned', $stateA['status']);
         $this->assertSame('provisioned', $stateB['status']);
@@ -67,7 +71,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $productId = 'phase2-'.substr($suffix, 0, 10);
         $own->table('products')->insert(['id' => $productId, 'name' => 'Grant test', 'price' => 1]);
         $own->table('products')->where('id', $productId)->update(['price' => 2]);
-        $this->assertSame(2.0, (float) $own->table('products')->where('id', $productId)->value('price'));
+        $this->assertSame(2, (int) $own->table('products')->where('id', $productId)->value('price'));
         $own->table('products')->where('id', $productId)->delete();
 
         // Seed a real row in tenant B using tenant B's own restricted account.
@@ -164,17 +168,20 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         $tenant = $this->makeTestTenant($tenantId);
         $provisioner = app(TenantDatabaseProvisioner::class);
 
-        $databaseName = $provisioner->databaseName($tenantId);
+        $databaseUlid = $provisioner->generateDatabaseUlid();
+        $databaseName = $provisioner->databaseName($databaseUlid);
         $username = $provisioner->runtimeUsername($tenantId);
         $password = Str::random(64);
         $provisioningId = (string) Str::uuid();
 
+        $tenant->setAttribute('database_ulid', $databaseUlid);
         $tenant->setAttribute('tenancy_db_name', $databaseName);
         $data = $tenant->data ?? [];
         $data['database_provisioning'] = [
             'status' => 'provisioning',
             'tenant_id' => $tenantId,
             'database_name' => $databaseName,
+            'database_ulid' => $databaseUlid,
             'runtime_username' => $username,
             'runtime_password_encrypted' => Crypt::encryptString($password),
             'provisioning_id' => $provisioningId,

@@ -1,5 +1,6 @@
 services:
   app:
+    mem_limit: 768m
     build:
       context: .
       dockerfile: Dockerfile
@@ -23,7 +24,7 @@ services:
       CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
       TENANT_DB_HOST: mysql
       TENANT_DB_PORT: 3306
-      TENANT_DB_PREFIX: berkahpos_tenant_
+      TENANT_DB_PREFIX: berkahpos_t_
       QUEUE_CONNECTION: database
       CACHE_STORE: ${CACHE_STORE:-file}
       SESSION_DRIVER: ${SESSION_DRIVER:-file}
@@ -46,6 +47,7 @@ services:
     networks: [berkah-internal]
 
   queue:
+    mem_limit: 256m
     build:
       context: .
       dockerfile: Dockerfile
@@ -69,7 +71,7 @@ services:
       CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
       TENANT_DB_HOST: mysql
       TENANT_DB_PORT: 3306
-      TENANT_DB_PREFIX: berkahpos_tenant_
+      TENANT_DB_PREFIX: berkahpos_t_
       QUEUE_CONNECTION: database
       CACHE_STORE: ${CACHE_STORE:-file}
       SESSION_DRIVER: ${SESSION_DRIVER:-file}
@@ -84,6 +86,7 @@ services:
     networks: [berkah-internal]
 
   tenant-provisioner:
+    mem_limit: 256m
     profiles: ["provisioner"]
     build:
       context: .
@@ -108,7 +111,7 @@ services:
       CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
       TENANT_DB_HOST: mysql
       TENANT_DB_PORT: 3306
-      TENANT_DB_PREFIX: berkahpos_tenant_
+      TENANT_DB_PREFIX: berkahpos_t_
       QUEUE_CONNECTION: database
       CACHE_STORE: ${CACHE_STORE:-file}
       SESSION_DRIVER: ${SESSION_DRIVER:-file}
@@ -131,8 +134,19 @@ services:
     networks: [berkah-internal]
 
   mysql:
+    mem_limit: 3g
     image: mariadb:11.4
     restart: unless-stopped
+    command:
+      - mariadbd
+      - --server-id=1
+      - --log-bin=mariadb-bin
+      - --binlog-format=ROW
+      - --binlog-expire-logs-seconds=0
+      - --max-connections=150
+      - --innodb-buffer-pool-size=2G
+      - --sync-binlog=1
+      - --innodb-flush-log-at-trx-commit=1
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}
       MARIADB_DATABASE: berkahpos_central
@@ -150,9 +164,10 @@ services:
     networks: [berkah-internal]
 
   redis:
+    mem_limit: 192m
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["sh", "-c", "redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$REDIS_PASSWORD\" --maxmemory 128mb --maxmemory-policy noeviction"]
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     volumes:

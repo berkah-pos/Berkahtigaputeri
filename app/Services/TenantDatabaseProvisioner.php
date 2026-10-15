@@ -34,7 +34,6 @@ class TenantDatabaseProvisioner
             throw new RuntimeException('Tenant key is not in the accepted identifier format.');
         }
 
-        $databaseName = $this->databaseName($tenantId);
         $runtimeUsername = $this->runtimeUsername($tenantId);
         $lockName = 'bp-provision-'.substr(hash('sha256', $tenantId), 0, 40);
         $provisioner = DB::connection('provisioner');
@@ -51,6 +50,23 @@ class TenantDatabaseProvisioner
             $tenant->refresh();
             $state = $tenant->data['database_provisioning'] ?? null;
 
+            // Persist a canonical lowercase ULID before creating external DB resources.
+            // Refuse old hash-based names; never rename/adopt a data-bearing database blindly.
+            $storedUlid = strtolower(trim((string) ($tenant->database_ulid ?? '')));
+            if (is_array($state)) {
+                $databaseUlid = strtolower((string) ($state['database_ulid'] ?? $storedUlid));
+                if (! $this->isValidDatabaseUlid($databaseUlid)
+                    || ($state['database_name'] ?? null) !== $this->databaseName($databaseUlid)) {
+                    throw new RuntimeException('Legacy or invalid tenant database naming metadata; a reviewed data migration is required.');
+                }
+            } else {
+                $databaseUlid = $storedUlid !== '' ? $storedUlid : $this->generateDatabaseUlid();
+                if (! $this->isValidDatabaseUlid($databaseUlid)) {
+                    throw new RuntimeException('Central tenant database_ulid is invalid; refusing to provision.');
+                }
+            }
+            $databaseName = $this->databaseName($databaseUlid);
+
             if (! is_array($state)) {
                 // A pre-existing DB/user without our central reservation is
                 // untrusted. Never adopt or drop it automatically.
@@ -65,12 +81,14 @@ class TenantDatabaseProvisioner
 
                 $provisioningId = (string) Str::uuid();
                 $runtimePassword = Str::random(64);
+                $tenant->setAttribute('database_ulid', $databaseUlid);
                 $tenant->setAttribute('tenancy_db_name', $databaseName);
                 $data = $tenant->data ?? [];
                 $data['database_provisioning'] = [
                     'status' => 'provisioning',
                     'tenant_id' => $tenantId,
                     'database_name' => $databaseName,
+                    'database_ulid' => $databaseUlid,
                     'runtime_username' => $runtimeUsername,
                     'runtime_password_encrypted' => Crypt::encryptString($runtimePassword),
                     'provisioning_id' => $provisioningId,
@@ -89,6 +107,7 @@ class TenantDatabaseProvisioner
                 if ($provisioningId === ''
                     || ($state['tenant_id'] ?? null) !== $tenantId
                     || ($state['database_name'] ?? null) !== $databaseName
+                    || strtolower((string) ($state['database_ulid'] ?? '')) !== $databaseUlid
                     || ($state['runtime_username'] ?? null) !== $runtimeUsername
                     || empty($state['runtime_password_encrypted'])
                     || ! in_array($state['status'] ?? null, ['provisioning', 'provisioned'], true)) {
@@ -96,6 +115,7 @@ class TenantDatabaseProvisioner
                 }
 
                 // Ensure the package resolves this exact database name.
+                $tenant->setAttribute('database_ulid', $databaseUlid);
                 $tenant->setAttribute('tenancy_db_name', $databaseName);
                 $tenant->save();
                 $runtimePassword = Crypt::decryptString((string) $state['runtime_password_encrypted']);
@@ -263,9 +283,24 @@ class TenantDatabaseProvisioner
         }
     }
 
-    public function databaseName(string $tenantId): string
+    public function generateDatabaseUlid(): string
     {
-        return 'berkahpos_tenant_'.substr(hash('sha256', $tenantId), 0, 32);
+        return strtolower((string) Str::ulid());
+    }
+
+    public function databaseName(string $databaseUlid): string
+    {
+        $databaseUlid = strtolower($databaseUlid);
+        if (! $this->isValidDatabaseUlid($databaseUlid)) {
+            throw new RuntimeException('Tenant database name must use a lowercase 26-character ULID.');
+        }
+
+        return 'berkahpos_t_'.$databaseUlid;
+    }
+
+    private function isValidDatabaseUlid(string $databaseUlid): bool
+    {
+        return (bool) preg_match('/^[0-9abcdefghjkmnpqrstvwxyz]{26}$/', $databaseUlid);
     }
 
     public function runtimeUsername(string $tenantId): string

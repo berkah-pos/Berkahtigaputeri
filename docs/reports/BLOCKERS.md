@@ -68,3 +68,34 @@ Until that decision and dependency baseline are reviewed:
 - Do not generate a lock file that preserves the currently blocked Laravel 11 / Filament 3 graph as a workaround.
 - Keep PR #47 draft/RED and do not begin Phase 5. Once the baseline is approved, perform the framework/Filament compatibility migration, produce and review `composer.lock`, then run migrations and the three real MariaDB-backed Phase 4 suites.
 - No production resource, database, domain, DNS or deployment was modified.
+
+
+## Phase 6 — KVM2 resource budget, canonical ULID tenant DB names, durable sync, DG-4
+
+**Status: RED / NOT VERIFIED.** Source files and a hosted runner workflow have been prepared on the Phase 6 branch. This section is not a CI result. The exact Phase 6 candidate commit and current workflow run must be added after the branch ref is updated and GitHub reports the run.
+
+### Completed in source (not execution evidence)
+
+- DOC_14, TenantDatabaseProvisioner and the central tenant metadata schema now specify a server-generated lowercase 26-character ULID stored as database_ulid, with tenancy_db_name persisted centrally and database names generated as berkahpos_t_<ulid>.
+- The former berkahpos_tenant_<safe-tenant-id/hash> form is explicitly treated as legacy; the code refuses to silently adopt or rename existing legacy schemas. Any real, data-bearing legacy schema requires a reviewed backup/migration/cutover before it can be used under the new contract.
+- POST /api/v1/sync now has a route, Sanctum scope, FormRequest normalization/validation, central membership and entitlement checks, tenant active status, device registry/owner checks, tenant connection verification and transaction-scoped receipt/sale/inventory/journal code. Tests were added for valid sync, duplicate retry, cross-tenant rejection and invalid payload.
+- docs/KVM2_RESOURCE_BUDGET.md, docs/runbooks/backup-restore.md, backup/restore helper scripts, k6 burst script and .github/workflows/phase6-kvm2-backup-sync-ci.yml have been prepared.
+
+### Execution blockers that remain
+
+1. **CI execution and dependency baseline:** Phase 5 backend CI was blocked during Composer dependency resolution because existing Laravel 11 / Filament 3 candidates were rejected by security advisories. Phase 6's disposable test lane uses Composer no-blocking only to let tests exercise the candidate and captures composer audit output separately; this does not clear the dependency/security blocker. Resolve and lock a supported dependency baseline and pass an appropriate security audit before release.
+2. **Current-head test execution:** PHP lint, Pint, central migrations, all PHPUnit tests including SyncOutboxApiTest, real SHOW GRANTS, Tenant A/B database access denial, current route checks, and k6 must be classified from the actual Phase 6 GitHub Actions run. A workflow file is not a pass.
+3. **CI restore rehearsal vs production off-host:** GitHub Actions uses a disposable MariaDB 11.4 container and a local filesystem-backed rclone remote for executable encryption/checksum/restore rehearsal. This exercises scripts but is explicitly not proof of a separate production off-host account/bucket, Hostinger KVM2 restore capability, or production key custody. The CI-generated dated evidence file must be uploaded as a workflow artifact and linked after a real run.
+4. **PITR archive continuity:** The archive helper intentionally skips the active binary log. The CI drill closes the binlog containing its test checkpoint before archiving, but the production scheduler, active-tail policy, sequence/lag monitoring, retention and recovery-point coverage still require setup and actual observation.
+5. **DG-1 target host:** No docker stats high-water, actual KVM2 usable memory, disk, Coolify limits, or k6 result from the Hostinger node are available here. No tenant capacity or production SLA can be declared.
+6. **DG-0 architecture decision:** The sanitized database schema/extension/function/RPC/RLS inventory and reviewed DB-engine/migration-cost ADR remain unprovided.
+7. **Legacy DB migration:** The code fails closed on a pre-existing hash/legacy name instead of renaming or dropping it. Before any environment has such a DB, create/approve and test a backup-backed data migration/cutover plan. Never run an implicit rename/drop on production.
+8. **Flutter live parity:** Parent Phase 5 CI run 38797631560 passed the Python workbook/harness checks and 61 Flutter tests for commit 648e8fbe3df8ce258cd77eaf6897f8971c39fb00. Actual authorized 352-key Laravel inventory parity, authenticated staging effective-config parity and deployment-side cloud sync/acceptance remain NOT RUN / NOT VERIFIED.
+
+### Exact local sandbox status
+
+Docker engine/socket, MariaDB client, age, rclone and k6 are not available in the local sandbox. Therefore backup/restore/PITR/k6 are **NOT RUN IN LOCAL SANDBOX** and **NOT RUN / NOT VERIFIED** locally. No docker stats, checksums, restore durations, PITR outcomes or load metrics have been invented. See docs/evidence/restore-2026-10-16.md.
+
+### Final disposition
+
+Keep Phase 6 RED / NOT VERIFIED until the exact current commit SHA, executed CI run, action status, PHPUnit/grant/k6 outputs and restore artifact are recorded. Even if the CI workflow passes, DG-0 review, production off-host backup evidence, real Hostinger KVM2 high-water data, production secrets/key-custody review, staging parity and approval remain independent gates. Never declare 100% GREEN or production-ready while any acceptance gate is unexecuted.

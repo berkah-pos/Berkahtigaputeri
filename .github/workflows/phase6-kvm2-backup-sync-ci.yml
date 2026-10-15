@@ -1,0 +1,509 @@
+name: Phase 6 — Sync, KVM2 budget and backup/restore
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "app/**"
+      - "routes/**"
+      - "database/**"
+      - "tests/**"
+      - "scripts/backup/**"
+      - "scripts/ci/**"
+      - "scripts/k6/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/runbooks/backup-restore.md"
+      - "docs/reports/**"
+      - "docs/evidence/**"
+      - "docker/mysql-init/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - ".github/workflows/phase6-kvm2-backup-sync-ci.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "routes/**"
+      - "database/**"
+      - "tests/**"
+      - "scripts/backup/**"
+      - "scripts/ci/**"
+      - "scripts/k6/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/runbooks/backup-restore.md"
+      - "docs/reports/**"
+      - "docs/evidence/**"
+      - "docker/mysql-init/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - ".github/workflows/phase6-kvm2-backup-sync-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: phase6-kvm2-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phase6:
+    name: MariaDB 11.4 sync, grant proof and isolated recovery rehearsal
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CENTRAL_DOMAINS: localhost,central.test,app.central.test
+      CENTRAL_DB_HOST: 127.0.0.1
+      CENTRAL_DB_PORT: "3306"
+      CENTRAL_DB_DATABASE: berkahpos_central
+      TENANT_DB_HOST: 127.0.0.1
+      TENANT_DB_PORT: "3306"
+      PROVISIONER_DB_HOST: 127.0.0.1
+      PROVISIONER_DB_PORT: "3306"
+      PROVISIONER_DB_DATABASE: information_schema
+      PROVISIONER_DB_USERNAME: berkahpos_provisioner
+      MIGRATOR_DB_HOST: 127.0.0.1
+      MIGRATOR_DB_PORT: "3306"
+      MIGRATOR_DB_DATABASE: information_schema
+      MIGRATOR_DB_USERNAME: berkahpos_migrator
+      APP_ENV: testing
+      APP_DEBUG: "true"
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Create dated evidence placeholder
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/evidence build
+          report="docs/evidence/restore-$(date -u +%F).md"
+          {
+            echo "# Phase 6 isolated restore drill"
+            echo
+            echo "Initial status: NOT RUN / NOT VERIFIED"
+            echo "Run: $GITHUB_RUN_ID; attempt: $GITHUB_RUN_ATTEMPT; candidate: $GITHUB_SHA"
+            echo "Runner: ubuntu-24.04; database: mariadb:11.4"
+            echo "The rclone filesystem alias below is a disposable CI target, not a production off-host service."
+            echo
+            echo "- Full restore: NOT RUN / NOT VERIFIED"
+            echo "- Central + two tenant restore: NOT RUN / NOT VERIFIED"
+            echo "- Single-tenant restore: NOT RUN / NOT VERIFIED"
+            echo "- PITR checkpoint: NOT RUN / NOT VERIFIED"
+            echo "- Encryption / SHA-256 / key-file checks: NOT RUN / NOT VERIFIED"
+            echo "- Hostinger KVM2 high-water: NOT RUN / NOT VERIFIED"
+            echo "- Local sandbox: NOT RUN IN LOCAL SANDBOX"
+          } > "$report"
+          echo "RESTORE_EVIDENCE_PATH=$report" >> "$GITHUB_ENV"
+
+      - name: Install PHP, MariaDB client, age, rclone and k6
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip mariadb-client age rclone gnupg curl
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install --yes k6
+          php --version
+          composer --version
+          mariadb --version
+          age --version
+          rclone version
+          k6 version
+
+      - name: Start MariaDB 11.4 with durable binary logging enabled
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach --name phase6-mariadb --publish 127.0.0.1:3306:3306             --env MARIADB_ROOT_PASSWORD="$MARIADB_ROOT_PASSWORD" --env MARIADB_ROOT_HOST="%"             --env MARIADB_DATABASE=berkahpos_central mariadb:11.4             --server-id=1 --log-bin=mariadb-bin --binlog-format=ROW             --binlog-expire-logs-seconds=0 --sync-binlog=1 --innodb-flush-log-at-trx-commit=1
+          ready=false
+          for ((i=1;i<=60;i++)); do
+            if mariadb-admin --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" ping --silent >/dev/null 2>&1; then ready=true; break; fi
+            sleep 2
+          done
+          [[ "$ready" == true ]] || { docker logs phase6-mariadb; exit 1; }
+          version="$(mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names -e 'SELECT VERSION()')"
+          [[ "$version" == 11.4.* ]]
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" -e 'SHOW BINARY LOGS'
+          echo "PASS: MariaDB $version and binary logs verified."
+
+      - name: Install dependencies for disposable CI compatibility lane
+        id: dependencies
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          # Existing Laravel 11 / Filament 3 dependency resolution has a Composer advisory blocker.
+          # --no-blocking is test-runner-only; composer audit is retained as a release blocker.
+          composer install --no-interaction --prefer-dist --no-progress --no-blocking
+          php artisan key:generate --force
+          composer audit --format=json > build/composer-audit.json || echo "COMPOSER_AUDIT_NONZERO=true" >> "$GITHUB_ENV"
+
+      - name: Create application, provisioner and migrator accounts
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PROVISIONER_INIT_HOST=127.0.0.1 PROVISIONER_INIT_PORT=3306
+          bash docker/mysql-init/00-create-provisioner.sh
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" < docker/mysql-init/10-tenant-db-privileges.sql
+          echo "CENTRAL_DB_PASSWORD=$CENTRAL_DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "PROVISIONER_DB_PASSWORD=$PROVISIONER_DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "MIGRATOR_DB_PASSWORD=$MIGRATOR_DB_PASSWORD" >> "$GITHUB_ENV"
+          echo "MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Migrate central schema and verify API routes
+        id: centralmigration
+        continue-on-error: true
+        env:
+          CENTRAL_DB_USERNAME: root
+          CENTRAL_DB_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan migrate --database=central --path=database/migrations/central --force
+          php artisan route:list --path=api/v1
+
+      - name: Run full PHPUnit suite including MariaDB SHOW GRANTS and Tenant A/B isolation
+        id: phpunit
+        continue-on-error: true
+        env:
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          find app bootstrap config database routes tests scripts/ci -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+          python3 scripts/check_provisioning_env_contract.py
+          vendor/bin/pint --test
+          php artisan test
+          python3 scripts/check_central_app_grants.py
+          python3 scripts/check_provisioner_grants.py
+
+      - name: Provision two disposable canonical ULID tenant databases
+        id: restorefixtures
+        continue-on-error: true
+        env:
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: php scripts/ci/prepare-restore-fixtures.php
+
+      - name: Configure local CI remote and age identity
+        id: backupsetup
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "RCLONE_CONFIG_PHASE6_TYPE=local" >> "$GITHUB_ENV"
+          echo "PHASE6_REMOTE_PATH=$RUNNER_TEMP/phase6-offsite-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+          age-keygen -o "$RUNNER_TEMP/age-identity.txt" 2>/dev/null
+          chmod 600 "$RUNNER_TEMP/age-identity.txt"
+          age-keygen -y "$RUNNER_TEMP/age-identity.txt" > "$RUNNER_TEMP/recipients.txt"
+          printf 'Synthetic recovery sentinel\n' > "$RUNNER_TEMP/sentinel.txt"
+          sha256sum "$RUNNER_TEMP/sentinel.txt" | awk '{print $1}' > "$RUNNER_TEMP/sentinel.sha256"
+          age -R "$RUNNER_TEMP/recipients.txt" -o "$RUNNER_TEMP/sentinel.age" "$RUNNER_TEMP/sentinel.txt"
+          printf 'Non-sensitive CI object recovery probe\n' > "$RUNNER_TEMP/file-probe.txt"
+          sha256sum "$RUNNER_TEMP/file-probe.txt" | awk '{print $1}' > "$RUNNER_TEMP/file-probe.sha256"
+          chmod 600 "$RUNNER_TEMP/recipients.txt" "$RUNNER_TEMP/sentinel.sha256"
+          echo "AGE_RECIPIENTS_FILE=$RUNNER_TEMP/recipients.txt" >> "$GITHUB_ENV"
+          echo "AGE_IDENTITY_FILE=$RUNNER_TEMP/age-identity.txt" >> "$GITHUB_ENV"
+          echo "MYSQL_CLIENT_CNF=$RUNNER_TEMP/backup-client.cnf" >> "$GITHUB_ENV"
+          echo "RCLONE_REMOTE=phase6:$RUNNER_TEMP/phase6-offsite-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
+
+      - name: Create backup reader and mode-0600 client file
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+          BACKUP_DB_PASSWORD: ci-backup-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --execute="
+            CREATE USER IF NOT EXISTS 'berkah_backup'@'%' IDENTIFIED BY '$BACKUP_DB_PASSWORD';
+            GRANT SELECT, SHOW VIEW, TRIGGER, EVENT, LOCK TABLES ON *.* TO 'berkah_backup'@'%';
+            GRANT RELOAD, BINLOG MONITOR, REPLICATION SLAVE ON *.* TO 'berkah_backup'@'%';
+            FLUSH PRIVILEGES;"
+          {
+            echo '[client]'
+            echo 'host=127.0.0.1'
+            echo 'port=3306'
+            echo 'user=berkah_backup'
+            echo "password=$BACKUP_DB_PASSWORD"
+          } > "$RUNNER_TEMP/backup-client.cnf"
+          chmod 600 "$RUNNER_TEMP/backup-client.cnf"
+
+      - name: Back up central and every tenant to encrypted CI remote
+        id: backup
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/backup/backup-mariadb-offhost.sh | tee build/backup.log
+          rclone copyto "$RUNNER_TEMP/file-probe.txt" "$RCLONE_REMOTE/probe/recovery-probe.txt" --immutable
+          rclone copyto "$RUNNER_TEMP/sentinel.age" "$RCLONE_REMOTE/key-sentinel.age" --immutable
+          rclone copyto "$RUNNER_TEMP/sentinel.sha256" "$RCLONE_REMOTE/key-sentinel.sha256" --immutable
+
+      - name: Archive closed binary logs and retrieve archive
+        id: binlogarchive
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" -e 'FLUSH BINARY LOGS'
+          scripts/backup/archive-mariadb-binlogs.sh | tee build/binlog-archive.log
+          mkdir -p "$RUNNER_TEMP/restore-binlogs"
+          rclone copy "$RCLONE_REMOTE/binlogs" "$RUNNER_TEMP/restore-binlogs" --immutable
+          echo "BINLOG_ARCHIVE_DIR=$RUNNER_TEMP/restore-binlogs" >> "$GITHUB_ENV"
+
+      - name: Verify encryption, checksums, APP_KEY fingerprint and file probe
+        id: recoverychecks
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          set_id="$(grep '^BACKUP_SET_ID=' build/backup.log | tail -1 | cut -d= -f2)"
+          rclone copy "$RCLONE_REMOTE/$set_id" "$RUNNER_TEMP/backup-set" --immutable
+          echo "BACKUP_SET_DIR=$RUNNER_TEMP/backup-set" >> "$GITHUB_ENV"
+          scripts/backup/verify-backup-set.sh | tee build/backup-verify.log
+          grep '^APP_KEY=' .env | sed 's/^APP_KEY=//' | tr -d '"' > "$RUNNER_TEMP/recovered-app-key.txt"
+          chmod 600 "$RUNNER_TEMP/recovered-app-key.txt"
+          echo "APP_KEY_FILE=$RUNNER_TEMP/recovered-app-key.txt" >> "$GITHUB_ENV"
+          echo "EXPECTED_APP_KEY_SHA256=$(sha256sum "$RUNNER_TEMP/recovered-app-key.txt" | awk '{print $1}')" >> "$GITHUB_ENV"
+          echo "AGE_KEY_CHECK_OBJECT=$RCLONE_REMOTE/key-sentinel.age" >> "$GITHUB_ENV"
+          echo "EXPECTED_AGE_SENTINEL_SHA256=$(cat "$RUNNER_TEMP/sentinel.sha256")" >> "$GITHUB_ENV"
+          echo "FILE_PROBE_RCLONE_PATH=$RCLONE_REMOTE/probe/recovery-probe.txt" >> "$GITHUB_ENV"
+          echo "FILE_PROBE_SHA256=$(cat "$RUNNER_TEMP/file-probe.sha256")" >> "$GITHUB_ENV"
+          scripts/backup/verify-recovery-materials.sh | tee build/recovery-materials.log
+
+      - name: Prepare authenticated 50-device k6 fixture
+        id: k6fixture
+        continue-on-error: true
+        env:
+          CENTRAL_DB_USERNAME: berkahpos_app
+          CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
+          PROVISIONER_DB_PASSWORD: ci-provision-${{ github.run_id }}-${{ github.run_attempt }}
+          MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: php scripts/ci/prepare-k6-fixture.php
+
+      - name: Start local Laravel API
+        id: webserver
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan serve --host=127.0.0.1 --port=8000 > "$RUNNER_TEMP/laravel-server.log" 2>&1 &
+          for ((i=1;i<=30;i++)); do
+            if curl --silent --fail -H 'Host: central.test' http://127.0.0.1:8000/up >/dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/laravel-server.log"
+          exit 1
+
+      - name: Run the actual offline-sync burst on POST /api/v1/sync
+        id: k6
+        continue-on-error: true
+        env:
+          BASE_URL: http://127.0.0.1:8000
+          K6_AUTH_TOKEN: ${{ steps.k6fixture.outputs.k6_token }}
+          K6_TENANT_ID: ${{ steps.k6fixture.outputs.tenant_id }}
+          K6_DEVICE_ID_PREFIX: ${{ steps.k6fixture.outputs.device_prefix }}
+          K6_PRODUCT_ID: ${{ steps.k6fixture.outputs.product_id }}
+          K6_RUN_ID: phase6-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          k6 run --summary-export="$GITHUB_WORKSPACE/docs/evidence/k6-offline-sync-burst-raw.json" scripts/k6/offline-sync-burst.js | tee build/k6-console.log
+
+      - name: Create post-snapshot checkpoint and close the binary log
+        id: pitrcheckpoint
+        continue-on-error: true
+        env:
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" -e "
+            CREATE TABLE IF NOT EXISTS berkahpos_central.phase6_pitr_checkpoint (id VARCHAR(100) PRIMARY KEY, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            INSERT INTO berkahpos_central.phase6_pitr_checkpoint (id) VALUES ('phase6-run-$GITHUB_RUN_ID');"
+          mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" -e 'FLUSH BINARY LOGS'
+          echo "PITR_TARGET_UTC=$(date -u -d '+10 minutes' '+%F %T')" >> "$GITHUB_ENV"
+          cat > "$RUNNER_TEMP/pitr-checkpoint.sql" <<SQL
+          SELECT CASE WHEN COUNT(*) = 1 THEN 'PASS' ELSE 'FAIL' END FROM berkahpos_central.phase6_pitr_checkpoint WHERE id = 'phase6-run-$GITHUB_RUN_ID';
+          SQL
+          echo "PITR_ASSERT_SQL_FILE=$RUNNER_TEMP/pitr-checkpoint.sql" >> "$GITHUB_ENV"
+
+      - name: Archive checkpoint log
+        id: checkpointarchive
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          scripts/backup/archive-mariadb-binlogs.sh | tee -a build/binlog-archive.log
+          rclone copy "$RCLONE_REMOTE/binlogs" "$BINLOG_ARCHIVE_DIR" --immutable
+
+      - name: Execute full isolated restore
+        id: restorefull
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          export RESTORE_CONFIRM=ISOLATED_DISPOSABLE_ONLY
+          scripts/backup/restore-drill-mariadb.sh full | tee build/restore-full.log
+          echo "- Full central + every-tenant restore: PASS (disposable CI container)." >> "$RESTORE_EVIDENCE_PATH"
+
+      - name: Execute central plus exactly two ULID tenant restore
+        id: restoresample
+        continue-on-error: true
+        env:
+          TENANT_A_DB: ${{ steps.restorefixtures.outputs.tenant_a_db }}
+          TENANT_B_DB: ${{ steps.restorefixtures.outputs.tenant_b_db }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export RESTORE_CONFIRM=ISOLATED_DISPOSABLE_ONLY
+          scripts/backup/restore-drill-mariadb.sh sample "$TENANT_A_DB" "$TENANT_B_DB" | tee build/restore-sample.log
+          echo "- Central + two disposable tenant DBs: PASS." >> "$RESTORE_EVIDENCE_PATH"
+
+      - name: Execute single-tenant isolated restore
+        id: restoresingle
+        continue-on-error: true
+        env:
+          TENANT_A_DB: ${{ steps.restorefixtures.outputs.tenant_a_db }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          export RESTORE_CONFIRM=ISOLATED_DISPOSABLE_ONLY
+          scripts/backup/restore-drill-mariadb.sh single-tenant "$TENANT_A_DB" | tee build/restore-single.log
+          echo "- Single-tenant isolated restore: PASS." >> "$RESTORE_EVIDENCE_PATH"
+
+      - name: Execute PITR to the known post-snapshot checkpoint
+        id: restorepitr
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          export RESTORE_CONFIRM=ISOLATED_DISPOSABLE_ONLY
+          scripts/backup/restore-drill-mariadb.sh pitr | tee build/restore-pitr.log
+          echo "- PITR replay and business checkpoint: PASS." >> "$RESTORE_EVIDENCE_PATH"
+
+      - name: Finalize report and upload logs/artifacts
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo
+            echo "## Workflow outcomes"
+            echo "Candidate: $GITHUB_SHA"
+            echo "Generated UTC: $(date -u +%FT%TZ)"
+            echo "Composer/dependency setup: ${{ steps.dependencies.outcome }}"
+            echo "Central migration: ${{ steps.centralmigration.outcome }}"
+            echo "PHPUnit + grants + Tenant A/B isolation: ${{ steps.phpunit.outcome }}"
+            echo "Restore fixture creation: ${{ steps.restorefixtures.outcome }}"
+            echo "Encrypted backup: ${{ steps.backup.outcome }}"
+            echo "SHA-256 and key/file checks: ${{ steps.recoverychecks.outcome }}"
+            echo "k6: ${{ steps.k6.outcome }}"
+            echo "Full restore: ${{ steps.restorefull.outcome }}"
+            echo "Two-tenant restore: ${{ steps.restoresample.outcome }}"
+            echo "Single-tenant restore: ${{ steps.restoresingle.outcome }}"
+            echo "PITR: ${{ steps.restorepitr.outcome }}"
+            echo
+            echo "CI uses a local filesystem remote. Production off-host backup, Hostinger docker stats high-water, real key custody and production RPO/RTO remain NOT RUN / NOT VERIFIED."
+            echo "The initial NOT RUN lines record the job-start baseline; the workflow outcomes above are the observations from this CI rehearsal."
+            echo "Local sandbox: NOT RUN IN LOCAL SANDBOX."
+          } >> "$RESTORE_EVIDENCE_PATH"
+
+      - name: Upload restore evidence, k6 summary and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phase6-evidence-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            docs/evidence/restore-*.md
+            docs/evidence/k6-offline-sync-burst-*.json
+            build/*.log
+            build/composer-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail if any required execution gate failed
+        if: always()
+        shell: bash
+        env:
+          DEPENDENCIES: ${{ steps.dependencies.outcome }}
+          MIGRATION: ${{ steps.centralmigration.outcome }}
+          PHPUNIT: ${{ steps.phpunit.outcome }}
+          FIXTURES: ${{ steps.restorefixtures.outcome }}
+          BACKUP: ${{ steps.backup.outcome }}
+          RECOVERY: ${{ steps.recoverychecks.outcome }}
+          K6: ${{ steps.k6.outcome }}
+          FULL: ${{ steps.restorefull.outcome }}
+          SAMPLE: ${{ steps.restoresample.outcome }}
+          SINGLE: ${{ steps.restoresingle.outcome }}
+          PITR: ${{ steps.restorepitr.outcome }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for name in DEPENDENCIES MIGRATION PHPUNIT FIXTURES BACKUP RECOVERY K6 FULL SAMPLE SINGLE PITR; do
+            value="${!name}"
+            if [[ "$value" != "success" ]]; then echo "FAIL: $name outcome=$value"; failed=1; fi
+          done
+          [[ "$failed" -eq 0 ]]
+
+      - name: Upload dated restore evidence, k6 summaries, composer audit and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phase6-evidence-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            docs/evidence/restore-*.md
+            docs/evidence/k6-offline-sync-burst-*.json
+            build/*.log
+            build/composer-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail the workflow if any execution gate did not pass
+        if: always()
+        shell: bash
+        env:
+          DEPENDENCIES: ${{ steps.dependencies.outcome }}
+          MIGRATION: ${{ steps.centralmigration.outcome }}
+          PHPUNIT: ${{ steps.phpunit.outcome }}
+          FIXTURES: ${{ steps.restorefixtures.outcome }}
+          BACKUP: ${{ steps.backup.outcome }}
+          RECOVERY: ${{ steps.recoverychecks.outcome }}
+          K6: ${{ steps.k6.outcome }}
+          FULL: ${{ steps.restorefull.outcome }}
+          SAMPLE: ${{ steps.restoresample.outcome }}
+          SINGLE: ${{ steps.restoresingle.outcome }}
+          PITR: ${{ steps.restorepitr.outcome }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for name in DEPENDENCIES MIGRATION PHPUNIT FIXTURES BACKUP RECOVERY K6 FULL SAMPLE SINGLE PITR; do
+            value="${!name}"
+            if [[ "$value" != "success" ]]; then
+              echo "FAIL: $name outcome=$value"
+              failed=1
+            fi
+          done
+          if [[ "${COMPOSER_AUDIT_NONZERO:-false}" == "true" ]]; then
+            echo "FAIL: Composer audit reported advisories. This stays a release blocker."
+            failed=1
+          fi
+          [[ "$failed" -eq 0 ]]

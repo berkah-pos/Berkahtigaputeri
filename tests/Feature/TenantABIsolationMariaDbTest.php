@@ -20,7 +20,7 @@ class TenantABIsolationMariaDbTest extends TestCase
         $runtimeB->table('products')->insert([
             'id' => $productB,
             'name' => 'Tenant B protected row',
-            'price' => '27.50',
+            'price' => 2750,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -39,11 +39,11 @@ class TenantABIsolationMariaDbTest extends TestCase
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
             'INSERT INTO ' . $tenantB . '.' . $products . ' (id, name, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-            ['cross-insert-' . $pair['suffix'], 'Denied insert', '1.00', now(), now()]
+            ['cross-insert-' . $pair['suffix'], 'Denied insert', 100, now(), now()]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
             'UPDATE ' . $tenantB . '.' . $products . ' SET price = ? WHERE id = ?',
-            ['99.00', $productB]
+            [9900, $productB]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
             'DELETE FROM ' . $tenantB . '.' . $products . ' WHERE id = ?',
@@ -68,7 +68,7 @@ class TenantABIsolationMariaDbTest extends TestCase
         ));
 
         $this->assertSame(
-            '27.50',
+            2750,
             (string) $runtimeB->table('products')->where('id', $productB)->value('price'),
             'Denied mutations must not change Tenant B data.'
         );

@@ -317,6 +317,23 @@ class SqliteSaleRepository implements SaleRepository {
               'grandTotal': calculation.grandTotal,
               'ppnAmount': calculation.ppnAmount,
               'paymentMethod': request.method.name,
+              'occurredAtUtc': occurredAtUtc.toIso8601String(),
+              'transactionDiscountAmount': calculation.transactionDiscountAmount,
+              'grossAmount': calculation.grossAmount,
+              'discountAmount': calculation.discountAmount,
+              'businessDate': businessDate,
+              'timezone': request.timezone,
+              'items': calculation.lines
+                  .map(
+                    (line) => <String, Object?>{
+                      'productId': line.source.productId,
+                      'quantity': line.source.quantity,
+                      'unitPrice': line.source.unitPrice,
+                      'itemDiscountAmount': line.itemDiscountAmount,
+                      'ppnExempt': line.source.ppnExempt,
+                    },
+                  )
+                  .toList(growable: false),
             },
           ),
           'status': 'pending',

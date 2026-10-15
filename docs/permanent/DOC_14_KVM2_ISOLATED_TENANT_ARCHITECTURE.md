@@ -16,7 +16,8 @@ This document and the latest root `AGENTS.md` are authoritative for runtime arch
 New backend operations use a self-hosted Laravel Central API on KVM2, deployed through Coolify. Each tenant has its own database on the same MariaDB server. One application deployment serves all tenants; do not create one application/container per tenant.
 
 - Central database: `berkahpos_central`.
-- Tenant databases: `berkahpos_tenant_{safe_tenant_id}`.
+- Tenant databases: `berkahpos_t_<lowercase-ULID>`; the server generates a 26-character lowercase ULID at reservation time and persists both `database_ulid` and `tenancy_db_name` in the central tenant registry. Client-supplied tenant IDs are never used directly as database identifiers.
+- Legacy databases following the prior `berkahpos_tenant_{safe_tenant_id}` naming convention are not automatically renamed, dropped, or adopted. Existing legacy DBs require a reviewed, backed-up migration/cutover; all new provisioning and backup catalog checks use the ULID contract.
 - Central admin: `/central/admin` (Filament).
 - Tenant domain pattern: `{tenant}.berkahtigaputeri.co.id`.
 - Platform API: `/api/v1/*`.

@@ -75,8 +75,8 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $pair = $this->attachTenantPrincipals($this->createProvisionedTenantPair('phase4-http'));
         $productA = 'product-a-' . $pair['suffix'];
         $productB = 'product-b-' . $pair['suffix'];
-        $this->seedProduct($pair['tenantA'], $productA, '10.00');
-        $this->seedProduct($pair['tenantB'], $productB, '37.25');
+        $this->seedProduct($pair['tenantA'], $productA, '1000');
+        $this->seedProduct($pair['tenantB'], $productB, '3725');
 
         $readBFromAHost = $this->requestOnHost(
             'GET',
@@ -111,7 +111,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
             '/tenant/products/' . $productA,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']],
-            ['tenant_id' => $pair['tenantBId'], 'price' => '0.01']
+            ['tenant_id' => $pair['tenantBId'], 'price' => '1']
         );
         $this->assertSame(404, $forgedTenantMutation->getStatusCode());
 
@@ -121,7 +121,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
             '/tenant/products/' . $productA,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceBId']],
-            ['price' => '0.01']
+            ['price' => '1']
         );
         $this->assertSame(404, $forgedDeviceMutation->getStatusCode());
 
@@ -140,12 +140,12 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
             '/tenant/products/' . $productB,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']],
-            ['price' => '0.01']
+            ['price' => '1']
         );
         $this->assertContains($crossDomainMutation->getStatusCode(), [403, 404]);
 
-        $this->assertSame('37.25', $this->readProductPrice($pair['tenantB'], $productB));
-        $this->assertSame('10.00', $this->readProductPrice($pair['tenantA'], $productA));
+        $this->assertSame('3725', $this->readProductPrice($pair['tenantB'], $productB));
+        $this->assertSame('1000', $this->readProductPrice($pair['tenantA'], $productA));
     }
 
     public function test_domain_suspension_and_rename_evict_warmed_cache_and_reject_old_host_immediately(): void
