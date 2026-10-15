@@ -2,11 +2,8 @@
 
 use App\Models\Central\Domain;
 use App\Models\Central\Tenant;
+use App\Database\TenantDatabaseManager;
 use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
-use Stancl\Tenancy\Events\TenantCreated;
-use Stancl\Tenancy\Jobs\CreateDatabase;
-use Stancl\Tenancy\Jobs\MigrateDatabase;
-use Stancl\JobPipeline\JobPipeline;
 
 return [
     'tenant_model' => Tenant::class,
@@ -19,13 +16,15 @@ return [
     'bootstrappers' => [
         DatabaseTenancyBootstrapper::class,
     ],
+    // TenantCreated is handled by AppServiceProvider and a durable queued job.
+    // Never run database creation/migrations synchronously in a public request.
     'database' => [
         'central_connection' => 'central',
         'template_tenant_connection' => 'tenant_template',
         'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_tenant_'),
         'suffix' => '',
         'managers' => [
-            'mysql' => Stancl\Tenancy\TenantDatabaseManagers\MySQLDatabaseManager::class,
+            'mysql' => TenantDatabaseManager::class,
         ],
     ],
     'migration_parameters' => [
@@ -34,7 +33,7 @@ return [
         '--realpath' => true,
     ],
     'seeder_parameters' => [
-        '--class' => 'Database\Seeders\TenantDatabaseSeeder',
+        '--class' => 'Database\\Seeders\\TenantDatabaseSeeder',
         '--force' => true,
     ],
 ];
