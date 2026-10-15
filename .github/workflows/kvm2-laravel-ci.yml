@@ -232,6 +232,7 @@ jobs:
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
           DB_CONNECTION: central
           CENTRAL_DB_HOST: 127.0.0.1
           CENTRAL_DB_PORT: "3306"
@@ -256,6 +257,7 @@ jobs:
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
+          MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
           DB_CONNECTION: central
           CENTRAL_DB_HOST: 127.0.0.1
           CENTRAL_DB_PORT: "3306"
