@@ -4,13 +4,32 @@ services:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    env_file:
-      - .env
+    # Explicit allowlist: do not add env_file, root DB credentials, PROVISIONER_*
+    # or MIGRATOR_* variables to this public web process.
     environment:
-      # Do not expose the provisioning credential to the long-running web process.
-      # Explicitly pass it only to an approved one-off Artisan CLI command.
-      TENANT_PROVISIONER_DB_USERNAME: ""
-      TENANT_PROVISIONER_DB_PASSWORD: ""
+      APP_NAME: ${APP_NAME:-Berkah POS}
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY:?Set APP_KEY}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-https://app.berkahtigaputeri.co.id}
+      CENTRAL_DOMAINS: ${CENTRAL_DOMAINS:-berkahtigaputeri.co.id,app.berkahtigaputeri.co.id}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: mysql
+      CENTRAL_DB_PORT: 3306
+      CENTRAL_DB_DATABASE: berkahpos_central
+      CENTRAL_DB_USERNAME: berkahpos_app
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
+      TENANT_DB_HOST: mysql
+      TENANT_DB_PORT: 3306
+      TENANT_DB_PREFIX: berkahpos_tenant_
+      QUEUE_CONNECTION: database
+      CACHE_STORE: ${CACHE_STORE:-file}
+      SESSION_DRIVER: ${SESSION_DRIVER:-file}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
     depends_on:
       mysql:
         condition: service_healthy
@@ -26,15 +45,100 @@ services:
       start_period: 45s
     networks: [berkah-internal]
 
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Standard queue jobs never receive provisioning, migrator, or root credentials.
+    command: ["php", "artisan", "queue:work", "database", "--queue=default", "--tries=3", "--timeout=90", "--sleep=1"]
+    environment:
+      APP_NAME: ${APP_NAME:-Berkah POS}
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY:?Set APP_KEY}
+      APP_DEBUG: ${APP_DEBUG:-false}
+      APP_URL: ${APP_URL:-https://app.berkahtigaputeri.co.id}
+      CENTRAL_DOMAINS: ${CENTRAL_DOMAINS:-berkahtigaputeri.co.id,app.berkahtigaputeri.co.id}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: mysql
+      CENTRAL_DB_PORT: 3306
+      CENTRAL_DB_DATABASE: berkahpos_central
+      CENTRAL_DB_USERNAME: berkahpos_app
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
+      TENANT_DB_HOST: mysql
+      TENANT_DB_PORT: 3306
+      TENANT_DB_PREFIX: berkahpos_tenant_
+      QUEUE_CONNECTION: database
+      CACHE_STORE: ${CACHE_STORE:-file}
+      SESSION_DRIVER: ${SESSION_DRIVER:-file}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [berkah-internal]
+
+  tenant-provisioner:
+    profiles: ["provisioner"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Private queue only; no published ports and no root password.
+    command: ["php", "artisan", "queue:work", "database", "--queue=tenant-provisioning", "--tries=5", "--timeout=1800", "--sleep=1"]
+    environment:
+      APP_NAME: ${APP_NAME:-Berkah POS}
+      APP_ENV: ${APP_ENV:-production}
+      APP_KEY: ${APP_KEY:?Set APP_KEY}
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-https://app.berkahtigaputeri.co.id}
+      CENTRAL_DOMAINS: ${CENTRAL_DOMAINS:-berkahtigaputeri.co.id,app.berkahtigaputeri.co.id}
+      LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: mysql
+      CENTRAL_DB_PORT: 3306
+      CENTRAL_DB_DATABASE: berkahpos_central
+      CENTRAL_DB_USERNAME: berkahpos_app
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD}
+      TENANT_DB_HOST: mysql
+      TENANT_DB_PORT: 3306
+      TENANT_DB_PREFIX: berkahpos_tenant_
+      QUEUE_CONNECTION: database
+      CACHE_STORE: ${CACHE_STORE:-file}
+      SESSION_DRIVER: ${SESSION_DRIVER:-file}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+      PROVISIONER_DB_HOST: mysql
+      PROVISIONER_DB_PORT: 3306
+      PROVISIONER_DB_DATABASE: information_schema
+      PROVISIONER_DB_USERNAME: ${PROVISIONER_DB_USERNAME:-berkahpos_provisioner}
+      PROVISIONER_DB_PASSWORD: ${PROVISIONER_DB_PASSWORD:?Set PROVISIONER_DB_PASSWORD}
+      MIGRATOR_DB_HOST: mysql
+      MIGRATOR_DB_PORT: 3306
+      MIGRATOR_DB_DATABASE: information_schema
+      MIGRATOR_DB_USERNAME: ${MIGRATOR_DB_USERNAME:-berkahpos_migrator}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?Set MIGRATOR_DB_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks: [berkah-internal]
+
   mysql:
     image: mariadb:11.4
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Set MARIADB_ROOT_PASSWORD in .env}
       MARIADB_DATABASE: berkahpos_central
-      MARIADB_USER: berkahpos_app
-      MARIADB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}
-      TENANT_PROVISIONER_DB_PASSWORD: ${TENANT_PROVISIONER_DB_PASSWORD:?Set TENANT_PROVISIONER_DB_PASSWORD in .env}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in .env}
+      PROVISIONER_DB_PASSWORD: ${PROVISIONER_DB_PASSWORD:?Set PROVISIONER_DB_PASSWORD in .env}
+      MIGRATOR_DB_PASSWORD: ${MIGRATOR_DB_PASSWORD:?Set MIGRATOR_DB_PASSWORD in .env}
     volumes:
       - mysql-data:/var/lib/mysql
       - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
