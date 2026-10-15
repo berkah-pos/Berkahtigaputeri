@@ -1,40 +1,25 @@
-# DOC_01 - FINAL POS CONFIG CONTRACT
+# DOC_01 — FINAL POS CONFIGURATION CONTRACT
 
-> Filename retained for compatibility with existing links. The old layer count is superseded. This document now defines the canonical Final Pos contract.
+> **Legacy filename:** The historical filename says “3_LAYER”; the active contract is five layers.  
+> **Authority:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the inheritance and workbook contract. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` owns the target platform and central storage/runtime implementation.
 
-Repository: `berkah-ajb-dev/Berkahtigaputeri`
-
-## Authority
-
-`DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` is authoritative.
-
-The only canonical inheritance order is:
+## Canonical inheritance
 
 ```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
+GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE
 ```
 
-## Purpose
+Later layers override only fields explicitly defined at that layer. Missing fields remain inherited. The resolver must process one requested service at a time; POS and Akuntansi service rows must never be merged into the same effective configuration.
 
-Final Pos configuration must scale across many tenants without copying every setting into every store. Templates provide reusable package defaults, tenant rows hold tenant identity/overrides, service rows isolate POS versus Akuntansi behavior, and device rows provide the highest-precedence device-specific override.
+## Workbook contract
 
-The canonical configuration table is:
-
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-The legacy `app_config(device_id, key, value)` shape is not valid for Final Pos.
-
-## Canonical workbook inventory
-
-The configuration dataset originates from:
+Source file:
 
 ```text
 config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
 ```
 
-`scripts/sync_excel_to_supabase.py` validates these workbook sheets:
+Expected sheets:
 
 ```text
 README_PRODUCTION
@@ -46,143 +31,36 @@ SERVICES
 APP_CONFIG_EXPORT
 ```
 
-`APP_CONFIG_EXPORT` must contain exactly:
+The export inventory is exactly 352 entries: 1 global + 3 templates + 100 tenants + 140 services + 108 devices. The canonical templates are `BASIC`, `PRO`, and `ENTERPRISE`.
 
-```text
-1   global
-3   templates
-100 tenants
-140 services
-108 devices
----
-352 canonical keys
-```
-
-Canonical template IDs are `BASIC`, `PRO`, and `ENTERPRISE`.
-
-## GLOBAL
-
-Key:
+The workbook export retains these scope identifiers:
 
 ```text
 global
-```
-
-Contains defaults that can apply to all tenants unless overridden later in the inheritance chain.
-
-## TEMPLATE
-
-Key form:
-
-```text
 template:<TEMPLATE_ID>
-```
-
-Examples:
-
-```text
-template:BASIC
-template:PRO
-template:ENTERPRISE
-```
-
-A tenant row identifies its template through `template_id` or the compatibility field `template`. Template values are merged after GLOBAL and before TENANT.
-
-Templates are the reusable source for package-level defaults. A tenant assigned to `PRO` inherits later changes to `template:PRO` unless the tenant, requested service, or device explicitly overrides the same field.
-
-## TENANT
-
-Key form:
-
-```text
 tenant:<tenant_id>
-```
-
-Example:
-
-```text
-tenant:tenant_001
-```
-
-The tenant layer stores tenant-specific identity/configuration and the template assignment required to resolve the TEMPLATE layer.
-
-Tenant overrides must not mutate `global`, a template row, or another tenant.
-
-## SERVICE
-
-Key form:
-
-```text
 tenant:<tenant_id>:service:<service>
-```
-
-Typical services:
-
-```text
-tenant:tenant_001:service:pos
-tenant:tenant_001:service:akuntansi
-```
-
-Effective configuration is resolved for **one requested service at a time**. POS and Akuntansi service rows must not be merged together into one effective-config result.
-
-Service rows derived from a template may be retained for audit/export. When a field is intentionally inherited from the template, the effective resolver must preserve that inheritance rather than accidentally materializing a stale duplicated override.
-
-## DEVICE
-
-Key form:
-
-```text
 device:<device_id>
 ```
 
-Example from the workbook validator contract:
+These identifiers define the source/import/export contract; they do not require a single generic database table.
 
-```text
-device:infinix_001_410
-```
+## Target storage and runtime
 
-DEVICE is the highest-precedence configuration layer and is used for device-specific behavior such as hardware mode, printer configuration and other terminal overrides.
+The old Supabase table `app_config(key PRIMARY KEY, value JSONB, updated_at)`, its `get_effective_config` RPC, and the old three-column `(device_id, key, value)` shape are legacy implementation details. Neither database schema is the new target. Preserve historical migration files as required for audit; do not restore them as the new runtime architecture.
 
-A device used in an effective-config request must belong to the requested tenant under the authenticated tenant/device authorization model.
+Under DOC_14, the workbook importer maps entries into normalized central Laravel tables for global configuration, templates, tenant configuration, tenant-service configuration, device registry/overrides, versions, and audit metadata. Flutter calls the authenticated Laravel Central API instead of selecting raw configuration layers or calling a Supabase RPC.
 
-## Effective configuration resolution
+The API must authenticate/authorize the actor and device, verify the tenant/device association, reject inactive or unprovisioned records, allowlist the requested service, resolve all five layers with the precedence above, and return a configuration version/hash. Offline fallback may use only a previously returned effective result for the exact tenant/device/service tuple.
 
-For `(tenant_id, device_id, service)`:
+## Rules and tests
 
-```text
-1. global
-2. template:<tenant.template_id>
-3. tenant:<tenant_id>
-4. tenant:<tenant_id>:service:<service>
-5. device:<device_id>
-```
+- Never omit TEMPLATE from the inheritance chain.
+- Never merge POS and Akuntansi service data in one effective result.
+- Do not treat client-supplied tenant, device, slug, or Host data as proof of authorization.
+- Workbook dry-run must validate required sheets, keys, template IDs, and exact 352-entry/type counts before any write.
+- Normal writes use expected-version/optimistic-concurrency checks and update atomically.
+- Tests must prove layer precedence, missing-value inheritance, service separation, tenant/device authorization, deterministic manifest/hash, and no partial write on version conflict.
+- Admin, Laravel API, and Flutter output must match on the same fixtures before parity is declared.
 
-Merge precedence:
-
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-```
-
-Later layers override earlier layers only for keys they explicitly contain.
-
-## Required behavioral parity
-
-All effective-config implementations must produce the same result for the same `(tenant_id, device_id, service)`:
-
-- Supabase `get_effective_config` RPC;
-- Flutter `ConfigService`;
-- classic `btp-admin` editor;
-- Final Pos Template Admin where it presents effective values;
-- verification tests.
-
-Flutter ConfigService calls the authenticated `get_effective_config` RPC and uses a previously returned effective result only as a tuple-scoped offline cache. It does not fetch raw GLOBAL/TEMPLATE/TENANT/SERVICE rows directly. `ConfigService.mergeLayers()` documents the required five-layer precedence.
-
-## Compliance rules
-
-- Do not implement an inheritance chain that omits TEMPLATE.
-- Do not merge POS and Akuntansi service rows when resolving one requested service.
-- Do not write tenant values into `global` or template values into tenant/device rows.
-- Do not write device-specific values into tenant/service rows.
-- Do not restore the legacy `(device_id, key, value)` schema.
-- Do not use historical verification text as authority when it conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- SQL, Admin, Flutter, workbook sync, tests and release verification must all follow this contract.
+Implementation status is established by current sources and executed test/CI/runtime evidence, not by this document's presence.
