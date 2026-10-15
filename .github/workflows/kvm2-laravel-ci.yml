@@ -106,7 +106,7 @@ jobs:
             --env MARIADB_DATABASE=berkahpos_central \
             mariadb:11.4
           ready=false
-          for attempt in $(seq 1 60); do
+          for ((attempt=1; attempt<=60; attempt++)); do
             if docker exec -e MYSQL_PWD="$MARIADB_ROOT_PASSWORD" kvm2-mariadb mariadb-admin ping --user=root --silent >/dev/null 2>&1; then
               ready=true
               break
