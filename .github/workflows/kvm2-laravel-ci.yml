@@ -52,7 +52,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
       - name: Install isolated Python dependencies
         shell: bash
@@ -69,6 +70,7 @@ jobs:
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
 
   backend:
+    name: Laravel backend, tenant isolation and privilege proof
     needs: contract
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -81,17 +83,17 @@ jobs:
           MARIADB_DATABASE: berkahpos_central
           MARIADB_USER: berkahpos_app
           MARIADB_PASSWORD: ci-central-password
-        ports:
-          - 3306:3306
+        ports: ["3306:3306"]
         options: >-
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Set up PHP 8.3
+      - name: Set up PHP 8.3 and Composer v2
         uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91c4a30c7dc
         with:
           php-version: "8.3"
@@ -136,7 +138,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes mariadb-client
 
-      - name: Apply least-privilege app and CLI provisioner grants
+      - name: Create CLI provisioner and apply least-privilege grants
         env:
           PROVISIONER_INIT_HOST: 127.0.0.1
           PROVISIONER_INIT_PORT: "3306"
@@ -203,23 +205,65 @@ jobs:
           TENANT_DB_PASSWORD: ci-central-password
         run: php artisan config:import-workbook build/central-config-import.json --dry-run
 
-      - name: Prove berkahpos_app has no global privileges
+      - name: Prove app grants are database-scoped only
         env:
           MARIADB_ROOT_PASSWORD: ci-root-password
         shell: bash
         run: |
           set -euo pipefail
-          grants="$(mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names --execute="SHOW GRANTS FOR 'berkahpos_app'@'%';")"
-          printf '%s\n' "$grants"
-          # MariaDB emits USAGE for accounts with no global privileges.
-          global_privileges="$(printf '%s\n' "$grants" | grep -F " ON *.* TO 'berkahpos_app'@'%'" | grep -Fv "GRANT USAGE ON *.* TO 'berkahpos_app'@'%'" || true)"
-          if [[ -n "$global_privileges" ]]; then
-            echo "::error::berkahpos_app has global privileges: $global_privileges"
-            exit 1
-          fi
-          scoped_count="$(printf '%s\n' "$grants" | grep -F " TO 'berkahpos_app'@'%'" | grep -cF "berkahpos" || true)"
-          if [[ "$scoped_count" -lt 2 ]]; then
-            echo "::error::Expected central and tenant database-scoped grants; found $scoped_count."
-            exit 1
-          fi
-          echo "PASS: app account has scoped grants and no global privilege grant."
+          python3 <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          password = os.environ["MARIADB_ROOT_PASSWORD"]
+          command = [
+              "mariadb",
+              "--host=127.0.0.1",
+              "--port=3306",
+              "--user=root",
+              f"--password={password}",
+              "--batch",
+              "--skip-column-names",
+              "--execute=SHOW GRANTS FOR 'berkahpos_app'@'%';",
+          ]
+          result = subprocess.run(command, capture_output=True, text=True, check=False)
+          if result.returncode:
+              print(result.stderr, file=sys.stderr)
+              raise SystemExit(f"SHOW GRANTS failed with exit code {result.returncode}")
+
+          grants = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+          for grant in grants:
+              print(grant)
+
+          app_account = re.compile(r"TO\s+[\x60']berkahpos_app[\x60']@[\x60']%[\x60']", re.IGNORECASE)
+          global_grants = [
+              grant for grant in grants
+              if app_account.search(grant)
+              and re.search(r"\bON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
+              and not re.match(r"^GRANT\s+USAGE\s+ON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE)
+          ]
+          if global_grants:
+              print("ERROR: berkahpos_app has global privileges:", file=sys.stderr)
+              print("\n".join(global_grants), file=sys.stderr)
+              raise SystemExit(1)
+
+          scoped = [
+              grant for grant in grants
+              if app_account.search(grant)
+              and "berkahpos" in grant.lower()
+              and re.search(r"\bON\s+\x60?berkahpos", grant, re.IGNORECASE)
+              and not re.search(r"\bON\s+\*\.\*", grant, re.IGNORECASE)
+          ]
+          has_central = any("central" in grant.lower() for grant in scoped)
+          has_tenant = any("tenant" in grant.lower() for grant in scoped)
+          if len(scoped) < 2 or not has_central or not has_tenant:
+              print("ERROR: expected central and tenant-scoped grants; observed:", file=sys.stderr)
+              print("\n".join(scoped) or "<none>", file=sys.stderr)
+              raise SystemExit(1)
+          if any("WITH GRANT OPTION" in grant.upper() for grant in scoped):
+              print("ERROR: app account unexpectedly has GRANT OPTION", file=sys.stderr)
+              raise SystemExit(1)
+          print("PASS: berkahpos_app has central and tenant-scoped grants only; no global privileges or GRANT OPTION.")
+          PY
