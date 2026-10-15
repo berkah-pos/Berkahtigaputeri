@@ -12,6 +12,7 @@ on:
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/test_canonical_workbook_contract.py"
       - "scripts/tests/**"
       - "app/**"
       - "bootstrap/**"
@@ -44,6 +45,7 @@ on:
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/test_canonical_workbook_contract.py"
       - "scripts/tests/**"
       - "app/Console/Commands/ImportCanonicalWorkbook.php"
   workflow_dispatch:
@@ -95,3 +97,4 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/test_canonical_workbook_contract.py
