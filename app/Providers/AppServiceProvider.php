@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Jobs\ProvisionTenantDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use Stancl\Tenancy\Events\TenantCreated;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,19 +16,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // A provisioner credential is used only by the explicit Artisan workbook
-        // import/provisioning process, never by a web request or unrelated command.
-        $command = $_SERVER['argv'][1] ?? null;
-        if ($this->app->runningInConsole() && $command === 'config:import-workbook') {
-            $username = (string) env('TENANT_PROVISIONER_DB_USERNAME', '');
-            $password = (string) env('TENANT_PROVISIONER_DB_PASSWORD', '');
-
-            if ($username !== '' && $password !== '') {
-                config([
-                    'database.connections.tenant.username' => $username,
-                    'database.connections.tenant.password' => $password,
-                ]);
-            }
-        }
+        // The public web app only records a durable queue job. Privileged
+        // provisioning credentials exist solely in the private queue worker.
+        Event::listen(TenantCreated::class, function (TenantCreated $event): void {
+            ProvisionTenantDatabase::dispatch((string) $event->tenant->getTenantKey())
+                ->onQueue('tenant-provisioning');
+        });
     }
 }
