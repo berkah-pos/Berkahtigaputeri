@@ -91,6 +91,35 @@ class FlutterConfigParityTest(unittest.TestCase):
         )
         self.assertEqual(pos["nested"], accounting["nested"])
 
+    def test_valid_fixtures_exclude_suspended_and_expired_subscriptions(self):
+        manifest = manifest_fixture()
+        manifest["tenants"].extend([
+            {
+                "tenant_id": "t2", "template_id": "PRO", "is_active": True,
+                "subscription_status": "suspended", "expires_at": "2026-12-01T00:00:00Z",
+                "config": {},
+            },
+            {
+                "tenant_id": "t3", "template_id": "PRO", "is_active": True,
+                "subscription_status": "active", "expires_at": "2026-09-01T00:00:00Z",
+                "config": {},
+            },
+        ])
+        manifest["services"].extend([
+            {"tenant_id": tenant, "service": service, "enabled": True, "config": {}}
+            for tenant in ("t2", "t3")
+            for service in ("pos", "akuntansi")
+        ])
+        manifest["devices"].extend([
+            {"device_id": "d2", "tenant_id": "t2", "active": True, "config": {}},
+            {"device_id": "d3", "tenant_id": "t3", "active": True, "config": {}},
+        ])
+        fixtures = parity.build_valid_fixtures(
+            manifest, now_utc=__import__("datetime").datetime(2026, 10, 15, tzinfo=__import__("datetime").timezone.utc)
+        )
+        self.assertEqual({"t1"}, {fixture["tenant_id"] for fixture in fixtures})
+        self.assertEqual({"pos", "akuntansi"}, {fixture["service"] for fixture in fixtures})
+
     def test_laravel_merge_semantics_replace_lists_and_nested_empty_maps(self):
         merged = parity.merge_effective_layers([
             {"root": {"keep": True, "replace": "base"}, "items": [1, 2]},
