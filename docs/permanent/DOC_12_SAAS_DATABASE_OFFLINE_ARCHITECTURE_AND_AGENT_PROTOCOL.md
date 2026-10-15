@@ -1,5 +1,10 @@
 # Aab Berkah POS — SaaS Architecture, Data Persistence, and Agent Execution Protocol
 
+
+> **Architecture supersession notice — 2026-10-15:** This document contains an earlier target-platform proposal that selected shared PostgreSQL/Supabase and tenant-scoped RLS. That platform choice is superseded for new implementation work by `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` (proposed target on its architecture branch). Use DOC_14 for hosting, database engine, per-tenant database/user isolation, Laravel Central API, and deployment. This document remains a source for offline-first SQLite transactions, durable outbox/idempotency, accounting/business invariants, general security principles, and evidence protocol where they do not conflict with DOC_14. Existing Supabase code and migrations referenced below are implementation-history evidence; they do not mean the target runtime should continue using Supabase. Re-check all source observations against the current commit before relying on them.
+
+---
+
 **Status:** Mandatory engineering guidance; target architecture and acceptance criteria  
 **Created:** 2026-10-12  
 **Applies to:** Every human or AI coding agent, reviewer, security agent, DevOps agent, test agent, and automation working in this repository  

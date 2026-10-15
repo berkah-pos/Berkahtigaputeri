@@ -1,52 +1,25 @@
-# Copilot Instructions - Berkah POS Final Pos
+# Copilot Instructions — Berkah POS SaaS
 
-Before any code change, read `AGENTS.md` and follow this repository-mandated order:
+Before changing code, schemas, CI, or infrastructure, read root `AGENTS.md` and follow its complete mandatory sequence.
 
-1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole configuration-inheritance authority.
-2. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — phase gates in sequence.
-3. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — scoped work and evidence-reporting rules.
-4. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — current integration evidence and unresolved gates.
-5. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; Final Pos contract.
-6. `docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql`.
-7. `docs/permanent/DOC_03_RLS_AUTH.sql`.
-8. `docs/permanent/DOC_04_ADMIN_ARCHITECTURE.md`.
-9. `scripts/sync_excel_to_supabase.py` — canonical workbook validator and 352-key inventory; do not inspect the binary workbook through GitHub's text API.
+## Authority order
 
-## Canonical architecture
+1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — inheritance and 352-entry workbook contract.
+2. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — target Laravel/Coolify platform and tenant isolation for the architecture branch; it is a proposal until reviewed and merged.
+3. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — ordered execution gates.
+4. `docs/permanent/README.md` — document index.
+5. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` and `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — offline/business/evidence details and legacy source snapshot, subject to their platform-supersession notices.
+6. Relevant scoped contracts, source, migrations, tests, workflows, and reports.
 
-The only supported effective-config inheritance is:
+## Invariants
 
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-```
-
-Canonical key forms:
-
-```text
-global
-template:<TEMPLATE_ID>
-tenant:<tenant_id>
-tenant:<tenant_id>:service:<service>
-device:<device_id>
-```
-
-Schema:
-
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-The canonical workbook is `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`; its validator requires exactly 352 exported keys: 1 global + 3 templates + 100 tenants + 140 services + 108 devices.
-
-## Rules
-
-- Do not implement an inheritance path that omits TEMPLATE.
-- Resolve only the requested service; never merge POS and Akuntansi service rows into one effective configuration.
-- Do not restore the legacy `app_config(device_id, key, value)` schema.
-- Use a branch + PR for changes; do not push implementation changes directly to `main`.
-- Official Admin code stays under `btp-admin/`; do not create a duplicate root `complete-settings.html` implementation.
-- Historical verification does not override `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- Follow correction phases in `DOC_00_MASTER_ROADMAP.md` in order.
-- Preserve GitHub Pages publication of `btp-admin/`.
-
-Live Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
+- Configuration precedence: `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`.
+- Canonical workbook: `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`; exactly 352 entries = 1 global + 3 templates + 100 tenants + 140 service entries + 108 devices.
+- Resolve only the requested service. Do not merge POS and Akuntansi rows.
+- The workbook remains the source/export contract, but the target Laravel importer maps it into normalized central tables. The old Supabase `app_config(key, value JSONB)` and RPC are historical implementation details, not target runtime storage.
+- Target stack: Laravel 13.x, PHP 8.4, Filament 5.x, tested/locked `stancl/tenancy` v3.10.x, MariaDB 11.4 LTS, and Coolify; one database plus one restricted user per tenant on one DB server, with a single shared app image for standard tenants.
+- Tenant creation/provisioning secrets belong only in the private provisioning worker. Never expose root/global DB credentials to public web or ordinary queue processes.
+- Flutter must preserve SQLite offline checkout and durable idempotent outbox while moving remote config/sync to authenticated Laravel API.
+- Keep `btp-admin/` as a legacy static path while retained; new privileged admin actions belong in authenticated Laravel/Filament panels.
+- Use a branch + PR, no direct implementation pushes to `main`. Do not force-push, remove `.git`, delete files blindly, or run destructive migrations without a verified backup and recovery plan.
+- Report actual evidence by tested revision. Unexecuted tests remain `NOT RUN / NOT VERIFIED`; never infer green CI or production readiness.

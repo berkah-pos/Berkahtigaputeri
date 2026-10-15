@@ -1,30 +1,36 @@
-# DOC_00 - CANONICAL ARCHITECTURE DECISION
+# DOC_00 — CANONICAL FINAL POS CONFIGURATION CONTRACT
 
-Status: **ACCEPTED / AUTHORITATIVE**  
-Repository: `berkah-ajb-dev/Berkahtigaputeri`  
-Baseline for this correction program: `46ffd869c7ddb5e83b3a732b4e311bf2921f8a26`
+**Status:** Authoritative for configuration inheritance and the canonical workbook contract.  
+**Repository:** `berkah-pos/Berkahtigaputeri`  
+**Updated:** 2026-10-15
 
-## Decision
+## 1. Scope and authority boundary
 
-There is exactly one canonical Final Pos configuration inheritance model:
+This decision owns the Final POS configuration behavior: its inheritance order, override semantics, canonical source workbook, template IDs, exported inventory, and service-specific resolution rules.
+
+It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. Those decisions are specified by `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+
+The prior Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and authenticated `get_effective_config` RPC describe the legacy platform implementation, not the target storage/runtime design. Retain related SQL and reports for migration history and verification as needed; do not implement new runtime paths from them. The target is normalized central configuration storage and the authenticated Laravel Central API as defined by DOC_14.
+
+## 2. Sole canonical inheritance model
+
+There is exactly one valid Final POS configuration inheritance model:
 
 ```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
+GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE
 ```
 
-Later layers override earlier layers only for keys they explicitly define. Unspecified values continue to inherit from the previous layer.
+Each later layer overrides only the fields it explicitly defines. Fields absent from a later layer continue to inherit from the prior layer. No implementation may omit TEMPLATE or change the precedence without a reviewed architecture change.
 
-This document is the architecture authority for configuration inheritance. Any documentation, agent instruction, Admin implementation, Flutter implementation, SQL/RPC, test, workflow, or release verification that describes a different inheritance order is stale and must be corrected.
+## 3. Canonical workbook and 352-entry inventory
 
-## Canonical workbook and key inventory
-
-The canonical production configuration workbook is:
+The canonical configuration source is:
 
 ```text
 config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
 ```
 
-The workbook contract is validated by `scripts/sync_excel_to_supabase.py`. Its expected sheets are:
+Required workbook sheets:
 
 ```text
 README_PRODUCTION
@@ -36,27 +42,23 @@ SERVICES
 APP_CONFIG_EXPORT
 ```
 
-`APP_CONFIG_EXPORT` contains exactly **352 canonical `app_config` keys**:
+The exported configuration inventory contains exactly **352 entries**:
 
 ```text
-1   global
-3   templates
+1 global
+3 templates
 100 tenants
 140 services
 108 devices
 ---
-352 total
+352 entries total
 ```
 
-The canonical templates are:
+Canonical template IDs are `BASIC`, `PRO`, and `ENTERPRISE`. The validator/importer must fail closed if sheets, required templates, identifiers, counts, or uniqueness constraints are invalid. A dry run must not write to any database.
 
-```text
-BASIC
-PRO
-ENTERPRISE
-```
+## 4. Canonical workbook entry forms
 
-## Canonical `app_config` key forms
+The workbook export contract represents the configuration scopes with these key forms:
 
 ```text
 global
@@ -75,56 +77,48 @@ tenant:tenant_001:service:pos
 device:infinix_001_410
 ```
 
-`app_config` uses:
+These are the stable source/export identifiers for inventory validation and migration mapping. They do not require the new runtime database to persist one generic `app_config` table. DOC_14 defines how the Laravel importer maps workbook entries to normalized central tables.
 
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-The legacy `(device_id, key, value)` shape is not canonical.
-
-## Effective configuration algorithm
+## 5. Effective configuration algorithm
 
 For a requested `(tenant_id, device_id, service)`:
 
-1. Load `global`.
-2. Load `tenant:<tenant_id>` and resolve its `template_id`/`template`.
-3. Load `template:<TEMPLATE_ID>`.
-4. Load only `tenant:<tenant_id>:service:<service>` for the requested service.
-5. Load `device:<device_id>`.
-6. Merge in this exact precedence order:
+1. Load the global configuration.
+2. Resolve the tenant's centrally stored template assignment and load that template.
+3. Load the tenant-level configuration.
+4. Load only the service-specific configuration row for the requested service.
+5. Load that device's override after verifying the device is registered, active, and belongs to the resolved tenant.
+6. Merge in the exact order `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`.
 
-```text
-GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
-```
+For example, a request for `pos` may use `tenant:<tenant_id>:service:pos`, but must not merge the `akuntansi` service row into the same result. The same tenant/device/service input must produce deterministic output for the same configuration versions.
 
-POS and Akuntansi service rows must never be merged together when resolving one requested service.
+## 6. Runtime API and central storage target
 
-## Runtime reference implementation
+Under the proposed platform architecture, the effective-config runtime is the authenticated Laravel Central API described in DOC_14. It must:
 
-`pos-app/lib/core/config/config_service.dart` calls the authenticated `get_effective_config` RPC for remote configuration and may use only a previously returned effective-config cache for the exact tenant/device/service tuple during transient offline errors. It must not directly SELECT layered GLOBAL/TEMPLATE/TENANT/SERVICE rows. `ConfigService.mergeLayers()` is the Flutter merge-order reference.
+- derive tenant/user/device authorization server-side and fail closed on mismatch;
+- accept only an allowlisted service name;
+- load centrally owned configuration scopes without exposing unrestricted direct table reads to Flutter;
+- resolve only the requested service;
+- return an explicit configuration version/hash so the client can cache and diagnose the exact result;
+- permit only a cache previously returned by the server for the exact tenant/device/service tuple as the documented offline fallback;
+- use expected-version/optimistic-concurrency checks for configuration writes.
 
-`docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql` expresses the same Final Pos inheritance order and remains subject to the authentication hardening specified by the correction roadmap.
+The current Supabase RPC code described in older documents is implementation evidence of the legacy path and must be replaced in the planned migration; it is not the target API contract.
 
-## Superseded statements
+## 7. Change control and acceptance
 
-The following concepts are superseded and must not be used as architecture authority:
+Changing the inheritance order or workbook entry contract requires one reviewed change set covering this document, DOC_14 mapping/import logic, Admin/API/Flutter resolvers, tests, reports, and migration/backward-compatibility impact.
 
-- any configuration model that omits TEMPLATE;
-- any inheritance description equivalent to `GLOBAL -> TENANT -> DEVICE`;
-- any instruction that treats an historical commit as a permanently frozen implementation authority;
-- any Admin merge that combines POS and Akuntansi service rows for one effective-config request.
+Minimum acceptance tests:
 
-Historical verification documents may retain old facts only when explicitly marked **HISTORICAL** and must not override this decision.
+- exact workbook sheet and 352-entry/type-count validation;
+- template assignment and inheritance-precedence fixtures;
+- proof that an explicit value at each later layer overrides only that field;
+- proof that missing later-layer values remain inherited;
+- proof POS and Accounting are resolved separately;
+- proof tenant/device mismatch is rejected;
+- repeatable manifest/hash and no partial configuration update on failed version checks;
+- Admin, Laravel Central API, and Flutter produce identical effective configuration for the same fixture.
 
-## Change control
-
-A future change to the inheritance model requires all of the following in one reviewed change set:
-
-- update this architecture decision;
-- update workbook validator/sync logic;
-- update RPC and Flutter/Admin resolvers;
-- update tests and verification documents;
-- provide migration and backward-compatibility impact.
-
-Until such a change is merged, **GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE is the only authority**.
+Source presence alone is not test evidence. Record test command, revision, result, and artifacts in the phase report. Do not declare configuration parity or production readiness without evidence.
