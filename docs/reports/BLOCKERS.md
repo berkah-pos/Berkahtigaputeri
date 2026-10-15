@@ -10,7 +10,7 @@ Multiple candidate-head runs terminate with `startup_failure` before a job is cr
 - [Canonical POS App CI — run 38751378044](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751378044): `startup_failure`, jobs API returned an empty list.
 - [Phase 2 Tenant Grant Security CI — run 38751375975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751375975): `startup_failure`, jobs API returned an empty list.
 
-Earlier repeated attempts include KVM2 runs `38751004652`, `38750859176`, and `38750672707`, which failed the same way. This is not a test pass and does not establish whether the PHP/application changes pass or fail.
+Earlier repeated attempts include KVM2 runs `38751004652` and `38750859176`, which failed the same way. This is not a test pass and does not establish whether the PHP/application changes pass or fail.
 
 **Required owner action:** inspect repository/organization Actions startup and runner orchestration for these workflow IDs; restore a working hosted-runner job start, then re-run the current Phase 3 head. Do not bypass the gates or mark CI green manually.
 
