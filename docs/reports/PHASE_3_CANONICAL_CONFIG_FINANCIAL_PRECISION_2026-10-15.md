@@ -37,6 +37,12 @@ Canonical inventory:
 
 The MD5 is a sorted canonical-keyset fingerprint, not a checksum of all JSON configuration values.
 
+## Latest-head confirmation
+
+The latest repository-head workflow run [38751374350](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751374350) also passed the workbook validation job. Its checkout merge SHA was `07875bd`; source/test code was unchanged from the previously passing code head, and the follow-up branch change was report documentation. The logs again show 9 legacy parser tests passed, exporter validation passed with the exact 352 counts and MD5, and the new workbook/financial suite passed 5 tests.
+
+The corresponding latest candidate-head backend workflows are still blocked before jobs start: KVM2 Backend CI run [38751380158](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751380158), Canonical POS App CI run [38751378044](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751378044), and Phase 2 Tenant Grant Security CI run [38751375975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751375975) each have `startup_failure` and an empty jobs list. They did not execute PHP/PHPUnit, app tests/build, or real MariaDB grants.
+
 ## Changes in the Phase 3 branch
 
 ### 1. Workbook parsing and import manifest
@@ -86,6 +92,10 @@ The new `VersionedConfigWriter` uses allowlisted tables/identity columns, requir
 | 2026-10-15 — [run 38751004652](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751004652) | KVM2 Laravel Backend CI | **BLOCKED — startup_failure** | GitHub Actions returned `startup_failure`; jobs API returned an empty job list. PHP syntax, Composer/Pint, Laravel migrations and PHPUnit did not execute. |
 | 2026-10-15 — [run 38751008502](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751008502) | Canonical POS App CI | **BLOCKED — startup_failure** | Jobs API returned an empty job list; app tests/build did not execute in this run. |
 | 2026-10-15 — [run 38751006578](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751006578) | Phase 2 Tenant Grant Security CI | **BLOCKED — startup_failure** | Jobs API returned an empty job list; actual MariaDB tenant-grant checks did not execute in this run. |
+| 2026-10-15 — [run 38751374350](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751374350) | Latest-head workbook contract confirmation | **PASS** | Repeated on latest report head: 9 parser tests, 5 new regression tests, exact 352 counts and keyset MD5. Source/test code unchanged. |
+| 2026-10-15 — [run 38751380158](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751380158) | Latest KVM2 Laravel Backend CI | **BLOCKED — startup_failure** | Empty jobs list; PHP/PHPUnit and migrations still not executed. |
+| 2026-10-15 — [run 38751378044](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751378044) | Latest Canonical POS App CI | **BLOCKED — startup_failure** | Empty jobs list; app tests/build still not executed. |
+| 2026-10-15 — [run 38751375975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38751375975) | Latest Phase 2 Tenant Grant Security CI | **BLOCKED — startup_failure** | Empty jobs list; real MariaDB grants/security tests still not executed. |
 | 2026-10-15 | Laravel PHPUnit (including new service/auth/CAS/import tests) | **NOT RUN / NOT VERIFIED** | No passing Laravel test output observed for this candidate. |
 | 2026-10-15 | Central membership/metadata migration on disposable MariaDB | **NOT RUN / NOT VERIFIED** | No migration was applied by this task to disposable, staging, or production data. |
 | 2026-10-15 | Live cross-tenant/device authorization attack matrix | **NOT RUN / NOT VERIFIED** | Tests were added, but no deployed/live API security test was executed. |
