@@ -1,13 +1,13 @@
 # Phase 5 — Flutter Config Transition, Parity and Offline SQLite Integrity
 
-Date: 2026-10-15 (Asia/Jakarta)  
+Last verified: 2026-10-16 (Asia/Jakarta); implementation began 2026-10-15  
 Branch: feat/phase-5-flutter-transition-20261015  
 Base candidate: c6b0cf27ebafbba9e4407fb61d130e4438af3c44  
 Status: **RED / NOT VERIFIED — review gate remains closed before Phase 6.**
 
 ## Scope and inherited precondition
 
-This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED. The latest reviewed-head Laravel run [38778107422](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107422) passed PHP syntax checks but failed at `composer install`: Composer refused Laravel 11 / Filament 3 dependency candidates due to security advisories. Pint, central migrations, MariaDB privilege provisioning and MariaDB tenant-isolation integration tests were skipped. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
+This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED. The latest Laravel backend run for this Phase 5 candidate [38797640797](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38797640797) passed the workbook/runtime-contract job but failed at `composer install`: Composer refused Laravel 11 / Filament 3 dependency candidates due to security advisories. The separate canonical POS run [38797640662](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38797640662) also failed during Laravel dependency setup before Flutter/Android checks. Pint, central migrations, MariaDB privilege provisioning and MariaDB tenant-isolation integration tests were skipped. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
 
 ## Source-verified findings
 
@@ -29,12 +29,11 @@ The initial window is 2026-10-15T00:00:00Z through 2026-11-12T00:00:00Z (28 days
 ## Tests and exact output
 
 Final independent Phase 5 CI run: **PASS**  
-- Run: [38778107415](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107415)
-- Tested commit: `6fe02dd727fbc6ac9c12b65645938967c1a6b7b4`
-- Artifact containing eight captured log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107415/artifacts/11994497826)
+- Run: [38797631560](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38797631560)
+- Tested code commit: `648e8fbe3df8ce258cd77eaf6897f8971c39fb00`
+- Artifact with eight exact check-log files: [phase5-flutter-check-output](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38797631560/artifacts/12003770295)
 - Flutter version: `3.47.7`; official archive SHA-256: `af7455f540df951184c7953fbe3cf884766e7541dacf8571f9f582db03dd6230`
-- Runtime outcome: `flutter pub get` completed successfully; canonical workbook validation, workbook-contract tests, parity-harness unit tests and forbidden-table-fallback guard all passed.
-- The Phase 5 CI step outcomes were all successful, including `flutter analyze`, `flutter test` and log artifact upload.
+- `flutter pub get` completed successfully. Workbook validation, workbook-contract tests, parity-harness unit tests, the direct-table-fallback guard, Flutter analysis, Flutter tests and log artifact upload all passed.
 
 Exact console output captured by CI:
 
@@ -45,14 +44,14 @@ PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 14
 
 Workbook contract regression suite:
 ```text
-Ran 5 tests in 0.098s
+Ran 5 tests in 0.172s
 
 OK
 ```
 
 Parity harness unit suite:
 ```text
-Ran 5 tests in 0.038s
+Ran 7 tests in 0.067s
 
 OK
 ```
@@ -65,15 +64,15 @@ PASS: no raw app_config table fallback found in pos-app/lib.
 `cd pos-app && flutter analyze --no-pub`:
 ```text
 Analyzing pos-app...
-No issues found! (ran in 5.8s)
+No issues found! (ran in 8.1s)
 ```
 
 `cd pos-app && flutter test --no-pub --reporter expanded`:
 ```text
-00:08 +60: All tests passed!
+00:09 +61: All tests passed!
 ```
 
-The passing 60-test Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test also verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event. Two additional config regressions prove distinct tenant/device identifiers containing dots cannot collide in the effective-config cache, and the dual-mode sunset blocks even a fresh parity cache when the emergency cache switch is enabled.
+The passing 61-test Flutter suite includes the new SQLite outbox tests for explicit acknowledgements, omitted acknowledgements staying pending, conflicts staying visible, transport retries, rejecting foreign event IDs, and recovery of interrupted syncing after reopening a disk-backed SQLite database. The existing payment-service idempotency test verifies that a checkout retry does not duplicate the stable `outbox:sale:TRX-IDEMP-001` event. Config regressions cover dotted-identifier cache isolation, expiry under the emergency kill switch, and Laravel-compatible recursive merge/list/empty-map semantics.
 
 Fix history: earlier run [38775817406](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38775817406) failed due to a missing secure-storage argument in `login_screen_test.dart` and the migration assuming every historical database already had `outbox_events`. Both issues were fixed before the successful tested commit above. That run is retained as diagnostic history, not the final test result.
 
@@ -85,7 +84,7 @@ The passing checks above **do not** establish live central-inventory parity or l
 |---|---|---|
 | Secure Sanctum token storage | SOURCE-VERIFIED; CI compile/test PASS | Client now requires secure storage and has no plaintext SharedPreferences token fallback; live login/token-vault flow is not tested against a deployed Laravel API |
 | Feature flag and bounded dual mode | UNIT TESTS PASS; LIVE PARITY NOT VERIFIED | Source-mode/expiry/mismatch tests pass; the deployed app has no reviewed legacy comparison provider, so dual mode intentionally fails closed; the superseded Supabase runtime mode is rejected |
-| Workbook 352-key inventory | PASS | Exact output above; exporter verifies the canonical key count/hash and both 5-test Python suites pass |
+| Workbook 352-key inventory | PASS | Exact output above; exporter verifies the canonical key count/hash; workbook contract suite has 5 tests and parity harness suite has 7 tests, both passing |
 | Actual 352-entry backend inventory parity | NOT VERIFIED | Requires authorized Laravel-side JSON snapshot |
 | Effective-config parity for valid fixtures | NOT VERIFIED | Requires authenticated staging Laravel API responses; POS/Akuntansi separately |
 | Atomic local sale + outbox write | SOURCE-VERIFIED | SqliteSaleRepository inserts both in one transaction; rollback/idempotency tests exist |
