@@ -170,7 +170,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
 
         $databaseUlid = $provisioner->generateDatabaseUlid();
         $databaseName = $provisioner->databaseName($databaseUlid);
-        $username = $provisioner->runtimeUsername($tenantId);
+        $username = $provisioner->runtimeUsername($databaseUlid);
         $password = Str::random(64);
         $provisioningId = (string) Str::uuid();
 

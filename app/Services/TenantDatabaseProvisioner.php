@@ -34,7 +34,6 @@ class TenantDatabaseProvisioner
             throw new RuntimeException('Tenant key is not in the accepted identifier format.');
         }
 
-        $runtimeUsername = $this->runtimeUsername($tenantId);
         $lockName = 'bp-provision-'.substr(hash('sha256', $tenantId), 0, 40);
         $provisioner = DB::connection('provisioner');
         $lock = $provisioner->selectOne('SELECT GET_LOCK(?, 30) AS acquired', [$lockName]);
@@ -66,6 +65,10 @@ class TenantDatabaseProvisioner
                 }
             }
             $databaseName = $this->databaseName($databaseUlid);
+            // Runtime usernames derive from the persisted DB ULID, not a caller-facing
+            // tenant ID. Distinct databases cannot collide when fixtures or tenants reuse
+            // numeric/simple tenant identifiers, and retrying one ULID remains idempotent.
+            $runtimeUsername = $this->runtimeUsername($databaseUlid);
 
             if (! is_array($state)) {
                 // A pre-existing DB/user without our central reservation is
@@ -302,9 +305,14 @@ class TenantDatabaseProvisioner
         return (bool) preg_match('/^[0-9abcdefghjkmnpqrstvwxyz]{26}$/', $databaseUlid);
     }
 
-    public function runtimeUsername(string $tenantId): string
+    public function runtimeUsername(string $databaseUlid): string
     {
-        return 'bp_t_'.substr(hash('sha256', $tenantId), 0, 20);
+        $databaseUlid = strtolower($databaseUlid);
+        if (! $this->isValidDatabaseUlid($databaseUlid)) {
+            throw new RuntimeException('Runtime username must derive from a canonical lowercase tenant database ULID.');
+        }
+
+        return 'bp_t_'.substr(hash('sha256', $databaseUlid), 0, 20);
     }
 
     private function databaseExists(string $databaseName): bool
@@ -514,7 +522,10 @@ class TenantDatabaseProvisioner
         $expected = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
         sort($expected);
         if ($actual !== $expected) {
-            throw new RuntimeException('Runtime tenant account must have exactly SELECT, INSERT, UPDATE, DELETE on its own database.');
+            throw new RuntimeException(
+                'Runtime tenant account grant set differs from the exact CRUD contract for '.$databaseName.
+                '; observed privileges=['.implode(',', $actual).'].'
+            );
         }
 
         // MariaDB 11.4 has no information_schema.ROUTINE_PRIVILEGES view.
