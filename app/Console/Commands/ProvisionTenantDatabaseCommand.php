@@ -17,10 +17,10 @@ class ProvisionTenantDatabaseCommand extends Command
     {
         // Public web and normal queue containers do not have these credentials,
         // so accidentally invoking this command there fails before any DB DDL.
-        if (trim((string) env('PROVISIONER_DB_USERNAME')) === ''
-            || trim((string) env('PROVISIONER_DB_PASSWORD')) === ''
-            || trim((string) env('MIGRATOR_DB_USERNAME')) === ''
-            || trim((string) env('MIGRATOR_DB_PASSWORD')) === '') {
+        if (trim((string) config('database.connections.provisioner.username')) === ''
+            || trim((string) config('database.connections.provisioner.password')) === ''
+            || trim((string) config('database.connections.migrator.username')) === ''
+            || trim((string) config('database.connections.migrator.password')) === '') {
             $this->error('Provisioning credentials are not available in this process.');
 
             return self::FAILURE;
