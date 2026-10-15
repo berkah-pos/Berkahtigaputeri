@@ -211,7 +211,7 @@ jobs:
             echo "::error::berkahpos_app has global privileges: $global_privileges"
             exit 1
           fi
-          scoped_count="$(printf '%s\\n' "$grants" | grep -F " TO 'berkahpos_app'@'%' " | grep -F "berkahpos" | wc -l)"
+          scoped_count="$(printf '%s\\n' "$grants" | grep -F " TO 'berkahpos_app'@'%' " | grep -cF "berkahpos" || true)"
           if [[ "$scoped_count" -lt 2 ]]; then
             echo "::error::Expected central and tenant database-scoped grants; found $scoped_count."
             exit 1
