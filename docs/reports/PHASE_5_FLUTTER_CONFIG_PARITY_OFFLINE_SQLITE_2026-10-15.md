@@ -7,7 +7,7 @@ Status: **RED / NOT VERIFIED — review gate remains closed before Phase 6.**
 
 ## Scope and inherited precondition
 
-This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED because backend dependency installation failed before the tenant-isolation suites executed. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
+This phase addresses AGENTS.md Sections 4 and 8, DOC_00 canonical configuration behavior, DOC_14 transition requirements and the ordered roadmap. The parent Phase 4 report remains RED / NOT VERIFIED. The latest parent-branch Laravel run [38776963931](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38776963931) passed PHP syntax checks but failed at `composer install`: Composer refused Laravel 11 / Filament 3 dependency candidates due to security advisories. Pint, central migrations, MariaDB privilege provisioning and MariaDB tenant-isolation integration tests were skipped. This Phase 5 branch is stacked on that candidate for scoped Flutter work; it does not assert Phase 4 passed or was approved.
 
 ## Source-verified findings
 
