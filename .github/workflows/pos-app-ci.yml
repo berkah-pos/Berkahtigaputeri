@@ -44,6 +44,20 @@ jobs:
       - name: Check Laravel KVM2 contract
         run: python3 scripts/check_kvm2_contract.py
 
+      - name: Lint GitHub Actions workflow definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="1.7.12"
+          archive="$RUNNER_TEMP/actionlint_${version}_linux_amd64.tar.gz"
+          checksums="$RUNNER_TEMP/actionlint_${version}_checksums.txt"
+          curl --fail --location --silent --show-error "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_linux_amd64.tar.gz" --output "$archive"
+          curl --fail --location --silent --show-error "https://github.com/rhysd/actionlint/releases/download/v${version}/actionlint_${version}_checksums.txt" --output "$checksums"
+          (cd "$RUNNER_TEMP" && grep "actionlint_${version}_linux_amd64.tar.gz" "$checksums" | sha256sum --check --status)
+          mkdir -p "$RUNNER_TEMP/actionlint"
+          tar -xzf "$archive" -C "$RUNNER_TEMP/actionlint"
+          "$RUNNER_TEMP/actionlint/actionlint" .github/workflows/kvm2-backend-ci.yml .github/workflows/pos-app-ci.yml
+
       - name: Install workbook validator dependencies
         shell: bash
         run: |
