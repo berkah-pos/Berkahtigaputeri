@@ -8,4 +8,9 @@ if [ "${RUN_CENTRAL_MIGRATIONS:-false}" = "true" ]; then
   php artisan migrate --database=central --path=database/migrations/central --force
 fi
 
+# Worker services override the command. The public web container starts supervisor.
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
+
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/berkah-pos.conf

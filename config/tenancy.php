@@ -2,11 +2,8 @@
 
 use App\Models\Central\Domain;
 use App\Models\Central\Tenant;
+use App\Database\TenantDatabaseManager;
 use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
-use Stancl\Tenancy\Events\TenantCreated;
-use Stancl\Tenancy\Jobs\CreateDatabase;
-use Stancl\Tenancy\Jobs\MigrateDatabase;
-use Stancl\JobPipeline\JobPipeline;
 
 return [
     'tenant_model' => Tenant::class,
@@ -19,32 +16,30 @@ return [
     'bootstrappers' => [
         DatabaseTenancyBootstrapper::class,
     ],
-    'events' => [
-        TenantCreated::class => [
-            JobPipeline::make([
-                CreateDatabase::class,
-                MigrateDatabase::class,
-            ])->send(function (TenantCreated $event) {
-                return $event->tenant;
-            })->shouldBeQueued(false),
-        ],
-    ],
+    // TenantCreated is handled by AppServiceProvider and a durable queued job.
+    // Never run database creation/migrations synchronously in a public request.
     'database' => [
         'central_connection' => 'central',
-        'template_tenant_connection' => 'tenant',
+        'template_tenant_connection' => 'tenant_template',
         'prefix' => env('TENANT_DB_PREFIX', 'berkahpos_tenant_'),
         'suffix' => '',
         'managers' => [
-            'mysql' => Stancl\Tenancy\TenantDatabaseManagers\MySQLDatabaseManager::class,
+            'mysql' => TenantDatabaseManager::class,
         ],
     ],
+    // Database manager operations (for example databaseExists) use the
+    // provisioner connection. Public services do not receive its credentials.
+    'database_manager_connections' => [
+        'mysql' => 'provisioner',
+    ],
+
     'migration_parameters' => [
         '--force' => true,
         '--path' => [database_path('migrations/tenant')],
         '--realpath' => true,
     ],
     'seeder_parameters' => [
-        '--class' => 'Database\Seeders\TenantDatabaseSeeder',
+        '--class' => 'Database\\Seeders\\TenantDatabaseSeeder',
         '--force' => true,
     ],
 ];
