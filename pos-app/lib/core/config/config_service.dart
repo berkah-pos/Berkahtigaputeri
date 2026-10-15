@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'central_api_client.dart';
 
 enum ConfigSourceMode {
-  supabase,
   laravel,
   dual;
 
@@ -17,8 +16,8 @@ enum ConfigSourceMode {
   }
 }
 
-/// Temporary bridge contract. Production has no Supabase SDK or raw table
-/// adapter; a reviewed bridge may return only server-resolved effective config.
+/// Temporary comparison contract for a separately reviewed legacy provider.
+/// This app does not ship or inject a legacy database/table adapter.
 abstract interface class LegacyEffectiveConfigSource {
   Future<Map<String, dynamic>> getEffectiveConfig({
     required String tenantId,
@@ -153,8 +152,6 @@ class ConfigService {
 
   bool get hasAuthenticatedSession {
     switch (sourceMode) {
-      case ConfigSourceMode.supabase:
-        return legacySource != null;
       case ConfigSourceMode.laravel:
         return _client.hasSession;
       case ConfigSourceMode.dual:
@@ -185,28 +182,6 @@ class ConfigService {
     }
 
     switch (sourceMode) {
-      case ConfigSourceMode.supabase:
-        final legacy = legacySource;
-        if (legacy == null) {
-          await _recordTelemetry(service: service, status: 'legacy_adapter_missing');
-          throw StateError(
-            'Supabase mode is unavailable: no reviewed legacy effective-config adapter is installed. '
-            'Direct client-side table queries are forbidden.',
-          );
-        }
-        final value = await legacy.getEffectiveConfig(
-          tenantId: tenantId,
-          deviceId: deviceId,
-          service: service,
-        );
-        await _writeCache(cacheKey, value, parityVerified: false);
-        await _recordTelemetry(service: service, status: 'legacy_resolved');
-        return EffectiveConfigResult(
-          value: value,
-          fromCache: false,
-          sourceMode: sourceMode,
-        );
-
       case ConfigSourceMode.laravel:
         if (!_client.hasSession) {
           throw StateError(
