@@ -9,8 +9,9 @@ class TenantConfig extends Model
     protected $connection = 'central';
     protected $table = 'tenant_configs';
     protected $fillable = ['tenant_id', 'service', 'service_scope', 'template_id', 'config', 'version'];
-    protected function casts(): array
-    {
-        return ['config' => 'array', 'version' => 'integer'];
-    }
+
+    protected $casts = [
+        'config' => 'array',
+        'version' => 'integer',
+    ];
 }
