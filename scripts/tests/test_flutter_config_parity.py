@@ -68,6 +68,10 @@ class FlutterConfigParityTest(unittest.TestCase):
 
     def test_effective_config_parity_keeps_pos_and_akuntansi_separate(self):
         manifest = manifest_fixture()
+        # A nested object survives across layers exactly as Laravel deepMerge does.
+        manifest["global_config"]["nested"] = {"inherited": True, "overridden": "global"}
+        manifest["templates"][0]["config"]["nested"] = {"overridden": "template", "template_only": 1}
+        manifest["tenants"][0]["config"]["nested"] = {"tenant_only": 2}
         fixtures = parity.build_valid_fixtures(manifest)
         self.assertEqual({"pos", "akuntansi"}, {row["service"] for row in fixtures})
         pos = parity.expected_effective_config(
@@ -81,6 +85,22 @@ class FlutterConfigParityTest(unittest.TestCase):
         self.assertNotIn("accounting_only", pos)
         self.assertIn("accounting_only", accounting)
         self.assertNotIn("pos_only", accounting)
+        self.assertEqual(
+            {"inherited": True, "overridden": "template", "template_only": 1, "tenant_only": 2},
+            pos["nested"],
+        )
+        self.assertEqual(pos["nested"], accounting["nested"])
+
+    def test_laravel_merge_semantics_replace_lists_and_nested_empty_maps(self):
+        merged = parity.merge_effective_layers([
+            {"root": {"keep": True, "replace": "base"}, "items": [1, 2]},
+            {},
+            {"root": {"replace": "override"}, "items": [9], "empty_map": {"old": True}},
+            {"empty_map": {}},
+        ])
+        self.assertEqual({"keep": True, "replace": "override"}, merged["root"])
+        self.assertEqual([9], merged["items"])
+        self.assertEqual({}, merged["empty_map"])
 
     def test_missing_staging_evidence_is_not_verified_and_returns_exit_two(self):
         output = io.StringIO()
