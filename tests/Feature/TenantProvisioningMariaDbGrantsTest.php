@@ -284,17 +284,24 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
     {
         $rows = DB::connection('provisioner')->select("SHOW GRANTS FOR '{$username}'@'%'");
         $grants = array_map(static fn ($row): string => (string) array_values((array) $row)[0], $rows);
-        $scoped = array_values(array_filter($grants, static fn (string $grant): bool => ! str_contains(strtoupper($grant), 'GRANT USAGE ON *.*')));
+        $scoped = array_values(array_filter(
+            $grants,
+            static fn (string $item): bool => ! preg_match('/^GRANT USAGE ON \*\.\* TO /i', $item)
+        ));
 
         $this->assertCount(1, $scoped, 'Tenant runtime user must have exactly one non-USAGE grant.');
-        $grant = strtoupper(str_replace('\\_', '_', $scoped[0]));
-        $this->assertStringContainsString('SELECT, INSERT, UPDATE, DELETE', $grant);
-        $this->assertStringContainsString(chr(96).strtoupper($databaseName).chr(96).'.*', $grant);
-        $this->assertStringNotContainsString('CREATE', $grant);
-        $this->assertStringNotContainsString('ALTER', $grant);
-        $this->assertStringNotContainsString('DROP', $grant);
-        $this->assertStringNotContainsString('GRANT OPTION', $grant);
-        $this->assertStringNotContainsString('berkahpos_central', strtolower($grant));
+        $statement = str_replace('\\_', '_', $scoped[0]);
+        $pattern = '/^GRANT (.+) ON [`]?([A-Za-z0-9_]+)[`]?\.\* TO /i';
+        $this->assertMatchesRegularExpression($pattern, $statement, 'Runtime grant must be database-scoped.');
+        preg_match($pattern, $statement, $matches);
+        $this->assertSame($databaseName, $matches[2], 'Runtime grant must name only its own database.');
+        $privileges = array_map('trim', explode(',', strtoupper($matches[1])));
+        sort($privileges);
+        $expected = ['DELETE', 'INSERT', 'SELECT', 'UPDATE'];
+        sort($expected);
+        $this->assertSame($expected, $privileges, 'Runtime user must have exactly CRUD privileges.');
+        $this->assertStringNotContainsString('WITH GRANT OPTION', strtoupper($statement));
+        $this->assertStringNotContainsString('berkahpos_central', strtolower($statement));
     }
 
     private function runtimeConnection(string $name, string $databaseName, string $username, string $password): string
@@ -321,32 +328,39 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
         )]);
         DB::purge($connectionName);
 
-        $denied = false;
         try {
             DB::connection($connectionName)->selectOne('SELECT DATABASE() AS db');
-        } catch (\Throwable) {
-            $denied = true;
+        } catch (\\Throwable $exception) {
+            $this->assertPrivilegeDenial($exception);
+            return;
         } finally {
             DB::purge($connectionName);
             config(['database.connections.'.$connectionName => null]);
         }
 
-        $this->assertTrue(
-            $denied,
-            'Tenant credential unexpectedly connected with forbidden default database '.$forbiddenDatabase
-        );
+        $this->fail('Tenant credential unexpectedly connected with forbidden default database '.$forbiddenDatabase);
     }
 
     private function assertQueryDenied(callable $query): void
     {
-        $denied = false;
         try {
             $query();
-        } catch (\Throwable) {
-            $denied = true;
+        } catch (\\Throwable $exception) {
+            $this->assertPrivilegeDenial($exception);
+            return;
         }
 
-        $this->assertTrue($denied, 'MariaDB unexpectedly allowed a forbidden privilege operation.');
+        $this->fail('MariaDB unexpectedly allowed a forbidden privilege operation.');
+    }
+
+    private function assertPrivilegeDenial(\\Throwable $exception): void
+    {
+        $driverCode = (int) ($exception->errorInfo[1] ?? 0);
+        $this->assertContains(
+            $driverCode,
+            [1044, 1045, 1142, 1227],
+            'Expected a MariaDB privilege denial, got '.$exception::class.' with driver code '.$driverCode.'.'
+        );
     }
 
     private function quoteIdentifier(string $identifier): string
