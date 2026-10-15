@@ -14,6 +14,15 @@ class Tenant extends BaseTenant implements TenantWithDatabase, TenantWithDomains
 {
     use HasDatabase, HasDomains;
 
+    protected $connection = 'central';
+
+    // Preserve stancl/tenancy's tenant data cast while applying the shared
+    // configuration cast required by central configuration models.
+    protected $casts = [
+        'data' => 'array',
+        'config' => 'array',
+    ];
+
     public static function getCustomColumns(): array
     {
         return ['id', 'template_id'];
