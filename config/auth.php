@@ -1,6 +1,6 @@
 <?php
 
-use App\\Models\\Central\\User;
+use App\Models\Central\User;
 
 return [
     'defaults' => ['guard' => env('AUTH_GUARD', 'web'), 'passwords' => 'users'],
