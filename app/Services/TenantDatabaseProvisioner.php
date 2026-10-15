@@ -106,6 +106,8 @@ class TenantDatabaseProvisioner
             $databaseExists = $this->databaseExists($databaseName);
             if (! $databaseExists) {
                 $hasLaterProvisioningEvidence = ($state['status'] ?? null) === 'provisioned'
+                    || $this->hasAuditAction($provisioningId, 'database.create.completed')
+                    || $this->hasAuditAction($provisioningId, 'database.create.recovered_after_interruption')
                     || $this->hasAuditAction($provisioningId, 'runtime_user.create.intent')
                     || $this->hasAuditAction($provisioningId, 'ownership_marker.create.intent')
                     || $this->hasAuditAction($provisioningId, 'tenant_migrations.started')
