@@ -44,6 +44,25 @@ class ImportCanonicalWorkbookTest extends TestCase
         ];
     }
 
+    public function test_generated_manifest_meets_352_key_contract_and_import_validator(): void
+    {
+        $path = base_path('build/central-config-import.json');
+        if (! is_file($path)) {
+            $this->markTestSkipped('CI must export the canonical manifest before PHPUnit.');
+        }
+        $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx', $manifest['source_workbook']);
+        $this->assertSame(['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108], $manifest['counts']);
+        $this->assertSame(352, array_sum($manifest['counts']));
+        $this->assertSame('1fd3d64219ecc7c333453c20da80e295', $manifest['keyset_md5']);
+        $command = new ImportCanonicalWorkbook();
+        (new \ReflectionMethod($command, 'validateManifest'))->invoke($command, $manifest);
+        $this->assertCount(3, $manifest['templates']);
+        $this->assertCount(100, $manifest['tenants']);
+        $this->assertCount(140, $manifest['services']);
+        $this->assertCount(108, $manifest['devices']);
+    }
+
     private function syntheticManifest(): array
     {
         $tenants = [];
@@ -74,6 +93,7 @@ class ImportCanonicalWorkbookTest extends TestCase
 
         return [
             'schema_version' => 1,
+            'source_workbook' => 'FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx',
             'counts' => ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108],
             'keyset_md5' => 'not-trusted',
             'global_config' => [],
