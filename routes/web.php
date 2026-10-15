@@ -1,8 +1,9 @@
 <?php
 
+use App\Http\Middleware\EnsureCentralHost;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
+Route::middleware(EnsureCentralHost::class)->get('/', function () {
     return response()->json([
         'service' => 'Berkah POS Central API',
         'status' => 'ready',

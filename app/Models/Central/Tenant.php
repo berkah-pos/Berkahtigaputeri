@@ -2,6 +2,7 @@
 
 namespace App\Models\Central;
 
+use App\Services\TenantHostResolver;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Stancl\Tenancy\Contracts\TenantWithDatabase;
@@ -16,8 +17,6 @@ class Tenant extends BaseTenant implements TenantWithDatabase, TenantWithDomains
 
     protected $connection = 'central';
 
-    // Preserve stancl/tenancy's tenant data cast while applying the shared
-    // configuration cast required by central configuration models.
     protected $casts = [
         'data' => 'array',
         'config' => 'array',
@@ -38,5 +37,16 @@ class Tenant extends BaseTenant implements TenantWithDatabase, TenantWithDomains
     public function latestSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class, 'tenant_id', 'id')->latestOfMany();
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (Tenant $tenant): void {
+            app(TenantHostResolver::class)->forgetTenantDomains((string) $tenant->getTenantKey());
+        });
+
+        static::deleting(function (Tenant $tenant): void {
+            app(TenantHostResolver::class)->forgetTenantDomains((string) $tenant->getTenantKey());
+        });
     }
 }

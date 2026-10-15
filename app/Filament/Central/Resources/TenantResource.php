@@ -25,6 +25,11 @@ class TenantResource extends Resource
             Forms\Components\TextInput::make('id')
                 ->label('Tenant ID / slug')
                 ->required()->maxLength(100)->alphaDash()->unique(ignoreRecord: true),
+            Forms\Components\TextInput::make('store_name')->maxLength(255),
+            Forms\Components\Toggle::make('is_active')
+                ->label('Tenant active')
+                ->default(true)
+                ->required(),
             Forms\Components\Select::make('template_id')
                 ->options(['BASIC' => 'BASIC', 'PRO' => 'PRO', 'ENTERPRISE' => 'ENTERPRISE'])
                 ->required()->default('BASIC'),
@@ -35,6 +40,8 @@ class TenantResource extends Resource
     {
         return $table->columns([
             Tables\Columns\TextColumn::make('id')->searchable()->sortable(),
+            Tables\Columns\TextColumn::make('store_name')->searchable(),
+            Tables\Columns\IconColumn::make('is_active')->boolean()->label('Active'),
             Tables\Columns\TextColumn::make('template_id')->badge(),
             Tables\Columns\TextColumn::make('domains.domain')->label('Domains')->listWithLineBreaks(),
             Tables\Columns\TextColumn::make('latestSubscription.plan')->label('Plan')->badge(),

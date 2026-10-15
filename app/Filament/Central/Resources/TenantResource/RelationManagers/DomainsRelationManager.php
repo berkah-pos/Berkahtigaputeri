@@ -19,7 +19,12 @@ class DomainsRelationManager extends RelationManager
             Forms\Components\TextInput::make('domain')
                 ->required()->maxLength(253)->unique(ignoreRecord: true)
                 ->rule('regex:/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/i')
+                ->dehydrateStateUsing(fn (?string $state): string => strtolower(rtrim(trim((string) $state), '.')))
                 ->helperText('Register only a platform-controlled and verified domain.'),
+            Forms\Components\Toggle::make('is_active')
+                ->label('Domain active')
+                ->default(true)
+                ->required(),
         ]);
     }
 
@@ -27,8 +32,9 @@ class DomainsRelationManager extends RelationManager
     {
         return $table->columns([
             Tables\Columns\TextColumn::make('domain')->searchable(),
+            Tables\Columns\IconColumn::make('is_active')->boolean()->label('Active'),
             Tables\Columns\TextColumn::make('created_at')->dateTime(),
         ])->headerActions([Tables\Actions\CreateAction::make()])
-          ->actions([Tables\Actions\DeleteAction::make()->requiresConfirmation()]);
+          ->actions([Tables\Actions\EditAction::make(), Tables\Actions\DeleteAction::make()->requiresConfirmation()]);
     }
 }
