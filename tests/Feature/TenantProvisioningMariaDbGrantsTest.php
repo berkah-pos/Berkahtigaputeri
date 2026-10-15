@@ -108,6 +108,15 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
             [(string) $tenantA->getTenantKey()]
         ));
 
+        // A runtime user cannot delegate privileges or create other accounts.
+        $this->assertQueryDenied(fn () => $own->statement(
+            "GRANT SELECT ON {$quotedTenantB}.* TO '{$userB}'@'%'"
+        ));
+        $dummyPassword = bin2hex(random_bytes(12));
+        $this->assertQueryDenied(fn () => $own->statement(
+            "CREATE USER 'phase2_denied_{$suffix}'@'%' IDENTIFIED BY '{$dummyPassword}'"
+        ));
+
         $this->assertQueryDenied(fn () => $own->statement(
             'CREATE TABLE '.$this->quoteIdentifier('ddl_probe_'.$suffix).' (id INT PRIMARY KEY)'
         ));
