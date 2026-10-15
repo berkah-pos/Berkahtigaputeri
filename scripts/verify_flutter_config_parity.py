@@ -8,6 +8,7 @@ and an authenticated staging API token. This script performs no database writes.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -92,10 +93,37 @@ def compare_inventory(
     }
 
 
-def build_valid_fixtures(manifest: dict[str, Any]) -> list[dict[str, str]]:
+def _subscription_is_valid(
+    tenant: dict[str, Any], now_utc: datetime
+) -> bool:
+    raw_status = tenant.get("subscription_status")
+    # The importer defaults a missing workbook status to trial.
+    status = str(raw_status).strip().lower() if raw_status not in (None, "") else "trial"
+    if status not in {"active", "trial"}:
+        return False
+
+    raw_expiry = tenant.get("expires_at")
+    if raw_expiry in (None, ""):
+        # The importer assigns a 14-day trial expiry when the workbook omits it.
+        return True
+    try:
+        expiry = datetime.fromisoformat(str(raw_expiry).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            "Invalid tenant subscription expires_at: " + str(raw_expiry)
+        ) from exc
+    if expiry.tzinfo is None:
+        expiry = expiry.replace(tzinfo=timezone.utc)
+    return now_utc < expiry.astimezone(timezone.utc)
+
+
+def build_valid_fixtures(
+    manifest: dict[str, Any], *, now_utc: datetime | None = None
+) -> list[dict[str, str]]:
+    checked_at = (now_utc or datetime.now(timezone.utc)).astimezone(timezone.utc)
     tenants = {
         row["tenant_id"]: row for row in manifest["tenants"]
-        if row.get("is_active") is True
+        if row.get("is_active") is True and _subscription_is_valid(row, checked_at)
     }
     devices_by_tenant: dict[str, list[dict[str, Any]]] = {}
     for device in manifest["devices"]:
