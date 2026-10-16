@@ -245,6 +245,21 @@ void main() {
       );
     });
 
+    test('does not hide a client error behind the offline cache', () async {
+      api.responses['pos'] = <String, dynamic>{'enabled': true};
+      final service = ConfigService(api, preferences, clock: () => now);
+      await service.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+
+      api.failure = const CentralApiException('wrong endpoint', statusCode: 404);
+      now = now.add(const Duration(minutes: 1));
+      await expectLater(
+        service.getEffectiveConfig(
+          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
+        throwsA(isA<CentralApiException>()),
+      );
+    });
+
     test('expires cached configuration at the exact TTL boundary', () async {
       api.responses['pos'] = <String, dynamic>{'cached': true};
       final service = ConfigService(
