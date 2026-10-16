@@ -56,15 +56,15 @@ tenant_b='berkahpos_t_01arz3ndektsv4rrffq69g5faw'
 # Synthetic tenant names, accounts, and rows only. These are not production identifiers.
 root_sql <<SQL
 CREATE DATABASE IF NOT EXISTS berkahpos_central CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS `$tenant_a` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE DATABASE IF NOT EXISTS `$tenant_b` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS $tenant_a CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS $tenant_b CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'berkahpos_app'@'%' IDENTIFIED BY '$CENTRAL_PASSWORD';
 CREATE USER 'berkahpos_provisioner'@'%' IDENTIFIED BY '$PROVISIONER_PASSWORD';
 CREATE USER 'berkahpos_migrator'@'%' IDENTIFIED BY '$MIGRATOR_PASSWORD';
-CREATE TABLE `$tenant_a`.grant_probe (id INT PRIMARY KEY, synthetic_marker VARCHAR(40) NOT NULL);
-CREATE TABLE `$tenant_b`.grant_probe (id INT PRIMARY KEY, synthetic_marker VARCHAR(40) NOT NULL);
-INSERT INTO `$tenant_a`.grant_probe VALUES (1, 'synthetic-a-only');
-INSERT INTO `$tenant_b`.grant_probe VALUES (1, 'synthetic-b-only');
+CREATE TABLE $tenant_a.grant_probe (id INT PRIMARY KEY, synthetic_marker VARCHAR(40) NOT NULL);
+CREATE TABLE $tenant_b.grant_probe (id INT PRIMARY KEY, synthetic_marker VARCHAR(40) NOT NULL);
+INSERT INTO $tenant_a.grant_probe VALUES (1, 'synthetic-a-only');
+INSERT INTO $tenant_b.grant_probe VALUES (1, 'synthetic-b-only');
 SQL
 
 # Apply the repository's exact init grants, not a hand-written approximation.
@@ -84,9 +84,9 @@ done
 
 # Model a full compromise of the private provisioner process. No production host,
 # shared staging database, or non-disposable service is reachable by this workflow.
-provisioner_sql <<SQL
-CREATE USER 'audit_compromised_principal'@'%' IDENTIFIED BY '$ATTACKER_PASSWORD';
-GRANT SELECT, INSERT, UPDATE, DELETE ON `berkahpos\\_t\\_%`.* TO 'audit_compromised_principal'@'%';
+provisioner_sql --execute="CREATE USER 'audit_compromised_principal'@'%' IDENTIFIED BY '$ATTACKER_PASSWORD';"
+provisioner_sql <<'SQL'
+GRANT SELECT, INSERT, UPDATE, DELETE ON `berkahpos\_t\_%`.* TO 'audit_compromised_principal'@'%';
 SQL
 
 echo "=== ACTUAL SHOW GRANTS AFTER COMPROMISED PROVISIONER DELEGATES ACCESS ==="
