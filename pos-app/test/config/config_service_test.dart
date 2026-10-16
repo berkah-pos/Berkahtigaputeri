@@ -242,7 +242,7 @@ void main() {
       await expectLater(
         service.getEffectiveConfig(
           tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
-        throwsA(isA<CentralApiException>()),
+        throwsA(isA<TimeoutException>()),
       );
     });
 
