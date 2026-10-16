@@ -16,6 +16,10 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     protected $connection = 'central';
 
+    protected $keyType = 'string';
+
+    public $incrementing = false;
+
     protected $casts = [
         'data' => 'array',
         'config' => 'array',
