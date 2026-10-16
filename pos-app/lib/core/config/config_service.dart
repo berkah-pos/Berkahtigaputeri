@@ -177,7 +177,12 @@ class ConfigService {
     _validateScope(tenantId: tenantId, deviceId: deviceId, service: service);
     // Expiry dominates even a cached-parity result under the emergency kill switch.
     if (sourceMode == ConfigSourceMode.dual) _validateDualWindow();
-    final cacheKey = _effectiveCacheKey(tenantId, deviceId, service, sourceMode.name);
+    final cacheKey = _effectiveCacheKey(
+      tenantId,
+      deviceId,
+      service,
+      sourceMode.name,
+    );
 
     if (killSwitch) {
       final cached = _readFreshCache(
@@ -234,11 +239,11 @@ class ConfigService {
             rethrow;
           }
           final cached = _readFreshCache(
-        cacheKey,
-        tenantId: tenantId,
-        deviceId: deviceId,
-        service: service,
-      );
+            cacheKey,
+            tenantId: tenantId,
+            deviceId: deviceId,
+            service: service,
+          );
           if (cached == null) rethrow;
           await _recordTelemetry(service: service, status: 'laravel_cache_fallback');
           return _cacheResult(cached);
@@ -386,7 +391,7 @@ class ConfigService {
       final cachedAt = DateTime.tryParse(envelope['cached_at_utc'] as String);
       if (cachedAt == null) return null;
       final age = _clock().toUtc().difference(cachedAt.toUtc());
-      if (age.isNegative || age > cacheTtl) return null;
+      if (age.isNegative || age >= cacheTtl) return null;
 
       final response = EffectiveConfigResponse.fromJson(
         _asJsonMap(envelope['response']),
