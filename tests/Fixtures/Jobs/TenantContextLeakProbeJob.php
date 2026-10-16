@@ -23,6 +23,7 @@ class TenantContextLeakProbeJob implements ShouldQueue
     use SerializesModels;
 
     public int $tries = 1;
+
     public int $timeout = 90;
 
     public function __construct(
@@ -35,8 +36,7 @@ class TenantContextLeakProbeJob implements ShouldQueue
         public string $expectedDatabaseDefault,
         public string $expectedTenantDatabaseHost,
         public mixed $expectedTenantDatabaseName
-    ) {
-    }
+    ) {}
 
     public function handle(TenantScopedCache $cache, TenantScopedStorage $storage): void
     {
@@ -106,7 +106,7 @@ class TenantContextLeakProbeJob implements ShouldQueue
         }
 
         $written = file_put_contents(
-            $this->resultDirectory . DIRECTORY_SEPARATOR . $name,
+            $this->resultDirectory.DIRECTORY_SEPARATOR.$name,
             json_encode($data, JSON_THROW_ON_ERROR),
             LOCK_EX
         );

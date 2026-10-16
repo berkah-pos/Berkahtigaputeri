@@ -6,24 +6,30 @@ use App\Filament\Central\Resources\DeviceRegistryResource\Pages;
 use App\Models\Central\DeviceRegistry;
 use App\Models\Central\Tenant;
 use App\Models\Central\User;
+use Filament\Actions\EditAction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class DeviceRegistryResource extends Resource
 {
     protected static ?string $model = DeviceRegistry::class;
-    protected static ?string $navigationIcon = 'heroicon-o-device-tablet';
-    protected static ?string $navigationGroup = 'Platform';
+
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-device-tablet';
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Platform';
+
     protected static ?string $navigationLabel = 'Device Registry';
+
     protected static ?string $modelLabel = 'device';
+
     protected static ?string $pluralModelLabel = 'devices';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Forms\Components\TextInput::make('device_id')
                 ->required()->maxLength(150)->alphaDash()
                 ->unique(ignoreRecord: true),
@@ -55,7 +61,7 @@ class DeviceRegistryResource extends Resource
             }),
             Tables\Columns\TextColumn::make('registered_at')->dateTime()->sortable(),
         ])->actions([
-            Tables\Actions\EditAction::make(),
+            EditAction::make(),
         ]);
     }
 

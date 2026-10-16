@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TenantMembership extends Model
 {
     protected $connection = 'central';
+
     protected $table = 'tenant_memberships';
+
     protected $fillable = ['tenant_id', 'user_id', 'is_active', 'role'];
 
     protected function casts(): array
