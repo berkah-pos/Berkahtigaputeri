@@ -70,10 +70,12 @@ ROOT_REQUIRE = {
     "laravel/framework": "^13.0",
     "filament/filament": "^5.0",
     "stancl/tenancy": "^3.10.1",
+    "laravel/sanctum": "^4.0",
 }
 LOCKED_PREFIXES = {
     "laravel/framework": "13.",
     "filament/filament": "5.",
+    "laravel/sanctum": "4.",
 }
 EXACT_LOCKED_VERSIONS = {"stancl/tenancy": "3.10.1"}
 POLICY_FILES = [

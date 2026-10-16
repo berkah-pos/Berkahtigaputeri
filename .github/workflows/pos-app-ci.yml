@@ -110,22 +110,27 @@ jobs:
         run: |
           set -euo pipefail
           cp .env.example .env
+          mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer validate --strict --no-check-publish
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer install --no-interaction --prefer-dist --no-progress
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer check-platform-reqs
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer audit --locked --no-interaction
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" \
-            sh -eu -c "find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l"
+            sh -eu -c "php -l artisan && find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l"
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
 
       - name: Start disposable MariaDB 11.4 for tenant security tests

@@ -27,9 +27,10 @@ RUN set -eux; \
 
 COPY . /var/www/berkah-pos
 RUN set -eux; \
+    mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache; \
+    chown -R www-data:www-data storage bootstrap/cache; \
     composer dump-autoload --no-dev --no-interaction --optimize; \
     composer audit --locked --no-dev --no-interaction; \
-    mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache; \
     chown -R www-data:www-data storage bootstrap/cache; \
     chmod +x docker/entrypoint.sh
 
