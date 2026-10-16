@@ -2,7 +2,7 @@
 
 **Decision authority:** ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md selects Laravel Central API on KVM2/Coolify with PostgreSQL 17 and a database per tenant.  
 **Status:** Target selected by the owner ADR; architecture is **not implemented or deployed**. The owner designated Supabase project ID `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) as the source-of-record resource on 2026-10-17, despite its `staging` label. Migration remains **BLOCKED** until its authorized read-only inventory/export, reconciliation and all required acceptance gates pass. The designation does not verify production traffic or authorize mutations.  
-**Date:** 2026-10-16  
+**Original architecture date:** 2026-10-16; **source designation update:** 2026-10-17 (Asia/Jakarta)  
 **Scope boundary:** This document describes the selected target. It does not certify live infrastructure, completed data movement, tenant isolation, restore capability or production readiness.
 
 The PostgreSQL 17 choice supersedes the earlier MariaDB 11.4 proposal. The managed-Supabase + IDCloudHost plan is not the target runtime. ADR-2026-10-16 is the decision record; this document must not override it.
