@@ -12,6 +12,15 @@
 - **Login:** Supabase email/password sign-in when cloud settings are configured; an explicit local-only option is available when cloud login is unavailable.
 - **Pengaturan:** local tenant/device identity, guarded Supabase configuration diagnostics, sign-out, privacy policy, account-deletion request link, and sales WhatsApp link.
 
+## Runtime status and migration boundary — 2026-10-16
+
+This section describes the checked-in app on `main` at repository baseline `d7ee23cfaada3405416b01d9e127e32b07fb1a38`; it does not treat an open PR as shipped code.
+
+- **Implemented on `main` (source-verified):** `pubspec.yaml` declares `supabase_flutter`; `lib/main.dart` imports and initializes Supabase using build-time `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; `lib/core/config/config_service.dart` reads effective configuration through the authenticated Supabase client. Without those build-time settings, the app has an explicit local-only mode.
+- **Accepted target (not active on `main`):** the merged owner ADR #49 selects the authenticated Laravel Central API and PostgreSQL 17. Do not describe this app as Laravel-backed until reviewed migration code is merged and verified.
+- **Open migration work:** PRs [#48](https://github.com/berkah-pos/Berkahtigaputeri/pull/48) and [#52](https://github.com/berkah-pos/Berkahtigaputeri/pull/52) contain migration candidates; they remain unmerged. Their dedicated Flutter test passes do not establish backend installability, service/API parity, successful cloud sync, staging acceptance or production deployment.
+- **Historical/source retention:** existing Supabase code, SQL, auth/config behavior and migration artifacts must be treated as the currently implemented source plus migration evidence until source-of-truth identification, export/backup verification, parity, rollback and explicit cutover/retirement approval pass. Do not erase historical inputs merely because the target decision has changed.
+
 ## Architecture and truth-in-status rules
 
 - SQLite is the local persistence layer, using the canonical `PosDatabase` migrations in `lib/core/database/pos_database.dart`.
