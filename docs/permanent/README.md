@@ -34,7 +34,7 @@ If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC
 - **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
 - **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
 
-See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. Missing evidence stays `NOT RUN / NOT VERIFIED`.
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. The owner-designated source-of-record project is recorded in `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md`: project ID `cztlmwzfrhyafgawphgw`, despite its existing `staging` label. Source identity is confirmed; read-only inventory/export reconciliation and migration gates remain blocked. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
 ## Canonical configuration contract
 
