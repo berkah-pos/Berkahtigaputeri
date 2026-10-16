@@ -21,7 +21,7 @@ class ImportCanonicalWorkbookTest extends TestCase
             $manifest['devices'][107] = $manifest['devices'][0];
         }
 
-        $command = new ImportCanonicalWorkbook();
+        $command = new ImportCanonicalWorkbook;
         $method = new \ReflectionMethod($command, 'validateManifest');
 
         try {
@@ -55,7 +55,7 @@ class ImportCanonicalWorkbookTest extends TestCase
         $this->assertSame(['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108], $manifest['counts']);
         $this->assertSame(352, array_sum($manifest['counts']));
         $this->assertSame('1fd3d64219ecc7c333453c20da80e295', $manifest['keyset_md5']);
-        $command = new ImportCanonicalWorkbook();
+        $command = new ImportCanonicalWorkbook;
         (new \ReflectionMethod($command, 'validateManifest'))->invoke($command, $manifest);
         $this->assertCount(3, $manifest['templates']);
         $this->assertCount(100, $manifest['tenants']);

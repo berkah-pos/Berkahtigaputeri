@@ -34,7 +34,7 @@ class VersionedConfigWriterTest extends TestCase
             'key' => 'global', 'config' => json_encode(['mode' => 'old', 'version' => 1], JSON_THROW_ON_ERROR),
             'version' => 1, 'created_at' => now(), 'updated_at' => now(),
         ]);
-        $writer = new VersionedConfigWriter();
+        $writer = new VersionedConfigWriter;
         $this->assertSame(2, $writer->compareAndSwap('central', 'global_configs', ['key' => 'global'], 1, ['mode' => 'new', 'version' => 2]));
         $this->expectException(StaleConfigurationVersionException::class);
         $this->expectExceptionMessage('expected 1, found 2');
@@ -43,7 +43,7 @@ class VersionedConfigWriterTest extends TestCase
 
     public function test_version_must_be_integer_and_new_rows_start_at_one(): void
     {
-        $writer = new VersionedConfigWriter();
+        $writer = new VersionedConfigWriter;
         try {
             $writer->compareAndSwap('central', 'global_configs', ['key' => 'global'], 0, ['version' => 1.0]);
             $this->fail('A float version must be rejected.');

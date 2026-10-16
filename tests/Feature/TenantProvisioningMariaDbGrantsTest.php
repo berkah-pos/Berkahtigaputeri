@@ -7,8 +7,8 @@ use App\Services\TenantDatabaseProvisioner;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
 use Stancl\Tenancy\Facades\Tenancy;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class TenantProvisioningMariaDbGrantsTest extends TestCase
@@ -332,6 +332,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
             DB::connection($connectionName)->selectOne('SELECT DATABASE() AS db');
         } catch (\Throwable $exception) {
             $this->assertPrivilegeDenial($exception);
+
             return;
         } finally {
             DB::purge($connectionName);
@@ -347,6 +348,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
             $query();
         } catch (\Throwable $exception) {
             $this->assertPrivilegeDenial($exception);
+
             return;
         }
 
@@ -366,6 +368,7 @@ class TenantProvisioningMariaDbGrantsTest extends TestCase
     private function quoteIdentifier(string $identifier): string
     {
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9_]{1,64}$/', $identifier);
+
         return chr(96).$identifier.chr(96);
     }
 }

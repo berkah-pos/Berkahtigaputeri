@@ -6,20 +6,25 @@ use App\Filament\Central\Resources\DeviceRegistryResource\Pages;
 use App\Models\Central\DeviceRegistry;
 use App\Models\Central\Tenant;
 use App\Models\Central\User;
-use Filament\Forms;
 use Filament\Actions\EditAction;
-use Filament\Schemas\Schema;
+use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class DeviceRegistryResource extends Resource
 {
     protected static ?string $model = DeviceRegistry::class;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-device-tablet';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Platform';
+
     protected static ?string $navigationLabel = 'Device Registry';
+
     protected static ?string $modelLabel = 'device';
+
     protected static ?string $pluralModelLabel = 'devices';
 
     public static function form(Schema $schema): Schema

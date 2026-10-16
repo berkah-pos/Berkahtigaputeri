@@ -5,18 +5,21 @@ namespace App\Filament\Central\Resources;
 use App\Filament\Central\Resources\UserResource\Pages;
 use App\Models\Central\Tenant;
 use App\Models\Central\User;
-use Filament\Forms;
 use Filament\Actions\EditAction;
-use Filament\Schemas\Schema;
+use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class UserResource extends Resource
 {
     protected static ?string $model = User::class;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Platform';
+
     protected static ?string $navigationLabel = 'Users';
 
     public static function form(Schema $schema): Schema

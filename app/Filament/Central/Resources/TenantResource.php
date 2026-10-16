@@ -6,21 +6,24 @@ use App\Filament\Central\Resources\TenantResource\Pages;
 use App\Filament\Central\Resources\TenantResource\RelationManagers\DomainsRelationManager;
 use App\Filament\Central\Resources\TenantResource\RelationManagers\SubscriptionsRelationManager;
 use App\Models\Central\Tenant;
-use Filament\Forms;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Schemas\Schema;
+use Filament\Actions\EditAction;
+use Filament\Forms;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class TenantResource extends Resource
 {
     protected static ?string $model = Tenant::class;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-storefront';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Platform';
+
     protected static ?string $navigationLabel = 'Tenants';
 
     public static function form(Schema $schema): Schema

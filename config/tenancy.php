@@ -1,8 +1,8 @@
 <?php
 
+use App\Database\TenantDatabaseManager;
 use App\Models\Central\Domain;
 use App\Models\Central\Tenant;
-use App\Database\TenantDatabaseManager;
 use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
 
 return [

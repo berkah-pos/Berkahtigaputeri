@@ -9,6 +9,7 @@ use Filament\Resources\Pages\ListRecords;
 class ListDevices extends ListRecords
 {
     protected static string $resource = DeviceRegistryResource::class;
+
     protected function getHeaderActions(): array
     {
         return [Actions\CreateAction::make()];

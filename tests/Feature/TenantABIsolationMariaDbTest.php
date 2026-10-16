@@ -16,7 +16,7 @@ class TenantABIsolationMariaDbTest extends TestCase
         $runtimeA = DB::connection($this->runtimeConnectionFor($pair, 'A'));
         $runtimeB = DB::connection($this->runtimeConnectionFor($pair, 'B'));
 
-        $productB = 'phase4-b-' . $pair['suffix'];
+        $productB = 'phase4-b-'.$pair['suffix'];
         $runtimeB->table('products')->insert([
             'id' => $productB,
             'name' => 'Tenant B protected row',
@@ -34,36 +34,36 @@ class TenantABIsolationMariaDbTest extends TestCase
         $tenants = $this->quoteDatabaseIdentifier('tenants');
 
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->selectOne(
-            'SELECT id FROM ' . $tenantB . '.' . $products . ' WHERE id = ?',
+            'SELECT id FROM '.$tenantB.'.'.$products.' WHERE id = ?',
             [$productB]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'INSERT INTO ' . $tenantB . '.' . $products . ' (id, name, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-            ['cross-insert-' . $pair['suffix'], 'Denied insert', '1.00', now(), now()]
+            'INSERT INTO '.$tenantB.'.'.$products.' (id, name, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+            ['cross-insert-'.$pair['suffix'], 'Denied insert', '1.00', now(), now()]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'UPDATE ' . $tenantB . '.' . $products . ' SET price = ? WHERE id = ?',
+            'UPDATE '.$tenantB.'.'.$products.' SET price = ? WHERE id = ?',
             ['99.00', $productB]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'DELETE FROM ' . $tenantB . '.' . $products . ' WHERE id = ?',
+            'DELETE FROM '.$tenantB.'.'.$products.' WHERE id = ?',
             [$productB]
         ));
 
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->selectOne(
-            'SELECT id FROM ' . $central . '.' . $tenants . ' WHERE id = ?',
+            'SELECT id FROM '.$central.'.'.$tenants.' WHERE id = ?',
             [$pair['tenantAId']]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'INSERT INTO ' . $central . '.' . $tenants . ' (id, template_id, created_at, updated_at) VALUES (?, ?, ?, ?)',
-            ['cross-central-' . $pair['suffix'], 'BASIC', now(), now()]
+            'INSERT INTO '.$central.'.'.$tenants.' (id, template_id, created_at, updated_at) VALUES (?, ?, ?, ?)',
+            ['cross-central-'.$pair['suffix'], 'BASIC', now(), now()]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'UPDATE ' . $central . '.' . $tenants . ' SET template_id = ? WHERE id = ?',
+            'UPDATE '.$central.'.'.$tenants.' SET template_id = ? WHERE id = ?',
             ['PRO', $pair['tenantAId']]
         ));
         $this->assertMariaDbPrivilegeDenied(fn () => $runtimeA->statement(
-            'DELETE FROM ' . $central . '.' . $tenants . ' WHERE id = ?',
+            'DELETE FROM '.$central.'.'.$tenants.' WHERE id = ?',
             [$pair['tenantAId']]
         ));
 

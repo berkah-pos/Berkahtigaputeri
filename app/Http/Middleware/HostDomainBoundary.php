@@ -9,9 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class HostDomainBoundary
 {
-    public function __construct(private readonly TenantHostResolver $resolver)
-    {
-    }
+    public function __construct(private readonly TenantHostResolver $resolver) {}
 
     public function handle(Request $request, Closure $next): Response
     {

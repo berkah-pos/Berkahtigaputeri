@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Stancl\Tenancy\Facades\Tenancy;
 
 class TenantWorkerContextResetter

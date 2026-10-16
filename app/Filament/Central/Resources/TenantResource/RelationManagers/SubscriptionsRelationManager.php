@@ -2,18 +2,19 @@
 
 namespace App\Filament\Central\Resources\TenantResource\RelationManagers;
 
-use Filament\Forms;
 use Filament\Actions\CreateAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\DeleteAction;
-use Filament\Schemas\Schema;
+use Filament\Actions\EditAction;
+use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class SubscriptionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'subscriptions';
+
     protected static ?string $title = 'Subscriptions';
 
     public function form(Schema $schema): Schema
@@ -38,9 +39,9 @@ class SubscriptionsRelationManager extends RelationManager
             Tables\Columns\TextColumn::make('expires_at')->dateTime()->sortable(),
             Tables\Columns\TextColumn::make('created_at')->dateTime(),
         ])->headerActions([CreateAction::make()])
-          ->actions([
-              EditAction::make(),
-              DeleteAction::make()->requiresConfirmation(),
-          ]);
+            ->actions([
+                EditAction::make(),
+                DeleteAction::make()->requiresConfirmation(),
+            ]);
     }
 }
