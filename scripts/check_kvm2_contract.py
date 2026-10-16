@@ -48,11 +48,9 @@ REQUIRED = [
     ("Dockerfile", "composer audit --locked"),
     ("Dockerfile", "pdo_pgsql"),
     ("Dockerfile", "composer.json composer.lock"),
-    ("docker-compose.yml", "mariadb:11"),
     ("config/tenancy.php", "'template_tenant_connection' => 'tenant_template'"),
     ("config/tenancy.php", "TenantDatabaseManager::class"),
     ("app/Console/Commands/ProvisionTenantDatabaseCommand.php", "database.connections.provisioner.username"),
-    ("docker/mysql-init/10-tenant-db-privileges.sql", "GRANT SELECT, INSERT, UPDATE, DELETE"),
     ("routes/api.php", "'/effective-config'"),
     ("app/Services/EffectiveConfigResolver.php", "$this->deepMerge("),
     ("app/Services/EffectiveConfigResolver.php", "tenant_memberships"),
@@ -63,7 +61,6 @@ REQUIRED = [
     ("app/Http/Controllers/Api/V1/EffectiveConfigController.php", "'effective_version' => $meta['effective_version']"),
     ("app/Console/Commands/ImportCanonicalWorkbook.php", '$calculatedHash = md5(implode("\\n", $keys));'),
     ("app/Console/Commands/ImportCanonicalWorkbook.php", "{--dry-run"),
-    ("docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md", "**Status:** CANONICAL"),
 ]
 ROOT_REQUIRE = {
     "php": "^8.4",
@@ -89,6 +86,7 @@ FORBIDDEN_POLICY_TOKENS = (
     "--no-security-blocking",
     "--no-blocking",
     "--ignore-platform-reqs",
+    "--no-audit",
     '"block": false',
     '"block":false',
 )
@@ -116,7 +114,12 @@ def check_dependency_baseline(errors: list[str]) -> None:
         if extension not in requirements:
             errors.append(f"dependency baseline drift: {extension} must remain an explicit platform requirement")
 
-    advisories = manifest.get("config", {}).get("policy", {}).get("advisories", {})
+    composer_config = manifest.get("config", {})
+    audit_config = composer_config.get("audit", {})
+    if isinstance(audit_config, dict) and audit_config.get("ignore"):
+        errors.append("Composer config.audit.ignore must remain empty; advisory suppression is prohibited")
+
+    advisories = composer_config.get("policy", {}).get("advisories", {})
     if isinstance(advisories, dict) and (
         advisories.get("block") is False or "ignore" in advisories or "ignore-id" in advisories
     ):

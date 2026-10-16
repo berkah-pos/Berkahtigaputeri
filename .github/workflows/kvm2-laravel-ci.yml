@@ -287,6 +287,11 @@ jobs:
           MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: |
+          set -euo pipefail
+          if [[ ! -f vendor/autoload.php ]]; then
+            echo "::error::Composer install did not produce vendor/autoload.php; Laravel tests cannot execute."
+            exit 1
+          fi
           docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
@@ -298,6 +303,7 @@ jobs:
             "$PHP_CI_IMAGE" php artisan test --filter=TenantProvisioningMariaDbGrantsTest
 
       - name: Run Laravel and Phase 4 tenant isolation tests
+        if: ${{ always() }}
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
