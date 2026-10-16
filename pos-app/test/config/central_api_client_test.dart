@@ -124,7 +124,7 @@ void main() {
           return http.Response('{"token":"issued-secure-token"}', 200);
         }
         expect(request.url.path, '/api/v1/auth/logout');
-        expect(request.headers['authorization'], 'Bearer issued-secure-token');
+        expect(request.headers['Authorization'], 'Bearer issued-secure-token');
         return http.Response('{"message":"Unavailable"}', 503);
       }),
     );
@@ -177,7 +177,7 @@ void main() {
           return http.Response('{"token":"revoked-token"}', 200);
         }
         expect(request.url.path, '/api/v1/effective-config');
-        expect(request.headers['authorization'], 'Bearer revoked-token');
+        expect(request.headers['Authorization'], 'Bearer revoked-token');
         return http.Response('{"message":"Unauthenticated."}', 401);
       }),
     );
