@@ -91,3 +91,65 @@ Implement these rules when CI is realigned to the approved dependency and engine
 - [Phase 5 metadata/Android follow-up PR #52](https://github.com/berkah-pos/Berkahtigaputeri/pull/52)
 - [PHP/Laravel dependency bootstrap PR #50](https://github.com/berkah-pos/Berkahtigaputeri/pull/50)
 - [Independent isolation/security review PR #51](https://github.com/berkah-pos/Berkahtigaputeri/pull/51)
+
+
+## 7. Captured failure commands and excerpts
+
+Raw workflow logs remain available from the linked GitHub Actions runs. The following redacted excerpts are included here so a top-level conclusion cannot hide where execution stopped or which assertion failed.
+
+### PR #48 current head — preflight failure, not Composer failure
+
+Candidate SHA: 6e31574ecc04ecae6a535fe409cf415ec18655cc  
+Run: [38856048750](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048750), job “Validate canonical workbook and active runtime contract”.
+
+Command shown in the job log:
+
+> python3 scripts/check_kvm2_contract.py
+
+Observed failure:
+
+> FAIL: missing contract: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md -> **Status:** CANONICAL  
+> Process completed with exit code 1.
+
+The combined POS run [38856048817](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048817) invokes the same contract checker and fails with the same message. Composer and downstream backend/Flutter steps are skipped in that job. This is a contract-guard failure; it is not evidence of a Composer failure on SHA 6e31574.
+
+### Historical PR #48 parent — dependency-install failure (stale SHA)
+
+Candidate SHA: 6fe02dd727fbc6ac9c12b65645938967c1a6b7b4  
+Run: [38778107422](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107422), job “Laravel backend, tenant isolation and privilege proof”.
+
+Exact command:
+
+> composer install --no-interaction --prefer-dist --no-progress
+
+Observed output:
+
+> No composer.lock file present. Updating dependencies to latest instead of installing from lock file.  
+> Your requirements could not be resolved to an installable set of packages.  
+> Root composer.json requires laravel/framework ^11.0, but candidates were blocked by Composer security advisories.  
+> Root composer.json requires filament/filament ^3.2.  
+> Process completed with exit code 2.
+
+Composer's output names advisory IDs beginning PKSA and explains that ignoring individual advisories or disabling policy blocking would be a workaround. Do not do that. Pint, migrations, grant tests and Laravel integration tests were skipped because the dependency step failed. These logs are real but stale for PR #48's newer current head.
+
+### PR #50 current head — executed MariaDB provisioning failure
+
+Candidate SHA: 29127e8ecc9d2c4253939e26a1aa54a59a07cbff  
+Run: [38914169548](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169548), job “Analyze, test, and Android compile-check”.
+
+Exact test command from the job log:
+
+> "$PHP_CI_IMAGE" php artisan test --filter=TenantProvisioningMariaDbGrantsTest
+
+Observed failure:
+
+> FAIL Tests\Feature\TenantProvisioningMariaDbGrantsTest  
+> First concurrent provisioner process failed.  
+> Failed asserting that 1 is identical to 0.  
+> at tests/Feature/TenantProvisioningMariaDbGrantsTest.php:231  
+> Tests: 2 failed (6 assertions).  
+> Process completed with exit code 2.
+
+The backend run [38914169687](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169687) also executed broader Laravel/Phase 4 tests. The log contains tenant provisioning failures with MariaDB error code 1044, a malformed-JSON resolver fixture failure, and an executed failure in EffectiveConfigAuthorizationTest including “Class Illuminate\\Validation\\AuthorizationException does not exist”. These are executed failures, not skipped tests. The same run’s locked Composer install and image smoke substeps succeeded, but they do not outweigh the test failures or validate the rejected MariaDB target.
+
+The machine-readable JSON next to this report records these failure classes, exact candidate SHAs, run IDs, and the distinction between pass scope and release-gate status.
