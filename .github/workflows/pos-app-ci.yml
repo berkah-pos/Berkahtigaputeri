@@ -11,6 +11,7 @@ on:
       - "routes/**"
       - "docker/**"
       - "composer.json"
+      - "composer.lock"
       - "Dockerfile"
       - "docker-compose.yml"
       - ".env.example"
@@ -45,6 +46,8 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    env:
+      PHP_CI_IMAGE: "berkah-pos-php-ci:${{ github.sha }}"
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -83,37 +86,47 @@ jobs:
         shell: bash
         run: python3 scripts/check_provisioning_env_contract.py
 
-      - name: Install and verify runner-provided PHP 8.3 and Composer
+      - name: Build clean PHP 8.4 CI runtime
         shell: bash
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip
-          php --version
-          composer --version
-          php <<'PHP'
-          <?php
-          if (PHP_MAJOR_VERSION !== 8 || PHP_MINOR_VERSION !== 3) {
-              fwrite(STDERR, "Expected PHP 8.3, got ".PHP_VERSION.PHP_EOL);
-              exit(1);
-          }
-          $required = ["bcmath", "ctype", "curl", "dom", "fileinfo", "intl", "mbstring", "openssl", "pdo_mysql", "pdo_sqlite", "tokenizer", "xml", "zip"];
-          $missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
-          if ($missing !== []) {
-              fwrite(STDERR, "Missing required PHP extensions: ".implode(", ", $missing).PHP_EOL);
-              exit(1);
-          }
-          echo "PASS: PHP 8.3 and required extensions are available.".PHP_EOL;
-          PHP
+          docker build --pull --no-cache --target php-base --tag "$PHP_CI_IMAGE" .
+          docker run --rm "$PHP_CI_IMAGE" php -r '
+            if (PHP_MAJOR_VERSION !== 8 || PHP_MINOR_VERSION !== 4) {
+                fwrite(STDERR, "Expected PHP 8.4, got ".PHP_VERSION.PHP_EOL);
+                exit(1);
+            }
+            $required = ["bcmath", "curl", "dom", "fileinfo", "intl", "mbstring", "openssl", "pdo_mysql", "pdo_pgsql", "pdo_sqlite", "tokenizer", "xml", "zip"];
+            $missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
+            if ($missing !== []) {
+                fwrite(STDERR, "Missing required PHP extensions: ".implode(", ", $missing).PHP_EOL);
+                exit(1);
+            }
+            echo "PASS: PHP 8.4 and required extensions are available.".PHP_EOL;
+          '
 
-      - name: Prepare Laravel test environment and dependencies
+      - name: Prepare Laravel test environment
         shell: bash
         run: |
           set -euo pipefail
           cp .env.example .env
-          composer install --no-interaction --prefer-dist --no-progress
-          php artisan key:generate --force
-          find app bootstrap config database routes public tests -type f -name "*.php" -print0 | xargs -0 -n1 php -l
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer validate --strict --no-check-publish
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer install --no-interaction --prefer-dist --no-progress
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer check-platform-reqs
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer audit --locked --no-interaction
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" \
+            sh -eu -c "find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l"
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
 
       - name: Start disposable MariaDB 11.4 for tenant security tests
         env:
@@ -172,7 +185,12 @@ jobs:
           CENTRAL_DB_USERNAME: root
           CENTRAL_DB_PASSWORD: phase2-root-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
-        run: php artisan migrate --database=central --path=database/migrations/central --force
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
+            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            "$PHP_CI_IMAGE" php artisan migrate --database=central --path=database/migrations/central --force
 
       - name: Run real MariaDB provisioning, grants, isolation, concurrency, and recovery tests
         env:
@@ -198,8 +216,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          vendor/bin/pint --test
-          php artisan test --filter=TenantProvisioningMariaDbGrantsTest
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
+            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT \
+            --env PROVISIONER_DB_DATABASE --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD \
+            --env MIGRATOR_DB_HOST --env MIGRATOR_DB_PORT --env MIGRATOR_DB_DATABASE \
+            --env MIGRATOR_DB_USERNAME --env MIGRATOR_DB_PASSWORD \
+            "$PHP_CI_IMAGE" php artisan test --filter=TenantProvisioningMariaDbGrantsTest
 
       - name: Verify central app SHOW GRANTS without logging credentials
         env:
