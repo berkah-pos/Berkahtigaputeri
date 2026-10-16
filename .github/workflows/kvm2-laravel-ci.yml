@@ -356,28 +356,50 @@ jobs:
           MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
         run: python3 scripts/check_central_app_grants.py
 
-      - name: Build production image from the same lockfile
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker build --pull --no-cache --build-arg VCS_REF="${{ github.sha }}" --tag "berkah-pos-production:${{ github.sha }}" .
-
-      - name: Smoke-test production image boot, routes, and locked versions
-        shell: bash
-        run: |
-          set -euo pipefail
-          app_key="$(sed -n 's/^APP_KEY=//p' .env)"
-          test -n "$app_key"
-          docker run --rm --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
-            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "berkah-pos-production:${{ github.sha }}" php artisan about
-          docker run --rm --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
-            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "berkah-pos-production:${{ github.sha }}" php artisan route:list --path=api/v1
-          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked laravel/framework
-          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked filament/filament
-          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked stancl/tenancy
-
       - name: Run Laravel Pint style checks after acceptance gates
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
+
+
+  production-image:
+    name: Production image lockfile build and boot smoke test
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CENTRAL_DOMAINS: localhost,central.test,app.central.test
+      IMAGE_TAG: "berkah-pos-production:${{ github.sha }}"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate exact manifest and lock pair
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/check_kvm2_contract.py
+          test -s composer.json
+          test -s composer.lock
+
+      - name: Build production image from the committed locked graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --no-cache --build-arg VCS_REF="${{ github.sha }}" --tag "$IMAGE_TAG" .
+
+      - name: Smoke-test image boot, API routes, and installed locked versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_key="base64:$(openssl rand -base64 32 | tr -d '\n')"
+          docker run --rm \
+            --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
+            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "$IMAGE_TAG" php artisan about
+          docker run --rm \
+            --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
+            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "$IMAGE_TAG" php artisan route:list --path=api/v1
+          docker run --rm "$IMAGE_TAG" composer show --locked laravel/framework
+          docker run --rm "$IMAGE_TAG" composer show --locked filament/filament
+          docker run --rm "$IMAGE_TAG" composer show --locked stancl/tenancy
