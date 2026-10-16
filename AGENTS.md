@@ -83,7 +83,7 @@ Do not recommend production launch until all applicable gates have direct eviden
 The immediate task is always to inspect the current branch and follow DOC_00, the owner ADR, DOC_14, and the roadmap in order. Do not infer completion from prior conversation summaries or historical reports.
 
 
-## 8. KVM2 hardening v2 — mandatory evidence gates
+## 8. KVM2/PostgreSQL hardening — mandatory evidence gates
 
 The hardening proposal in `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` is not accepted as implemented until the following gates have current evidence on the candidate commit. The supporting runbooks are planning documents until executed.
 
