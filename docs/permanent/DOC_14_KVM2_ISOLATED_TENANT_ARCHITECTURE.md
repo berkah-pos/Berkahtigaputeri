@@ -1,7 +1,7 @@
 # DOC_14 — Laravel Central API and PostgreSQL 17 Isolated-Tenant Architecture
 
 **Decision authority:** ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md selects Laravel Central API on KVM2/Coolify with PostgreSQL 17 and a database per tenant.  
-**Status:** Updated to align with the owner decision on the review branch. This architecture is **not implemented or deployed**. Migration remains **BLOCKED** until the source-of-truth and acceptance gates below pass.  
+**Status:** Target selected by the owner ADR; architecture is **not implemented or deployed**. Migration remains **BLOCKED** until the source-of-truth and acceptance gates below pass.  
 **Date:** 2026-10-16  
 **Scope boundary:** This document describes the selected target. It does not certify live infrastructure, completed data movement, tenant isolation, restore capability or production readiness.
 
