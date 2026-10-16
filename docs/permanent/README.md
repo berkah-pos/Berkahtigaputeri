@@ -12,7 +12,7 @@ This directory records durable configuration contracts, platform decisions, secu
 6. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original shared-Supabase platform choice is superseded by the owner ADR and detailed DOC_14.
 7. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of the old Flutter/Supabase implementation and known gaps; it does not define the new platform target.
 8. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-9. `scripts/sync_excel_to_supabase.py` — legacy-named workbook validator/import reference. Read it for workbook checks; its name does not authorize new Supabase writes.
+9. `scripts/sync_excel_to_supabase.py` — legacy workbook sync code. Source inspection confirms a Supabase REST/RPC write path when supplied cloud credentials; it is not a read-only validator or target Laravel importer. Do not execute against an unknown/shared project without explicit source approval and backup/rollback.
 10. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
 
 ## Authority boundaries
@@ -71,7 +71,7 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 
 ## Legacy Supabase material
 
-Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration.
+Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration. The main-branch `scripts/sync_excel_to_supabase.py` has a live Supabase REST/RPC write path when cloud credentials are provided; handle it as mutation-capable legacy code, not a harmless validation command.
 
 A malformed historical duplicate discovered on 2026-10-15 was reference-checked and archive-renamed to `../archive/superseded/DOC_14_MALFORMED_DUPLICATE_PROPOSAL_2026-10-15.md` on 2026-10-16. Its original date and proposal content are retained. Use the canonical `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` above; the archived duplicate is evidence only, not an independent authority.
 
