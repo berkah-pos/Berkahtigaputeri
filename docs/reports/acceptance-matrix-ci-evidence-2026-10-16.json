@@ -173,7 +173,7 @@
       "id": "A02",
       "name": "Workbook 352 entry/type counts and deterministic hash",
       "required": true,
-      "status": "success",
+      "status": "partial",
       "blocker": "Pass observed only on PR #48 SHA 6e31574 and PR #50 SHA 29127e8; must rerun on final integrated SHA with SHA-256 manifest"
     },
     {
@@ -215,7 +215,7 @@
       "id": "A08",
       "name": "Flutter analysis/tests/offline SQLite atomicity",
       "required": true,
-      "status": "success",
+      "status": "partial",
       "blocker": "Client/local scope only; does not prove cloud sync or server-side transaction behavior"
     },
     {
