@@ -14,5 +14,5 @@
 - Preserve offline idempotency, FEFO physical allocation vs FIFO financial costing, and accurate evidence reporting.
 - Use branches and pull requests, never direct implementation pushes to `main`. Never force-push, erase `.git`, or delete existing files blindly.
 - New workflows use GitHub-hosted `ubuntu-24.04`; deploy immutable images only after required checks pass.
-- Read `scripts/sync_excel_to_supabase.py` for legacy workbook validation behavior only until a reviewed Laravel importer replaces it. Its legacy name is not authorization to write to Supabase.
+- `scripts/sync_excel_to_supabase.py` is legacy workbook-sync code and contains a Supabase REST/RPC write path when cloud credentials are supplied. Do not execute it against an unknown/shared project as a validation step; require explicit source approval, backup and rollback. Its legacy name is not authorization to write to Supabase.
 - Report unexecuted tests as `NOT RUN / NOT VERIFIED`; source presence and docs do not prove green CI, tenant isolation, successful restore, or production readiness.
