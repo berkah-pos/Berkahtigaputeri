@@ -95,6 +95,13 @@ jobs:
             "$PHP_CI_IMAGE" composer audit --locked --no-interaction
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
 
+      - name: Install MariaDB client on the runner
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes mariadb-client
+
       - name: Create isolated DB accounts and apply grants
         env:
           PROVISIONER_INIT_HOST: 127.0.0.1
