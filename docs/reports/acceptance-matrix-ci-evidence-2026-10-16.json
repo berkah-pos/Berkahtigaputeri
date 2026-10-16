@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.0",
+  "evidence_date": "2026-10-16",
+  "timezone": "Asia/Jakarta",
+  "overall_status": "RED",
+  "selected_release_candidate_sha": null,
+  "decision": "No integrated candidate currently satisfies all required gates. Do not aggregate successes across different PR heads or test scopes.",
+  "authority": {
+    "owner_adr_pr": 49,
+    "owner_adr_url": "https://github.com/berkah-pos/Berkahtigaputeri/pull/49",
+    "status": "merged",
+    "selected_engine": "PostgreSQL 17",
+    "stack": {
+      "php": "8.4",
+      "laravel": "13.x",
+      "filament": "5.x",
+      "auth": "Laravel Sanctum",
+      "tenancy_candidate": "stancl/tenancy v3.10.1",
+      "lockfile_required": true,
+      "composer_security_advisories_must_remain_enabled": true
+    },
+    "configuration_contract": {
+      "precedence": [
+        "GLOBAL",
+        "TEMPLATE",
+        "TENANT",
+        "SERVICE",
+        "DEVICE"
+      ],
+      "entry_count": 352,
+      "types": {
+        "global": 1,
+        "template": 3,
+        "tenant": 100,
+        "service": 140,
+        "device": 108
+      }
+    }
+  },
+  "status_vocabulary": [
+    "success",
+    "executed_test_failure",
+    "dependency_install_failure",
+    "preflight_failure",
+    "startup_failure",
+    "skipped",
+    "stale_prior_head_success",
+    "not_run",
+    "partial"
+  ],
+  "candidate_heads": [
+    {
+      "pr": 48,
+      "title": "phase-5 Flutter config transition",
+      "head_sha": "6e31574ecc04ecae6a535fe409cf415ec18655cc",
+      "evidence": [
+        {
+          "run_id": 38856048876,
+          "workflow": "Canonical Workbook Validation",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048876",
+          "status": "success",
+          "scope": "Workbook contract and count validation only"
+        },
+        {
+          "run_id": 38856048883,
+          "workflow": "Phase 5 Flutter Transition Checks",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048883",
+          "status": "success",
+          "scope": "Flutter analysis/tests and local harness; no live API parity"
+        },
+        {
+          "run_id": 38856048750,
+          "workflow": "KVM2 Laravel Backend CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048750",
+          "status": "preflight_failure",
+          "detail": "Contract guard failed: DOC_14 missing expected CANONICAL status; Composer not reached; backend test job skipped"
+        },
+        {
+          "run_id": 38856048817,
+          "workflow": "Canonical POS App CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048817",
+          "status": "preflight_failure",
+          "detail": "Laravel KVM2 contract guard failed; downstream checks skipped"
+        }
+      ]
+    },
+    {
+      "pr": 52,
+      "title": "phase-5 config envelope and Android follow-up",
+      "head_sha": "ef3a71894db8461a596db5cd51b6bdf764c8f039",
+      "evidence": [
+        {
+          "run_id": 38900260816,
+          "workflow": "Phase 5 Flutter Transition Checks",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260816",
+          "status": "success",
+          "scope": "Flutter analysis/tests and local harness; no live API parity"
+        },
+        {
+          "run_id": 38900260758,
+          "workflow": "KVM2 Laravel Backend CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260758",
+          "status": "preflight_failure",
+          "detail": "Contract guard failed before Composer; backend test job skipped"
+        },
+        {
+          "run_id": 38900260866,
+          "workflow": "Canonical POS App CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260866",
+          "status": "preflight_failure",
+          "detail": "Laravel KVM2 contract guard failed; downstream checks skipped"
+        }
+      ],
+      "exact_head_workbook_evidence": "not_found"
+    },
+    {
+      "pr": 50,
+      "title": "Laravel 13/PHP 8.4 dependency bootstrap",
+      "head_sha": "29127e8ecc9d2c4253939e26a1aa54a59a07cbff",
+      "evidence": [
+        {
+          "run_id": 38914169711,
+          "workflow": "Canonical Workbook Validation",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169711",
+          "status": "success"
+        },
+        {
+          "run_id": 38914169687,
+          "workflow": "KVM2 Laravel Backend CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169687",
+          "status": "executed_test_failure",
+          "detail": "Composer locked-graph install and production image smoke passed; MariaDB grant and Laravel/Phase 4 tests failed; engine is not accepted target"
+        },
+        {
+          "run_id": 38914169548,
+          "workflow": "Canonical POS App CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169548",
+          "status": "executed_test_failure",
+          "detail": "Real MariaDB provisioning/concurrency tests failed; Flutter steps skipped"
+        },
+        {
+          "run_id": 38914169628,
+          "workflow": "Phase 2 Tenant Grant Security CI",
+          "url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169628",
+          "status": "executed_test_failure",
+          "detail": "MariaDB tenant grant/concurrency/recovery tests failed"
+        }
+      ],
+      "target_engine_compatible": false
+    }
+  ],
+  "stale_prior_head_evidence": [
+    {
+      "pr": 48,
+      "sha": "6fe02dd727fbc6ac9c12b65645938967c1a6b7b4",
+      "status": "stale_prior_head_success",
+      "success_run_id": 38778107415,
+      "success_run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107415",
+      "dependency_failure_run_id": 38778107422,
+      "dependency_failure_run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107422",
+      "note": "Older SHA had a Phase 5 success and a Composer advisory-blocking failure; neither result satisfies the newer current head."
+    }
+  ],
+  "required_gates": [
+    {
+      "id": "A01",
+      "name": "Dependency and lockfile validation",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No accepted integrated PostgreSQL 17 stack/lockfile evidence on a release candidate"
+    },
+    {
+      "id": "A02",
+      "name": "Workbook 352 entry/type counts and deterministic hash",
+      "required": true,
+      "status": "success",
+      "blocker": "Pass observed only on PR #48 SHA 6e31574 and PR #50 SHA 29127e8; must rerun on final integrated SHA with SHA-256 manifest"
+    },
+    {
+      "id": "A03",
+      "name": "Five-layer precedence and single-service isolation",
+      "required": true,
+      "status": "not_run",
+      "blocker": "Laravel resolver authorization/integration tests not shown passing on selected engine"
+    },
+    {
+      "id": "A04",
+      "name": "Clean PostgreSQL migrations, routes and auth",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No PostgreSQL 17 clean-migration/auth test evidence"
+    },
+    {
+      "id": "A05",
+      "name": "PostgreSQL 17 actual two-tenant grants and provisioning",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No selected-engine real-role test run"
+    },
+    {
+      "id": "A06",
+      "name": "Host/forwarded-host/membership/device/entitlement negatives",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No qualifying PostgreSQL-backed HTTP negative tests"
+    },
+    {
+      "id": "A07",
+      "name": "Long-lived worker tenant-context isolation",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No passing PostgreSQL tenant A then B worker execution"
+    },
+    {
+      "id": "A08",
+      "name": "Flutter analysis/tests/offline SQLite atomicity",
+      "required": true,
+      "status": "success",
+      "blocker": "Client/local scope only; does not prove cloud sync or server-side transaction behavior"
+    },
+    {
+      "id": "A09",
+      "name": "Sale/outbox replay and conflicting idempotency keys",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No verified POST /api/v1/sync endpoint or durable server receipt tests"
+    },
+    {
+      "id": "A10",
+      "name": "Selected-stack image/deployment smoke",
+      "required": true,
+      "status": "not_run",
+      "blocker": "Existing smoke was performed on unmerged MariaDB-target branch, not integrated PostgreSQL candidate"
+    },
+    {
+      "id": "A11",
+      "name": "Central/tenant/storage backup and restore",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No measured restore evidence for selected topology"
+    },
+    {
+      "id": "A12",
+      "name": "Performance and resource measurement",
+      "required": true,
+      "status": "not_run",
+      "blocker": "No isolated PostgreSQL/KVM2 load and headroom evidence"
+    },
+    {
+      "id": "A13",
+      "name": "Critical/high security issue closure",
+      "required": true,
+      "status": "executed_test_failure",
+      "blocker": "Legacy MariaDB provisioner blast-radius finding remains failed historical evidence; equivalent accepted-engine least-privilege proof is still required"
+    }
+  ],
+  "gate_rule": "Any required gate missing, skipped, preflight-failed, dependency-blocked, stale, or lacking exact-head artifacts keeps overall status RED. No aggregate GREEN from partial jobs."
+}
