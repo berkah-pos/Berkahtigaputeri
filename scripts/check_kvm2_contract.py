@@ -74,13 +74,14 @@ ROOT_REQUIRE = {
 LOCKED_PREFIXES = {
     "laravel/framework": "13.",
     "filament/filament": "5.",
-    "stancl/tenancy": "3.10.1",
 }
+EXACT_LOCKED_VERSIONS = {"stancl/tenancy": "3.10.1"}
 POLICY_FILES = [
     "composer.json",
     "Dockerfile",
     ".github/workflows/kvm2-laravel-ci.yml",
     ".github/workflows/phase2-tenant-grants-ci.yml",
+    ".github/workflows/pos-app-ci.yml",
 ]
 FORBIDDEN_POLICY_TOKENS = (
     "--no-security-blocking",
@@ -141,6 +142,10 @@ def check_dependency_baseline(errors: list[str]) -> None:
         actual = packages.get(package)
         if actual is None or not actual.startswith(expected_prefix):
             errors.append(f"locked dependency drift: {package} expected version prefix {expected_prefix!r}, got {actual!r}")
+    for package, expected_version in EXACT_LOCKED_VERSIONS.items():
+        actual = packages.get(package)
+        if actual != expected_version:
+            errors.append(f"locked dependency drift: {package} must stay at {expected_version!r}, got {actual!r}")
 
     platform = lock.get("platform", {})
     for requirement in ("ext-pdo", "ext-pdo_mysql", "ext-pdo_pgsql"):
