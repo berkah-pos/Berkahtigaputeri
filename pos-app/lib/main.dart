@@ -135,6 +135,20 @@ class _AppGate extends StatefulWidget {
 class _AppGateState extends State<_AppGate> {
   bool _localOnly = false;
 
+  @override
+  void initState() {
+    super.initState();
+    widget.apiClient?.onSessionInvalidated = _handleSessionInvalidated;
+  }
+
+  void _handleSessionInvalidated() {
+    if (!mounted) return;
+    setState(() => _localOnly = false);
+    // A protected request receiving 401 means the cached bearer token is no
+    // longer a valid session. Pop settings/routes so the login gate is visible.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   void _continueLocalOnly() => setState(() => _localOnly = true);
 
   void _authenticated() => setState(() => _localOnly = false);
