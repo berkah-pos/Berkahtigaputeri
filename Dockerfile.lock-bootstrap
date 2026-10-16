@@ -1,0 +1,7 @@
+FROM php:8.4-cli-bookworm
+COPY --from=composer:2.9.8 /usr/bin/composer /usr/local/bin/composer
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libcurl4-openssl-dev libicu-dev libpq-dev libzip-dev \
+    && docker-php-ext-install -j"$(nproc)" bcmath intl pdo_mysql pdo_pgsql zip \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
