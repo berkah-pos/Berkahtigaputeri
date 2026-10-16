@@ -192,6 +192,20 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/phase5-logs"
+          # Hosted runners can expose /dev/kvm without granting the runner
+          # user access. This runner is disposable; enable KVM access only
+          # for this job so the x86_64 emulator can use hardware acceleration.
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::Android emulator verification requires /dev/kvm on the hosted runner."
+            exit 1
+          fi
+          sudo chmod a+rw /dev/kvm
+          if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
+            echo "::error::Unable to grant the hosted runner read/write access to /dev/kvm."
+            ls -l /dev/kvm || true
+            exit 1
+          fi
+          ls -l /dev/kvm
           # Keep avdmanager and emulator on the same explicit home. Some
           # hosted runners expose different SDK/AVD home variables, causing
           # an AVD created moments earlier to appear unknown to the emulator.
@@ -218,6 +232,7 @@ jobs:
             -no-audio \
             -no-boot-anim \
             -no-snapshot \
+            -no-metrics \
             -gpu swiftshader_indirect \
             > "$RUNNER_TEMP/phase5-logs/android-emulator.log" 2>&1 &
           emulator_pid=$!
