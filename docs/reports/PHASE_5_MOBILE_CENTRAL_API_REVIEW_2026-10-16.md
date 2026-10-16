@@ -5,7 +5,7 @@
 **Branch:** fix/phase5-config-envelope-android-20261016  
 **Reviewed mobile base:** feat/phase-5-flutter-transition-20261015  
 **Verified app + workflow source:** 0b213292f7e0fa3753c5f54e393c7616fe9d0f8c  
-**Current PR head:** 7c1ad68dcc68abf918e55ad7ae5ad3a439afc741 (report-only changes after successful CI)
+**Post-verification changes:** report-only documentation updates; the app/workflow source tested below is unchanged.
 
 ## Mobile changes in this review
 
@@ -39,7 +39,7 @@
 
 ## Current workflow evidence
 
-- **Successful current-head dedicated run:** [Phase 5 Flutter Transition Checks #80](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38897159513), PR #52, commit `0b213292f7e0fa3753c5f54e393c7616fe9d0f8c`, concluded **success**.
+- **Successful dedicated run for the tested app/workflow source:** [Phase 5 Flutter Transition Checks #80](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38897159513), PR #52, commit `0b213292f7e0fa3753c5f54e393c7616fe9d0f8c`, concluded **success**. Subsequent commits on the PR only revise this review report.
 - **Exact Flutter analyze result:** command `flutter analyze --no-pub`; output `No issues found! (ran in 5.9s)`.
 - **Exact Flutter test result:** command `flutter test --no-pub --reporter expanded`; output `00:08 +73: All tests passed!`.
 - **Exact workbook/preflight result:** `PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 140, 'device': 108}; keyset_md5=1fd3d64219ecc7c333453c20da80e295`. The forbidden raw `app_config` table fallback guard also passed.
