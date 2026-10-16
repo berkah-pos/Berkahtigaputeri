@@ -2,7 +2,7 @@
 Location: `docs/runbooks/backup-restore.md`
 Branch: `docs/kvm2-isolated-saas-architecture`
 
-**Status:** runbook template; it has not been executed. Select exactly one database-engine path after DG-0. Configure and test object-storage remotes, encryption, key custody, access policies, and credentials before enabling scheduled jobs. Never paste production secrets into shell history or committed files.
+**Status:** runbook template; it has not been executed. The owner ADR selects PostgreSQL 17; Option B is the target path. Option A is a rejected MariaDB alternative retained for comparison only, not an operational instruction. Configure and test object-storage remotes, encryption, key custody, access policies and credentials before enabling scheduled jobs. Never paste production secrets into shell history or committed files.
 
 ## Scope
 
