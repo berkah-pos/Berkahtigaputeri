@@ -187,6 +187,7 @@ jobs:
           echo "PASS: built debug APK; this is not a production-signed release."
 
       - name: Boot Android emulator, install APK, and smoke-launch app
+        timeout-minutes: 15
         shell: bash
         run: |
           set -euo pipefail
@@ -206,7 +207,11 @@ jobs:
             > "$RUNNER_TEMP/phase5-logs/android-emulator.log" 2>&1 &
           emulator_pid=$!
           echo "$emulator_pid" > "$RUNNER_TEMP/phase5-logs/android-emulator.pid"
-          adb wait-for-device
+          if ! timeout 120s adb wait-for-device; then
+            tail -n 200 "$RUNNER_TEMP/phase5-logs/android-emulator.log" || true
+            echo "::error::Android emulator never exposed an ADB device within 120 seconds."
+            exit 1
+          fi
           booted=false
           for attempt in $(seq 1 120); do
             completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
