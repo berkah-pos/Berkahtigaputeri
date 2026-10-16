@@ -67,6 +67,7 @@ The selected architecture is not deployed. Migration remains blocked until the e
 - New GitHub Actions workflows use GitHub-hosted `ubuntu-24.04` runners unless a reviewed compatibility decision documents an exception.
 - Use immutable image tags/digests and deploy only revisions whose required checks passed. Do not build production images on the live KVM2 during routine deployments.
 - Keep historical Supabase SQL/migration material for audit/migration as needed, but explicitly label superseded operational paths. Do not let legacy file names dictate the new runtime.
+- `scripts/sync_excel_to_supabase.py` contains a Supabase REST/RPC write path when cloud credentials are supplied. Treat it as legacy main-branch write code, not a read-only validator or the Laravel importer; do not execute it against an unknown/shared resource without explicit source approval, backup and rollback planning.
 - Before any database, provisioning, DNS, TLS, or deployment change, identify the target environment and require a backup plus rollback/forward-recovery plan. Default testing to isolated dev/staging, never production.
 
 ## 6. Evidence, reports, and phase status
