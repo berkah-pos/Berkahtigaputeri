@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' show ClientException;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -208,34 +212,15 @@ class ConfigService {
             'A Laravel Central API login is required for effective configuration.',
           );
         }
+        EffectiveConfigResponse response;
         try {
-          final response = await _client.getEffectiveConfig(
+          response = await _client.getEffectiveConfig(
             tenantId: tenantId,
             deviceId: deviceId,
             service: service,
-          );
-          await _writeCache(
-            cacheKey,
-            response,
-            tenantId: tenantId,
-            deviceId: deviceId,
-            service: service,
-            parityVerified: false,
-          );
-          await _recordTelemetry(service: service, status: 'laravel_resolved');
-          return EffectiveConfigResult(
-            response: response,
-            fromCache: false,
-            sourceMode: sourceMode,
           );
         } catch (error) {
-          if (error is CentralApiException &&
-              error.statusCode != null &&
-              (error.statusCode! < 500 || error.statusCode! >= 600)) {
-            // HTTP protocol/client/auth/contract failures are never masked by
-            // cached config. Only 5xx and transport failures may use fresh cache.
-            rethrow;
-          }
+          if (!_isCacheFallbackEligible(error)) rethrow;
           final cached = _readFreshCache(
             cacheKey,
             tenantId: tenantId,
@@ -246,6 +231,23 @@ class ConfigService {
           await _recordTelemetry(service: service, status: 'laravel_cache_fallback');
           return _cacheResult(cached);
         }
+
+        // Local cache/telemetry failures are not API outages and must never be
+        // converted into a stale-cache success by the transport fallback path.
+        await _writeCache(
+          cacheKey,
+          response,
+          tenantId: tenantId,
+          deviceId: deviceId,
+          service: service,
+          parityVerified: false,
+        );
+        await _recordTelemetry(service: service, status: 'laravel_resolved');
+        return EffectiveConfigResult(
+          response: response,
+          fromCache: false,
+          sourceMode: sourceMode,
+        );
 
       case ConfigSourceMode.dual:
         if (!_client.hasSession) {
@@ -321,6 +323,19 @@ class ConfigService {
         'Dual-mode deprecation deadline passed. Cutover remains blocked pending explicit review.',
       );
     }
+  }
+
+  static bool _isCacheFallbackEligible(Object error) {
+    if (error is CentralApiException) {
+      final status = error.statusCode;
+      return status != null && status >= 500 && status < 600;
+    }
+
+    // Only failures that indicate a request could not complete can use the
+    // fresh exact-scope cache. Local persistence and programming errors bubble.
+    return error is TimeoutException ||
+        error is ClientException ||
+        error is IOException;
   }
 
   static void _validateScope({
