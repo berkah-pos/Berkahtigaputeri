@@ -8,7 +8,7 @@
 
 Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects the target platform, engine and stack; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` describes its detailed implementation. This roadmap defines phases and acceptance gates.
 
-The owner decision is recorded on a review branch and becomes repository authority after review and merge. The selected target is PostgreSQL 17; its implementation and migration remain blocked pending the authoritative source identity and required verification. A documented target does not mean code, tenant databases, CI, backups or deployment exist.
+The owner ADR selects PostgreSQL 17 as the platform/engine authority. Its implementation and migration remain blocked pending the authoritative source identity and required verification. A documented target does not mean code, tenant databases, CI, backups or deployment exist.
 
 ## 2. Product and protected invariants
 
