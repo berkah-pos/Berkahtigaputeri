@@ -8,7 +8,7 @@
 
 This decision owns the Final POS configuration behavior: its inheritance order, override semantics, canonical source workbook, template IDs, exported inventory, and service-specific resolution rules.
 
-It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. Those decisions are specified by `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. The platform, engine and stack decision is governed by `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`; `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` documents the selected target and its implementation/acceptance gates without overriding the ADR.
 
 The prior Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and authenticated `get_effective_config` RPC describe the legacy platform implementation, not the target storage/runtime design. Retain related SQL and reports for migration history and verification as needed; do not implement new runtime paths from them. The target is normalized central configuration storage and the authenticated Laravel Central API as defined by DOC_14.
 
