@@ -311,6 +311,22 @@ void main() {
       expect((cacheEnvelope['response'] as Map)['scoped_hash'], scoped);
     });
 
+    test('does not use stale cache after a successful malformed API envelope', () async {
+      api.responses['pos'] = <String, dynamic>{'enabled': true};
+      final service = ConfigService(api, preferences, clock: () => now);
+      await service.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+
+      api.failure = const CentralApiException(
+        'Malformed successful response', statusCode: 200);
+      now = now.add(const Duration(minutes: 1));
+      await expectLater(
+        service.getEffectiveConfig(
+          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
+        throwsA(isA<CentralApiException>()),
+      );
+    });
+
     test('cache identity includes configuration source mode', () async {
       api.responses['pos'] = <String, dynamic>{'enabled': true};
       final laravel = ConfigService(api, preferences, clock: () => now);
