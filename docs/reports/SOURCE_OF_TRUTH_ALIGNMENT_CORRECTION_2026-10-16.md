@@ -26,17 +26,24 @@ The following run results were retrieved by querying GitHub Actions runs associa
 | PR #48 — same SHA | [Phase 5 Flutter Transition Checks #38856048883](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048883) | **PASS**, dedicated Flutter scope only |
 | PR #48 — same SHA | [KVM2 Laravel Backend CI #38856048750](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048750) | **FAIL** |
 | PR #48 — same SHA | [Canonical POS App CI #38856048817](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048817) | **FAIL** |
-| PR #50 — `e108f5629d688ac2376f77ef1ebdc505501b1d60` | [Canonical Workbook Validation #38886111750](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38886111750) | **PASS** |
+| PR #50 — prior candidate head `e108f5629d688ac2376f77ef1ebdc505501b1d60` (historical) | [Canonical Workbook Validation #38886111750](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38886111750) | **PASS** |
 | PR #50 — same SHA | [Phase 2 Tenant Grant Security CI #38886111736](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38886111736) | **FAIL** |
 | PR #50 — same SHA | [Canonical POS App CI #38886111728](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38886111728) | **FAIL** |
 | PR #50 — same SHA | [KVM2 Laravel Backend CI #38886111739](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38886111739) | **FAIL** |
+| PR #50 current head checked 2026-10-16 — `29127e8ecc9d2c4253939e26a1aa54a59a07cbff` | [Canonical Workbook Validation #38914169711](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169711) | **PASS** |
+| PR #50 — same current head | [Phase 2 Tenant Grant Security CI #38914169628](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169628) | **FAIL** |
+| PR #50 — same current head | [Canonical POS App CI #38914169548](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169548) | **FAIL** |
+| PR #50 — same current head | [KVM2 Laravel Backend CI #38914169687](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169687) | **FAIL** |
 | PR #52 — `ef3a71894db8461a596db5cd51b6bdf764c8f039` | [Phase 5 Flutter Transition Checks #38900260816](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260816) | **PASS**, dedicated Flutter scope only |
 | PR #52 — same SHA | [Canonical POS App CI #38900260866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260866) | **FAIL** |
 | PR #52 — same SHA | [KVM2 Laravel Backend CI #38900260758](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38900260758) | **FAIL** |
 | PR #53 — `091594a18a0e648d557874066127fd5d24c83a42` | [Canonical Workbook Validation #38906173717](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38906173717) | **PASS**; not aggregate application acceptance |
-| PR #54 — `94e0f3c0eb170f41149aa8b456b67e2fbeb096c5` | No workflow run returned for this revision in the inspected result | Planning-only documentation; no staging execution claimed |
+| PR #54 — earlier head `94e0f3c0eb170f41149aa8b456b67e2fbeb096c5` | No workflow run returned for this revision in the inspected result | Historical planning-only state; no staging execution claimed |
+| PR #54 current head checked 2026-10-16 — `3e4e655f63e6c2510b6bc911684e3cc54bdf6a84` | No PR-triggered workflow run returned for this revision in the inspected result | Planning-only documentation; no staging execution claimed |
 
 PR #50's own evidence describes failed MariaDB tenant-grant tests and explicitly leaves PostgreSQL provisioning, grants and tenant A→B denial **NOT VERIFIED**. Do not treat a successful package install/image smoke or a workbook/Flutter job as a substitute for those gates.
+
+The latest PR #50 head observed for this report is `29127e8ecc9d2c4253939e26a1aa54a59a07cbff`; the `e108f...` rows above are retained as prior-head history only. The current-head job results do not establish PostgreSQL 17 provisioning or tenant-isolation acceptance.
 
 ## 3. Roadmap numbering reconciliation
 
