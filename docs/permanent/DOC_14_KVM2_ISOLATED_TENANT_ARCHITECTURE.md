@@ -7,6 +7,8 @@
 
 The PostgreSQL 17 choice supersedes the earlier MariaDB 11.4 proposal. The managed-Supabase + IDCloudHost plan is not the target runtime. ADR-2026-10-16 is the decision record; this document must not override it.
 
+The Phase 5 copy of DOC_14 on PR #48's branch contains a conflicting MariaDB-canonical claim. That branch-local version is unmerged candidate content, not repository authority. Before PR #48 can merge, reconcile its DOC_14 copy with this canonical main-branch document and the accepted owner ADR; do not use the Phase 5 branch copy to redefine the target engine.
+
 ## Current implementation and evidence status — 2026-10-16
 
 Baseline `main` commit: `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. The status below is a dated snapshot, not a claim that the state cannot change after this revision.
@@ -16,7 +18,7 @@ Baseline `main` commit: `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. The status b
 | Implemented on `main` | **SOURCE-VERIFIED: Supabase-backed Flutter** | `pos-app/pubspec.yaml` declares `supabase_flutter`; `pos-app/lib/main.dart` calls `Supabase.initialize`; `pos-app/lib/core/config/config_service.dart` requires a Supabase session. Root `composer.json` and `composer.lock` are absent. |
 | Accepted target design | **ACCEPTED — not deployed** | Owner ADR PR [#49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49) is merged. Target: Laravel Central API on KVM2/Coolify, PostgreSQL 17, PHP 8.4 / Laravel 13 / Filament 5 / Sanctum, and locked/tested `stancl/tenancy` v3.10.1 as an initial candidate. |
 | Implementation on an open branch/PR only | **UNMERGED / NOT THE MAIN RUNTIME** | #41 retains the superseded Laravel 11/PHP 8.3/MariaDB proposal. #50 has a newer dependency candidate but uses MariaDB-specific tenant-grant tests and has not demonstrated PostgreSQL provisioning. #47, #48 and #52 remain open/stacked candidates; none establishes accepted production implementation. |
-| Executed CI | **LIMITED AND MIXED** | On PR #48 head `6e31574ecc04ecae6a535fe409cf415ec18655cc`, workbook and dedicated Flutter checks passed, while Canonical POS CI and KVM2 Laravel Backend CI failed. On PR #50 head `e108f5629d688ac2376f77ef1ebdc505501b1d60`, workbook validation passed while tenant-grant, POS and backend checks failed. See the dated correction report for run IDs and boundaries. |
+| Executed CI | **LIMITED AND MIXED** | On PR #48 head `6e31574ecc04ecae6a535fe409cf415ec18655cc`, workbook and dedicated Flutter checks passed, while Canonical POS CI and KVM2 Laravel Backend CI failed. On PR #50 current head checked 2026-10-16 (`29127e8ecc9d2c4253939e26a1aa54a59a07cbff`), Canonical Workbook Validation run #38914169711 passed, while Tenant Grant Security #38914169628, Canonical POS App CI #38914169548 and KVM2 Laravel Backend CI #38914169687 failed. Earlier runs for PR #50 SHA `e108f5629d688ac2376f77ef1ebdc505501b1d60` are historical and are not evidence for the latest PR head. See the dated correction report for the full SHA-bound results. |
 | Staging observations | **STAGING-OBSERVED; source of truth unresolved** | The ADR records two accessible Supabase projects labelled staging and staging-clone with differing migration/catalog footprints. Neither is confirmed as production/source of record; their metadata does not authorize mutation or identify the migration baseline. |
 | Production deployment/acceptance | **NOT RUN / NOT VERIFIED** | No verified KVM2/Coolify production deployment, completed migration, production cutover, tenant isolation acceptance, restore acceptance or release is claimed. |
 
