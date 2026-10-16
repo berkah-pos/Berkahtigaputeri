@@ -5,6 +5,7 @@ namespace Tests\Support;
 use App\Models\Central\DeviceRegistry;
 use App\Models\Central\Domain;
 use App\Models\Central\Tenant;
+use App\Models\Central\Subscription;
 use App\Models\Central\User;
 use App\Services\TenantDatabaseProvisioner;
 use Illuminate\Support\Facades\Crypt;
@@ -35,6 +36,18 @@ trait ProvisionedTenantPair
         $provisioner = app(TenantDatabaseProvisioner::class);
         $provisioner->provision($tenantA);
         $provisioner->provision($tenantB);
+        // Every ordinary route fixture begins with an explicit valid entitlement;
+        // negative tests overwrite or supersede it deliberately.
+        foreach ([$tenantA, $tenantB] as $tenant) {
+            Subscription::on('central')->create([
+                'tenant_id' => (string) $tenant->getTenantKey(),
+                'plan' => 'integration-test',
+                'status' => 'active',
+                'expires_at' => now()->addDays(30),
+                'max_users' => 10,
+            ]);
+        }
+
         $tenantA->refresh();
         $tenantB->refresh();
 
@@ -130,7 +143,7 @@ trait ProvisionedTenantPair
             'registered_at' => now(),
         ]);
 
-        $tokenA = $userA->createToken('phase4-a-' . $suffix, ['config:read', 'sync:write'])->plainTextToken;
+        $tokenA = $userA->createToken('phase4-a-' . $suffix, ['config:read', 'sync:write', 'products:read', 'products:write'])->plainTextToken;
         $tokenB = $userB->createToken('phase4-b-' . $suffix, ['config:read', 'sync:write'])->plainTextToken;
 
         return array_merge($pair, [
