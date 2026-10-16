@@ -225,17 +225,28 @@ class CentralApiClient {
     _cachedToken = token;
   }
 
-  Future<void> signOut() async {
+  /// Clears the local session regardless of network outcome.
+  ///
+  /// Returns true only when the server confirmed logout (or rejected an already
+  /// invalid token). A failed remote request is never reported as successful
+  /// revocation even though the device copy is removed.
+  Future<bool> signOut() async {
     final token = _token;
+    var remoteRevocationConfirmed = token == null || token.isEmpty;
     try {
       if (token != null && token.isNotEmpty) {
-        await _http
+        final response = await _http
             .post(
               _uri('/api/v1/auth/logout'),
               headers: _headers(token),
             )
             .timeout(const Duration(seconds: 10));
+        remoteRevocationConfirmed =
+            (response.statusCode >= 200 && response.statusCode < 300) ||
+            response.statusCode == 401;
       }
+    } catch (_) {
+      remoteRevocationConfirmed = false;
     } finally {
       _cachedToken = null;
       try {
@@ -244,6 +255,7 @@ class CentralApiClient {
         await preferences.remove(_tokenKey);
       }
     }
+    return remoteRevocationConfirmed;
   }
 
   Future<EffectiveConfigResponse> getEffectiveConfig({
