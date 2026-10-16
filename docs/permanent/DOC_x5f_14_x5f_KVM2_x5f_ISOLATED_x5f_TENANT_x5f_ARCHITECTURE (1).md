@@ -1,6 +1,6 @@
-# DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md - Canonical KVM2 Architecture
+# Historical duplicate — KVM2/Supabase architecture proposal (NOT CANONICAL)
 
-Status: CANONICAL - Overrides DOC_02 and DOC_03 (Supabase RLS)
+**Status: HISTORICAL / SUPERSEDED. Do not use any architecture or engine statement in this malformed duplicate as current authority.** The selected target is defined by ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md and docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md. This file is retained as historical evidence and is not a separate architecture decision.
 Date: 2026-10-15
 Target: Hostinger Cloud VPS KVM2 (2 vCPU, 8GB RAM, 100GB NVMe) + Coolify
 
