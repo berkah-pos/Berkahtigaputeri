@@ -53,19 +53,19 @@ The reviewed/staging configuration must prove all of the following from the exac
 
 ## 5. Measured KVM2 resource budget
 
-The repository's starting hypothesis is a 2-vCPU / nominal 8-GB RAM / 100-GB NVMe KVM2 node. The existing budget adds up to **6.968 GiB** at the upper database limit:
+The repository's starting hypothesis is a 2-vCPU / nominal 8-GB RAM / 100-GB NVMe KVM2 node. The existing budget adds up to **6.95 GiB** at the upper database limit:
 
 | Budget component | Proposed starting envelope | Measure on staging |
 |---|---:|---|
 | OS + Coolify + proxy reserve | 1.2 GiB | OS available memory, system and control-plane high-water mark during deploy/image pull/backup |
 | PostgreSQL service | 3.0–3.5 GiB | RSS/cgroup peak, shared_buffers and cache behaviour, active/idle connections, lock waits, checkpoint/WAL activity |
 | Laravel web/API | 1.0 GiB | worker RSS, concurrency, request latency, restarts and OOM events |
-| Queue workers, total | 512 MiB | per-worker RSS, concurrency, oldest queue age, job duration/failures; start small, do not create one worker per tenant |
-| Redis | 256 MiB | used memory, configured limit/evictions, key expiry and lock pressure |
-| workload burst / backup headroom | at least 500 MiB | minimum memory available under reconnect burst, image pull, database backup and restore |
+| Queue workers, total | 0.50 GiB (512 MiB) | per-worker RSS, concurrency, oldest queue age, job duration/failures; start small, do not create one worker per tenant |
+| Redis | 0.25 GiB (256 MiB) | used memory, configured limit/evictions, key expiry and lock pressure |
+| workload burst / backup headroom | at least 0.50 GiB (512 MiB) | minimum memory available under reconnect burst, image pull, database backup and restore |
 | **Proposed total envelope** | **6.968 GiB** | Compare with OS-visible memory, not marketing capacity |
 
-This is a hypothesis, not a reservation or measured operating point. It does not justify tenant counts, concurrent users, or SLA statements. If OS/Docker-visible memory is lower than assumed, reduce service envelopes and re-test; do not consume the OS/Coolify reserve to keep the table green.
+Calculation uses binary units consistently: 1.2 + 3.5 + 1.0 + 0.50 + 0.25 + 0.50 = 6.95 GiB at the upper database budget. The 0.50-GiB burst allowance rounds the 500-MiB floor up to 512 MiB. This is a hypothesis, not a reservation or measured operating point. It does not justify tenant counts, concurrent users, or SLA statements. If OS/Docker-visible memory is lower than assumed, reduce service envelopes and re-test; do not consume the OS/Coolify reserve to keep the table green.
 
 Before and throughout load tests capture:
 - UTC timestamp; free -b, /proc/meminfo, swap totals/usage, df -B1, lsblk -b, Docker version/info, and sanitized docker stats --no-stream snapshots.
