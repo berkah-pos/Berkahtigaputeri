@@ -164,4 +164,46 @@ void main() {
     await client.signIn(email: 'cashier@example.invalid', password: 'secret');
     expect(await client.signOut(), isTrue);
   });
+  test('a revoked token response clears the vault and invalidates the app session',
+      () async {
+    final preferences = await SharedPreferences.getInstance();
+    var invalidated = false;
+    final client = CentralApiClient(
+      baseUrl: 'https://api.example.invalid',
+      preferences: preferences,
+      secureStorage: const FlutterSecureStorage(),
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/api/v1/auth/login') {
+          return http.Response('{"token":"revoked-token"}', 200);
+        }
+        expect(request.url.path, '/api/v1/effective-config');
+        expect(request.headers['authorization'], 'Bearer revoked-token');
+        return http.Response('{"message":"Unauthenticated."}', 401);
+      }),
+    );
+    client.onSessionInvalidated = () => invalidated = true;
+    addTearDown(client.close);
+    await client.signIn(email: 'cashier@example.invalid', password: 'secret');
+
+    await expectLater(
+      client.getEffectiveConfig(
+        tenantId: 'tenant_001',
+        deviceId: 'device_001',
+        service: 'pos',
+      ),
+      throwsA(
+        isA<CentralApiException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
+    );
+
+    expect(invalidated, isTrue);
+    expect(client.hasSession, isFalse);
+    expect(_secureVault.containsKey('central_api.access_token'), isFalse);
+    expect(preferences.containsKey('central_api.access_token'), isFalse);
+  });
+
 }
