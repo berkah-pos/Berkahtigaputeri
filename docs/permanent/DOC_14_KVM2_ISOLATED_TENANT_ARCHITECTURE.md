@@ -1,6 +1,6 @@
 # DOC_14 — KVM2 Isolated-Tenant Architecture (superseded Phase 5 snapshot)
 
-**Status:** **SUPERSEDED / NOT CANONICAL.** This branch version predates the owner decision recorded for review in [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49). Do not use it as platform authority or merge this version unchanged. The selected target is Laravel Central API + PostgreSQL 17 with a separate database/restricted runtime role per tenant; implementation and migration remain unverified/blocked. Rebase and reconcile this document and the branch-level AGENTS/roadmap before merge.
+**Status:** **SUPERSEDED / NOT CANONICAL.** This branch version predates the owner decision accepted into main by [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49) (merge commit d7ee23cfaada3405416b01d9e127e32b07fb1a38). Do not use it as platform authority or merge this version unchanged. The selected target is Laravel Central API + PostgreSQL 17 with a separate database/restricted runtime role per tenant; implementation and migration remain unverified/blocked. Rebase and reconcile this document and the branch-level AGENTS/roadmap before merge.
 **Date:** 2026-10-16
 **Repository:** berkah-pos/Berkahtigaputeri
 **Infrastructure target:** Hostinger Cloud VPS KVM2, 2 vCPU, 8 GB RAM, 100 GB NVMe, Coolify.
@@ -9,7 +9,7 @@
 **Selected database target:** PostgreSQL 17 on a private service for the central database and separate tenant databases/roles. This is a target decision, not evidence that a PostgreSQL migration or provisioning implementation exists in this feature branch.
 **Host operating system:** Ubuntu 24.04 LTS aligned with root AGENTS.md; CI uses GitHub-hosted `ubuntu-24.04` runners.
 
-The owner platform decision is ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md in [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49); this Phase 5 copy is not authoritative and must be rebased after that decision is reviewed/merged. DOC_00_CANONICAL_ARCHITECTURE_DECISION.md remains authoritative for the logical configuration order and workbook inventory. Supabase/RLS artifacts remain migration inputs; neither this notice nor the selected target means the migration is complete.
+The owner platform decision is accepted in main through ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md and [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49); this Phase 5 copy is not authoritative and must be rebased/updated from current main before this PR can merge. DOC_00_CANONICAL_ARCHITECTURE_DECISION.md remains authoritative for the logical configuration order and workbook inventory. Supabase/RLS artifacts remain migration inputs; neither this notice nor the selected target means the migration is complete.
 
 ## 1. Architecture decision
 
