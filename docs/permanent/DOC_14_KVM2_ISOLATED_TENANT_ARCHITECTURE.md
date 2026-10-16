@@ -1,19 +1,19 @@
-# DOC_14 — Canonical KVM2 Isolated-Tenant Architecture
+# DOC_14 — KVM2 Isolated-Tenant Architecture (superseded Phase 5 snapshot)
 
-**Status:** CANONICAL architecture target; implementation and production deployment require independent verification.
-**Date:** 2026-10-15
+**Status:** **SUPERSEDED / NOT CANONICAL.** This branch version predates the owner decision recorded for review in [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49). Do not use it as platform authority or merge this version unchanged. The selected target is Laravel Central API + PostgreSQL 17 with a separate database/restricted runtime role per tenant; implementation and migration remain unverified/blocked. Rebase and reconcile this document and the branch-level AGENTS/roadmap before merge.
+**Date:** 2026-10-16
 **Repository:** berkah-pos/Berkahtigaputeri
 **Infrastructure target:** Hostinger Cloud VPS KVM2, 2 vCPU, 8 GB RAM, 100 GB NVMe, Coolify.
-**Target application stack (root AGENTS.md Section 3):** Laravel 13.x / PHP 8.4 / Filament 5.x / Sanctum / Composer-locked and tested `stancl/tenancy` v3.10.x.
+**Selected target stack (owner ADR PR #49):** PHP 8.4 / Laravel 13.x / Filament 5.x / Sanctum / `stancl/tenancy` v3.10.1 as a candidate that must be Composer-locked and tested.
 **Observed migration-branch baseline:** `composer.json` declares PHP `^8.3`, Laravel `^11.0`, Filament `^3.2`, and `stancl/tenancy` `^3.8`. No `composer.lock` was found at the inspected migration-branch ref. See `audit/ADR-2026-10-15-STACK-BASELINE-EXCEPTION.md` (proposed, not approved).
-**Database:** MariaDB 11.4 LTS on the same private database server for central data and physically isolated tenant databases.
+**Selected database target:** PostgreSQL 17 on a private service for the central database and separate tenant databases/roles. This is a target decision, not evidence that a PostgreSQL migration or provisioning implementation exists in this feature branch.
 **Host operating system:** Ubuntu 24.04 LTS aligned with root AGENTS.md; CI uses GitHub-hosted `ubuntu-24.04` runners.
 
-This document and the latest root `AGENTS.md` are authoritative for runtime architecture. The configuration inheritance contract in `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` remains authoritative for the logical order and canonical workbook inventory. Supabase/RLS artifacts are historical migration inputs only and are not an active runtime architecture.
+The owner platform decision is ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md in [PR #49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49); this Phase 5 copy is not authoritative and must be rebased after that decision is reviewed/merged. DOC_00_CANONICAL_ARCHITECTURE_DECISION.md remains authoritative for the logical configuration order and workbook inventory. Supabase/RLS artifacts remain migration inputs; neither this notice nor the selected target means the migration is complete.
 
 ## 1. Architecture decision
 
-New backend operations use a self-hosted Laravel Central API on KVM2, deployed through Coolify. Each tenant has its own database on the same MariaDB server. One application deployment serves all tenants; do not create one application/container per tenant.
+The selected target is Laravel Central API on KVM2/Coolify with PostgreSQL 17, a central database and a separate tenant database/restricted runtime role per tenant. One application deployment serves all tenants. This feature branch's implementation is not compliant with that target until the engine and provisioning work is reworked and verified.
 
 - Central database: `berkahpos_central`.
 - Tenant databases: `berkahpos_tenant_{safe_tenant_id}`.
@@ -103,11 +103,11 @@ The configured login response must include a scoped bearer token. The effective-
 
 ## 6. Database provisioning and migration operations
 
-Use stancl/tenancy v3 in database-per-tenant mode and one MariaDB server. Tenant creation must provision a tenant database and run tenant migrations. A single app release serves every tenant.
+Use the selected stancl/tenancy v3.10.1 candidate for tenant context/database switching only after compatibility tests. The selected engine is PostgreSQL 17; secure database/role provisioning must be implemented and tested separately. A single app release serves all tenants.
 
 - Central migrations are under `database/migrations/central`.
 - Tenant migrations are under `database/migrations/tenant`.
-- The tenant database manager uses one private MySQL/MariaDB host.
+- PostgreSQL database/role provisioning requires a reviewed private broker; do not assume the tenancy package's database manager supplies the required owner/runtime/migrator privilege separation.
 - Backups must include central plus each tenant database, and a restore drill must demonstrate cross-database consistency.
 - Tenant DB deletion, bulk migration, import replacement and remote data mutation require a recovery plan, explicit environment confirmation and backup verification.
 - The workbook import command imports configuration metadata and device settings; it is not a sales/history migration and must not fabricate missing historical data.
@@ -139,7 +139,7 @@ The app image health check calls `/up`. CI must run on disposable GitHub-hosted 
 A repository source change alone is not production completion. All are required:
 - Correctly named and indexed canonical architecture file.
 - Laravel 13.x/PHP 8.4 dependency graph resolves from a committed lockfile; app boots and API routes register.
-- Central migrations run on clean MariaDB; tenant provisioning creates two separate tenant databases within the same DB service.
+- Central and tenant migrations run on clean PostgreSQL 17; tenant provisioning creates two separate tenant databases and restricted runtime roles within the private DB service.
 - Test proves tenant A cannot reach tenant B through API, configuration, domain routing, DB switching, reporting or sync.
 - Five-layer merge matches the canonical workbook with one service per request.
 - Flutter analysis/tests and Android build pass after Supabase SDK/runtime removal.
@@ -150,4 +150,4 @@ A repository source change alone is not production completion. All are required:
 
 ## 10. Explicit evidence boundary
 
-At architecture declaration time, this document does not assert that an actual KVM2 server, Coolify project, MariaDB production service, migrated data, production TLS, subscription billing integration, backups, monitoring, tenant isolation certification or release has been completed. Record source evidence, executed tests, deployed staging evidence and production evidence separately.
+At architecture declaration time, this document does not assert that an actual KVM2 server, Coolify project, PostgreSQL 17 production service, migrated data, production TLS, subscription billing integration, backups, monitoring, tenant isolation certification or release has been completed. Record source evidence, executed tests, deployed staging evidence and production evidence separately.
