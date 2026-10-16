@@ -45,6 +45,14 @@ for ((attempt=1; attempt<=60; attempt++)); do
   fi
   sleep 2
 done
+
+echo "=== FAIL-CLOSED PROVISIONER GRANT POLICY CHECK (expected to reject current grants) ==="
+if python3 scripts/check_provisioner_grants.py; then
+  echo "FAIL: the policy checker accepted the current cross-tenant wildcard grants."
+  exit 1
+else
+  echo "EXPECTED: the policy checker rejected the current grant model; the provisioning security gate remains FAIL."
+fi
 if [[ "$ready" != true ]]; then
   echo "FAIL: disposable MariaDB 11.4 did not become ready."
   exit 1
