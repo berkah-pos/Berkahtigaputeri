@@ -14,7 +14,7 @@ class TenantWorkerContextResetMariaDbTest extends TestCase
     public function test_same_long_running_worker_resets_tenant_a_state_before_tenant_b_job(): void
     {
         $pair = $this->attachTenantPrincipals($this->createProvisionedTenantPair('phase4-worker'));
-        $resultDirectory = storage_path('framework/testing/phase4-worker-' . $pair['suffix']);
+        $resultDirectory = storage_path('framework/testing/phase4-worker-'.$pair['suffix']);
         if (! is_dir($resultDirectory)) {
             mkdir($resultDirectory, 0700, true);
         }
@@ -75,11 +75,11 @@ class TenantWorkerContextResetMariaDbTest extends TestCase
             $this->assertSame(
                 0,
                 $process->getExitCode(),
-                'The one-process queue worker failed: ' . $process->getOutput() . "\n" . $process->getErrorOutput()
+                'The one-process queue worker failed: '.$process->getOutput()."\n".$process->getErrorOutput()
             );
 
-            $aPath = $resultDirectory . DIRECTORY_SEPARATOR . 'a.json';
-            $bPath = $resultDirectory . DIRECTORY_SEPARATOR . 'b.json';
+            $aPath = $resultDirectory.DIRECTORY_SEPARATOR.'a.json';
+            $bPath = $resultDirectory.DIRECTORY_SEPARATOR.'b.json';
             $this->assertFileExists($aPath);
             $this->assertFileExists($bPath);
 
@@ -105,7 +105,7 @@ class TenantWorkerContextResetMariaDbTest extends TestCase
             $this->assertTrue($b['tenant_a_file_not_visible']);
         } finally {
             foreach (['a.json', 'b.json'] as $name) {
-                @unlink($resultDirectory . DIRECTORY_SEPARATOR . $name);
+                @unlink($resultDirectory.DIRECTORY_SEPARATOR.$name);
             }
             @rmdir($resultDirectory);
         }

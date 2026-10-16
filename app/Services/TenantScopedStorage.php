@@ -46,6 +46,6 @@ class TenantScopedStorage
             throw new LogicException('Tenant storage path is invalid.');
         }
 
-        return 'tenants/' . hash('sha256', (string) $tenant->getTenantKey()) . '/' . $path;
+        return 'tenants/'.hash('sha256', (string) $tenant->getTenantKey()).'/'.$path;
     }
 }

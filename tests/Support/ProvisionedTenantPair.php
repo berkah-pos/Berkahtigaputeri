@@ -22,12 +22,12 @@ trait ProvisionedTenantPair
 
         $suffix = bin2hex(random_bytes(5));
         $tenantA = Tenant::withoutEvents(fn (): Tenant => Tenant::on('central')->create([
-            'id' => $label . '-a-' . $suffix,
+            'id' => $label.'-a-'.$suffix,
             'template_id' => 'BASIC',
             'is_active' => true,
         ]));
         $tenantB = Tenant::withoutEvents(fn (): Tenant => Tenant::on('central')->create([
-            'id' => $label . '-b-' . $suffix,
+            'id' => $label.'-b-'.$suffix,
             'template_id' => 'BASIC',
             'is_active' => true,
         ]));
@@ -63,8 +63,8 @@ trait ProvisionedTenantPair
     protected function attachTenantPrincipals(array $pair): array
     {
         $suffix = $pair['suffix'];
-        $hostA = 'a-' . $suffix . '.tenant.test';
-        $hostB = 'b-' . $suffix . '.tenant.test';
+        $hostA = 'a-'.$suffix.'.tenant.test';
+        $hostB = 'b-'.$suffix.'.tenant.test';
 
         Domain::on('central')->create([
             'domain' => $hostA,
@@ -79,16 +79,16 @@ trait ProvisionedTenantPair
 
         $userA = User::on('central')->create([
             'name' => 'Phase 4 Tenant A',
-            'email' => 'a-' . $suffix . '@example.test',
-            'password' => Hash::make('phase4-test-a-' . $suffix),
+            'email' => 'a-'.$suffix.'@example.test',
+            'password' => Hash::make('phase4-test-a-'.$suffix),
             'tenant_id' => $pair['tenantAId'],
             'is_super_admin' => false,
             'is_active' => true,
         ]);
         $userB = User::on('central')->create([
             'name' => 'Phase 4 Tenant B',
-            'email' => 'b-' . $suffix . '@example.test',
-            'password' => Hash::make('phase4-test-b-' . $suffix),
+            'email' => 'b-'.$suffix.'@example.test',
+            'password' => Hash::make('phase4-test-b-'.$suffix),
             'tenant_id' => $pair['tenantBId'],
             'is_super_admin' => false,
             'is_active' => true,
@@ -113,8 +113,8 @@ trait ProvisionedTenantPair
             ],
         ]);
 
-        $deviceAId = 'device-a-' . $suffix;
-        $deviceBId = 'device-b-' . $suffix;
+        $deviceAId = 'device-a-'.$suffix;
+        $deviceBId = 'device-b-'.$suffix;
         DeviceRegistry::on('central')->create([
             'device_id' => $deviceAId,
             'tenant_id' => $pair['tenantAId'],
@@ -130,8 +130,8 @@ trait ProvisionedTenantPair
             'registered_at' => now(),
         ]);
 
-        $tokenA = $userA->createToken('phase4-a-' . $suffix, ['config:read', 'sync:write'])->plainTextToken;
-        $tokenB = $userB->createToken('phase4-b-' . $suffix, ['config:read', 'sync:write'])->plainTextToken;
+        $tokenA = $userA->createToken('phase4-a-'.$suffix, ['config:read', 'sync:write'])->plainTextToken;
+        $tokenB = $userB->createToken('phase4-b-'.$suffix, ['config:read', 'sync:write'])->plainTextToken;
 
         return array_merge($pair, [
             'hostA' => $hostA,
@@ -150,12 +150,12 @@ trait ProvisionedTenantPair
     protected function runtimeConnectionFor(array $pair, string $side): string
     {
         $suffix = $pair['suffix'];
-        $database = $pair['database' . $side];
-        $username = $pair['runtimeUser' . $side];
-        $password = $pair['runtimePassword' . $side];
-        $connectionName = 'phase4_runtime_' . strtolower($side) . '_' . $suffix;
+        $database = $pair['database'.$side];
+        $username = $pair['runtimeUser'.$side];
+        $password = $pair['runtimePassword'.$side];
+        $connectionName = 'phase4_runtime_'.strtolower($side).'_'.$suffix;
 
-        config(['database.connections.' . $connectionName => array_merge(
+        config(['database.connections.'.$connectionName => array_merge(
             config('database.connections.tenant_template'),
             ['database' => $database, 'username' => $username, 'password' => $password]
         )]);
@@ -173,8 +173,9 @@ trait ProvisionedTenantPair
             Assert::assertContains(
                 $driverCode,
                 [1044, 1045, 1142, 1227],
-                'Expected MariaDB privilege denial; got ' . $exception::class . ' / driver code ' . $driverCode
+                'Expected MariaDB privilege denial; got '.$exception::class.' / driver code '.$driverCode
             );
+
             return;
         }
 
@@ -185,6 +186,6 @@ trait ProvisionedTenantPair
     {
         Assert::assertMatchesRegularExpression('/^[A-Za-z0-9_]{1,64}$/D', $identifier);
 
-        return chr(96) . $identifier . chr(96);
+        return chr(96).$identifier.chr(96);
     }
 }
