@@ -254,5 +254,52 @@
       "blocker": "Legacy MariaDB provisioner blast-radius finding remains failed historical evidence; equivalent accepted-engine least-privilege proof is still required"
     }
   ],
-  "gate_rule": "Any required gate missing, skipped, preflight-failed, dependency-blocked, stale, or lacking exact-head artifacts keeps overall status RED. No aggregate GREEN from partial jobs."
+  "gate_rule": "Any required gate missing, skipped, preflight-failed, dependency-blocked, stale, or lacking exact-head artifacts keeps overall status RED. No aggregate GREEN from partial jobs.",
+  "failure_excerpts": [
+    {
+      "candidate_pr": 48,
+      "candidate_sha": "6e31574ecc04ecae6a535fe409cf415ec18655cc",
+      "run_id": 38856048750,
+      "run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048750",
+      "classification": "preflight_failure",
+      "command": "python3 scripts/check_kvm2_contract.py",
+      "output": "FAIL: missing contract: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md -> **Status:** CANONICAL",
+      "exit_code": 1,
+      "composer_reached": false,
+      "dependent_tests": "skipped"
+    },
+    {
+      "candidate_pr": 48,
+      "candidate_sha": "6fe02dd727fbc6ac9c12b65645938967c1a6b7b4",
+      "run_id": 38778107422,
+      "run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38778107422",
+      "classification": "dependency_install_failure",
+      "stale_for_current_pr_head": true,
+      "command": "composer install --no-interaction --prefer-dist --no-progress",
+      "output": "No composer.lock file present. Your requirements could not be resolved to an installable set of packages. Laravel ^11.0 candidates were blocked by Composer security advisories; Filament ^3.2 was required.",
+      "exit_code": 2,
+      "dependent_tests": "skipped",
+      "security_policy_action": "Keep Composer advisory blocking enabled; do not disable policy or add broad ignores."
+    },
+    {
+      "candidate_pr": 50,
+      "candidate_sha": "29127e8ecc9d2c4253939e26a1aa54a59a07cbff",
+      "run_id": 38914169548,
+      "run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169548",
+      "classification": "executed_test_failure",
+      "command": "$PHP_CI_IMAGE php artisan test --filter=TenantProvisioningMariaDbGrantsTest",
+      "output": "First concurrent provisioner process failed. Failed asserting that 1 is identical to 0. tests/Feature/TenantProvisioningMariaDbGrantsTest.php:231. Tests: 2 failed (6 assertions).",
+      "exit_code": 2,
+      "target_engine_compatible": false
+    },
+    {
+      "candidate_pr": 50,
+      "candidate_sha": "29127e8ecc9d2c4253939e26a1aa54a59a07cbff",
+      "run_id": 38914169687,
+      "run_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38914169687",
+      "classification": "executed_test_failure",
+      "output_excerpt": "Tenant database provisioning failures reported MariaDB error code 1044; EffectiveConfigResolverTest reported malformed JSON; EffectiveConfigAuthorizationTest reported missing Illuminate\\\\Validation\\\\AuthorizationException.",
+      "dependent_tests": "executed and failed"
+    }
+  ]
 }
