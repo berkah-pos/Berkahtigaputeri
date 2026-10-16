@@ -7,7 +7,7 @@
 
 The PostgreSQL 17 choice supersedes the earlier MariaDB 11.4 proposal. The managed-Supabase + IDCloudHost plan is not the target runtime. ADR-2026-10-16 is the decision record; this document must not override it.
 
-The Phase 5 copy of DOC_14 on PR #48's branch contains a conflicting MariaDB-canonical claim. That branch-local version is unmerged candidate content, not repository authority. Before PR #48 can merge, reconcile its DOC_14 copy with this canonical main-branch document and the accepted owner ADR; do not use the Phase 5 branch copy to redefine the target engine.
+The current Phase 5 copy of DOC_14 on PR #48's branch is explicitly marked **SUPERSEDED / NOT CANONICAL** and names PostgreSQL 17 in its header. It remains an unmerged candidate snapshot and itself requires rebase/reconciliation of DOC_14 plus branch-level AGENTS/roadmap before merge. This canonical main-branch DOC_14 and the accepted owner ADR govern; do not treat the feature-branch copy as independent authority.
 
 ## Current implementation and evidence status — 2026-10-16
 
