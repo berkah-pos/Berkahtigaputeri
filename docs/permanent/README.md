@@ -12,18 +12,29 @@ This directory records durable configuration contracts, platform decisions, secu
 6. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original shared-Supabase platform choice is superseded by the owner ADR and detailed DOC_14.
 7. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of the old Flutter/Supabase implementation and known gaps; it does not define the new platform target.
 8. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-9. `scripts/sync_excel_to_supabase.py` — legacy-named workbook validator/import reference. Read it for workbook checks; its name does not authorize new Supabase writes.
+9. `scripts/sync_excel_to_supabase.py` — legacy workbook sync code. Source inspection confirms a Supabase REST/RPC write path when supplied cloud credentials; it is not a read-only validator or target Laravel importer. Do not execute against an unknown/shared project without explicit source approval and backup/rollback.
 10. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
 
 ## Authority boundaries
 
 - **Inheritance + workbook:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, once reviewed and merged.
+- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, accepted and merged by PR #49; this is the binding platform/engine/stack authority on `main`.
 - **Detailed target implementation / tenant isolation / runtime storage / deployment:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`, subordinate to the owner ADR.
 - **Execution:** `DOC_00_MASTER_ROADMAP.md`.
 - **Current implementation status:** current source and actual test/CI/staging/production evidence only. A document claim or historical run never proves current runtime behavior.
 
-If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins after review/merge; DOC_14 implements but does not override that decision. Do not silently rewrite historical facts.
+If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins; PR #49 merged the accepted decision, so no additional approval prerequisite is implied. DOC_14 details but does not override that decision. Do not silently rewrite historical facts.
+
+### Status categories that must not be conflated
+
+- **Implemented on main:** verify tracked source at the named main commit; current baseline Flutter remains Supabase-backed.
+- **Target accepted in an ADR:** an architectural decision only; it does not imply code, staging or production delivery.
+- **Open branch/PR implementation:** unmerged candidate code only.
+- **Executed CI evidence:** tied to exact tested SHA and specific workflow/job; a partial pass does not imply aggregate acceptance.
+- **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
+- **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
+
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
 ## Canonical configuration contract
 
@@ -60,9 +71,9 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 
 ## Legacy Supabase material
 
-Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration.
+Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration. The main-branch `scripts/sync_excel_to_supabase.py` has a live Supabase REST/RPC write path when cloud credentials are provided; handle it as mutation-capable legacy code, not a harmless validation command.
 
-The non-canonical file named `DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` is a malformed duplicate discovered on 2026-10-15. Use the canonical filename `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` referenced above. The duplicate is now explicitly marked HISTORICAL / SUPERSEDED; retain it as evidence, not as an independent authority.
+A malformed historical duplicate discovered on 2026-10-15 was reference-checked and archive-renamed to `../archive/superseded/DOC_14_MALFORMED_DUPLICATE_PROPOSAL_2026-10-15.md` on 2026-10-16. Its original date and proposal content are retained. Use the canonical `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` above; the archived duplicate is evidence only, not an independent authority.
 
 ## Evidence and security rules
 

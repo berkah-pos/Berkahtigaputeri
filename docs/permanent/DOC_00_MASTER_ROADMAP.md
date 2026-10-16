@@ -43,6 +43,24 @@ Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, th
 
 ## 4. Phases and acceptance gates
 
+### Canonical phase numbering and crosswalk
+
+The phase IDs defined in this roadmap — **Phase 0 through Phase 7** — are the only canonical roadmap numbering. Several open stacked PR titles retain phase labels from an earlier branch sequence built around a now-rejected MariaDB/Laravel 11 proposal. Those historical PR labels do **not** redefine roadmap phases and must not be reused as authority for execution order.
+
+| Branch / PR label | Canonical roadmap mapping | Required interpretation |
+|---|---|---|
+| PR #41 — Laravel migration foundation | Potentially spans Phases 2–5 | Unmerged pre-ADR proposal based on Laravel 11 / PHP 8.3 / MariaDB; superseded as a target baseline. Salvage reviewed work only after alignment to the accepted ADR. |
+| PR #45 — “Phase 2” MariaDB grants/provisioning | Phase 3 concept (tenant provisioning), with Phase 6 security gates | MariaDB implementation is not the selected engine. Do not merge or call this gate passed; redesign and test PostgreSQL 17 grants. |
+| PR #46 — “Phase 3” config/CAS | Primarily Phase 5, with Phase 4 authorization/API prerequisites | Preserve narrow workbook-contract evidence; runtime/API parity remains unverified until it runs on the accepted stack. |
+| PR #47 — “Phase 4” host/domain and tenant A/B isolation | Phase 4 and Phase 6 | Security candidate remains RED until exact-head PostgreSQL host/auth/grant/worker tests pass. |
+| PRs #48 and #52 — “Phase 5” Flutter transition | Phase 5 | Open, stacked migration candidates; Flutter-only passes do not establish backend, API parity or cloud-sync acceptance. PR #48's current branch-local DOC_14 is marked SUPERSEDED / NOT CANONICAL and names PostgreSQL 17 in its header; it remains an unmerged snapshot that requires rebase/reconciliation alongside branch-level AGENTS/roadmap before merge. |
+| PR #50 — dependency lock/CI baseline | Phase 2 and cross-cutting CI gates | Open candidate; tenant-grant/POS/backend checks currently fail and the branch’s tenant-grant path is MariaDB-based. PostgreSQL 17 acceptance remains unverified. |
+| PR #51 — security remediation | Phase 6 | Security gate is explicitly FAIL on the demonstrated MariaDB provisioner boundary; this is not PostgreSQL acceptance. |
+| PR #53 — acceptance matrix | Cross-cutting evidence protocol for Phases 2–7 | Draft evidence tooling/documentation; it is not application or deployment acceptance. |
+| PR #54 — operational-readiness runbooks | Planning inputs for Phases 6–7 | Draft planning/evidence templates only; no staging execution or production go/no-go has occurred. |
+
+Keep the PR titles, test results and dated reports historically intact. Use canonical roadmap phase IDs in new reports and work plans; do not retrospectively relabel old branch evidence as though it had executed a different gate.
+
 ### PHASE 0 — Discovery and safety lock
 
 - Re-read `AGENTS.md`, DOC_00, DOC_14, this roadmap, permanent-document index, DOC_12/DOC_13 supersession notices, agent-specific rules, root tree, branches, current status, workflows, dependencies, database assets, and tests.

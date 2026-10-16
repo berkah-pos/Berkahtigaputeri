@@ -1,103 +1,43 @@
-[![Final Pos](https://img.shields.io/badge/Final%20Pos-352%20canonical%20keys-2ea44f)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
-[![Architecture](https://img.shields.io/badge/config-GLOBAL%E2%86%92TEMPLATE%E2%86%92TENANT%E2%86%92SERVICE%E2%86%92DEVICE-0969da)](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md)
-[![Supabase RLS](https://img.shields.io/badge/Supabase-RLS%20authenticated-3ecf8e)](docs/permanent/DOC_03_RLS_AUTH.sql)
-[![Atomic Versioning](https://img.shields.io/badge/versioning-atomic%20RPC-8a2be2)](docs/permanent/DOC_06_ATOMIC_VERSIONING_RPC.sql)
+# Berkah Tiga Puteri POS
 
-# Berkahtigaputeri - Final Pos
+**Canonical repository:** [`berkah-pos/Berkahtigaputeri`](https://github.com/berkah-pos/Berkahtigaputeri)  
+**Architecture decision:** [Owner ADR — Laravel Central API + PostgreSQL 17](docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md)  
+**Status snapshot:** 2026-10-16, canonical `main` baseline `d7ee23cfaada3405416b01d9e127e32b07fb1a38`
 
-Berkah Tiga Puteri POS is a multi-tenant POS + accounting platform built around one canonical Final Pos configuration model.
+Berkah POS is a local-first POS and accounting application whose configuration contract is defined by the canonical 352-entry workbook. The accepted target architecture and the currently implemented runtime are different states; do not describe the target as active merely because the ADR or open PRs exist.
 
-## Canonical architecture
+## Source of truth and delivery status
 
-Read first:
+| Category | Status | Evidence boundary |
+|---|---|---|
+| **Implemented on `main`** | Flutter remains Supabase-backed; local-first SQLite flows exist. | `pos-app/pubspec.yaml` includes `supabase_flutter`; `pos-app/lib/main.dart` initializes Supabase; `ConfigService` uses the authenticated Supabase client. The root has no `composer.json` or `composer.lock` at this baseline. |
+| **Accepted target design** | Laravel Central API on KVM2/Coolify with PostgreSQL 17, a central DB and a separate DB/restricted runtime role per tenant. | Owner ADR PR [#49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49) is merged. The ADR selects PHP 8.4, Laravel 13, Filament 5, Sanctum and `stancl/tenancy` v3.10.1 as the initial locked candidate. This is a decision, not implementation or deployment proof. |
+| **Implementation only on open branches/PRs** | Unmerged proposals and candidates only. | [PR #41](https://github.com/berkah-pos/Berkahtigaputeri/pull/41) is based on the superseded Laravel 11/PHP 8.3/MariaDB direction. [PR #50](https://github.com/berkah-pos/Berkahtigaputeri/pull/50) contains a newer dependency candidate but its tenant tests remain MariaDB-based and fail; PostgreSQL provisioning is not verified. [PR #48](https://github.com/berkah-pos/Berkahtigaputeri/pull/48) and [PR #52](https://github.com/berkah-pos/Berkahtigaputeri/pull/52) contain Flutter migration work that is not on `main`. |
+| **Executed CI** | Limited, candidate-specific, and mixed. | At PR #48 head `6e31574ecc04ecae6a535fe409cf415ec18655cc`, workbook validation and the dedicated Flutter checks passed, while Canonical POS CI and KVM2 Laravel Backend CI failed. At PR #50 current head on 2026-10-16 (`29127e8ecc9d2c4253939e26a1aa54a59a07cbff`), Canonical Workbook Validation (#38914169711) passed while Tenant Grant Security (#38914169628), Canonical POS App CI (#38914169548), and KVM2 Laravel Backend CI (#38914169687) failed. Results from its earlier `e108f5629d688ac2376f77ef1ebdc505501b1d60` candidate are historical, not current-head evidence. These results do not establish aggregate acceptance. |
+| **Staging observations** | Supabase staging-labelled resources were observed; authoritative source is unresolved. | The ADR records materially different migration/catalog footprints across the accessible staging and staging-clone projects. Neither has been confirmed as production/source of record. This is observation, not approval to migrate or mutate either resource. |
+| **Production deployment/acceptance** | **NOT RUN / NOT VERIFIED** | No verified KVM2/Coolify production deployment, production cutover, production acceptance or completed migration is claimed. |
 
-```text
-docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
-```
+For the dated revision-by-revision correction and validation boundaries, see [the source-of-truth correction report](docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md).
 
-The only supported configuration inheritance is:
+## Canonical configuration contract
+
+Read [DOC_00 — Canonical Final POS Configuration Contract](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md). The only supported effective-configuration inheritance is:
 
 ```text
 GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 ```
 
-All Admin, Flutter, Supabase RPC, synchronization, tests and verification documents must implement that same precedence.
+The canonical workbook is `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`. The exported inventory is exactly 352 entries: 1 global, 3 templates (`BASIC`, `PRO`, `ENTERPRISE`), 100 tenants, 140 services and 108 devices. Resolve one requested service at a time; do not merge POS and Akuntansi service rows into one effective configuration.
 
-## Canonical configuration source
+The legacy script `scripts/sync_excel_to_supabase.py` currently contains a Supabase REST/RPC write path when invoked with cloud credentials. Treat it as a legacy main-branch write path, **not** as a read-only validator or the target Laravel importer; do not run it against an unknown/shared source as part of this work. Retain it, related SQL/functions/schemas/RLS and available project data as implementation/migration evidence until the source is identified and an approved replacement, verified export/backup, parity, rollback and explicit retirement decision exist. Do not erase or blindly execute historical migration inputs.
 
-Workbook:
+## Runtime and documentation authority
 
-```text
-config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
-```
+- **Platform, engine and stack:** the accepted [owner ADR](docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md).
+- **Detailed target topology and acceptance gates:** [DOC_14](docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md), subordinate to the ADR.
+- **Configuration inheritance and workbook:** [DOC_00](docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md).
+- **Execution order:** [master roadmap](docs/permanent/DOC_00_MASTER_ROADMAP.md).
+- **Document index and evidence rules:** [permanent-document index](docs/permanent/README.md).
+- **Flutter app:** `pos-app/`; its current `main` runtime remains Supabase-backed until a reviewed migration actually merges.
 
-Workbook structure and `APP_CONFIG_EXPORT` are validated by:
-
-```text
-scripts/sync_excel_to_supabase.py
-```
-
-Expected canonical inventory:
-
-```text
-1   global
-3   templates
-100 tenants
-140 services
-108 devices
----
-352 app_config keys
-```
-
-Canonical templates:
-
-```text
-BASIC
-PRO
-ENTERPRISE
-```
-
-Supabase configuration shape:
-
-```text
-app_config(key PRIMARY KEY, value JSONB, updated_at)
-```
-
-Canonical key forms:
-
-```text
-global
-template:<TEMPLATE_ID>
-tenant:<tenant_id>
-tenant:<tenant_id>:service:<service>
-device:<device_id>
-```
-
-For one effective-config request, only the requested service row is merged:
-
-```text
-global
--> template:<tenant.template_id>
--> tenant:<tenant_id>
--> tenant:<tenant_id>:service:<service>
--> device:<device_id>
-```
-
-## Final Pos tooling
-
-- Template Admin: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/final-pos-template-admin.html
-- Main Admin path: https://berkah-ajb-dev.github.io/Berkahtigaputeri/btp-admin/
-- Sync script: `scripts/sync_excel_to_supabase.py`
-- Sync workflow: `.github/workflows/final-pos-sync.yml`
-- Flutter app: `pos-app/`
-- Permanent architecture/verification docs: `docs/permanent/`
-
-## Engineering rules
-
-- Work through branches and pull requests; do not push implementation changes directly to `main`.
-- Do not restore an inheritance model that omits TEMPLATE.
-- Do not merge POS and Akuntansi service rows into one effective configuration.
-- Do not restore the legacy `app_config(device_id, key, value)` schema.
-- When documentation conflicts with `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, the architecture decision is authoritative and the conflicting document must be corrected.
-
-Service rows derived from a template may remain present for audit/export. Template-inherited values remain inherited until an explicit lower-layer override is defined, so a template change can propagate without duplicating the same setting into every tenant.
+Work on a dedicated branch and submit a reviewed pull request. Keep historical Supabase paths and reports, mark them as historical/current-source inputs accurately, and never rewrite a past report to make it look green. Source presence, target design, a limited green workflow, staging metadata and production acceptance are distinct claims. Unexecuted or stale-head checks remain **NOT RUN / NOT VERIFIED**.

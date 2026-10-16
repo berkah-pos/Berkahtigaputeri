@@ -1,3 +1,5 @@
+> **Archive record — 2026-10-16.** This file was archive-renamed from `docs/permanent/DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` after inspecting current-main references. Its original proposal date (2026-10-15) and proposal text are retained below. It is historical evidence only; the canonical target and current authority are the merged owner ADR and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+
 # Historical duplicate — KVM2/Supabase architecture proposal (NOT CANONICAL)
 
 **Status: HISTORICAL / SUPERSEDED. Do not use any architecture or engine statement in this malformed duplicate as current authority.** The selected target is defined by ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md and docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md. This file is retained as historical evidence and is not a separate architecture decision.
