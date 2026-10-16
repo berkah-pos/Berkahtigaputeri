@@ -192,11 +192,26 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/phase5-logs"
+          # Keep avdmanager and emulator on the same explicit home. Some
+          # hosted runners expose different SDK/AVD home variables, causing
+          # an AVD created moments earlier to appear unknown to the emulator.
+          export ANDROID_SDK_HOME="$HOME/.android"
+          export ANDROID_AVD_HOME="$ANDROID_SDK_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_SDK_HOME=$ANDROID_SDK_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME"
           echo "no" | avdmanager create avd \
             --force \
             --name phase5-pos-ci \
             --package "system-images;android-35;google_apis;x86_64" \
             --device "pixel_2"
+          if [[ ! -s "$ANDROID_AVD_HOME/phase5-pos-ci.ini" ]]; then
+            echo "::error::avdmanager did not create $ANDROID_AVD_HOME/phase5-pos-ci.ini"
+            find "$HOME/.android" -maxdepth 4 -type f -name '*.ini' -print || true
+            avdmanager list avd || true
+            exit 1
+          fi
+          avdmanager list avd
           emulator \
             -avd phase5-pos-ci \
             -no-window \
