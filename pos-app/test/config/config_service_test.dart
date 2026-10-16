@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:berkahtigaputeri_pos/core/config/central_api_client.dart';
@@ -231,7 +232,7 @@ void main() {
       );
       await service.getEffectiveConfig(
         tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
-      api.failure = const CentralApiException('network failure');
+      api.failure = TimeoutException('network timeout');
       now = now.add(const Duration(hours: 2));
       final cached = await service.getEffectiveConfig(
         tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
@@ -257,6 +258,21 @@ void main() {
         service.getEffectiveConfig(
           tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
         throwsA(isA<CentralApiException>()),
+      );
+    });
+
+    test('does not use cached config for a non-transient application failure', () async {
+      api.responses['pos'] = <String, dynamic>{'enabled': true};
+      final service = ConfigService(api, preferences, clock: () => now);
+      await service.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+
+      api.failure = StateError('unexpected application failure');
+      now = now.add(const Duration(minutes: 1));
+      await expectLater(
+        service.getEffectiveConfig(
+          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
+        throwsA(isA<StateError>()),
       );
     });
 
