@@ -7,7 +7,11 @@ use App\Filament\Central\Resources\TenantResource\RelationManagers\DomainsRelati
 use App\Filament\Central\Resources\TenantResource\RelationManagers\SubscriptionsRelationManager;
 use App\Models\Central\Tenant;
 use Filament\Forms;
-use Filament\Forms\Form;
+use Filament\Actions\EditAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Schemas\Schema;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -15,13 +19,13 @@ use Filament\Tables\Table;
 class TenantResource extends Resource
 {
     protected static ?string $model = Tenant::class;
-    protected static ?string $navigationIcon = 'heroicon-o-building-storefront';
-    protected static ?string $navigationGroup = 'Platform';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-building-storefront';
+    protected static string|\UnitEnum|null $navigationGroup = 'Platform';
     protected static ?string $navigationLabel = 'Tenants';
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Forms\Components\TextInput::make('id')
                 ->label('Tenant ID / slug')
                 ->required()->maxLength(100)->alphaDash()->unique(ignoreRecord: true),
@@ -48,12 +52,12 @@ class TenantResource extends Resource
             Tables\Columns\TextColumn::make('latestSubscription.status')->label('Subscription')->badge(),
             Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable(),
         ])->actions([
-            Tables\Actions\EditAction::make(),
-            Tables\Actions\DeleteAction::make()->requiresConfirmation()
+            EditAction::make(),
+            DeleteAction::make()->requiresConfirmation()
                 ->modalDescription('Confirm tenant data-retention and database-destruction policy before deleting a production tenant.'),
         ])->bulkActions([
-            Tables\Actions\BulkActionGroup::make([
-                Tables\Actions\DeleteBulkAction::make()->requiresConfirmation(),
+            BulkActionGroup::make([
+                DeleteBulkAction::make()->requiresConfirmation(),
             ]),
         ]);
     }
