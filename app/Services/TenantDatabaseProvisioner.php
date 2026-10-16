@@ -285,6 +285,7 @@ class TenantDatabaseProvisioner
     {
         try {
             DB::connection('provisioner')->select("SHOW GRANTS FOR '{$username}'@'%'");
+
             return true;
         } catch (QueryException $exception) {
             if ((int) ($exception->errorInfo[1] ?? 0) === 1141) {
@@ -320,6 +321,7 @@ class TenantDatabaseProvisioner
                 $this->audit($tenantId, $provisioningId, 'ownership_marker.recovered', [
                     'database_name' => $databaseName,
                 ]);
+
                 return;
             }
 
@@ -356,6 +358,7 @@ class TenantDatabaseProvisioner
                     || (string) $marker->provisioning_id !== $provisioningId) {
                     throw new RuntimeException('Tenant database ownership marker does not match; database preserved.');
                 }
+
                 return;
             }
 
@@ -364,6 +367,7 @@ class TenantDatabaseProvisioner
                 throw new RuntimeException('Empty or incomplete ownership marker is not safely recoverable.');
             }
             $this->insertMarker($databaseName, $tenantId, $provisioningId);
+
             return;
         }
 
@@ -412,6 +416,7 @@ class TenantDatabaseProvisioner
             $rows = DB::connection('migrator')->select(
                 'SELECT tenant_id, provisioning_id FROM '.$this->quoteIdentifier(self::MARKER_TABLE).' WHERE id = 1'
             );
+
             return $rows[0] ?? null;
         });
     }
@@ -430,6 +435,7 @@ class TenantDatabaseProvisioner
             'SELECT COUNT(*) AS table_count FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?',
             [$databaseName]
         );
+
         return (int) ($row->table_count ?? 0);
     }
 

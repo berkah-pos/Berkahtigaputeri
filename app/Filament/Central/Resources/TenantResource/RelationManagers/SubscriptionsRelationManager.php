@@ -2,20 +2,24 @@
 
 namespace App\Filament\Central\Resources\TenantResource\RelationManagers;
 
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
 class SubscriptionsRelationManager extends RelationManager
 {
     protected static string $relationship = 'subscriptions';
+
     protected static ?string $title = 'Subscriptions';
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Forms\Components\Select::make('plan')
                 ->options(['trial' => 'Trial', 'basic' => 'Basic', 'pro' => 'Pro', 'enterprise' => 'Enterprise'])
                 ->required(),
@@ -34,10 +38,10 @@ class SubscriptionsRelationManager extends RelationManager
             Tables\Columns\TextColumn::make('status')->badge(),
             Tables\Columns\TextColumn::make('expires_at')->dateTime()->sortable(),
             Tables\Columns\TextColumn::make('created_at')->dateTime(),
-        ])->headerActions([Tables\Actions\CreateAction::make()])
-          ->actions([
-              Tables\Actions\EditAction::make(),
-              Tables\Actions\DeleteAction::make()->requiresConfirmation(),
-          ]);
+        ])->headerActions([CreateAction::make()])
+            ->actions([
+                EditAction::make(),
+                DeleteAction::make()->requiresConfirmation(),
+            ]);
     }
 }

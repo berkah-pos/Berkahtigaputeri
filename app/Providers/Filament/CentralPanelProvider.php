@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Http\Middleware\EnsureCentralHost;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -30,6 +31,7 @@ class CentralPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Central/Pages'), for: 'App\Filament\Central\Pages')
             ->pages([Pages\Dashboard::class])
             ->middleware([
+                EnsureCentralHost::class,
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,

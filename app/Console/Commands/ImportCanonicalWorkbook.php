@@ -6,9 +6,9 @@ use App\Models\Central\DeviceRegistry;
 use App\Models\Central\Domain;
 use App\Models\Central\GlobalConfig;
 use App\Models\Central\Subscription;
+use App\Models\Central\Template;
 use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
-use App\Models\Central\Template;
 use App\Services\VersionedConfigWriter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +17,7 @@ use Stancl\Tenancy\Facades\Tenancy;
 class ImportCanonicalWorkbook extends Command
 {
     protected $signature = 'config:import-workbook {file : JSON manifest produced by scripts/export_workbook_for_laravel.py} {--dry-run : Validate the manifest without making database changes}';
+
     protected $description = 'Import validated workbook configuration into the central DB and isolated tenant DBs without dropping existing data.';
 
     public function handle(): int
@@ -24,6 +25,7 @@ class ImportCanonicalWorkbook extends Command
         $path = (string) $this->argument('file');
         if (! is_file($path) || ! is_readable($path)) {
             $this->error("Cannot read manifest: {$path}");
+
             return self::FAILURE;
         }
 
@@ -42,23 +44,27 @@ class ImportCanonicalWorkbook extends Command
 
             if ($this->option('dry-run')) {
                 $this->info('Dry run only; no database writes or tenant provisioning were performed.');
+
                 return self::SUCCESS;
             }
 
             $this->warn('This operation can provision up to 100 tenant databases. Use only after verifying target identity, backup, disk capacity, and migration approval.');
             if (! $this->confirm('Import this validated configuration manifest into the current database environment?', false)) {
                 $this->line('Import cancelled; no records changed.');
+
                 return self::SUCCESS;
             }
 
             $this->importCentral($manifest);
             $this->importDevices($manifest);
             $this->info('Workbook configuration import completed.');
+
             return self::SUCCESS;
         } catch (\Throwable $exception) {
             report($exception);
             $this->error($exception->getMessage());
             $this->warn('The import may be partially complete. Re-run only after reviewing the error; existing tenant databases and business records are never dropped by this command.');
+
             return self::FAILURE;
         }
     }
@@ -246,6 +252,7 @@ class ImportCanonicalWorkbook extends Command
                 return false;
             }
         }
+
         return true;
     }
 
@@ -473,6 +480,7 @@ class ImportCanonicalWorkbook extends Command
         } else {
             $desired['version'] = $existing === null ? 1 : $storedVersion + 1;
         }
+
         return $desired;
     }
 }
