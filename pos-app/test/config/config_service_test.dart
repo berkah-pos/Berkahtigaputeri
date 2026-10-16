@@ -245,6 +245,26 @@ void main() {
       );
     });
 
+    test('expires cached configuration at the exact TTL boundary', () async {
+      api.responses['pos'] = <String, dynamic>{'cached': true};
+      final service = ConfigService(
+        api,
+        preferences,
+        cacheTtl: const Duration(hours: 6),
+        clock: () => now,
+      );
+      await service.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+      api.failure = const CentralApiException('offline', statusCode: 503);
+      now = now.add(const Duration(hours: 6));
+
+      await expectLater(
+        service.getEffectiveConfig(
+          tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos'),
+        throwsA(isA<CentralApiException>()),
+      );
+    });
+
     test('kill switch permits a fresh cache but blocks remote reads', () async {
       api.responses['pos'] = <String, dynamic>{'cached': true};
       await ConfigService(api, preferences, clock: () => now).getEffectiveConfig(
