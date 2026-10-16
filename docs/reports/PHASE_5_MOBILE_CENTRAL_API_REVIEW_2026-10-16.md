@@ -1,11 +1,11 @@
 # Phase 5 Mobile Central API Review — 2026-10-16
 
-**Status: RED / NOT VERIFIED — keep PR #52 in draft.**  
+**Status: MOBILE CI PASS; MIGRATION NOT ACCEPTED — keep PR #52 in draft.**  
 **Scope:** Flutter pos-app/; no Laravel implementation, database privilege, or deployment changes.  
 **Branch:** fix/phase5-config-envelope-android-20261016  
 **Reviewed mobile base:** feat/phase-5-flutter-transition-20261015  
-**Flutter source under test:** f81d86b9cbf8881b74d68523582dad0e4adcb11d  
-**Current workflow hardening head:** 8760c8314386ddf33bb6dc57e47926a393c00d6d
+**Verified app + workflow source:** 0b213292f7e0fa3753c5f54e393c7616fe9d0f8c  
+**Current PR head:** 7c1ad68dcc68abf918e55ad7ae5ad3a439afc741 (report-only changes after successful CI)
 
 ## Mobile changes in this review
 
@@ -20,14 +20,14 @@
 
 | Gate | Status | Evidence / remaining work |
 |---|---|---|
-| Flutter config value and metadata contract | Code changed; current-head CI pending | central_api_client.dart uses a strict typed envelope; config tests cover metadata retention through cache fallback, scope mismatch, and source cache separation. |
+| Flutter config value and metadata contract | PASS — run #80 | Strict envelope validation and metadata retention through live/cache fallback passed in the 73-test Flutter suite. |
 | Config resolution precedence and service isolation | Existing test coverage; live parity not verified | Flutter merge contract has tests for GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE map precedence, empty/missing-layer inheritance, nested merge, and list replacement. Laravel resolves one requested service. A live authenticated POS/Akuntansi fixture run is still required. |
-| Cache tuple/source/expiry/kill-switch | Current-head CI pending | Cache tuple includes tenant/device/service/source mode; TTL-boundary, dotted-identifier, offline fallback, expiry and kill-switch regressions are covered. |
-| Secure login/session behavior | Partially verified; server restore gate blocked | Unit tests exercise secure token hydration, login persistence, and logout result handling. Hydration alone cannot establish that a persisted token remains valid server-side. |
+| Cache tuple/source/expiry/kill-switch | PASS — run #80 | Tenant/device/service/source-mode keying, scope validation, TTL boundary, dotted identifiers, HTTP error vs transport/server fallback, offline behavior and kill switch are covered by passing tests. |
+| Secure login/session behavior | Mobile unit tests PASS; server restore gate BLOCKED | Secure token hydration/login, server logout-confirmation handling, and clearing a locally stored token on API 401 are tested. Hydration alone cannot establish server validity after restart; the backend lacks a startup session-validation endpoint. |
 | Full 352-entry workbook vs central runtime | NOT VERIFIED | Workbook validation proves the fixture/inventory contract. The actual server inventory snapshot and authenticated staging API results were not supplied. Do not label workbook-only tests as runtime parity. |
-| Atomic local checkout/restart/retry/offline | Existing local tests; cloud acceptance not verified | Existing SQLite tests cover sale/journal/stock/outbox atomicity, FEFO/FIFO separation, retry idempotency, rollback on insufficient stock, interrupted syncing recovery after database reopen, pending retries, and persistent conflicts. These are local-only results. |
-| Dashboard unresolved outbox count | Current-head CI pending | New widget regression seeds synced, pending, and conflict records and verifies only the latter two count as pending. |
-| Android package build/install | Current-head CI pending | Dedicated workflow now builds a debug APK, boots an Android 35 emulator, attempts adb install, and smoke-launches the package. This is not a production-signed release or an update test against the prior signed APK. |
+| Atomic local checkout/restart/retry/offline | Local SQLite tests PASS; cloud acceptance NOT VERIFIED | The suite tests sale + journal + stock movement + outbox, balanced-journal validation, failure rollback, same-ID idempotency/conflict, FEFO physical lot selection vs FIFO cost use, reservation eligibility, interrupted-outbox recovery after reopen, explicit ACK only, retries, persistent conflicts and non-destructive legacy import. Local evidence only; no server sync is implied. |
+| Dashboard unresolved outbox count | PASS — run #80 | Widget regression proves `synced` is excluded while `pending` and `conflict` remain unresolved. |
+| Android package build/install | PASS — debug build + emulator install/launch | Android 35 emulator returned `Performing Streamed Install`, `Success`, and the launcher smoke-test PASS line. Debug signing only; no production-signature or prior-release upgrade verification. |
 | Cloud batch sync | NOT VERIFIED / backend work required | No confirmed POST /api/v1/sync, durable idempotency receipt, server conflict contract, or explicit server ACK implementation/evidence. Never mark a transaction synced from transport success alone. |
 
 ## Backend-owner blockers (no Flutter stubs)
