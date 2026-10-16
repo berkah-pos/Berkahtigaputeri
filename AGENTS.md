@@ -4,24 +4,25 @@
 
 ## 1. Required reading order
 
-1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — the configuration inheritance and canonical workbook contract.
-2. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — proposed target platform, database-per-tenant design, deployment, security, and operational acceptance gates. This design is the target for this architecture branch; it becomes an accepted repository decision only after review and merge.
+1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — configuration inheritance and canonical workbook contract.
+2. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` on current main — accepted platform/engine/stack authority.
+3. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` on current main — selected PostgreSQL 17 target details and acceptance gates; this Phase 5 snapshot is superseded.
 3. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and phase acceptance.
-4. `docs/permanent/README.md` — permanent-document index and current authority map.
-5. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting, and evidence protocols, subject to the DOC_14 platform supersession notice.
-6. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — implementation snapshot and known gaps; its Supabase implementation references are historical evidence, not the new target.
-7. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve its five-layer Final POS behavior, subject to the DOC_14 runtime-storage decision.
-8. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this file.
-9. `scripts/sync_excel_to_supabase.py` — inspect for workbook validation semantics when working on configuration migration. It is legacy-named; its name does not authorize new Supabase writes.
-10. Scoped source, migrations, tests, workflow files, deployment config, and existing reports relevant to the assigned task.
+5. `docs/permanent/README.md` — permanent-document index and current authority map.
+6. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting, and evidence protocols, subject to the DOC_14 platform supersession notice.
+7. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — implementation snapshot and known gaps; its Supabase implementation references are historical evidence, not the new target.
+8. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve its five-layer Final POS behavior, subject to the DOC_14 runtime-storage decision.
+9. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this file.
+10. `scripts/sync_excel_to_supabase.py` — inspect for workbook validation semantics when working on configuration migration. It is legacy-named; its name does not authorize new Supabase writes.
+11. Scoped source, migrations, tests, workflow files, deployment config, and existing reports relevant to the assigned task.
 
 Do not claim to have read or verified a file that was not actually accessible.
 
 ## 2. Split architecture authority
 
 - **Configuration behavior:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`, merge precedence, the canonical workbook, and the exact 352-entry inventory.
-- **Target platform:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` defines the proposed Laravel/Coolify runtime, central relational configuration storage, MariaDB database-per-tenant model, per-tenant database credentials, and the migration away from Supabase runtime RPC.
-- **Execution order:** `DOC_00_MASTER_ROADMAP.md` governs phase gates.
+- **Platform/engine/stack:** the accepted ADR on current main selects Laravel Central API on KVM2/Coolify, PostgreSQL 17, and a separate database/restricted runtime role per tenant. This branch's DOC_14 snapshot is superseded and cannot override current main.
+- **Execution order:** the current-main `DOC_00_MASTER_ROADMAP.md` governs phase gates.
 - **Implementation status:** current repository sources, executed CI, staging observations, test artifacts, and production evidence determine what is actually delivered. Documentation alone is not runtime proof.
 
 When sources conflict about the layer order or 352 workbook entries, DOC_00 wins. When they conflict about the proposed platform/deployment/data-storage model, use DOC_14 for this branch and record unresolved acceptance/review status; do not silently rewrite history or report an unmerged proposal as a deployed fact.
@@ -31,8 +32,8 @@ When sources conflict about the layer order or 352 workbook entries, DOC_00 wins
 The target design in DOC_14 is:
 
 - Hostinger KVM2 workload node (2 vCPU, 8 GB RAM, 100 GB NVMe), Ubuntu 24.04 LTS, Docker, and Coolify.
-- Target stack: Laravel 13.x, PHP 8.4, Filament 5.x, a Composer-locked/tested `stancl/tenancy` v3.10.x release, and MariaDB 11.4 LTS unless a reviewed ADR replaces the selection.
-- One Laravel application image serves standard tenants; one MariaDB server hosts the central database plus one database and restricted database user per tenant.
+- Selected target stack on current main: PHP 8.4, Laravel 13.x, Filament 5.x, Sanctum, Composer-locked/tested `stancl/tenancy` v3.10.1 candidate, and PostgreSQL 17. This branch's MariaDB-specific application/tests remain unverified and require rework before merge.
+- One Laravel application image serves standard tenants; one private PostgreSQL 17 service hosts the central database plus one database and restricted runtime role per tenant.
 - The normal app runtime must not use the database root or provisioning credentials. Tenant provisioning runs in an isolated, private worker with only the specific elevated credentials it requires.
 - Central tables own tenant/domain/membership/subscription/device/configuration metadata. Tenant databases own operational POS and accounting data.
 - Flutter effective configuration and cloud sync use the authenticated Laravel Central API. Supabase RPC is not the target runtime configuration path.
@@ -60,7 +61,7 @@ DOC_14 is a design proposal until the PR is reviewed and merged. Do not create p
 - Do not create one app container or one database server per standard tenant.
 - Do not restore an architecture that omits TEMPLATE or depends only on a caller-supplied `tenant_id` filter.
 - Do not put DB/provisioning credentials, service-admin keys, signing keys, or billing secrets in Flutter, public HTML, committed environment files, logs, or API responses.
-- Do not expose MariaDB or Redis publicly. Do not expose an unauthenticated Central Admin. Do not automatically drop tenant data when a subscription expires.
+- Do not expose PostgreSQL or Redis publicly. Do not expose an unauthenticated Central Admin. Do not automatically drop tenant data when a subscription expires.
 - Treat `btp-admin/` as legacy/static unless a reviewed migration explicitly changes that status; privileged management moves to authenticated Laravel/Filament panels.
 - New GitHub Actions workflows use GitHub-hosted `ubuntu-24.04` runners unless a reviewed compatibility decision documents an exception.
 - Use immutable image tags/digests and deploy only revisions whose required checks passed. Do not build production images on the live KVM2 during routine deployments.
@@ -89,7 +90,7 @@ The hardening proposal in `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTU
 
 1. **Resource budget (DG-1):** maintain `docs/KVM2_RESOURCE_BUDGET.md`; attach OS-visible memory, actual Docker/Coolify limits, `docker stats` high-water evidence, and a k6 offline-sync burst report. Document the measured usable RAM and preserve host/burst headroom; no tenant-capacity claim without results.
 2. **Database engine decision (DG-0):** commit reviewed, sanitized schema/extension/function/RPC/RLS inventory under `audit/` or `docs/evidence/` and an ADR explaining the chosen engine and migration cost. Never commit credentials, connection URLs/tokens, production data, or unreviewed hard-coded secrets found in function definitions.
-3. **Provisioning security (DG-3):** inspect actual MariaDB `SHOW GRANTS` or PostgreSQL role attributes, database owners, grants, `PUBLIC` CONNECT privileges and sequence privileges. Prove runtime accounts have no DDL and cannot connect to/read/write other tenant databases. The broker/provisioner permission boundary must be documented honestly; application-side prefix validation alone is not proof of restricted DB privileges.
+3. **Provisioning security (DG-3):** inspect actual PostgreSQL role attributes, database owners, grants, `PUBLIC` CONNECT privileges and sequence privileges. Prove runtime accounts have no DDL and cannot connect to/read/write other tenant databases. The broker/provisioner permission boundary must be documented honestly; application-side prefix validation alone is not proof of restricted DB privileges.
 4. **Credential separation:** attach a CI assertion/redacted environment-name report proving public web and normal queue services do not receive `PROVISIONER_`, migrator credentials, root credentials, or equivalent elevated secrets. Never dump secret values into CI logs. Confirm the provisioning service has no public ingress.
 5. **Host/domain boundary:** test an unknown hostile Host returns 404, central domains cannot dispatch tenant routes, tenant domains cannot dispatch central-only routes, and a suspended/changed domain is rejected on the next request despite a warmed cache. Verify immediate invalidation and trusted-proxy behavior.
 6. **Tenant isolation:** tests must use real disposable DB users and actual grants on the selected engine—not mocks or configuration inspection only. Tenant A must fail to CONNECT (where the engine supports per-database CONNECT control), SELECT, INSERT, UPDATE or DELETE against tenant B. Include a central DB access denial, host spoofing, altered client tenant IDs, device ownership, and tenant-context reset across two jobs on one long-running worker.

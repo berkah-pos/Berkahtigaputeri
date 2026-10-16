@@ -290,6 +290,14 @@ void main() {
       expect(await _count(database, 'sales'), 1);
       expect(await _count(database, 'journals'), 1);
       expect(await _count(database, 'outbox_events'), 1);
+      final outboxRows = await database.database.query(
+        'outbox_events',
+        where: 'id = ?',
+        whereArgs: <Object?>['outbox:sale:TRX-IDEMP-001'],
+      );
+      expect(outboxRows, hasLength(1));
+      expect(outboxRows.single['id'], 'outbox:sale:TRX-IDEMP-001');
+      expect(outboxRows.single['status'], 'pending');
       expect(await _count(database, 'stock_movements'), 1);
     });
 
