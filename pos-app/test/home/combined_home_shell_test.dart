@@ -47,23 +47,25 @@ void main() {
       await tester.runAsync(database.close);
     });
 
-    for (final event in <Map<String, String>>[
-      <String, String>{'id': 'synced-1', 'status': 'synced'},
-      <String, String>{'id': 'pending-1', 'status': 'pending'},
-      <String, String>{'id': 'conflict-1', 'status': 'conflict'},
-    ]) {
-      await database.database.insert('outbox_events', <String, Object?>{
-        'id': event['id'],
-        'entity_type': 'sale',
-        'entity_id': 'sale:' + event['id']!,
-        'payload': '{"eventId":"' + event['id']! + '"}',
-        'status': event['status'],
-        'retry_count': 0,
-        'created_at_utc': '2026-10-16T00:00:00.000Z',
-        'last_error': null,
-        'last_attempt_at_utc': null,
-      });
-    }
+    await tester.runAsync(() async {
+      for (final event in <Map<String, String>>[
+        <String, String>{'id': 'synced-1', 'status': 'synced'},
+        <String, String>{'id': 'pending-1', 'status': 'pending'},
+        <String, String>{'id': 'conflict-1', 'status': 'conflict'},
+      ]) {
+        await database.database.insert('outbox_events', <String, Object?>{
+          'id': event['id'],
+          'entity_type': 'sale',
+          'entity_id': 'sale:' + event['id']!,
+          'payload': '{"eventId":"' + event['id']! + '"}',
+          'status': event['status'],
+          'retry_count': 0,
+          'created_at_utc': '2026-10-16T00:00:00.000Z',
+          'last_error': null,
+          'last_attempt_at_utc': null,
+        });
+      }
+    });
 
     await tester.pumpWidget(
       BerkahTigaPuteriApp(
