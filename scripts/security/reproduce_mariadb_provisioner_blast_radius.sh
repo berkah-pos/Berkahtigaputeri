@@ -5,7 +5,7 @@ set -Eeuo pipefail
 umask 077
 set +x
 
-: "${MARIADB_ROOT_PASSWORD:?Use only the workflow's ephemeral disposable MariaDB password}"
+: "${MARIADB_ROOT_PASSWORD:?Ephemeral disposable MariaDB root password required}"
 MARIADB_HOST="${MARIADB_HOST:-127.0.0.1}"
 MARIADB_PORT="${MARIADB_PORT:-3306}"
 SECURITY_EVIDENCE_FILE="${SECURITY_EVIDENCE_FILE:-/tmp/mariadb-show-grants-redacted.txt}"
