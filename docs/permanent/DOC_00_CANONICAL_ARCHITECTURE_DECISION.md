@@ -2,15 +2,15 @@
 
 **Status:** Authoritative for configuration inheritance and the canonical workbook contract.  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
-**Updated:** 2026-10-15
+**Updated:** 2026-10-16 — authority alignment; configuration contract unchanged
 
 ## 1. Scope and authority boundary
 
 This decision owns the Final POS configuration behavior: its inheritance order, override semantics, canonical source workbook, template IDs, exported inventory, and service-specific resolution rules.
 
-It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. Those decisions are specified by `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. The accepted `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` owns the platform, engine and stack decision; `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details the target and its acceptance gates without overriding the ADR.
 
-The prior Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and authenticated `get_effective_config` RPC describe the legacy platform implementation, not the target storage/runtime design. Retain related SQL and reports for migration history and verification as needed; do not implement new runtime paths from them. The target is normalized central configuration storage and the authenticated Laravel Central API as defined by DOC_14.
+The Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and authenticated `get_effective_config` RPC are part of the implementation still present on Flutter/main and are also historical migration inputs relative to the accepted target. Retain related SQL and reports for migration history and verification; do not erase them or implement new Supabase runtime paths from them. The accepted target is normalized central configuration storage behind the authenticated Laravel Central API, as selected by the owner ADR and detailed by DOC_14. This target is not yet the active runtime on `main`.
 
 ## 2. Sole canonical inheritance model
 
@@ -94,7 +94,7 @@ For example, a request for `pos` may use `tenant:<tenant_id>:service:pos`, but m
 
 ## 6. Runtime API and central storage target
 
-Under the proposed platform architecture, the effective-config runtime is the authenticated Laravel Central API described in DOC_14. It must:
+Under the accepted target architecture (owner ADR #49), the planned effective-config runtime is the authenticated Laravel Central API detailed in DOC_14. This is a target contract, not a statement that the migration is implemented on `main`. It must:
 
 - derive tenant/user/device authorization server-side and fail closed on mismatch;
 - accept only an allowlisted service name;
