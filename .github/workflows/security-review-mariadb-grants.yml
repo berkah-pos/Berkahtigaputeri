@@ -1,0 +1,83 @@
+name: Security review - historical MariaDB provisioner blast radius
+
+on:
+  push:
+    branches:
+      - security/remediate-kvm2-isolation-20261016
+  pull_request:
+    branches: [main]
+    paths:
+      - audit/security/fixtures/rejected-mariadb-11.4-phase2-grants.sql
+      - scripts/security/reproduce_mariadb_provisioner_blast_radius.sh
+      - .github/workflows/security-review-mariadb-grants.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  characterize-historical-grants:
+    name: Disposable MariaDB 11.4 privilege characterization (expected security FAIL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: disposable-${{ github.run_id }}-${{ github.run_attempt }}
+          MARIADB_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      MARIADB_ROOT_PASSWORD: disposable-${{ github.run_id }}-${{ github.run_attempt }}
+      SECURITY_EVIDENCE_FILE: ${{ runner.temp }}/mariadb-show-grants-redacted.txt
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install MariaDB client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes mariadb-client
+
+      - name: Verify disposable database is ready
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ready=false
+          for ((attempt=1; attempt<=30; attempt++)); do
+            if MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb-admin \
+              --host=127.0.0.1 --port=3306 --user=root ping --silent >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" != true ]]; then
+            echo "Disposable MariaDB did not become ready."
+            exit 1
+          fi
+          version="$(MYSQL_PWD="$MARIADB_ROOT_PASSWORD" mariadb \
+            --host=127.0.0.1 --port=3306 --user=root --batch --skip-column-names \
+            --execute='SELECT VERSION();')"
+          [[ "$version" == 11.4.* ]]
+          echo "Disposable MariaDB version verified: $version"
+
+      - name: Reproduce the historical provisioner permissions
+        id: reproduce
+        shell: bash
+        run: bash scripts/security/reproduce_mariadb_provisioner_blast_radius.sh
+
+      - name: Preserve raw SHOW GRANTS and redacted probe evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mariadb-11.4-redacted-show-grants
+          path: ${{ runner.temp }}/mariadb-show-grants-redacted.txt
+          if-no-files-found: warn
+          retention-days: 30
