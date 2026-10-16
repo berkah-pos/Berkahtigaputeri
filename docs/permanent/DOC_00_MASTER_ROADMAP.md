@@ -8,7 +8,7 @@
 
 Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects the target platform, engine and stack; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` describes its detailed implementation. This roadmap defines phases and acceptance gates.
 
-The owner ADR selects PostgreSQL 17 as the platform/engine authority. Its implementation and migration remain blocked pending the authoritative source identity and required verification. A documented target does not mean code, tenant databases, CI, backups or deployment exist.
+The owner ADR selects PostgreSQL 17 as the platform/engine authority. On 2026-10-17, the owner designated Supabase project `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) as the authoritative source-of-record resource for migration/production purposes, despite its `staging` label. Migration remains blocked pending authorized read-only inventory/export, source-vs-clone reconciliation, verified backup evidence and the remaining technical acceptance gates. A documented target and source designation do not mean Laravel code, tenant databases, parity, CI, backups or deployment are accepted.
 
 ## 2. Product and protected invariants
 
