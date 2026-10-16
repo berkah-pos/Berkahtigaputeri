@@ -32,6 +32,55 @@ Future<void> _tap(WidgetTester tester, Finder finder, String checkpoint) async {
 }
 
 void main() {
+  testWidgets('dashboard pending count excludes explicitly synced outbox events',
+      (tester) async {
+    sqfliteFfiInit();
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+    final database = (await tester.runAsync(
+      () => PosDatabase.openAt(
+        inMemoryDatabasePath,
+        factory: databaseFactoryFfi,
+      ),
+    ))!;
+    addTearDown(() async {
+      await tester.runAsync(database.close);
+    });
+
+    await tester.runAsync(() async {
+      for (final event in <Map<String, String>>[
+        <String, String>{'id': 'synced-1', 'status': 'synced'},
+        <String, String>{'id': 'pending-1', 'status': 'pending'},
+        <String, String>{'id': 'conflict-1', 'status': 'conflict'},
+      ]) {
+        await database.database.insert('outbox_events', <String, Object?>{
+          'id': event['id'],
+          'entity_type': 'sale',
+          'entity_id': 'sale:' + event['id']!,
+          'payload': '{"eventId":"' + event['id']! + '"}',
+          'status': event['status'],
+          'retry_count': 0,
+          'created_at_utc': '2026-10-16T00:00:00.000Z',
+          'last_error': null,
+          'last_attempt_at_utc': null,
+        });
+      }
+    });
+
+    await tester.pumpWidget(
+      BerkahTigaPuteriApp(
+        database: database,
+        identityStore: AppIdentityStore(preferences),
+      ),
+    );
+    await _settle(tester, 'pending count initial app');
+    await _tap(tester, find.text('Lanjutkan sebagai kasir lokal'), 'pending local mode');
+    await _settle(tester, 'pending count dashboard');
+
+    expect(find.text('Antrean tertunda'), findsOneWidget);
+    expect(find.text('2'), findsOneWidget);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
   testWidgets('combined POS shell exposes product, cashier, stock and reports',
       (tester) async {
     sqfliteFfiInit();
