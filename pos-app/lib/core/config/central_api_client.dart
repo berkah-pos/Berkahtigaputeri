@@ -310,9 +310,9 @@ class CentralApiClient {
         expectedDeviceId: deviceId,
         expectedService: service,
       );
-    } on FormatException {
-      // A 2xx response with a missing/incorrect envelope is a contract failure,
-      // not a transport outage: ConfigService must not silently serve stale data.
+    } catch (_) {
+      // Any parse/type failure from a 2xx payload is a contract failure, not a
+      // transport outage: ConfigService must not silently serve stale data.
       throw CentralApiException(
         'Respons konfigurasi atau metadata versi/hash tidak valid.',
         statusCode: response.statusCode,
