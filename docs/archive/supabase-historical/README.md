@@ -32,5 +32,5 @@ Other deleted operational scripts and the legacy Edge Function are intentionally
 
 - Read only for schema mapping, historical audit and reviewed migration planning.
 - Never add credentials, connection URLs/tokens or production rows while inspecting or testing archived files.
-- Do not replay against production or staging. Translate required behavior into Laravel/MariaDB migrations and executable tests after independent review.
+- Do not replay against production or staging. Translate required behavior into reviewed PostgreSQL 17 central/tenant migrations and executable tests after independent review.
 - Any future use requires a documented migration mapping, verified backup/rollback plan and explicit environment approval.
