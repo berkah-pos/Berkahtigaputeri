@@ -2,6 +2,8 @@
 
 use App\Http\Middleware\EnsureTenantHost;
 use App\Http\Middleware\EnsureTenantRequestOwnership;
+use App\Http\Middleware\EnsureTenantRequestPrincipal;
+use App\Http\Middleware\EnsureTenantSubscriptionIsActive;
 use App\Http\Middleware\HostDomainBoundary;
 use App\Http\Middleware\InitializeTenantContext;
 use Illuminate\Foundation\Application;
@@ -20,6 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->middleware([
                     EnsureTenantHost::class,
                     'auth:sanctum',
+                    // Do not establish a tenant DB connection for a request
+                    // that lacks active membership/device/owner authorization.
+                    EnsureTenantRequestPrincipal::class,
+                    EnsureTenantSubscriptionIsActive::class,
                     InitializeTenantContext::class,
                     EnsureTenantRequestOwnership::class,
                 ])
