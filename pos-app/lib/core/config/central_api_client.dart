@@ -164,6 +164,9 @@ class CentralApiClient {
   final http.Client _http;
   String? _cachedToken;
 
+  /// Invoked when the server rejects a previously stored bearer token.
+  void Function()? onSessionInvalidated;
+
   CentralApiClient({
     required this.baseUrl,
     required this.preferences,
@@ -248,14 +251,18 @@ class CentralApiClient {
     } catch (_) {
       remoteRevocationConfirmed = false;
     } finally {
-      _cachedToken = null;
-      try {
-        await secureStorage.delete(key: _tokenKey);
-      } finally {
-        await preferences.remove(_tokenKey);
-      }
+      await _clearLocalSession();
     }
     return remoteRevocationConfirmed;
+  }
+
+  Future<void> _clearLocalSession() async {
+    _cachedToken = null;
+    try {
+      await secureStorage.delete(key: _tokenKey);
+    } finally {
+      await preferences.remove(_tokenKey);
+    }
   }
 
   Future<EffectiveConfigResponse> getEffectiveConfig({
@@ -281,6 +288,16 @@ class CentralApiClient {
         .timeout(const Duration(seconds: 20));
     final body = _decodeResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 401) {
+        // A rejected bearer token is not a cacheable outage. Drop local copies
+        // and let the app return to its login route before propagating the 401.
+        try {
+          await _clearLocalSession();
+        } catch (_) {
+          // Preserve the authoritative 401 even if the OS credential vault fails.
+        }
+        onSessionInvalidated?.call();
+      }
       throw CentralApiException(
         _errorMessage(body, 'Konfigurasi ditolak oleh Laravel Central API.'),
         statusCode: response.statusCode,
