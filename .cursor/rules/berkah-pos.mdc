@@ -2,7 +2,7 @@
 
 - Before any code, schema, deployment, CI, or architecture-document change, read root `AGENTS.md` and follow its mandatory reading order.
 - `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns only the canonical five-layer configuration behavior and 352-entry workbook contract.
-- `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` defines the target platform for the architecture branch: Laravel Central API, normalized central configuration tables, MariaDB database-per-tenant, distinct restricted DB user per tenant, Coolify deployment, backup, and acceptance gates. The proposal becomes accepted authority after review/merge.
+- `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects Laravel Central API on KVM2/Coolify with PostgreSQL 17, a central database and one database/restricted runtime role per tenant; its authority takes effect after review/merge. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details the gates and may not override the ADR.
 - `docs/permanent/DOC_00_MASTER_ROADMAP.md` governs ordered phases; `DOC_12` and `DOC_13` contain supersession notices and must not be followed as authority for a new Supabase runtime.
 - Canonical inheritance is `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`; exact workbook inventory is 352 entries (1 global + 3 templates + 100 tenants + 140 service entries + 108 devices).
 - Resolve one requested service at a time; never merge POS and Akuntansi rows.
