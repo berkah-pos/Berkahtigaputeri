@@ -1,14 +1,14 @@
 # BERKAH POS — MASTER ROADMAP
 
-**Updated:** 2026-10-15  
+**Updated:** 2026-10-16  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Purpose:** Ordered implementation gates for the Final POS configuration contract and the KVM2/Coolify isolated-tenant SaaS target.
 
 ## 1. Authority and evidence
 
-Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` defines the proposed platform/runtime design. This roadmap defines the implementation phases and acceptance gates.
+Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects the target platform, engine and stack; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` describes its detailed implementation. This roadmap defines phases and acceptance gates.
 
-The platform design is proposed on the architecture branch and becomes an accepted repository decision only after review and merge. A documented target does not mean the code, tenant databases, CI, backup system, or deployment already exist.
+The owner ADR selects PostgreSQL 17 as the platform/engine authority. Its implementation and migration remain blocked pending the authoritative source identity and required verification. A documented target does not mean code, tenant databases, CI, backups or deployment exist.
 
 ## 2. Product and protected invariants
 
@@ -29,12 +29,12 @@ Protect these invariants:
 
 ## 3. Target platform decision
 
-The target is documented in DOC_14:
+The owner ADR selects the target; DOC_14 details the implementation:
 
 - Ubuntu 24.04 LTS workload node on Hostinger KVM2 (2 vCPU, 8 GB RAM, 100 GB NVMe).
 - Coolify as deployment/control plane.
-- Laravel 13.x / PHP 8.4 / Filament 5.x / locked and tested `stancl/tenancy` v3.10.x.
-- One MariaDB 11.4 LTS server, one central DB, one database plus restricted DB user per tenant.
+- Laravel 13.x / PHP 8.4 / Filament 5.x / locked and tested `stancl/tenancy` v3.10.1 as the initial candidate.
+- One private PostgreSQL 17 service, one central DB, one database plus restricted runtime role per tenant.
 - A shared application image serves standard tenants; there is no app container or database server per standard tenant.
 - Laravel Central API for effective configuration, enrollment, entitlement checks, and authenticated transaction sync.
 - Private object storage, encrypted off-host backup, durable offline outbox, and measured capacity/recovery checks.
@@ -54,7 +54,7 @@ Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, th
 
 ### PHASE 1 — Architecture authority and workbook contract
 
-- Align `AGENTS.md`, DOC_00, DOC_14, roadmap, permanent index, Cursor rules, and Copilot instructions.
+- Align `AGENTS.md`, the owner ADR, DOC_14, roadmap, permanent index, Cursor rules, and Copilot instructions; preserve the ADR as the single platform/engine authority.
 - Mark old Supabase schema/RPC guidance as superseded for the new runtime without deleting migration history blindly.
 - Validate all required workbook tabs, unique identifiers, template keys, row-type counts, and exactly 352 entries using a no-write dry run.
 - Produce a deterministic entry manifest/hash.
@@ -64,12 +64,12 @@ Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, th
 ### PHASE 2 — Laravel foundation and central/tenant schema
 
 - Scaffold a clean Laravel 13/PHP 8.4 project with a committed `composer.lock`, Filament 5 panels, central and tenant migrations, environment templates, `Dockerfile`, deployment config, `/up` health check, and CI.
-- Pin one supported MariaDB LTS series and test migrations against the actual engine version.
-- Convert the Supabase/PostgreSQL data model deliberately. Audit JSON/JSONB, UUIDs, upserts, indexes, constraints, collations, time-zone behavior, and every SQL/function dependency.
+- Pin and test the current supported PostgreSQL 17 minor in disposable CI/staging environments.
+- Reconcile the authoritative Supabase/PostgreSQL source, then convert the shared tenant/RLS model into central metadata and separate tenant databases. Audit JSONB, UUIDs, upserts, indexes, constraints, triggers, functions, extensions, identity helpers and every SQL dependency; do not infer that engine compatibility alone makes tenancy migration safe.
 - Define normalized central tables for tenants/domains/memberships/subscriptions/devices/configuration/versioning, and isolated tenant migrations for operational POS/accounting data.
 - Do not point schema experiments at production.
 
-**Acceptance:** clean install/build from the locked dependencies; fresh central/tenant migrations pass in an isolated test DB; `docs/reports/FASE_2_LARAVEL_SCHEMA.md`.
+**Acceptance:** clean install/build from the locked dependencies; fresh central/tenant migrations pass in an isolated PostgreSQL 17 test environment; `docs/reports/FASE_2_LARAVEL_SCHEMA.md`.
 
 ### PHASE 3 — Tenant database provisioning and lifecycle
 
@@ -78,7 +78,7 @@ Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, th
 - Implement idempotent provisioning states, domain validation, tenant migrations/seeds, failure/retry/resume, suspension, and controlled data retention.
 - Verify tenant DB users cannot read/write central tables or another tenant DB.
 
-**Acceptance:** automated tests create two tenants, prove different DBs and users, inspect effective grants, exercise failure/retry, and show fail-closed host routing. Report in `docs/reports/FASE_3_TENANT_PROVISIONING.md`.
+**Acceptance:** automated tests create two tenants in PostgreSQL 17, prove different DBs and restricted roles, inspect actual role attributes and grants, exercise failure/retry, and show fail-closed host routing. Report in `docs/reports/FASE_3_TENANT_PROVISIONING.md`.
 
 ### PHASE 4 — Authentication, Admin, and Central API
 

@@ -2,13 +2,13 @@
 
 - Before any code, schema, deployment, CI, or architecture-document change, read root `AGENTS.md` and follow its mandatory reading order.
 - `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns only the canonical five-layer configuration behavior and 352-entry workbook contract.
-- `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` defines the target platform for the architecture branch: Laravel Central API, normalized central configuration tables, MariaDB database-per-tenant, distinct restricted DB user per tenant, Coolify deployment, backup, and acceptance gates. The proposal becomes accepted authority after review/merge.
+- `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects Laravel Central API on KVM2/Coolify with PostgreSQL 17, a central database and one database/restricted runtime role per tenant; its authority takes effect after review/merge. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details the gates and may not override the ADR.
 - `docs/permanent/DOC_00_MASTER_ROADMAP.md` governs ordered phases; `DOC_12` and `DOC_13` contain supersession notices and must not be followed as authority for a new Supabase runtime.
 - Canonical inheritance is `GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE`; exact workbook inventory is 352 entries (1 global + 3 templates + 100 tenants + 140 service entries + 108 devices).
 - Resolve one requested service at a time; never merge POS and Akuntansi rows.
 - Keep the workbook as the source/export contract. The target Laravel importer maps its entries to normalized central tables; do not restore a generic Supabase `app_config(key, value JSONB)` runtime or the legacy `(device_id, key, value)` shape.
 - Flutter runtime configuration and sync target the authenticated Laravel Central API, while SQLite local-first checkout/outbox remains mandatory.
-- The shared application image serves standard tenants. Each tenant gets a distinct database and DB user on one MariaDB server; a private provisioner creates these resources. Never use root/global DB credentials in tenant request handling.
+- The shared application image serves standard tenants. Each tenant gets a distinct PostgreSQL database and restricted runtime role on one private PostgreSQL 17 service; a reviewed broker provisions these resources. Never use root/global DB credentials in tenant request handling.
 - Admin/Central routes and tenant routes must be domain-scoped and independently authorized; a client-supplied tenant ID or Host header is not proof of access.
 - Preserve offline idempotency, FEFO physical allocation vs FIFO financial costing, and accurate evidence reporting.
 - Use branches and pull requests, never direct implementation pushes to `main`. Never force-push, erase `.git`, or delete existing files blindly.

@@ -2,9 +2,9 @@
 
 **Status: HISTORICAL / SUPERSEDED — NOT ACTIVE RUNTIME. Do not execute these files.**  
 **Source ref:** `main` at `e394912f3258a3efcb4bb5900fb84d57e2a27c22`.  
-**Target runtime:** Laravel Central API + MariaDB 11.4 LTS, after reviewed migrations and acceptance.
+**Selected target (not deployed):** Laravel Central API + PostgreSQL 17, with separate tenant databases/roles, after source identification and reviewed migrations/acceptance.
 
-This directory preserves repository source history removed from the Laravel migration branch. It is an audit/migration archive, not an executable migration path. The archived files must not be invoked by CI, deployment, app runtime, or routine operator procedures. Their historical PostgreSQL/Supabase syntax is not compatible with the selected MariaDB runtime. Retaining the files does not certify their historical claims or prove live schema state.
+This directory preserves repository source history removed from the Laravel migration branch. It is an audit/migration archive, not an executable migration path. The archived files must not be invoked by CI, deployment, app runtime, or routine operator procedures. Their historical SQL describes the former Supabase-hosted schema and runtime boundary. It is migration evidence only; do not treat it as a complete live schema dump or execute it unchanged as a target migration. Retaining the files does not certify their historical claims or prove live schema state.
 
 Each archive copy was fetched directly from `main` and stored byte-for-byte. Original Git blob SHAs are recorded for provenance.
 
@@ -32,5 +32,5 @@ Other deleted operational scripts and the legacy Edge Function are intentionally
 
 - Read only for schema mapping, historical audit and reviewed migration planning.
 - Never add credentials, connection URLs/tokens or production rows while inspecting or testing archived files.
-- Do not replay against production or staging. Translate required behavior into Laravel/MariaDB migrations and executable tests after independent review.
+- Do not replay against production or staging. Translate required behavior into reviewed PostgreSQL 17 central/tenant migrations and executable tests after independent review.
 - Any future use requires a documented migration mapping, verified backup/rollback plan and explicit environment approval.

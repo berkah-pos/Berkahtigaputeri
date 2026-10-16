@@ -1,8 +1,6 @@
 # Runbook — Backup and Restore
 Location: `docs/runbooks/backup-restore.md`
-Branch: `docs/kvm2-isolated-saas-architecture`
-
-**Status:** runbook template; it has not been executed. Select exactly one database-engine path after DG-0. Configure and test object-storage remotes, encryption, key custody, access policies, and credentials before enabling scheduled jobs. Never paste production secrets into shell history or committed files.
+**Status:** runbook template; it has not been executed. The owner ADR selects PostgreSQL 17; Option B is the target path. Option A is a rejected MariaDB alternative retained for comparison only, not an operational instruction. Configure and test object-storage remotes, encryption, key custody, access policies and credentials before enabling scheduled jobs. Never paste production secrets into shell history or committed files.
 
 ## Scope
 
@@ -13,11 +11,11 @@ Must cover:
 - Private S3-compatible business files (receipts, exports) and relevant object metadata
 - Coolify `APP_KEY` + database encryption/restore keys held off-host in a vault
 
-Coolify's backup feature supports selecting All Databases or specific databases for MariaDB. The risk is misconfigured scope or unchecked failed results—not that it categorically cannot back up multiple databases. Always reconcile each backup execution result against the current central tenant registry and database catalog.
+Do not assume Coolify's selected backup feature supports PostgreSQL WAL/PITR or includes every tenant database. Verify the exact engine/version and feature support, then reconcile each backup result against the central tenant registry and PostgreSQL database catalog. A job configured or marked successful is not proof of complete backup coverage.
 
-## Engine-Specific Strategy — choose after DG-0
+## Engine-specific strategy — PostgreSQL 17 selected by owner ADR
 
-### Option A — If MariaDB 11.4 is selected
+### Rejected alternative — MariaDB 11.4 (comparison only; not the target)
 
 **Physical full backup + point-in-time recovery (PITR)**
 
@@ -42,7 +40,7 @@ PITR restore requires the full backup plus the required original binary logs rep
 - Use a dedicated backup identity and a bounded worker pool with at most three tenant databases in parallel. For each database, run the selected version's tested `mysqldump --single-transaction --databases "$db"` equivalent, encrypt/compress, upload off-host, and record checksum, size, and result.
 - Treat any missing/unexpected database or failed dump as an incomplete backup run and alert.
 
-### Option B — If PostgreSQL 17 is selected
+### Selected target — PostgreSQL 17
 
 **Physical backup + WAL**
 
