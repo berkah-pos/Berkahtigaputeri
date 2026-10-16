@@ -35,7 +35,6 @@ jobs:
           --health-retries=30
     env:
       MARIADB_ROOT_PASSWORD: disposable-${{ github.run_id }}-${{ github.run_attempt }}
-      SECURITY_EVIDENCE_FILE: ${{ runner.temp }}/mariadb-show-grants-redacted.txt
     steps:
       - name: Checkout candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -71,6 +70,8 @@ jobs:
       - name: Reproduce the historical provisioner permissions
         id: reproduce
         shell: bash
+        env:
+          SECURITY_EVIDENCE_FILE: ${{ runner.temp }}/mariadb-show-grants-redacted.txt
         run: bash scripts/security/reproduce_mariadb_provisioner_blast_radius.sh
 
       - name: Preserve raw SHOW GRANTS and redacted probe evidence
