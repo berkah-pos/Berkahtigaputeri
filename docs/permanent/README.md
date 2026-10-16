@@ -18,12 +18,23 @@ This directory records durable configuration contracts, platform decisions, secu
 ## Authority boundaries
 
 - **Inheritance + workbook:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, once reviewed and merged.
+- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, accepted and merged by PR #49; this is the binding platform/engine/stack authority on `main`.
 - **Detailed target implementation / tenant isolation / runtime storage / deployment:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`, subordinate to the owner ADR.
 - **Execution:** `DOC_00_MASTER_ROADMAP.md`.
 - **Current implementation status:** current source and actual test/CI/staging/production evidence only. A document claim or historical run never proves current runtime behavior.
 
-If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins after review/merge; DOC_14 implements but does not override that decision. Do not silently rewrite historical facts.
+If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins; PR #49 merged the accepted decision, so no additional approval prerequisite is implied. DOC_14 details but does not override that decision. Do not silently rewrite historical facts.
+
+### Status categories that must not be conflated
+
+- **Implemented on main:** verify tracked source at the named main commit; current baseline Flutter remains Supabase-backed.
+- **Target accepted in an ADR:** an architectural decision only; it does not imply code, staging or production delivery.
+- **Open branch/PR implementation:** unmerged candidate code only.
+- **Executed CI evidence:** tied to exact tested SHA and specific workflow/job; a partial pass does not imply aggregate acceptance.
+- **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
+- **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
+
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
 ## Canonical configuration contract
 
@@ -62,7 +73,7 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 
 Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration.
 
-The non-canonical file named `DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` is a malformed duplicate discovered on 2026-10-15. Use the canonical filename `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` referenced above. The duplicate is now explicitly marked HISTORICAL / SUPERSEDED; retain it as evidence, not as an independent authority.
+A malformed historical duplicate discovered on 2026-10-15 was reference-checked and archive-renamed to `../archive/superseded/DOC_14_MALFORMED_DUPLICATE_PROPOSAL_2026-10-15.md` on 2026-10-16. Its original date and proposal content are retained. Use the canonical `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` above; the archived duplicate is evidence only, not an independent authority.
 
 ## Evidence and security rules
 
