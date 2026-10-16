@@ -176,10 +176,6 @@ jobs:
             --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer audit --locked --no-interaction
 
-      - name: Run Laravel Pint style checks
-        run: |
-          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
-
       - name: Generate Laravel application key
         run: |
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
@@ -379,3 +375,9 @@ jobs:
           docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked laravel/framework
           docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked filament/filament
           docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked stancl/tenancy
+
+      - name: Run Laravel Pint style checks after acceptance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test

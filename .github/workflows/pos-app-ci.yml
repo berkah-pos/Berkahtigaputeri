@@ -132,7 +132,6 @@ jobs:
             --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" \
             sh -eu -c "php -l artisan && find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l"
-          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
 
       - name: Start disposable MariaDB 11.4 for tenant security tests
         env:
@@ -368,3 +367,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Run Laravel Pint after backend and Flutter acceptance gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test

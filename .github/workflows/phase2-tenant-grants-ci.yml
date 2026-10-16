@@ -94,7 +94,6 @@ jobs:
             --env GIT_CONFIG_COUNT=1 --env GIT_CONFIG_KEY_0=safe.directory --env GIT_CONFIG_VALUE_0=/app \
             "$PHP_CI_IMAGE" composer audit --locked --no-interaction
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
-          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
 
       - name: Create isolated DB accounts and apply grants
         env:
@@ -171,6 +170,12 @@ jobs:
           MARIADB_ROOT_PASSWORD: phase2-root-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
         run: python3 scripts/check_provisioner_grants.py
+
+      - name: Run Laravel Pint after tenant security tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
 
       - name: Clean up disposable MariaDB container
         if: always()
