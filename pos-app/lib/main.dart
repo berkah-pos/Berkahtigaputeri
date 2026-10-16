@@ -140,10 +140,25 @@ class _AppGateState extends State<_AppGate> {
   void _authenticated() => setState(() => _localOnly = false);
 
   Future<void> _signOut() async {
+    var remoteRevocationConfirmed = true;
     try {
-      await widget.apiClient?.signOut();
+      final client = widget.apiClient;
+      if (client != null) {
+        remoteRevocationConfirmed = await client.signOut();
+      }
     } finally {
       if (mounted) setState(() => _localOnly = false);
+    }
+    if (!remoteRevocationConfirmed && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Sesi lokal telah dihapus, tetapi server belum mengonfirmasi '
+            'pencabutan token. Periksa koneksi dan cabut sesi melalui '
+            'administrator sebelum memakai perangkat ini kembali.',
+          ),
+        ),
+      );
     }
   }
 
