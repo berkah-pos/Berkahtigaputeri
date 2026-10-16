@@ -18,12 +18,12 @@ This directory records durable configuration contracts, platform decisions, secu
 ## Authority boundaries
 
 - **Inheritance + workbook:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, once reviewed and merged.
+- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, accepted and merged to `main` via PR #49.
 - **Detailed target implementation / tenant isolation / runtime storage / deployment:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`, subordinate to the owner ADR.
 - **Execution:** `DOC_00_MASTER_ROADMAP.md`.
 - **Current implementation status:** current source and actual test/CI/staging/production evidence only. A document claim or historical run never proves current runtime behavior.
 
-If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins after review/merge; DOC_14 implements but does not override that decision. Do not silently rewrite historical facts.
+If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. The merged owner ADR governs platform, engine and stack; DOC_14 implements but does not override that decision. Do not silently rewrite historical facts.
 
 ## Canonical configuration contract
 
