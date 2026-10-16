@@ -12,6 +12,9 @@ on:
       - "phpunit.xml"
       - "docker/**"
       - "composer.json"
+      - "composer.lock"
+      - "Dockerfile.lock-bootstrap"
+      - ".gitignore"
       - "Dockerfile"
       - "docker-compose.yml"
       - ".env.example"
@@ -40,6 +43,9 @@ on:
       - "phpunit.xml"
       - "docker/**"
       - "composer.json"
+      - "composer.lock"
+      - "Dockerfile.lock-bootstrap"
+      - ".gitignore"
       - "Dockerfile"
       - "docker-compose.yml"
       - ".env.example"
@@ -93,9 +99,10 @@ jobs:
     name: Laravel backend, tenant isolation and privilege proof
     needs: contract
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 45
     env:
       CENTRAL_DOMAINS: localhost,central.test,app.central.test
+      PHP_CI_IMAGE: "berkah-pos-php-ci:${{ github.sha }}"
     services:
       mariadb:
         image: mariadb:11.4
@@ -114,7 +121,75 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Verify hosted MariaDB 11.4 service
+      - name: Build clean PHP 8.4 CI runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --no-cache --target php-base --tag "$PHP_CI_IMAGE" .
+          docker run --rm "$PHP_CI_IMAGE" php -r '
+            if (PHP_MAJOR_VERSION !== 8 || PHP_MINOR_VERSION !== 4) {
+                fwrite(STDERR, "Expected PHP 8.4, got ".PHP_VERSION.PHP_EOL);
+                exit(1);
+            }
+            $required = ["bcmath", "ctype", "curl", "dom", "fileinfo", "intl", "mbstring", "openssl", "pdo_mysql", "pdo_pgsql", "tokenizer", "xml", "zip"];
+            $missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
+            if ($missing !== []) {
+                fwrite(STDERR, "Missing required PHP extensions: ".implode(", ", $missing).PHP_EOL);
+                exit(1);
+            }
+            echo "PASS: PHP 8.4 and required database PDO extensions are available.".PHP_EOL;
+          '
+          docker run --rm "$PHP_CI_IMAGE" composer --version
+
+      - name: Prepare Laravel environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+
+      - name: Check PHP syntax on PHP 8.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" \
+            sh -eu -c "find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l"
+
+      - name: Validate manifest and clean-install locked Composer graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer validate --strict --no-check-publish
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer install --no-interaction --prefer-dist --no-progress
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer check-platform-reqs
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            "$PHP_CI_IMAGE" composer audit --locked --no-interaction
+
+      - name: Run Laravel Pint style checks
+        run: |
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app "$PHP_CI_IMAGE" vendor/bin/pint --test
+
+      - name: Generate Laravel application key
+        run: |
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV=testing "$PHP_CI_IMAGE" php artisan key:generate --force
+
+      - name: Boot Laravel and enumerate API routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV=testing --env CENTRAL_DOMAINS "$PHP_CI_IMAGE" php artisan about
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV=testing --env CENTRAL_DOMAINS "$PHP_CI_IMAGE" php artisan route:list --path=api/v1
+
+      - name: Start and verify MariaDB 11.4
         env:
           MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
         shell: bash
@@ -136,65 +211,16 @@ jobs:
           fi
           version="$(mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" --batch --skip-column-names --execute='SELECT VERSION()')"
           [[ "$version" == 11.4.* ]]
-          echo "PASS: real MariaDB service is running version $version."
-
-      - name: Install and verify runner-provided PHP 8.3 and Composer
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install --yes php8.3-bcmath php8.3-curl php8.3-intl php8.3-mbstring php8.3-mysql php8.3-sqlite3 php8.3-xml php8.3-zip
-          php --version
-          composer --version
-          php <<'PHP'
-          <?php
-          if (PHP_MAJOR_VERSION !== 8 || PHP_MINOR_VERSION !== 3) {
-              fwrite(STDERR, "Expected PHP 8.3, got ".PHP_VERSION.PHP_EOL);
-              exit(1);
-          }
-          $required = ["bcmath", "ctype", "curl", "dom", "fileinfo", "intl", "mbstring", "openssl", "pdo_mysql", "pdo_sqlite", "tokenizer", "xml", "zip"];
-          $missing = array_values(array_filter($required, static fn (string $extension): bool => ! extension_loaded($extension)));
-          if ($missing !== []) {
-              fwrite(STDERR, "Missing required PHP extensions: ".implode(", ", $missing).PHP_EOL);
-              exit(1);
-          }
-          echo "PASS: PHP 8.3 and required extensions are available.".PHP_EOL;
-          PHP
-
-      - name: Prepare environment
-        run: cp .env.example .env
-
-      - name: Check PHP syntax before Composer scripts
-        shell: bash
-        run: |
-          set -euo pipefail
-          find app bootstrap config database routes public tests -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-      - name: Install Composer dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Run Laravel Pint style checks
-        run: vendor/bin/pint --test
-
-      - name: Generate Laravel application key
-        run: php artisan key:generate --force
-
-      - name: Install workbook validator dependency
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
-          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+          echo "PASS: MariaDB service is running version $version."
 
       - name: Build validated canonical import manifest
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/kvm2-python-venv"
+          "$RUNNER_TEMP/kvm2-python-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
           "$RUNNER_TEMP/kvm2-python-venv/bin/python" scripts/export_workbook_for_laravel.py --output build/central-config-import.json
           test -s build/central-config-import.json
-
-      - name: Confirm MariaDB client is installed
-        run: mariadb --version
 
       - name: Create CLI provisioner and apply least-privilege grants
         env:
@@ -210,7 +236,7 @@ jobs:
           bash docker/mysql-init/00-create-provisioner.sh
           mariadb --host=127.0.0.1 --port=3306 --user=root --password="$MARIADB_ROOT_PASSWORD" < docker/mysql-init/10-tenant-db-privileges.sql
 
-      - name: Migrate central schema and verify API routes
+      - name: Migrate central schema and enumerate API routes
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
@@ -225,10 +251,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          php artisan migrate --database=central --path=database/migrations/central --force
-          php artisan route:list --path=api/v1
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env TENANT_DB_HOST --env TENANT_DB_PORT \
+            "$PHP_CI_IMAGE" php artisan migrate --database=central --path=database/migrations/central --force
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env TENANT_DB_HOST --env TENANT_DB_PORT \
+            "$PHP_CI_IMAGE" php artisan route:list --path=api/v1
 
-      - name: Run real MariaDB 11.4 tenant grant feature test
+      - name: Run real MariaDB tenant grant feature test
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
@@ -250,9 +284,19 @@ jobs:
           MIGRATOR_DB_DATABASE: information_schema
           MIGRATOR_DB_USERNAME: berkahpos_migrator
           MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
-        run: php artisan test --filter=TenantProvisioningMariaDbGrantsTest
+        shell: bash
+        run: |
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env TENANT_DB_HOST --env TENANT_DB_PORT \
+            --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT --env PROVISIONER_DB_DATABASE \
+            --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD \
+            --env MIGRATOR_DB_HOST --env MIGRATOR_DB_PORT --env MIGRATOR_DB_DATABASE \
+            --env MIGRATOR_DB_USERNAME --env MIGRATOR_DB_PASSWORD \
+            "$PHP_CI_IMAGE" php artisan test --filter=TenantProvisioningMariaDbGrantsTest
 
-      - name: Run Laravel and Phase 4 MariaDB-backed integration tests
+      - name: Run Laravel and Phase 4 tenant isolation tests
         env:
           APP_ENV: testing
           APP_DEBUG: "true"
@@ -274,7 +318,17 @@ jobs:
           MIGRATOR_DB_DATABASE: information_schema
           MIGRATOR_DB_USERNAME: berkahpos_migrator
           MIGRATOR_DB_PASSWORD: ci-migrator-${{ github.run_id }}-${{ github.run_attempt }}
-        run: php artisan test
+        shell: bash
+        run: |
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env TENANT_DB_HOST --env TENANT_DB_PORT \
+            --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT --env PROVISIONER_DB_DATABASE \
+            --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD \
+            --env MIGRATOR_DB_HOST --env MIGRATOR_DB_PORT --env MIGRATOR_DB_DATABASE \
+            --env MIGRATOR_DB_USERNAME --env MIGRATOR_DB_PASSWORD \
+            "$PHP_CI_IMAGE" php artisan test
 
       - name: Dry-run canonical workbook import
         env:
@@ -288,10 +342,35 @@ jobs:
           CENTRAL_DB_PASSWORD: ci-central-${{ github.run_id }}-${{ github.run_attempt }}
           TENANT_DB_HOST: 127.0.0.1
           TENANT_DB_PORT: "3306"
-        run: php artisan config:import-workbook build/central-config-import.json --dry-run
+        shell: bash
+        run: |
+          docker run --rm --network host --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env APP_ENV --env APP_DEBUG --env DB_CONNECTION --env CENTRAL_DOMAINS \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env TENANT_DB_HOST --env TENANT_DB_PORT \
+            "$PHP_CI_IMAGE" php artisan config:import-workbook build/central-config-import.json --dry-run
 
       - name: Prove central app account has CRUD on central only
         env:
           MARIADB_ROOT_PASSWORD: ci-root-${{ github.run_id }}-${{ github.run_attempt }}
         run: python3 scripts/check_central_app_grants.py
 
+      - name: Build production image from the same lockfile
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --no-cache --build-arg VCS_REF="${{ github.sha }}" --tag "berkah-pos-production:${{ github.sha }}" .
+
+      - name: Smoke-test production image boot, routes, and locked versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_key="$(sed -n 's/^APP_KEY=//p' .env)"
+          test -n "$app_key"
+          docker run --rm --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
+            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "berkah-pos-production:${{ github.sha }}" php artisan about
+          docker run --rm --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY="$app_key" \
+            --env CENTRAL_DOMAINS="$CENTRAL_DOMAINS" "berkah-pos-production:${{ github.sha }}" php artisan route:list --path=api/v1
+          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked laravel/framework
+          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked filament/filament
+          docker run --rm "berkah-pos-production:${{ github.sha }}" composer show --locked stancl/tenancy

@@ -41,3 +41,6 @@ node_modules/
 .vscode/
 .DS_Store
 *.log
+
+# Composer dependencies are generated from the committed lockfile.
+/vendor/
