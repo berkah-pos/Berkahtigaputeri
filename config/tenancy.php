@@ -7,7 +7,7 @@ use Stancl\Tenancy\Bootstrappers\DatabaseTenancyBootstrapper;
 
 return [
     'tenant_model' => Tenant::class,
-    'id_generator' => null,
+    'id_generator' => \Stancl\Tenancy\UUIDGenerator::class,
     'domain_model' => Domain::class,
     'central_domains' => array_values(array_filter(array_map(
         'trim',
