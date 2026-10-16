@@ -9,7 +9,7 @@ This directory records durable configuration contracts, platform decisions, secu
 3. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — selected Laravel Central API + PostgreSQL 17 target, stack, source-retention policy and migration blockers.
 4. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to the owner ADR.
 5. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
-6. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original shared-Supabase platform choice is superseded by DOC_14.
+6. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original shared-Supabase platform choice is superseded by the owner ADR and detailed DOC_14.
 7. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of the old Flutter/Supabase implementation and known gaps; it does not define the new platform target.
 8. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
 9. `scripts/sync_excel_to_supabase.py` — legacy-named workbook validator/import reference. Read it for workbook checks; its name does not authorize new Supabase writes.
