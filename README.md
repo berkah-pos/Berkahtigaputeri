@@ -29,7 +29,7 @@ GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 
 The canonical workbook is `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`. The exported inventory is exactly 352 entries: 1 global, 3 templates (`BASIC`, `PRO`, `ENTERPRISE`), 100 tenants, 140 services and 108 devices. Resolve one requested service at a time; do not merge POS and Akuntansi service rows into one effective configuration.
 
-The current workbook-validation/export script is still named `scripts/sync_excel_to_supabase.py`. Its legacy filename is not authority to introduce new Supabase writes. Treat existing Supabase SQL, functions, schemas, RLS policies, project data and migration history as retained implementation/migration evidence until source identification, export/backup verification, parity, rollback and explicit retirement approval pass. Do not erase or blindly execute historical migration inputs.
+The legacy script `scripts/sync_excel_to_supabase.py` currently contains a Supabase REST/RPC write path when invoked with cloud credentials. Treat it as a legacy main-branch write path, **not** as a read-only validator or the target Laravel importer; do not run it against an unknown/shared source as part of this work. Retain it, related SQL/functions/schemas/RLS and available project data as implementation/migration evidence until the source is identified and an approved replacement, verified export/backup, parity, rollback and explicit retirement decision exist. Do not erase or blindly execute historical migration inputs.
 
 ## Runtime and documentation authority
 
