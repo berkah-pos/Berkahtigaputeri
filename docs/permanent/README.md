@@ -62,7 +62,7 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 
 Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration.
 
-The non-canonical file named `DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` is a malformed duplicate discovered on 2026-10-15. Use the canonical filename `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` referenced above. Keep the duplicate only as historical evidence until its handling is reviewed; it is not a second independent authority.
+The non-canonical file named `DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` is a malformed duplicate discovered on 2026-10-15. Use the canonical filename `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` referenced above. The duplicate is now explicitly marked HISTORICAL / SUPERSEDED; retain it as evidence, not as an independent authority.
 
 ## Evidence and security rules
 
