@@ -95,7 +95,7 @@ probe "create another matching tenant database" "CREATE DATABASE $DB_CREATED;"
 probe "create an arbitrary global database principal" "CREATE USER '$CREATED_USER'@'%' IDENTIFIED BY '$CREATED_USER_PASSWORD';"
 probe "delegate SELECT on tenant B to another principal" "GRANT SELECT ON $DB_B.* TO '$DELEGATE_USER'@'%';"
 
-if delegate_output="$(delegate_sql "SELECT COUNT(*) FROM security_canary;" 2>/dev/null)"; then
+if delegate_output="$(delegate_sql 'SELECT COUNT(*) FROM security_canary;' 2>/dev/null)"; then
   printf 'VULNERABILITY CONFIRMED: delegated principal reads tenant B using newly granted access (synthetic row count=%s).\n' "$delegate_output" | tee -a "$SECURITY_EVIDENCE_FILE"
   confirmed=$((confirmed + 1))
 else
