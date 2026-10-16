@@ -258,6 +258,103 @@ void main() {
       expect(api.calls, calls);
     });
 
+
+    test('preserves response version and hashes through cache fallback', () async {
+      const tenantId = 'tenant_001';
+      const deviceId = 'device_001';
+      const serviceName = 'pos';
+      final scopeKey = jsonEncode(<String>[tenantId, deviceId, serviceName]);
+      final hash = List<String>.filled(64, 'a').join();
+      final scoped = List<String>.filled(64, 'b').join();
+      api.responsesByScope[scopeKey] = _makeResponse(
+        config: <String, dynamic>{'enabled': true},
+        tenantId: tenantId,
+        deviceId: deviceId,
+        service: serviceName,
+        version: '17-abc123',
+        configHash: hash,
+        scopedHash: scoped,
+      );
+      final service = ConfigService(api, preferences, clock: () => now);
+
+      final live = await service.getEffectiveConfig(
+        tenantId: tenantId, deviceId: deviceId, service: serviceName);
+      expect(live.fromCache, isFalse);
+      expect(live.value, <String, dynamic>{'enabled': true});
+      expect(live.effectiveVersion, '17-abc123');
+      expect(live.configHash, hash);
+      expect(live.scopedHash, scoped);
+      expect(live.layerVersions, <String, int>{
+        'global': 1, 'template': 2, 'tenant': 3, 'service': 4, 'device': 5,
+      });
+      expect(live.effectiveRevision, 'g:1/t:2/ten:3/s:4/d:5#abc123');
+      expect(live.deviceConfigMissing, isFalse);
+
+      api.failure = const CentralApiException('temporary outage', statusCode: 503);
+      now = now.add(const Duration(hours: 2));
+      final cached = await service.getEffectiveConfig(
+        tenantId: tenantId, deviceId: deviceId, service: serviceName);
+      expect(cached.fromCache, isTrue);
+      expect(cached.effectiveVersion, live.effectiveVersion);
+      expect(cached.configHash, live.configHash);
+      expect(cached.scopedHash, live.scopedHash);
+      expect(cached.layerVersions, live.layerVersions);
+
+      final cacheKey = preferences.getKeys()
+          .singleWhere((key) => key.startsWith('central.effective.'));
+      final cacheEnvelope = jsonDecode(preferences.getString(cacheKey)!) as Map;
+      expect(cacheEnvelope['source_mode'], 'laravel');
+      expect(cacheEnvelope['tenant_id'], tenantId);
+      expect(cacheEnvelope['device_id'], deviceId);
+      expect(cacheEnvelope['service'], serviceName);
+      expect((cacheEnvelope['response'] as Map)['config_hash'], hash);
+      expect((cacheEnvelope['response'] as Map)['scoped_hash'], scoped);
+    });
+
+    test('cache identity includes configuration source mode', () async {
+      api.responses['pos'] = <String, dynamic>{'enabled': true};
+      final laravel = ConfigService(api, preferences, clock: () => now);
+      await laravel.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+
+      final dual = ConfigService(
+        api,
+        preferences,
+        sourceMode: ConfigSourceMode.dual,
+        legacySource: _FakeLegacySource(<String, dynamic>{'enabled': true}),
+        dualModeStartedAt: DateTime.utc(2026, 10, 15),
+        dualModeDeadline: DateTime.utc(2026, 11, 12),
+        clock: () => now,
+      );
+      final result = await dual.getEffectiveConfig(
+        tenantId: 'tenant_001', deviceId: 'device_001', service: 'pos');
+      expect(result.parityVerified, isTrue);
+      expect(
+        preferences.getKeys()
+            .where((key) => key.startsWith('central.effective.'))
+            .length,
+        2,
+      );
+    });
+
+    test('effective-config envelope rejects a response for another device', () {
+      final response = _makeResponse(
+        config: <String, dynamic>{'enabled': true},
+        tenantId: 'tenant_001',
+        deviceId: 'device_001',
+        service: 'pos',
+      );
+      expect(
+        () => EffectiveConfigResponse.fromJson(
+          response.toJson(),
+          expectedTenantId: 'tenant_001',
+          expectedDeviceId: 'different_device',
+          expectedService: 'pos',
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('superseded Supabase runtime mode is rejected', () {
       expect(() => ConfigSourceMode.parse('supabase'), throwsFormatException);
     });
@@ -314,6 +411,8 @@ class _FakeCentralApiClient extends CentralApiClient {
 
   final Map<String, Map<String, dynamic>> responses = <String, Map<String, dynamic>>{};
   final Map<String, Map<String, dynamic>> scopedResponses = <String, Map<String, dynamic>>{};
+  final Map<String, EffectiveConfigResponse> responsesByScope =
+      <String, EffectiveConfigResponse>{};
   Object? failure;
   int calls = 0;
 
@@ -321,7 +420,7 @@ class _FakeCentralApiClient extends CentralApiClient {
   bool get hasSession => true;
 
   @override
-  Future<Map<String, dynamic>> getEffectiveConfig({
+  Future<EffectiveConfigResponse> getEffectiveConfig({
     required String tenantId,
     required String deviceId,
     required String service,
@@ -329,12 +428,67 @@ class _FakeCentralApiClient extends CentralApiClient {
     calls++;
     if (failure != null) throw failure!;
     final scopeKey = jsonEncode(<String>[tenantId, deviceId, service]);
-    return Map<String, dynamic>.from(
+    final response = responsesByScope[scopeKey];
+    if (response != null) return response;
+    final config = Map<String, dynamic>.from(
       scopedResponses[scopeKey] ??
           responses[service] ??
           <String, dynamic>{'service': service},
     );
+    return _makeResponse(
+      config: config,
+      tenantId: tenantId,
+      deviceId: deviceId,
+      service: service,
+    );
   }
+}
+
+
+EffectiveConfigResponse _makeResponse({
+  required Map<String, dynamic> config,
+  required String tenantId,
+  required String deviceId,
+  required String service,
+  String version = '5-testversion',
+  String? configHash,
+  String? scopedHash,
+}) {
+  final actualHash = configHash ?? List<String>.filled(64, 'a').join();
+  final actualScopedHash = scopedHash ?? List<String>.filled(64, 'b').join();
+  const layers = <String, int>{
+    'global': 1,
+    'template': 2,
+    'tenant': 3,
+    'service': 4,
+    'device': 5,
+  };
+  const versionVector = 'g:1/t:2/ten:3/s:4/d:5';
+  return EffectiveConfigResponse.fromJson(
+    <String, dynamic>{
+      'effective_config': config,
+      'effective_version': version,
+      'config_hash': actualHash,
+      'scoped_hash': actualScopedHash,
+      'layer_versions': layers,
+      'tenant_id': tenantId,
+      'device_id': deviceId,
+      'service': service,
+      'meta': <String, dynamic>{
+        'config_hash': actualHash,
+        'scoped_hash': actualScopedHash,
+        'effective_version': version,
+        'effective_revision': versionVector + '#abc123',
+        'version_vector': versionVector,
+        'layer_versions': layers,
+        'device_config_missing': false,
+        'subscription': <String, dynamic>{'status': 'active'},
+      },
+    },
+    expectedTenantId: tenantId,
+    expectedDeviceId: deviceId,
+    expectedService: service,
+  );
 }
 
 class _FakeLegacySource implements LegacyEffectiveConfigSource {
