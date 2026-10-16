@@ -26,6 +26,7 @@ ACTIVE_FILES = [
     "scripts/check_provisioning_env_contract.py",
     "app/Http/Controllers/Api/V1/EffectiveConfigController.php",
     "routes/api.php",
+    "artisan",
     "composer.json",
     "composer.lock",
     "Dockerfile",
