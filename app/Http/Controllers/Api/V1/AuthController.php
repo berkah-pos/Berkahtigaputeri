@@ -26,7 +26,7 @@ class AuthController extends Controller
 
         $token = $user->createToken(
             $credentials['device_name'] ?? 'berkah-pos-mobile',
-            ['config:read', 'sync:write']
+            ['config:read', 'sync:write', 'products:read', 'products:write']
         )->plainTextToken;
 
         return response()->json([
