@@ -76,7 +76,9 @@ probe() {
   local label="$1"
   local sql="$2"
   local output
-  if output="$(provisioner_sql "$sql" 2>/dev/null)"; then
+  local error_file
+  error_file="$(mktemp)"
+  if output="$(provisioner_sql "$sql" 2>"$error_file")"; then
     printf 'VULNERABILITY CONFIRMED: compromised provisioner successfully performed: %s\n' "$label" | tee -a "$SECURITY_EVIDENCE_FILE"
     if [[ -n "$output" && "$label" == "read tenant B canary without tenant B credentials" ]]; then
       printf '  Result: synthetic canary row count=%s (no tenant data contents emitted)\n' "$output" | tee -a "$SECURITY_EVIDENCE_FILE"
@@ -84,7 +86,12 @@ probe() {
     confirmed=$((confirmed + 1))
   else
     printf 'Probe denied / NOT REPRODUCED: %s\n' "$label" | tee -a "$SECURITY_EVIDENCE_FILE"
+    if [[ "$label" == "delegate SELECT on tenant B to another principal" ]]; then
+      error_code="$(sed -nE 's/.*ERROR ([0-9]+) \(([^)]*)\):.*/\1 (\2)/p' "$error_file" | head -n 1)"
+      printf '  Delegation denial: MariaDB error code %s (statement/password text not emitted)\n' "${error_code:-unavailable}" | tee -a "$SECURITY_EVIDENCE_FILE"
+    fi
   fi
+  rm -f "$error_file"
 }
 
 probe "read tenant B canary without tenant B credentials" "SELECT COUNT(*) FROM $DB_B.security_canary;"
