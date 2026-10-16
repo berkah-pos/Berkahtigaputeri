@@ -27,6 +27,7 @@ jobs:
         run: |
           set -euo pipefail
           cp .env.example .env
+          mkdir -p bootstrap/cache storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs
           docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
             --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
             berkah-pos-pint:ci composer validate --strict --no-check-publish
