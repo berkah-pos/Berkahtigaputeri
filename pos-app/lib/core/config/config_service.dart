@@ -230,12 +230,10 @@ class ConfigService {
           );
         } catch (error) {
           if (error is CentralApiException &&
-              ((error.statusCode != null &&
-                      error.statusCode! >= 200 &&
-                      error.statusCode! < 300) ||
-                  const <int>{401, 402, 403, 422}.contains(error.statusCode))) {
-            // Invalid successful envelopes and authorization failures are
-            // contract/security failures, not reasons to serve cached config.
+              error.statusCode != null &&
+              (error.statusCode! < 500 || error.statusCode! >= 600)) {
+            // HTTP protocol/client/auth/contract failures are never masked by
+            // cached config. Only 5xx and transport failures may use fresh cache.
             rethrow;
           }
           final cached = _readFreshCache(
