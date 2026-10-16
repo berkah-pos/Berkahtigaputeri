@@ -1,0 +1,51 @@
+name: One-time Pint normalization export
+
+on:
+  push:
+    branches: ["deps/pint-style-export-20261016"]
+    paths:
+      - ".github/workflows/one-time-pint-export.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: true
+
+      - name: Build clean PHP 8.4 runtime
+        run: docker build --pull --no-cache --target php-base --tag berkah-pos-pint:ci .
+
+      - name: Install locked dependencies with scripts enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .env.example .env
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            berkah-pos-pint:ci composer validate --strict --no-check-publish
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app \
+            --env COMPOSER_HOME=/tmp/composer-home --env COMPOSER_CACHE_DIR=/tmp/composer-cache \
+            berkah-pos-pint:ci composer install --no-interaction --prefer-dist --no-progress
+          docker run --rm --volume "$GITHUB_WORKSPACE:/app" --workdir /app berkah-pos-pint:ci \
+            vendor/bin/pint
+
+      - name: Commit only PHP formatting changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- '*.php'; then
+            echo "No PHP formatting changes were needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.php'
+          git commit -m "style: normalize legacy PHP to the committed Pint rules"
+          git push origin "HEAD:deps/pint-style-export-20261016"
