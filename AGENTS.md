@@ -24,8 +24,10 @@ Do not claim to have read or verified a file that was not actually accessible.
 - **Detailed target implementation:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` translates that decision into the API, tenancy, security, migration and operational gates. It may not select a conflicting platform/engine.
 - **Execution order:** `DOC_00_MASTER_ROADMAP.md` governs phase gates.
 - **Implementation status:** current repository sources, executed CI, staging observations, tests and production evidence determine what is actually delivered. Documentation alone is not runtime proof.
+- **Current-main baseline (2026-10-16):** at `d7ee23cfaada3405416b01d9e127e32b07fb1a38`, `pos-app/pubspec.yaml` declares `supabase_flutter`, `pos-app/lib/main.dart` initializes Supabase, and `pos-app/lib/core/config/config_service.dart` requires an authenticated Supabase session. Root `composer.json` and `composer.lock` are absent. Therefore Laravel is the accepted target, not the implemented main runtime.
+- **Evidence classes must remain separate:** (1) source-verified on main, (2) target design accepted in the ADR, (3) implementation only on an open branch/PR, (4) CI results tied to exact head SHA, (5) staging observations, and (6) production deployment/acceptance. The dated baseline correction is `docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md`. Do not infer one class from another.
 
-If sources conflict about inheritance or the 352 workbook entries, DOC_00 wins. If documents conflict about hosting/database/stack, the owner ADR wins after review and merge; DOC_14 details but does not override it. Supabase source code/data and SQL remain migration evidence and must not be deleted or represented as retired without the stated cutover and retention gates.
+If sources conflict about inheritance or the 352 workbook entries, DOC_00 wins. If documents conflict about hosting/database/stack, the owner ADR wins; it was accepted and merged by PR #49 and is binding on main. DOC_14 details but does not override it. Supabase source code/data and SQL remain current-main implementation and migration evidence as applicable; do not delete or represent them as retired without the stated cutover and retention gates.
 
 ## 3. Target platform decisions
 
