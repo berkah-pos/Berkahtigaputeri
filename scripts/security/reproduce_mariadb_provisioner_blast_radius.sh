@@ -52,13 +52,7 @@ safe_show_grants() {
   raw="$(admin --execute="SHOW GRANTS FOR '$username'@'%';")"
   {
     printf '%s\n' "--- SHOW GRANTS FOR '$username'@'%'; (authentication material redacted) ---"
-    printf '%s\n' "$raw" | python3 -c '
-import re, sys
-text = sys.stdin.read()
-text = re.sub(r"(IDENTIFIED BY PASSWORD +)'\''[^'\'']*'\''", r"\1'\''[REDACTED]'\''", text, flags=re.I)
-text = re.sub(r"(IDENTIFIED BY +)'\''[^'\'']*'\''", r"\1'\''[REDACTED]'\''", text, flags=re.I)
-sys.stdout.write(text)
-'
+    printf '%s\n' "$raw" | sed -E "s/(IDENTIFIED BY PASSWORD +)'[^']*'/\1'[REDACTED]'/Ig; s/(IDENTIFIED BY +)'[^']*'/\1'[REDACTED]'/Ig"
   } | tee -a "$SECURITY_EVIDENCE_FILE"
 }
 
