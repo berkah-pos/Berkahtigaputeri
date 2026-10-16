@@ -50,4 +50,12 @@ No historical CI/evidence report or accepted ADR was rewritten to manufacture a 
 
 ## 5. Validation record
 
-This report is the record for the documentation alignment PR. The implementation and PR statuses above are source/metadata observations, not fresh application test execution. Application/PHPUnit/Flutter integration suites were not rerun as part of this documentation-only change. Relative-link checks, documentation contract assertions and post-edit source/reference searches are to be recorded against the completed PR head; a missing result remains **NOT RUN / NOT VERIFIED**.
+Validation was performed against the documentation branch before PR creation:
+
+- Fetched and inspected 11 changed documents from the branch, including the new correction report and archived duplicate.
+- Markdown inline relative-link scan: **PASS — 0 unresolved internal path targets** across the 11 changed documents. External URLs were not live-probed by this path check.
+- Documentation contract assertions: **PASS — 7/7**, covering the main-vs-target distinction, the six required status categories, roadmap phase crosswalk, merged-ADR authority, legacy Supabase writer warning, archive preservation/reference, and exact-SHA evidence record.
+- Malformed duplicate reference check: **PASS**. Before rename, source search on baseline `main` found the permanent index as its only in-repository reference. That reference now resolves to the archive path; the old malformed path returns `NOT_FOUND` on this branch and the new archive path fetches successfully.
+- The accepted ADR and prior dated/historical CI reports were not rewritten. The workflow results in §2 are observations tied to their candidate revisions, not fresh test execution from this documentation branch.
+
+Application/PHPUnit/Flutter integration suites were not rerun because this PR is documentation-only. No staging or production resource was changed. Documentation link/assertion checks pass; runtime and deployment acceptance remain **NOT RUN / NOT VERIFIED**.
