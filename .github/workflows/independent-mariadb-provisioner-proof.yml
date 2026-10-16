@@ -22,7 +22,7 @@ jobs:
   reproduce-provisioner-blast-radius:
     name: Red-team reproduction only (not an isolation pass)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 7
     services:
       mariadb:
         image: mariadb:11.4
@@ -37,11 +37,19 @@ jobs:
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
-    env:
-      MARIADB_ROOT_PASSWORD: review-only-root-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout reviewed candidate
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Install MariaDB command-line client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes mariadb-client
       - name: Reproduce actual CREATE USER and wildcard GRANT OPTION behavior
         shell: bash
-        run: bash tests/security/provisioner-grant-blast-radius.sh
+        run: |
+          set -euo pipefail
+          export MARIADB_ROOT_PASSWORD="review-only-root-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf '::add-mask::%s\n' "$MARIADB_ROOT_PASSWORD"
+          bash tests/security/provisioner-grant-blast-radius.sh
