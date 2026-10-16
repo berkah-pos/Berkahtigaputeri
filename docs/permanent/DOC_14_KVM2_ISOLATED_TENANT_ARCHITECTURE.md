@@ -22,7 +22,7 @@ Baseline `main` commit: `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. The status b
 | Staging observations | **STAGING-OBSERVED; source of truth unresolved** | The ADR records two accessible Supabase projects labelled staging and staging-clone with differing migration/catalog footprints. Neither is confirmed as production/source of record; their metadata does not authorize mutation or identify the migration baseline. |
 | Production deployment/acceptance | **NOT RUN / NOT VERIFIED** | No verified KVM2/Coolify production deployment, completed migration, production cutover, tenant isolation acceptance, restore acceptance or release is claimed. |
 
-Legacy Supabase source code, SQL, migration history and staging data are retained as migration inputs/evidence. They are not to be erased or treated as the accepted future client-facing runtime. The full dated status correction is `docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md`.
+Legacy Supabase source code, SQL, migration history and staging data are retained as migration inputs/evidence. They are not to be erased or treated as the accepted future client-facing runtime. The tracked `scripts/sync_excel_to_supabase.py` also contains a Supabase REST/RPC write path when cloud credentials are supplied; it is mutation-capable legacy code, not a read-only validator or the accepted Laravel importer. Do not execute it against an unknown/shared project without explicit source approval, verified backup and rollback planning. The full dated status correction is `docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md`.
 
 ## 0. Gates — decision versus migration readiness
 
