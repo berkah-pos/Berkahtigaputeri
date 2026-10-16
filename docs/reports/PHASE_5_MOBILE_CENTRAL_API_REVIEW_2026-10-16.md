@@ -4,7 +4,8 @@
 **Scope:** Flutter pos-app/; no Laravel implementation, database privilege, or deployment changes.  
 **Branch:** fix/phase5-config-envelope-android-20261016  
 **Reviewed mobile base:** feat/phase-5-flutter-transition-20261015  
-**Code under test:** dc8659ab28811f354781f88ff70719a731687849
+**Flutter source under test:** f81d86b9cbf8881b74d68523582dad0e4adcb11d  
+**Current workflow hardening head:** bdf6cc00920a324448a7a5545591776e8dc483b7
 
 ## Mobile changes in this review
 
@@ -38,9 +39,11 @@
 
 ## Current workflow evidence
 
-- Dedicated workflow: [Phase 5 Flutter Transition Checks](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38889353483) — current PR run in progress at the time this report was drafted.
-- Broader POS/backend CI: [Canonical POS App CI](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38889353627) — fails before its Flutter/Android steps at the Laravel KVM2 contract gate. Backend deployment/installability is not established.
-- A passing dedicated Flutter analysis/test or debug emulator install is only a mobile engineering signal. It does not override the RED/NOT VERIFIED Phase 4 baseline, prove live effective-config parity, or establish cloud transaction sync.
+- Latest verified Flutter code/test attempt: [Phase 5 run 38890406115](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38890406115), source commit `f81d86b9cbf8881b74d68523582dad0e4adcb11d`. Exact output: `flutter analyze --no-pub` → `No issues found! (ran in 8.2s)`; `flutter test --no-pub --reporter expanded` → `00:10 +73: All tests passed!`. Workbook validation output: `PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 140, 'device': 108}; keyset_md5=1fd3d64219ecc7c333453c20da80e295`.
+- The same run built `pos-app/build/app/outputs/flutter-apk/app-debug.apk` successfully; Gradle reported `Running Gradle task 'assembleDebug'... 263.7s`, then `✓ Built build/app/outputs/flutter-apk/app-debug.apk` and `PASS: built debug APK; this is not a production-signed release.`. The emulator smoke test did **not** install or launch the app. The captured emulator log says `Unknown AVD name [phase5-pos-ci]` and no `phase5-pos-ci.ini` was found. This was an emulator AVD path/creation problem, not evidence of an application runtime failure.
+- Workflow hardening on `bdf6cc00920a324448a7a5545591776e8dc483b7` now pins `ANDROID_SDK_HOME`/`ANDROID_AVD_HOME`, asserts that the AVD INI was created, bounds the initial `adb wait-for-device` to 120 seconds, prints emulator diagnostics on failure, and imposes a 15-minute timeout on the install step. Its current retry is [run 38895763511](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38895763511); the PR-triggered check is [run 38895769162](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38895769162). Both were pending/in progress at the time of this report update; no install result is claimed for them yet.
+- Broader Canonical POS/App and KVM2 Laravel CI remain red on the previously verified commit because the inherited contract gate reports `FAIL: missing contract: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md -> **Status:** CANONICAL`. This is an architecture-authority blocker outside the mobile-only scope. It prevents those workflows from reaching the backend isolation/install/deploy proof. The Phase 5 mobile result does not override it.
+- A passing dedicated Flutter analysis/test or debug artifact is only a mobile engineering signal. It does not prove live effective-config parity, session validation after process restart, production signing, backend installability, or cloud transaction sync.
 
 ## Release gate
 
