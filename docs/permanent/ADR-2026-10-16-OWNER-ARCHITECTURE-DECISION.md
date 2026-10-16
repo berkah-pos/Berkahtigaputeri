@@ -1,6 +1,7 @@
 # ADR-2026-10-16 — Owner Architecture Decision: Laravel Central API + PostgreSQL 17
 
 **Decision status:** **ACCEPTED AND MERGED TO MAIN** via PR #49 (merge commit `d7ee23cfaada3405416b01d9e127e32b07fb1a38`). This ADR is the authoritative platform/engine/stack decision. It selects a target architecture; it does not certify implementation, migration, staging or production.  
+**Owner acceptance reconfirmed:** 2026-10-17 (Asia/Jakarta). The owner has explicitly reaffirmed acceptance of the PostgreSQL 17 target architecture for Berkah POS. This records the owner decision durably; it does not identify the authoritative migration source, authorize live mutations or cutover, or certify implementation, staging, or production.  
 **Migration status:** **BLOCKED** — the authoritative source project and complete migration baseline are not identified.  
 **Decision date:** 2026-10-16 (Asia/Jakarta)  
 **Scope:** Runtime target, database engine, stack baseline, source retention, and dependency order. This ADR does not certify implementation, staging, or production.
