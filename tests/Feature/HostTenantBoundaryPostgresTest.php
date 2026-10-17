@@ -165,24 +165,42 @@ class HostTenantBoundaryPostgresTest extends TestCase
     {
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_HOST);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
-            ->withHeaders([
-                'X-Forwarded-Host' => 'central.example.test,attacker.example.test',
-            ])
-            ->getJson('https://central.example.test/api/v1/platform-health')
-            ->assertNotFound();
+        $request = Request::create(
+            'https://internal-proxy.example.test/api/v1/platform-health',
+            'GET',
+            [],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => '10.10.0.2',
+                'HTTP_HOST' => 'internal-proxy.example.test',
+                'HTTP_X_FORWARDED_HOST' => 'central.example.test,attacker.example.test',
+            ],
+        );
+
+        $this->assertTrue($request->isFromTrustedProxy());
+        $this->assertNull(app(TenantHostResolver::class)->resolve($request));
     }
 
     public function test_duplicated_host_parameters_in_forwarded_header_are_rejected(): void
     {
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], 0);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
-            ->withHeaders([
-                'Forwarded' => 'for=192.0.2.60;host=central.example.test;host=attacker.example.test',
-            ])
-            ->getJson('https://central.example.test/api/v1/platform-health')
-            ->assertNotFound();
+        $request = Request::create(
+            'https://central.example.test/api/v1/platform-health',
+            'GET',
+            [],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => '10.10.0.2',
+                'HTTP_HOST' => 'central.example.test',
+                'HTTP_FORWARDED' => 'for=192.0.2.60;host=central.example.test;host=attacker.example.test',
+            ],
+        );
+
+        $this->assertTrue($request->isFromTrustedProxy());
+        $this->assertNull(app(TenantHostResolver::class)->resolve($request));
     }
 
     public function test_active_membership_device_subscription_and_service_entitlement_allow_only_server_checked_context(): void
