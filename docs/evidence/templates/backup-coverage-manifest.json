@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "status": "NOT_EXECUTED",
+  "report_date": "2026-10-16",
+  "timezone": "Asia/Jakarta",
+  "repository": "berkah-pos/Berkahtigaputeri",
+  "repository_head_sha": null,
+  "workflow_run_id": null,
+  "candidate_image_digest": null,
+  "source_instance_reference": null,
+  "backup_window": {
+    "started_at_utc": null,
+    "completed_at_utc": null,
+    "restore_point_timestamp_utc": null,
+    "wal_start_lsn": null,
+    "wal_end_lsn": null,
+    "wal_gap_check": "NOT_RUN"
+  },
+  "tools": {
+    "postgresql_version": null,
+    "pg_basebackup_version": null,
+    "pg_dump_version": null,
+    "backup_client_version": null,
+    "encryption_tool_version": null
+  },
+  "inventory_reconciliation": {
+    "central_registry_tenant_count": null,
+    "postgres_catalog_tenant_db_count": null,
+    "expected_tenant_name_list_sha256": null,
+    "observed_catalog_name_list_sha256": null,
+    "registry_matches_catalog": "NOT_RUN",
+    "unexpected_database_names": [],
+    "missing_database_names": []
+  },
+  "assets": [
+    {
+      "asset_type": "central_database",
+      "asset_name": "berkahpos_central",
+      "tenant_id": null,
+      "status": "NOT_RUN",
+      "backup_method": null,
+      "source_timestamp_utc": null,
+      "source_lsn_or_snapshot_id": null,
+      "artifact_uri": null,
+      "size_bytes": null,
+      "sha256": null,
+      "encrypted_at_rest": null,
+      "transport_encryption_verified": null,
+      "key_vault_reference": null,
+      "key_version_reference": null,
+      "key_value_included": false,
+      "retention_class": null,
+      "verified_at_utc": null,
+      "error_code": null
+    }
+  ],
+  "required_asset_groups": {
+    "every_tenant_database": "NOT_RUN",
+    "postgres_base_backup_and_wal": "NOT_RUN",
+    "required_object_and_file_bytes": "NOT_RUN",
+    "object_metadata_and_versions": "NOT_RUN",
+    "coolify_instance_database_and_config": "NOT_RUN",
+    "deployment_config_and_image_digests": "NOT_RUN",
+    "secret_and_encryption_key_custody_reference": "NOT_RUN"
+  },
+  "restore_tests": {
+    "whole_service": {
+      "status": "NOT_RUN",
+      "started_at_utc": null,
+      "validated_ready_at_utc": null,
+      "elapsed_seconds": null,
+      "rto_seconds_measured": null,
+      "last_durable_transaction_at_utc": null,
+      "recovery_point_at_utc": null,
+      "rpo_seconds_measured": null,
+      "integrity_checks": "NOT_RUN"
+    },
+    "single_tenant": {
+      "status": "NOT_RUN",
+      "tenant_id": null,
+      "scratch_database_name": null,
+      "elapsed_seconds": null,
+      "tenant_a_integrity": "NOT_RUN",
+      "tenant_b_baseline_checksum_before": null,
+      "tenant_b_checksum_after": null,
+      "tenant_b_unchanged": "NOT_RUN"
+    }
+  },
+  "deviations": [],
+  "review": {
+    "operator_reference": null,
+    "independent_reviewer_reference": null,
+    "owner_acceptance_reference": null,
+    "decision": "NO_GO"
+  },
+  "safety_note": "Never place credentials, passwords, private keys, APP_KEY values, database connection strings, customer data or secret material in this manifest. Store only non-secret vault reference/version IDs. Keep the original manifest immutable after the run; create a new report for corrections or reruns."
+}
