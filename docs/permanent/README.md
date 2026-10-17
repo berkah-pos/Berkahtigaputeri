@@ -2,6 +2,8 @@
 
 This directory records durable configuration contracts, platform decisions, security boundaries, operational procedures, and verification evidence. Read the authority documents in order and distinguish a selected target from implemented, tested, staged or deployed behavior.
 
+**Authority and supersession map:** [`AUTHORITY_AND_SUPERSESSION_MAP.md`](AUTHORITY_AND_SUPERSESSION_MAP.md) identifies authoritative docs, legacy SQL/guides/certificates retained only for reference, history-preservation rules, stale identity handling and current validation blockers.
+
 ## Mandatory read order
 
 1. Root `AGENTS.md` — agent workflow, protected invariants, and evidence rules.

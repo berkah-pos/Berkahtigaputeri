@@ -34,7 +34,7 @@ The mandatory source reading order was completed: root `AGENTS.md`; DOC_00 canon
 | F-02 | DOC_12 topology conflict | DOC_12 §4 once advised against a separate database per tenant; ADR17/DOC14 select one central plus separate tenant databases and restricted roles | Reconciled active text while preserving the former proposal explicitly as historic. |
 | F-03 | Resource budget engine conflict | Budget said “Choose PostgreSQL or MariaDB only after DG-0” despite accepted ADR selecting PG17 | Replaced with PG17 selected; budget limits still estimated. |
 | F-04 | Database-name confidentiality open question | PR #67 proposes non-enumeration via PostgreSQL catalogs/statistics and possible stronger cluster/service isolation | Asked principal architect on [PR #67 comment](https://github.com/berkah-pos/Berkahtigaputeri/pull/67#issuecomment-6235064049). DECISION REQUIRED / NOT VERIFIED. No answer inferred. |
-| F-05 | Old current/green/certified documents | DOC_02–DOC_11 verification/certificate materials, DOC_13, hardening reports, Supabase/RLS SQL and migration files | Historic banners/pointers applied to first batch; complete banner application and index verification are tracked in this PR work. Old claims are not acceptance. |
+| F-05 | Old current/green/certified documents | DOC_02–DOC_11 verification/certificate materials, DOC_13, hardening reports, Supabase/RLS SQL and migration files | Historic banner/pointer pass applied to the listed Supabase-era SQL files, verification guides/certificates and the 2026-10-11 hardening reports. The authority map identifies retained archive groups and the remaining separate workflow blocker. Old claims are not acceptance. |
 | F-06 | Legacy privileged identity drift | Old artifacts reference `satria@berkahtigaputeri.com` and `berkahtigaputeri@gmail.com` | Historical Supabase identities only; no current Laravel admin identity selected. |
 | F-07 | Workflow violates no-Supabase rule | `.github/workflows/canonical-workbook-validate.yml` invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352` on changes under `docs/permanent/**` | Not changed here. Script NOT RUN. Ordinary CI is unsafe until separate authorized workflow fix. Commits carry `[skip ci]` to avoid triggering the command; workflow checks therefore remain NOT RUN/SKIPPED. |
 | F-08 | Historic snapshot and PR bases mistaken as live | Prior register anchored to `cb728bf...`; PR #67 base `5b0ad4d...`, head `cb1e6b1...`; PR #71 base `5b0ad4d...`; PR #70 base matched live `main` at inspection | Snapshot rebuilt; PR refs must be re-resolved before merge. |
@@ -56,7 +56,7 @@ Current authority is stated in [AUTHORITY_AND_SUPERSESSION_MAP.md](../permanent/
 
 The tracked workbook workflow is incompatible with the global no-Supabase policy because its dry-run command is still the legacy mutation-capable script. This task must not edit workflow logic or execute the script. A separate authorized workflow PR must replace it with a non-Supabase validator before standard validation may be run. CI on this PR is intentionally skipped to prevent execution.
 
-- Live branch identity: **VERIFIED** at the start of this task, `371b7fdf0bf672b37ceb1023e647f114221bf797`.
+- Live branch identity: **VERIFIED** at task start; the exact commit is stated once in the report header.
 - Supabase access (all modes): **NOT PERFORMED / PROHIBITED**.
 - `scripts/sync_excel_to_supabase.py` including `--dry-run`: **NOT RUN / PROHIBITED**.
 - Workflow CI: **NOT RUN / SKIPPED intentionally**; see F-07.

@@ -1,8 +1,9 @@
 # Acceptance Matrix and CI Evidence Contract
 
 **Status:** Required acceptance specification; CI enforcement is intentionally not enabled by this documentation-only change.  
-**Architecture authority:** docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md, accepted in PR #49.  
-**Configuration authority:** docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md.  
+**Platform/no-Supabase authority:** `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`.  
+**Configuration authority:** `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.  
+**Detailed target gates:** `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`. The 2026-10-16 ADR is historical where it conflicts with the newer owner decision.
 **Purpose:** prevent a partial green, a skipped test, a result from another commit, or a test of the wrong database engine from being reported as acceptance.
 
 ## 1. Stack gate and activation order
