@@ -3,13 +3,14 @@
 **Overall disposition: PLAN PREPARED; EXECUTION NOT RUN / NOT VERIFIED.**  
 **Repository:** berkah-pos/Berkahtigaputeri  
 **Canonical main SHA rechecked for this refresh:** 371b7fdf0bf672b37ceb1023e647f114221bf797  
+**SRE integration merge commit:** `b778f9e68ef9fd914d5ec2e65401f90d9b4514c6` (includes current `main`; not runtime evidence)  
 **Inspection time:** 2026-10-17, Asia/Jakarta  
 **Target:** Hostinger KVM2-class single node, Coolify, Laravel/PHP 8.4, private PostgreSQL 17, one central DB and one DB/restricted runtime role per tenant  
 **Change scope:** operational runbooks, measurement templates and this evidence report only. No application code or privilege code changed.
 
 ## 1. Authority and exact revision evidence
 
-The authority and operational source files below were rechecked on canonical `main` SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`. The SRE candidate was initially based on `5b0ad4d5808008c33e6cb66176e3433fad5902a0`; the branch is being advanced by a non-force-pushed merge with current `main`. The listed blob SHAs were confirmed unchanged on the refreshed `main`:
+The authority and operational source files below were rechecked on canonical `main` SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`. The SRE candidate was initially based on `5b0ad4d5808008c33e6cb66176e3433fad5902a0`; integration commit `b778f9e68ef9fd914d5ec2e65401f90d9b4514c6` brought current `main` into the candidate without force-pushing. The PR base now points at current `main`. The listed blob SHAs were confirmed unchanged on the refreshed `main`:
 
 | Source | Blob SHA | Operational interpretation |
 |---|---|---|
