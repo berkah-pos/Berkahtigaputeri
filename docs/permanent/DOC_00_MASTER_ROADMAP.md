@@ -6,9 +6,9 @@
 
 ## 1. Authority and evidence
 
-Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects the target platform, engine and stack; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` describes its detailed implementation. This roadmap defines phases and acceptance gates.
+Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns configuration inheritance and the 352-entry workbook contract. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` is the current authority for hosting, platform usage, stack, environment separation and scalability; the 2026-10-16 ADR is subordinate where it conflicts. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details implementation gates. This roadmap defines phases and acceptance gates.
 
-The owner ADR selects PostgreSQL 17 as the platform/engine authority. On 2026-10-17, the owner designated Supabase project `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) as the authoritative source-of-record resource for migration/production purposes, despite its `staging` label. Migration remains blocked pending authorized read-only inventory/export, source-vs-clone reconciliation, verified backup evidence and the remaining technical acceptance gates. A documented target and source designation do not mean Laravel code, tenant databases, parity, CI, backups or deployment are accepted.
+The current owner authority is `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, PostgreSQL 17, and no use of any Supabase product. An earlier source-designation record remains a historical fact only; no Supabase project may be accessed or used, including read-only. Existing-data migration is possible only from an already available, owner-controlled offline artifact outside Supabase. If no such artifact is available, data continuity remains a blocker; it does not block source-independent scaffolding, clean schema work, or disposable PG17 testing. Architecture selection does not prove implementation, migration, tenant isolation, backups or deployment.
 
 ## 2. Product and protected invariants
 
@@ -25,7 +25,7 @@ Protect these invariants:
 - COA `1-1040` remains Inventory and `5-5010` remains COGS.
 - Flutter version `1.1.0+2` remains aligned with Android versionName `1.1.0` / versionCode `2` unless a reviewed release intentionally bumps the version.
 - `btp-admin/` remains the legacy GitHub Pages path while retained; privileged Central Admin operations belong to authenticated Laravel/Filament panels.
-- Historical Supabase sources may be retained for migration/audit, but they do not define the new runtime architecture.
+- Historical Supabase code, SQL and reports may be retained only as archive/audit context. No Supabase product or live project access is permitted; archived content is not a migration command or source path.
 
 ## 3. Target platform decision
 
@@ -39,7 +39,7 @@ The owner ADR selects the target; DOC_14 details the implementation:
 - Laravel Central API for effective configuration, enrollment, entitlement checks, and authenticated transaction sync.
 - Private object storage, encrypted off-host backup, durable offline outbox, and measured capacity/recovery checks.
 
-Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, this is a constrained initial single-node deployment. Build container images on GitHub-hosted `ubuntu-24.04` runners. No high-availability or tenant-capacity claim is allowed without measured evidence.
+Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, this is a constrained initial single-node deployment. Keep local development and CI separate from production, and isolate staging with its own database, hostname and secrets. Build immutable container images on GitHub-hosted `ubuntu-24.04` runners. Scale from measured evidence: vertical upgrade first, then separate PostgreSQL to a private larger host and add replaceable Laravel replicas only after connection, queue, state and isolation behavior are tested. No high-availability or tenant-capacity claim is allowed without measured evidence.
 
 ## 4. Phases and acceptance gates
 
@@ -54,7 +54,7 @@ The phase IDs defined in this roadmap — **Phase 0 through Phase 7** — are th
 | PR #46 — “Phase 3” config/CAS | Primarily Phase 5, with Phase 4 authorization/API prerequisites | Preserve narrow workbook-contract evidence; runtime/API parity remains unverified until it runs on the accepted stack. |
 | PR #47 — “Phase 4” host/domain and tenant A/B isolation | Phase 4 and Phase 6 | Security candidate remains RED until exact-head PostgreSQL host/auth/grant/worker tests pass. |
 | PRs #48 and #52 — “Phase 5” Flutter transition | Phase 5 | Open, stacked migration candidates; Flutter-only passes do not establish backend, API parity or cloud-sync acceptance. PR #48's current branch-local DOC_14 is marked SUPERSEDED / NOT CANONICAL and names PostgreSQL 17 in its header; it remains an unmerged snapshot that requires rebase/reconciliation alongside branch-level AGENTS/roadmap before merge. |
-| PR #50 — dependency lock/CI baseline | Phase 2 and cross-cutting CI gates | Open candidate; tenant-grant/POS/backend checks currently fail and the branch’s tenant-grant path is MariaDB-based. PostgreSQL 17 acceptance remains unverified. |
+| PR #50 — dependency lock/CI baseline | Phase 2 and cross-cutting CI gates | Closed/merged into PR #47's stacked feature branch, not `main`. It is candidate material only; its tenant-grant/POS/backend checks fail and tenant tests are MariaDB-based. PostgreSQL 17 acceptance remains unverified. |
 | PR #51 — security remediation | Phase 6 | Security gate is explicitly FAIL on the demonstrated MariaDB provisioner boundary; this is not PostgreSQL acceptance. |
 | PR #53 — acceptance matrix | Cross-cutting evidence protocol for Phases 2–7 | Draft evidence tooling/documentation; it is not application or deployment acceptance. |
 | PR #54 — operational-readiness runbooks | Planning inputs for Phases 6–7 | Draft planning/evidence templates only; no staging execution or production go/no-go has occurred. |
@@ -72,8 +72,8 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 
 ### PHASE 1 — Architecture authority and workbook contract
 
-- Align `AGENTS.md`, the owner ADR, DOC_14, roadmap, permanent index, Cursor rules, and Copilot instructions; preserve the ADR as the single platform/engine authority.
-- Mark old Supabase schema/RPC guidance as superseded for the new runtime without deleting migration history blindly.
+- Align `AGENTS.md`, the 2026-10-17 owner ADR, DOC_14, roadmap, permanent index, Cursor rules, and Copilot instructions. The newest ADR owns no-Supabase policy and hosting direction; the 2026-10-16 ADR is subordinate where it conflicts.
+- Mark every old Supabase integration as archive-only; prohibit all direct Supabase product use and replace live Flutter/runtime references in a dedicated implementation PR. Preserve old SQL and reports as historical evidence without connecting to a live project.
 - Validate all required workbook tabs, unique identifiers, template keys, row-type counts, and exactly 352 entries using a no-write dry run.
 - Produce a deterministic entry manifest/hash.
 
@@ -83,7 +83,7 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 
 - Scaffold a clean Laravel 13/PHP 8.4 project with a committed `composer.lock`, Filament 5 panels, central and tenant migrations, environment templates, `Dockerfile`, deployment config, `/up` health check, and CI.
 - Pin and test the current supported PostgreSQL 17 minor in disposable CI/staging environments.
-- Reconcile the authoritative Supabase/PostgreSQL source, then convert the shared tenant/RLS model into central metadata and separate tenant databases. Audit JSONB, UUIDs, upserts, indexes, constraints, triggers, functions, extensions, identity helpers and every SQL dependency; do not infer that engine compatibility alone makes tenancy migration safe.
+- Build the central/tenant schema from the accepted product contracts and reviewed offline artifacts, not from a live Supabase connection. Existing repository SQL may be read as historical evidence only; do not execute it or connect to a Supabase service. Audit required PostgreSQL types, indexes, constraints, transaction semantics, and application behavior directly in a disposable PostgreSQL 17 environment. Any data import must come from an already available owner-controlled offline export outside Supabase; otherwise start with empty test data and mark existing-data continuity NOT VERIFIED.
 - Define normalized central tables for tenants/domains/memberships/subscriptions/devices/configuration/versioning, and isolated tenant migrations for operational POS/accounting data.
 - Do not point schema experiments at production.
 
@@ -112,7 +112,7 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 
 - Implement a deterministic workbook-to-central relational importer preserving all 352 entries and template/service/device semantics.
 - Preserve exact five-layer precedence, expected-version/optimistic concurrency, configuration version/hash, and one-service-per-request output.
-- Replace Flutter's Supabase runtime configuration RPC with the authenticated Laravel Central API only after the API and staged contract tests pass.
+- Remove all Flutter Supabase initialization, SDK, authentication/configuration paths, endpoints and related runtime configuration. Replace them with the authenticated Laravel Central API, and retain SQLite/outbox behavior. Do not release until API and client contract tests pass; no Supabase fallback or dual-running mode is allowed.
 - Preserve local SQLite schema migration, atomic sale+outbox writes, stable idempotency, server-side duplicate/conflict detection, and sync states.
 - Define and test disconnected multi-device inventory conflict handling. Do not claim global stock consistency while devices are offline without an explicit policy.
 
@@ -131,7 +131,7 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 
 ### PHASE 7 — Staging migration and release verification
 
-- Export and reconcile old platform data using read-only inventory first, then run a staged migration from a verified backup.
+- Validate only an already available owner-controlled offline data artifact outside Supabase. If none exists, do not connect to Supabase to create one and do not claim data reconciliation or migration; keep data continuity explicitly blocked while completing clean-target engineering and release gates.
 - Compare row counts, totals, config manifest/hash, representative sales/journals/inventory, tenant ownership, and time-zone/monetary semantics.
 - Test deployment, health/readiness, tenant-domain TLS, smoke journeys, restore, rollback/forward recovery, and release artifact identity.
 - Create `docs/permanent/DOC_07_FINAL_VERIFICATION.md` or a clearly current-head-named equivalent only when all listed claims have direct evidence. Keep historical reports labelled historical.

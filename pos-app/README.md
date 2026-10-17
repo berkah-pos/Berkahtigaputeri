@@ -1,6 +1,6 @@
 # Berkah POS App
 
-**Canonical Flutter client** for Berkah Tiga Puteri POS. The project combines the everyday trial POS screens with the modular local inventory, checkout, accounting, and Supabase configuration layers under `pos-app/`.
+**Flutter client** for Berkah POS local-first POS and accounting flows. The current source still contains legacy Supabase client code and is not yet compliant with the current owner decision. The target cloud boundary is the authenticated Laravel Central API; do not use Supabase products or configure Supabase connection settings.
 
 ## Current screens
 
@@ -9,17 +9,17 @@
 - **Kasir:** cart, payment-method selection, Rupiah totals and PPN, backed by the existing atomic `PaymentService` / `SqliteSaleRepository`.
 - **Stok:** inventory receipt with lot, unit cost, optional expiry, and required batch/expiry when the product tracks expiry.
 - **Laporan:** device-local sales, HPP and non-acknowledged outbox count.
-- **Login:** Supabase email/password sign-in when cloud settings are configured; an explicit local-only option is available when cloud login is unavailable.
-- **Pengaturan:** local tenant/device identity, guarded Supabase configuration diagnostics, sign-out, privacy policy, account-deletion request link, and sales WhatsApp link.
+- **Login:** the tracked source has a legacy Supabase sign-in path. It is not approved for use; do not provide Supabase credentials. Until the Laravel authentication API is implemented and tested, use only isolated local/offline development tests.
+- **Pengaturan:** local tenant/device identity and general settings; Supabase configuration diagnostics are legacy code and must be replaced by Laravel API diagnostics before compliant release.
 
 ## Runtime status and migration boundary — 2026-10-16
 
 This section describes the checked-in app on `main` at repository baseline `d7ee23cfaada3405416b01d9e127e32b07fb1a38`; it does not treat an open PR as shipped code.
 
-- **Implemented on `main` (source-verified):** `pubspec.yaml` declares `supabase_flutter`; `lib/main.dart` imports and initializes Supabase using build-time `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`; `lib/core/config/config_service.dart` reads effective configuration through the authenticated Supabase client. Without those build-time settings, the app has an explicit local-only mode.
-- **Accepted target (not active on `main`):** the merged owner ADR #49 selects the authenticated Laravel Central API and PostgreSQL 17. Do not describe this app as Laravel-backed until reviewed migration code is merged and verified.
+- **Implemented on `main` (source-verified):** `pubspec.yaml` declares `supabase_flutter`; `lib/main.dart` and `lib/core/config/config_service.dart` contain a legacy Supabase path. The latest owner ADR prohibits enabling or using that path. No root Laravel backend manifest/lock is present on `main` yet.
+- **Accepted target (not active on `main`):** Hostinger KVM2 + Coolify, Laravel/PHP 8.4 and private PostgreSQL 17, with no Supabase product use. Do not describe this app as Laravel-backed until reviewed migration code is merged and verified.
 - **Open migration work:** PRs [#48](https://github.com/berkah-pos/Berkahtigaputeri/pull/48) and [#52](https://github.com/berkah-pos/Berkahtigaputeri/pull/52) contain migration candidates; they remain unmerged. Their dedicated Flutter test passes do not establish backend installability, service/API parity, successful cloud sync, staging acceptance or production deployment.
-- **Historical/source retention:** existing Supabase code, SQL, auth/config behavior and migration artifacts must be treated as the currently implemented source plus migration evidence until source-of-truth identification, export/backup verification, parity, rollback and explicit cutover/retirement approval pass. Do not erase historical inputs merely because the target decision has changed.
+- **Historical/source retention:** keep old Supabase code, SQL and reports only as archive/audit evidence. Do not access a live project, obtain a new export, run the legacy writer, or treat hosted data as an authorized migration source. Existing data may only be imported from an already available owner-controlled offline export outside Supabase; otherwise migration remains NOT VERIFIED.
 
 ## Architecture and truth-in-status rules
 
@@ -27,11 +27,11 @@ This section describes the checked-in app on `main` at repository baseline `d7ee
 - Checkout persists sales, sale lines, FEFO lot allocations, FIFO cost consumption, balanced accounting journal lines, stock movements, and the existing outbox event in a SQLite transaction.
 - Prices and totals use integer Rupiah in the modular domain logic.
 - The app has a local-first UI. **The Laravel API, authenticated cloud sales synchronization/acknowledgement, and consolidated multi-device reports are not implemented by this UI integration.** The dashboard and reports tell users that outbox events remain local/pending.
-- Supabase is initialized only when both build-time `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are provided; without them, the app offers an explicit local-only mode and does not silently default to staging. The app now uses `supabase_flutter` email/password authentication with persisted session restoration. A publishable key is not authentication, and a valid login still does not prove tenant membership or enroll the device; protected configuration access remains gated on a session plus assigned tenant/device values and the existing server-side RLS rules.
+- The current app can initialize Supabase when `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are passed at build time, but the latest owner decision prohibits supplying these settings or connecting to any Supabase service. The code must be replaced—not merely left in local-only mode—with tested Laravel authentication, tenant/device authorization and effective-configuration APIs. Do not claim cloud login or sync works on the target until those replacements pass tests.
 - `BERKAH_WHATSAPP_NUMBER` optionally configures the sales WhatsApp phone number at build time. No private service-role, database-admin, or signing secrets belong in the Flutter app.
 - This app must not be treated as production multi-tenant SaaS until authenticated identity, server-side tenant authorization, the sync API, adversarial two-tenant tests, backups/restore, and production security gates are verified.
 
-The trial app's email-only activation-status lookup is intentionally not used as authentication. The unified app uses Supabase email/password authentication, but the tenant membership lookup/enrollment workflow and server-enforced subscription API still need implementation and verification.
+The trial app's email-only activation-status lookup is not authentication. The existing Supabase login path is prohibited under the latest owner decision. Laravel membership/enrollment and server-enforced subscription APIs remain unimplemented and must be tested before release.
 
 ## Android package and trial-data migration
 
@@ -60,7 +60,7 @@ flutter build appbundle --debug
 
 The script fills in only missing Android host files and preserves the existing canonical app Gradle configuration and app identity. Review any generated native files before committing them. The GitHub Actions workflow uses the same script in its disposable checkout, then runs a **debug-only** Android App Bundle compile check. That artifact is not a production-signed release and must not be submitted to Play Console.
 
-For the release workflow, configure these GitHub Actions secrets before producing a publisher-signed cloud build: `BERKAH_UPLOAD_KEYSTORE_BASE64`, `BERKAH_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_UPLOAD_KEY_ALIAS`, `BERKAH_UPLOAD_KEY_PASSWORD`, `SUPABASE_URL`, and `SUPABASE_PUBLISHABLE_KEY`. A publisher-signed build fails if the cloud endpoint settings are absent; a debug-signed build is explicitly test-only and uses the local-only path. For a local build, copy `android/key.properties.template` to the ignored `android/key.properties` and use the existing compatible signing keystore. Never commit keystores, `key.properties`, or signing secrets. A package ID match does not prove a signing-certificate match.
+For release builds, the existing workflow's requirement for `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` is legacy and conflicts with the latest owner decision. **Do not configure or supply those secrets.** The workflow/build path must be revised to consume the Laravel API configuration instead before a compliant cloud release. Signing secrets remain separate: `BERKAH_UPLOAD_KEYSTORE_BASE64`, `BERKAH_UPLOAD_KEYSTORE_PASSWORD`, `BERKAH_UPLOAD_KEY_ALIAS`, and `BERKAH_UPLOAD_KEY_PASSWORD`. For local signing, keep keystores and `key.properties` ignored. A package ID match does not prove a signing-certificate match.
 
 ## Permanent architecture rules
 

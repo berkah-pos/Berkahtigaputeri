@@ -1,7 +1,7 @@
 # Aab Berkah POS — SaaS Architecture, Data Persistence, and Agent Execution Protocol
 
 
-> **Architecture supersession notice — 2026-10-16:** This document contains an earlier platform proposal for hosted Supabase/PostgreSQL and shared-schema RLS. The selected target is now recorded in `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`: Laravel Central API on KVM2/Coolify with PostgreSQL 17 and separate tenant databases/roles. Treat all contrary platform recommendations below as historical. This document remains a source for offline-first SQLite transactions, durable outbox/idempotency, accounting/business invariants, general security principles and evidence protocol where they do not conflict with the owner ADR and DOC_14. Existing Supabase code, data and migrations are retained for audit/migration; no hosted resource is considered retired until source identification, export/backup verification, staging parity, rollback, retention review and explicit approval pass.
+> **Current owner decision — 2026-10-17:** Follow `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`. The project targets Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17 and separate central/tenant databases. No Supabase product may be used or accessed, including read-only. Older platform/source-designation statements below are historical only; do not follow them as instructions to connect to Supabase or use it as a data source. This document remains authoritative only for compatible offline-first SQLite/outbox, accounting/business invariants and general engineering/evidence rules.
 
 ---
 
@@ -22,10 +22,10 @@ The default target architecture for the Aab Berkah POS multi-tenant SaaS is:
 
 - **Android client:** Flutter/Dart, with SQLite for local-first persistence and offline checkout.
 - **Application API:** Laravel/PHP, hosted in Docker containers on Ubuntu 24.04 LTS (or a later supported LTS only after an explicit compatibility decision).
-- **Cloud relational database:** PostgreSQL. Begin by evaluating the existing Supabase managed PostgreSQL project/services. Keep production and staging separate.
-- **Cloud file storage:** Managed object storage (for example, Supabase Storage or Alibaba Cloud OSS), with private-by-default access and tenant-aware metadata.
+- **Cloud relational database:** private PostgreSQL 17 initially running on the Hostinger KVM2 host under Coolify. Do not use or connect to Supabase or any other Supabase product.
+- **File storage:** private persistent storage for the MVP or a separately selected non-Supabase S3-compatible object store when warranted. Keep private-by-default access and tenant-aware metadata; the storage choice requires a reviewed implementation decision.
 - **Synchronization:** A durable SQLite outbox on each client, an authenticated Laravel sync API, idempotent server writes, explicit acknowledgement, retries, and conflict handling.
-- **Tenant isolation:** One shared PostgreSQL database with tenant-scoped data and tested authorization/RLS for the initial customer scale, unless a reviewed decision documents a concrete reason for a separate-database model.
+- **Tenant isolation:** one central PostgreSQL database plus a separate PostgreSQL database and restricted runtime role per tenant. A shared application image serves standard tenants; do not use caller-supplied tenant IDs as authorization.
 - **Subscription model:** Server-enforced plans and entitlements, independent of user authentication and tenant data authorization.
 - **Operations:** HTTPS, least privilege, secret management, database/file backups, observability, tested restores, and automated release checks.
 
@@ -33,11 +33,11 @@ This is a target, not a statement that this entire stack is already integrated. 
 
 ### Technology decisions
 
-1. **PostgreSQL is the database engine; Supabase is a platform built around managed PostgreSQL and additional services.** They are not mutually exclusive alternatives.
+1. **PostgreSQL 17 is the selected database; Supabase is not an approved product dependency.** Run PostgreSQL privately under the chosen Hostinger KVM2/Coolify baseline unless a later explicit owner decision changes hosting.
 2. **Keep SQLite on Android.** Do not replace it with a remote-only database; offline checkout is a core requirement.
 3. **Use Laravel for custom SaaS APIs and business rules** if the product remains our own branded Flutter SaaS. Odoo may be evaluated as an optional ERP/integration or a different product strategy, but is not the default transaction backend.
 4. **Do not migrate to MariaDB solely to pursue a presumed memory saving.** No database has a universal memory advantage across different configurations and workloads. Measure representative memory, concurrency, latency, and cost before changing engines.
-5. **Prefer managed PostgreSQL at launch** over running the full database stack on the same small ECS host as Laravel. This reduces operational burden and allows compute to be resized independently. Reconsider only with evidence and a documented operations plan.
+5. **Use the Hostinger KVM2 + Coolify baseline first.** This is a constrained single-node MVP, not high availability. Keep PostgreSQL private and durable, encrypt backups off-host, and test restore. If measured requirements outgrow the node, scale to a larger host and/or move PostgreSQL to a separate private non-Supabase host with a tested migration and recovery plan.
 6. **Keep files outside relational transaction rows.** PostgreSQL stores metadata, ownership, and references; object storage holds file bytes.
 7. **Do not introduce Redis or additional services without a measured need.** A database-backed queue may be sufficient initially; isolate workers and introduce Redis only when workload or reliability requirements justify it.
 
@@ -129,7 +129,7 @@ The initial goal is a shared PostgreSQL database for a small initial SaaS custom
 2. Unique constraints and foreign keys must prevent cross-tenant child-to-parent references. Where a child contains tenant_id, consider composite uniqueness/foreign-key constraints so tenant_id and parent ID must agree.
 3. Resolve a caller's tenant access from authenticated identity, active membership, assigned device, and server-side authorization. A caller-provided tenant ID is a selector, not proof of permission.
 4. Apply PostgreSQL RLS policies where they fit the chosen connection/auth model. Test SELECT, INSERT, UPDATE, DELETE, reports, RPCs, and object-storage access as ordinary tenant users.
-5. Define least-privilege database roles. If a Laravel connection uses a privileged Supabase/service-role key or otherwise bypasses RLS, the API must enforce server-derived tenant authorization on every route; the bypass must be deliberate, limited, documented, and adversarially tested. Never expose a service-role or database-owner credential to Flutter or browser JavaScript.
+5. Define least-privilege database roles. For every Laravel route, enforce server-derived tenant authorization regardless of the database isolation model. Ordinary runtime credentials must be restricted to the authorized tenant DB; never expose a database owner, tenant migrator, or provisioning credential to Flutter or browser JavaScript. No Supabase service-role key or Supabase endpoint is permitted.
 6. Choose and document one primary authentication authority for app users/devices and how Laravel verifies identity. Do not assume a stored tenant/device ID is authentication. A publishable/anonymous key alone is not a user session.
 7. Separate platform super-admin powers from tenant owner/manager/cashier roles. Privileged operations require explicit authorization and audit trails.
 8. Do not create a separate database for each tenant by default. Re-evaluate schema-per-tenant or database-per-tenant only for measured scaling, contractual isolation, regulatory or enterprise requirements.
@@ -219,20 +219,20 @@ No payment provider or pricing plan is selected by this document. Do not integra
 
 ### Initial deployment target
 
-- Ubuntu 24.04 LTS on the selected cloud VM, or an explicitly reviewed supported alternative.
-- Docker Engine and Docker Compose for reproducible API, queue worker, scheduler, and reverse proxy deployment as needed.
-- Laravel API and background worker containers are replaceable application processes.
-- Managed PostgreSQL/Supabase initially, kept off the small application VM unless a reviewed ADR approves otherwise.
-- Managed object storage for files.
-- HTTPS at the public boundary; restrict inbound ports and do not publicly expose PostgreSQL, Redis, Docker daemon, or internal admin ports.
-- Use environment/secret-management facilities for secrets. Do not commit .env files, database URLs with passwords, service keys, keystores, access tokens, or production data.
-- Do not use a container writable layer as durable storage. If a stateful service must be self-hosted later, configure persistent volumes, off-host backups, upgrade/restore procedures, monitoring, and documented recovery objectives first.
+- Hostinger KVM2, initially 2 vCPU / 8 GB RAM / 100 GB NVMe, running Ubuntu 24.04 LTS, Docker and Coolify.
+- Run Laravel web, queue and scheduler processes as replaceable containers; build immutable images in CI and deploy through Coolify.
+- Run PostgreSQL 17 as a private, persistent Coolify service with a durable volume. No Supabase or other Supabase product is allowed.
+- Keep development and CI isolated from production. Staging and production must have separate databases, domains, secrets and environment configuration.
+- Keep PostgreSQL, SSH/admin control surfaces and any queue/cache service private; expose only the intended public HTTPS application boundary.
+- Keep secrets in an approved secret manager/environment configuration. Never commit environment files, database URLs with passwords, service keys, tokens or production rows.
+- Never use a container writable layer as database durability. Configure off-host encrypted backups and test restore.
+- Build a scale path from measurements: first increase KVM resources; then consider a separate private PostgreSQL host and more Laravel replicas after database connection budgets, queues, shared state and tenant-context reset are tested. One KVM2 node is not HA and carries a single-host failure risk.
 
 ### Memory and cost policy
 
-There is no universal claim that PostgreSQL or MariaDB uses less memory in every configuration. Memory is affected by concurrent connections, query plans, sort/hash operations, caches, connection pooling, indexes, transaction volume, and worker count. Supabase is a managed platform around PostgreSQL; compare total platform costs and operational workload, not only database RAM.
+There is no universal database memory/capacity claim. On the single-node KVM2 baseline, PostgreSQL and Laravel share finite CPU, RAM, disk and network resources. Monitor them together and compare total operating cost and work, not only database RAM. Supabase is not a permissible platform choice for this project.
 
-Start with a small managed PostgreSQL tier suitable for benchmarking, not a promised tenant capacity. Measure representative data volumes and peak concurrency. Track database CPU/RAM where available, active connections, slow queries, p95/p99 API latency, sync lag, error rates, and monthly bill. Resize from measured load. Use connection pooling where appropriate and cap PHP-FPM, queue-worker, and scheduler concurrency to avoid memory exhaustion.
+Start with a disposable PostgreSQL 17 CI environment and a private Coolify-managed PostgreSQL 17 service on the KVM2 target. Treat the node as a modest MVP baseline, not a promised tenant capacity. Measure representative data volumes and peak concurrency. Track database CPU/RAM where available, active connections, slow queries, p95/p99 API latency, sync lag, error rates, and monthly bill. Resize from measured load. Use connection pooling where appropriate and cap PHP-FPM, queue-worker, and scheduler concurrency to avoid memory exhaustion.
 
 Redis is optional. Add it only when measured queue/cache/coordination needs justify it. Avoid storing large photos or PDFs in PostgreSQL rows.
 

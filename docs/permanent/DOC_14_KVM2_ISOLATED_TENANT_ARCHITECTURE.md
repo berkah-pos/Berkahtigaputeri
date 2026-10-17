@@ -1,44 +1,31 @@
 # DOC_14 — Laravel Central API and PostgreSQL 17 Isolated-Tenant Architecture
 
-**Decision authority:** ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md selects Laravel Central API on KVM2/Coolify with PostgreSQL 17 and a database per tenant.  
-**Status:** Target selected by the owner ADR; architecture is **not implemented or deployed**. The owner designated Supabase project ID `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) as the source-of-record resource on 2026-10-17, despite its `staging` label. Migration remains **BLOCKED** until its authorized read-only inventory/export, reconciliation and all required acceptance gates pass. The designation does not verify production traffic or authorize mutations.  
-**Original architecture date:** 2026-10-16; **source designation update:** 2026-10-17 (Asia/Jakarta)  
-**Scope boundary:** This document describes the selected target. It does not certify live infrastructure, completed data movement, tenant isolation, restore capability or production readiness.
+**Current authority:** `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` is the latest owner decision. This document is subordinate to it.  
+**Status:** Target selected; architecture is **not implemented or deployed**. This revision expressly prohibits Supabase product use, including read-only project access. Earlier source-designation records are historical only and do not authorize access or migration from Supabase.  
+**Hosting baseline:** Hostinger KVM2 (documented initial package: 2 vCPU, 8 GB RAM, 100 GB NVMe), Ubuntu 24.04 LTS, Docker and Coolify; PHP 8.4 / Laravel 13.x / Filament 5.x / Sanctum; private PostgreSQL 17.  
+**Tenant data design:** One central DB plus one database and restricted runtime role per tenant; one shared Laravel application image serves standard tenants.  
+**Supersession:** Any earlier clause in this document that instructs a Supabase connection, live inventory/export, source reconciliation, Supabase-based migration, or hosted-resource retirement is replaced by the latest owner ADR. Existing SQL, code and reports remain repository history only.  
+**Implementation baseline reviewed:** `main` SHA `08af86065addcbcae0b03dbf085a2943fc8362bf`. Flutter still contains Supabase integration and no root Composer manifest/lock exists; that is a known implementation gap, not an accepted runtime.
 
-The PostgreSQL 17 choice supersedes the earlier MariaDB 11.4 proposal. The managed-Supabase + IDCloudHost plan is not the target runtime. ADR-2026-10-16 is the decision record; this document must not override it.
+The accepted target is intended to support convenient local development, isolated CI/staging and a controlled production deployment from the same reviewed application image. The initial KVM2 node is a modest single-node MVP, not HA. Capacity, tenant count, availability and recovery targets remain unverified until measured.
 
-The current Phase 5 copy of DOC_14 on PR #48's branch is explicitly marked **SUPERSEDED / NOT CANONICAL** and names PostgreSQL 17 in its header. It remains an unmerged candidate snapshot and itself requires rebase/reconciliation of DOC_14 plus branch-level AGENTS/roadmap before merge. This canonical main-branch DOC_14 and the accepted owner ADR govern; do not treat the feature-branch copy as independent authority.
+## 0. Gates — decision versus implementation readiness
 
-## Current implementation and evidence status — 2026-10-16
-
-Baseline `main` commit: `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. The status below is a dated snapshot, not a claim that the state cannot change after this revision.
-
-| Required distinction | Current status | Evidence boundary |
+| Gate | Status | Evidence required |
 |---|---|---|
-| Implemented on `main` | **SOURCE-VERIFIED: Supabase-backed Flutter** | `pos-app/pubspec.yaml` declares `supabase_flutter`; `pos-app/lib/main.dart` calls `Supabase.initialize`; `pos-app/lib/core/config/config_service.dart` requires a Supabase session. Root `composer.json` and `composer.lock` are absent. |
-| Accepted target design | **ACCEPTED — not deployed** | Owner ADR PR [#49](https://github.com/berkah-pos/Berkahtigaputeri/pull/49) is merged. Target: Laravel Central API on KVM2/Coolify, PostgreSQL 17, PHP 8.4 / Laravel 13 / Filament 5 / Sanctum, and locked/tested `stancl/tenancy` v3.10.1 as an initial candidate. |
-| Implementation on an open branch/PR only | **UNMERGED / NOT THE MAIN RUNTIME** | #41 retains the superseded Laravel 11/PHP 8.3/MariaDB proposal. #50 has a newer dependency candidate but uses MariaDB-specific tenant-grant tests and has not demonstrated PostgreSQL provisioning. #47, #48 and #52 remain open/stacked candidates; none establishes accepted production implementation. |
-| Executed CI | **LIMITED AND MIXED** | On PR #48 head `6e31574ecc04ecae6a535fe409cf415ec18655cc`, workbook and dedicated Flutter checks passed, while Canonical POS CI and KVM2 Laravel Backend CI failed. On PR #50 current head checked 2026-10-16 (`29127e8ecc9d2c4253939e26a1aa54a59a07cbff`), Canonical Workbook Validation run #38914169711 passed, while Tenant Grant Security #38914169628, Canonical POS App CI #38914169548 and KVM2 Laravel Backend CI #38914169687 failed. Earlier runs for PR #50 SHA `e108f5629d688ac2376f77ef1ebdc505501b1d60` are historical and are not evidence for the latest PR head. See the dated correction report for the full SHA-bound results. |
-| Staging/source observations | **OWNER-DESIGNATED source-of-record baseline; contents not reconciled** | Owner designated project `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) as the source-of-record resource; `txwzhesvcjftybrlhnzs` remains the staging-clone comparison candidate. Catalog/migration footprints differ. The designation is not live-production, export-completeness or restore-integrity proof and does not authorize mutation. |
-| Production deployment/acceptance | **NOT RUN / NOT VERIFIED** | No verified KVM2/Coolify production deployment, completed migration, production cutover, tenant isolation acceptance, restore acceptance or release is claimed. |
+| Hosting and stack | **SELECTED** | Hostinger KVM2 + Coolify; PHP 8.4, Laravel 13, Filament 5, Sanctum, PostgreSQL 17 |
+| Supabase product use | **PROHIBITED** | No app, build, test, CI, staging, production or read-only project use; the current Flutter source is still non-compliant and must be replaced |
+| Root dependency baseline | **NOT PRESENT ON MAIN** | Reviewed `composer.json` / `composer.lock`, clean locked install, security audit with policy enabled |
+| Local development and CI | **NOT VERIFIED** | Repeatable no-Supabase local workflow and disposable PostgreSQL 17 CI, separated from production |
+| Fresh central/tenant migrations | **NOT RUN ON PG17** | Clean central and tenant migrations executed against disposable PostgreSQL 17 |
+| PostgreSQL provisioning/security | **NOT VERIFIED** | Reviewed broker and actual role/database/grant inspection plus negative tenant A/B tests |
+| Existing-data continuity | **BLOCKED / NOT VERIFIED** | Only an already available, owner-controlled offline export outside Supabase may be considered; no live Supabase access or new export is allowed |
+| Config and Flutter/API parity | **NOT VERIFIED** | 352-key manifest and service-specific effective config parity through Laravel; Flutter has no Supabase runtime path |
+| KVM2 resource budget and scalability | **NOT VERIFIED** | OS/container limits, database/application high-water marks, load tests and measured growth plan |
+| Backup/restore | **NOT VERIFIED** | Encrypted off-host backups; successful central and tenant restore drills from the target environment |
+| Coolify deployment and release | **NOT RUN / NOT VERIFIED** | Immutable CI-produced image, isolated staging acceptance, TLS/health/security/rollback evidence |
 
-Legacy Supabase source code, SQL, migration history and staging data are retained as migration inputs/evidence. They are not to be erased or treated as the accepted future client-facing runtime. The tracked `scripts/sync_excel_to_supabase.py` also contains a Supabase REST/RPC write path when cloud credentials are supplied; it is mutation-capable legacy code, not a read-only validator or the accepted Laravel importer. Do not execute it against an unknown/shared project without explicit source approval, verified backup and rollback planning. The full dated status correction is `docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md`.
-
-## 0. Gates — decision versus migration readiness
-
-| Gate | Status | Evidence required before migration/release |
-|---|---|---|
-| Engine choice | **SELECTED: PostgreSQL 17** by the owner ADR | Implement the selected engine in disposable environments; this is not proof of migration readiness |
-| Authoritative source identity | **OWNER-CONFIRMED** | Use owner-designated project `cztlmwzfrhyafgawphgw`; keep the clone as comparison evidence. This closes only the identity decision. |
-| Complete source inventory/export and reconciliation | **BLOCKED / NOT VERIFIED** | Authorized read-only inventory/export, checksums, counts, role/grant/function/trigger/policy/extension/identity/storage/realtime inventory, history reconciliation and verified backup/restore evidence for the designated project |
-| KVM2 resource budget (DG-1) | **NOT VERIFIED** | Actual host/container limits, OS and database memory headroom, measured sync burst/load results |
-| Private management/control-plane access (DG-2) | **NOT VERIFIED** | Firewall/Tailscale/WireGuard enforcement and isolated recovery evidence |
-| PostgreSQL provisioning/security (DG-3) | **NOT VERIFIED** | Reviewed broker, real role attributes/owners/grants/default grants, PUBLIC access and negative cross-tenant tests |
-| Backup/restore (DG-4) | **NOT VERIFIED** | Encrypted off-host backup scope and successful restore of central plus selected tenant databases and required files/keys |
-| Laravel stack and API contracts | **NOT VERIFIED** | Locked supported dependencies, clean install/migrations, authenticated API/identity tests and actual transaction-sync acknowledgements |
-| Flutter/API parity and cutover | **NOT VERIFIED** | Exact 352-key/config fixture parity, effective-config parity by service, end-to-end offline/outbox sync and staged release/rollback evidence |
-
-No “gate passed” status may be inferred from document existence or a workflow definition. Missing direct evidence stays NOT RUN / NOT VERIFIED.
+No row is green because the architecture was selected or a test was written. Missing direct evidence remains NOT RUN / NOT VERIFIED.
 
 ## 1. Target topology
 
@@ -46,13 +33,13 @@ No “gate passed” status may be inferred from document existence or a workflo
 - Runtime: one shared Laravel application image for standard tenants; do not create a separate app container per tenant.
 - Database engine: PostgreSQL 17 on a private database service. Use the latest supported 17.x minor at build/deploy time and a tested minor-upgrade policy.
 - Data topology: one central database plus a separate tenant database for each tenant on the same private PostgreSQL service. Each tenant gets a restricted runtime role; central ownership/roles remain separate. Database-per-tenant is logical isolation within a shared host/DB service, not physical isolation against a host compromise.
-- Cloud entry point: authenticated Laravel Central API. Laravel/Sanctum is the target application identity and authorization boundary. Normal client devices must not access a database, Supabase Data API or privileged credentials directly.
-- Cache/queue: add Redis or other auxiliary services only where the measured architecture needs them; any runtime state that can retain tenant context must be reset and tested at worker/job boundaries.
+- Cloud entry point: authenticated Laravel Central API. Laravel/Sanctum is the only approved application identity and authorization boundary. The product must not access any Supabase API or service. Normal devices must not access a database or privileged credentials directly.
+- Cache/queue: add Redis or other auxiliary services only where measured needs justify them; any runtime state that can retain tenant context must be reset and tested at worker/job boundaries. Development, CI, staging and production must use separate databases and secrets.
 - Mobile: keep local-first checkout in SQLite and durable outbox processing. A client outbox is not “cloud sync” until the server commits and returns a durable idempotent receipt.
 
 ## 2. Authority and product contracts
 
-- ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md governs platform choice, database engine, stack baseline and migration/retirement constraints.
+- `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` governs current hosting, platform use, stack and no-Supabase policy. The 2026-10-16 ADR is historical for compatible Laravel/PostgreSQL choices and cannot override it.
 - DOC_00_CANONICAL_ARCHITECTURE_DECISION.md governs the logical configuration contract only: GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE; canonical workbook config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx; exactly 352 entries; BASIC, PRO and ENTERPRISE templates; one requested service per effective-config response.
 - DOC_00_MASTER_ROADMAP.md governs implementation order and phase acceptance.
 - Current source, current-head CI, actual grant tests, staging results and production evidence determine delivered status. Historical or source-only reports do not prove runtime behavior.
@@ -89,16 +76,14 @@ A reviewed PostgreSQL-specific provisioning broker is a mandatory design gate. D
 
 If the reviewed broker cannot prove the intended least-privilege boundary on PostgreSQL 17, tenant provisioning remains blocked.
 
-## 5. Supabase/PostgreSQL conversion boundary
+## 5. Historical Supabase material — archive only, no product use
 
-The source contains Supabase-specific identity helpers, RLS, JSONB, functions/RPCs, triggers, extensions and Edge Functions. PostgreSQL preserves dialect compatibility better than a MariaDB rewrite, but it does **not** automatically preserve Supabase Auth, API gateway, RLS authorization context, Storage policies, Realtime behavior or Edge runtime.
+Historical repository files may describe Supabase Auth helpers, RLS, JSONB, functions/RPCs, triggers, extensions, Storage, Realtime or Edge Functions. They may be read as historical source text only when needed to understand the old application, but they do not authorize any connection to a Supabase project or any use of a Supabase product. Do not run Supabase CLI/API commands, query its catalog, create exports from its hosted projects, or add Supabase SDKs/URLs/credentials to code, CI, development, staging or production.
 
-- Keep complete authorized source exports and inventory all application-facing functions/triggers/extensions, data owners, dependencies and consumers before designing the target schema.
-- Reconcile migration history and schema differences between the two staging candidates before any one is treated as the baseline.
-- Design the conversion from shared tenant-scoped tables/RLS into central metadata and separate tenant databases. Identify every function/trigger that currently depends on auth.uid(), JWT claims, SECURITY DEFINER privileges, cross-tenant references or shared tables. Keep no such routine callable through a public/anonymous path by default.
-- The final client-facing API is Laravel, not a direct Supabase function or direct database call. Port each Edge Function/API behavior to Laravel or a separately reviewed service only after inventory, authentication, error, idempotency and integration testing.
-- Do not migrate password hashes without explicit algorithm/policy compatibility verification. Use approved secure enrollment or reset when identity migration cannot be verified.
-- Do not synthesize missing rows, ownership links, sales, lots or journals. Ambiguous legacy records require quarantine/review and reconciliation.
+- Do not treat earlier source-designation documentation or project IDs as permission to connect. The historical source record remains a record of a previous decision only.
+- Do not run `scripts/sync_excel_to_supabase.py` or any historical migration against a live project.
+- Any existing-data import must use an already available, owner-controlled offline artifact outside Supabase. Validate provenance, integrity, completeness, and business balances before import. If such a file does not exist, the target remains clean for engineering; the migration of existing business data is NOT VERIFIED and must not be claimed.
+- The new PostgreSQL schema must be designed and tested from the accepted product contract, workbook contract, and reviewed historical code evidence—not by connecting to or mirroring a Supabase service. Do not invent rows, ownership links, sales, lots, journals or IDs to make a migration appear complete.
 
 ## 6. Stack and delivery contract
 
@@ -106,30 +91,33 @@ Target baseline: PHP 8.4; Laravel 13.x; Filament 5.x; Laravel Sanctum; stancl/te
 
 These versions are architecture selections, not claims of current installation or successful dependency resolution. Require Composer resolution and tests with security advisories enabled, clean application boot, API route registration, central and tenant migrations, and tests against disposable PostgreSQL 17. Do not disable Composer security policy or broadly suppress advisories. Filament major-version migrations must be tested instead of performed as string replacement. Pin deployment images/digests after CI verification; build images in CI, not on the workload node.
 
-## 7. Operations, resource budget and recovery
+## 7. Operations, resource budget, reasonable scalability and recovery
 
-- The 2-vCPU/8-GB/100-GB single node is not certified for any tenant or concurrency count. Record OS-reserved memory, database memory/connection budget, application/workers, any cache, backup overhead and burst headroom using actual limits and load-test evidence.
-- Keep PostgreSQL, Redis and provisioning control interfaces private. Restrict SSH and Coolify administration to approved administrative access; expose public HTTP/HTTPS only through the intended proxy boundary.
-- Back up the central database, each tenant database, required objects/files, encryption keys/secrets via the approved vault process, and Coolify’s own state as separate recovery concerns.
-- PostgreSQL recovery requires a tested base-backup/WAL strategy for the accepted recovery objectives. A stored backup file is not proof of restore.
-- Execute and record central plus selected tenant restores, a single-tenant restore that does not overwrite other tenants, integrity/checksum validation and recovery times before a release claim.
-- No HA, capacity, SLA, backup-completeness or restore-time claims without measured evidence.
+- **Initial host:** Hostinger KVM2 with 2 vCPU, 8 GB RAM and 100 GB NVMe, Ubuntu 24.04 LTS, Docker and Coolify. This is a constrained single-node MVP and has a single-host failure risk.
+- **Development:** support an isolated local Docker Compose workflow with Laravel and disposable PostgreSQL 17. Developers do not need Supabase credentials, endpoints or accounts to work on this project.
+- **CI:** build and test with fresh disposable PostgreSQL 17 instances, clean dependency installs, security audits and migrations. Build production images in GitHub-hosted CI, not on the workload host.
+- **Environment separation:** local, CI, staging and production have separate databases, secrets, hostnames and configuration. Do not use production business rows as ordinary development fixtures.
+- **Production deployment:** Coolify deploys reviewed immutable images. PostgreSQL has persistent storage, protected upgrades, backups and health monitoring. PostgreSQL, Coolify administration and queue/cache internals are private.
+- **Resource budget:** measure CPU/RAM, database connections, disk high-water mark, query latency, p95/p99 API latency, sync backlog, queue age and job concurrency. Keep operating headroom and cap Laravel/PHP-FPM/queue concurrency according to the actual memory/connection budget. No tenant-count or concurrency promise without a representative load test.
+- **Growth path:** first upgrade KVM2 resources when measured constraints justify it; next consider a dedicated private PostgreSQL host and multiple Laravel web/worker replicas. Do not add Redis, PgBouncer or more nodes until there is a documented need and a tested plan for shared queue/cache state, connection budgets and worker-context reset.
+- **Recovery:** encrypt central and every tenant DB backup off-host, account for files and recovery secrets separately, and test restores. A backup file or runbook is not proof of restore.
+- **No HA claim:** Coolify is a deployment/control plane, not a guarantee of high availability or automatic horizontal scale. Availability and recovery targets remain unverified until rehearsed and measured.
 
-## 8. Migration and retirement order
+## 8. Implementation order
 
-1. The owner source designation is recorded (2026-10-17): project `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) is the authoritative source-of-record resource for migration/production purposes, despite its `staging` label. The staging-clone `txwzhesvcjftybrlhnzs` remains comparison evidence, not the selected baseline.
-2. Acquire an authorized, read-only and sanitized inventory/export of the designated project with row/object counts, checksums, source metadata, and verified backup/restore evidence. Reconcile migration history and catalog drift between source and clone; preserve both live resources without mutation. Source identity is decided; source completeness and migration baseline validation are not.
-3. Build a disposable PostgreSQL 17 target with locked dependencies; define central/tenant schemas, role broker, least-privilege roles, function/triggers plan and repeatable migration tooling.
-4. Run schema/migration tests and real-grant tenant A/B denial tests. Establish identity/device/tenant mapping and deterministic configuration import.
-5. Verify all 352 workbook entries and effective-config parity for valid POS and Akuntansi fixtures. Implement and test authenticated sync batches, stable event IDs/payload hashes, atomic database effects, durable server receipts, retry and explicit conflicts. Never acknowledge the local outbox before server acceptance.
-6. Verify backups and restore, private host access, domain/TLS/routing, worker reset, secrets boundaries, monitoring and measured capacity.
-7. Rehearse a complete isolated staging migration and a rollback to the preserved old runtime before owner-approved cutover. Do not perform a production cutover as part of source implementation.
-8. Disable old hosted runtime paths only after verified cutover, an approved recovery/observation period and retention/legal sign-off. Project pause/deletion requires separate explicit owner authorization. Retain repository historical SQL/migration artifacts as audit evidence.
-
-Rollback must be based on verified exports and a rehearsed procedure; never infer reversibility for partially applied accounting or inventory transformations.
+1. Record this no-Supabase owner decision as the current architecture authority. Do not connect to a Supabase project to collect data, inventory, backup or migration input.
+2. Create a clean branch from current `main` and establish PHP 8.4/Laravel 13/Filament 5/Sanctum with a committed lockfile. Port only selected reviewed dependency work; do not merge a stacked feature chain.
+3. Implement local development, clean install, boot, API route, production image and dependency-audit smoke checks with security advisories enabled.
+4. Create central and tenant migrations designed for PostgreSQL 17; run them only against fresh disposable PostgreSQL 17 instances. Verify rollback/forward recovery and the fresh migration state.
+5. Implement a PostgreSQL-specific tenant provisioning broker and restricted central/tenant roles. Prove actual grants and tenant A-to-B denial using disposable PostgreSQL users.
+6. Implement the Laravel Central API for authentication, tenant/device authorization, configuration, entitlements and durable sync acceptance.
+7. Replace all active Flutter Supabase paths with tested Laravel API calls. Preserve offline SQLite, atomic sale/outbox writes, stable idempotency, server acknowledgement and explicit conflict states. Remove Supabase SDKs, initialization, URLs, secrets and runtime workflows.
+8. Validate the exact 352-entry workbook contract and effective configuration for POS and Accounting separately. Test Flutter/API parity, offline retry and idempotency.
+9. Add isolated Coolify staging and production environment definitions, immutable CI images, private service networks, encrypted off-host backups, real restore tests, monitoring, load/capacity evidence and rollback.
+10. Existing business data may be brought forward only from an already available owner-controlled offline file outside Supabase. If it is absent, do not claim data migration, parity with current hosted rows or production cutover readiness. No connection to Supabase is a permitted recovery path.
 
 ## 9. Explicit evidence boundary
 
-At this point, the backend stack upgrade, PostgreSQL target migrations/provisioner, production/source schema reconciliation, actual tenant A/B database isolation, API/outbox end-to-end sync, Coolify deployment, TLS, backups/restores, load/capacity, mobile-device rollout and production status are **NOT VERIFIED** unless later accompanied by current, scoped evidence. A document, test file, or unrelated green workflow is not proof.
+At this point, the backend stack upgrade, PostgreSQL target migrations/provisioner, any offline data-artifact validation, actual tenant A/B database isolation, API/outbox end-to-end sync, complete removal of Supabase runtime references, Coolify deployment, TLS, backups/restores, load/capacity, mobile-device rollout and production status are **NOT VERIFIED** unless later accompanied by current, scoped evidence. A document, test file, or unrelated green workflow is not proof.
 
 References: owner ADR above; DOC_00_CANONICAL_ARCHITECTURE_DECISION.md; DOC_00_MASTER_ROADMAP.md; docs/runbooks/backup-restore.md; PostgreSQL versioning policy (https://www.postgresql.org/support/versioning/); Laravel 13 releases (https://laravel.com/docs/13.x/releases); Filament 5 installation requirements (https://filamentphp.com/docs/5.x/introduction/installation); stancl/tenancy package metadata (https://packagist.org/packages/stancl/tenancy).

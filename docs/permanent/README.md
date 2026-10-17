@@ -6,35 +6,36 @@ This directory records durable configuration contracts, platform decisions, secu
 
 1. Root `AGENTS.md` — agent workflow, protected invariants, and evidence rules.
 2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole authority for five-layer configuration inheritance and the canonical 352-entry workbook contract.
-3. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — selected Laravel Central API + PostgreSQL 17 target, stack, source-retention policy and migration blockers.
-4. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to the owner ADR.
-5. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
-6. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original shared-Supabase platform choice is superseded by the owner ADR and detailed DOC_14.
-7. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of the old Flutter/Supabase implementation and known gaps; it does not define the new platform target.
-8. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-9. `scripts/sync_excel_to_supabase.py` — legacy workbook sync code. Source inspection confirms a Supabase REST/RPC write path when supplied cloud credentials; it is not a read-only validator or target Laravel importer. Do not execute against an unknown/shared project without explicit source approval and backup/rollback.
-10. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
+3. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — latest owner decision: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17, environment separation, reasonable growth path, and no Supabase product use.
+4. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier Laravel/PostgreSQL decision, now subordinate where it conflicts with the latest no-Supabase policy.
+5. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to both ADRs.
+6. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
+7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original platform choice is superseded by the latest owner ADR.
+8. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of old implementation and known gaps; it does not define the new platform target.
+9. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
+10. `scripts/sync_excel_to_supabase.py` — prohibited legacy mutation-capable code. Never execute it and never supply Supabase credentials.
+11. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
 
 ## Authority boundaries
 
 - **Inheritance + workbook:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
-- **Platform / engine / stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`, accepted and merged by PR #49; this is the binding platform/engine/stack authority on `main`.
+- **Current platform/usage decision:** `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` supersedes conflicting platform-use and source-access instructions. The 2026-10-16 ADR is historical for compatible Laravel/PostgreSQL selection only.
 - **Detailed target implementation / tenant isolation / runtime storage / deployment:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`, subordinate to the owner ADR.
 - **Execution:** `DOC_00_MASTER_ROADMAP.md`.
 - **Current implementation status:** current source and actual test/CI/staging/production evidence only. A document claim or historical run never proves current runtime behavior.
 
-If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. If a document conflicts with the owner ADR on platform, engine or stack, the owner ADR wins; PR #49 merged the accepted decision, so no additional approval prerequisite is implied. DOC_14 details but does not override that decision. Do not silently rewrite historical facts.
+If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC_00 wins. For hosting, environment, scalability and the no-Supabase policy, the 2026-10-17 owner ADR wins. DOC_14 and the roadmap detail implementation but cannot override it. The previous source-designation report is retained as a historical record; it is not current permission to access the project. Do not silently rewrite historical facts.
 
 ### Status categories that must not be conflated
 
-- **Implemented on main:** verify tracked source at the named main commit; current baseline Flutter remains Supabase-backed.
+- **Implemented on main:** verify tracked source and commit SHA. At the documented main baseline, Flutter still has Supabase code and the root has no Composer manifest/lock; that is a known gap against the latest owner decision, not an approved architecture.
 - **Target accepted in an ADR:** an architectural decision only; it does not imply code, staging or production delivery.
 - **Open branch/PR implementation:** unmerged candidate code only.
 - **Executed CI evidence:** tied to exact tested SHA and specific workflow/job; a partial pass does not imply aggregate acceptance.
 - **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
 - **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
 
-See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. The owner-designated source-of-record project is recorded in `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md`: project ID `cztlmwzfrhyafgawphgw`, despite its existing `staging` label. Source identity is confirmed; read-only inventory/export reconciliation and migration gates remain blocked. Missing evidence stays `NOT RUN / NOT VERIFIED`.
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated implementation/CI snapshot. `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` records an earlier source designation and is retained as history only. The newer ADR prohibits access to either project, even read-only. Data continuity can use only an already-existing owner-controlled offline export outside Supabase; if none exists, keep it NOT VERIFIED. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
 ## Canonical configuration contract
 
@@ -65,15 +66,17 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 - PHP 8.4, Laravel 13.x, Filament 5.x, Sanctum and tested/locked `stancl/tenancy` v3.10.1 as the initial candidate.
 - One private PostgreSQL 17 service hosting a central database plus one database and restricted runtime role per tenant.
 - One shared application image serves standard tenants; no app container or DB server per tenant.
-- Laravel Central API for effective config and cloud operations; Supabase RPC is not the target runtime config path.
+- Laravel Central API for all auth, effective configuration and cloud operations. Supabase is prohibited—not a runtime, fallback, or data-source platform.
 - Flutter retains SQLite local-first checkout and durable idempotent sync outbox.
 - Central and every tenant database must be included in encrypted off-host backups, with restore tests.
 
 ## Legacy Supabase material
 
-Files such as `DOC_02_SUPABASE_SCHEMA_V1.sql`, `DOC_03_RLS_AUTH.sql`, `DOC_08_RPC_EFFECTIVE_CONFIG.sql`, and historical verification reports are retained for audit, migration and understanding existing behavior. They describe a Supabase-hosted runtime boundary, not proof that the target API/tenant isolation is complete. Preserve them; do not blindly execute them as new migrations or delete them. Reconcile the full authorized live source inventory before migration. The main-branch `scripts/sync_excel_to_supabase.py` has a live Supabase REST/RPC write path when cloud credentials are provided; handle it as mutation-capable legacy code, not a harmless validation command.
+Existing Supabase SQL, SDK references, old reports, and the dated source-designation report are retained as **historical repository evidence only**. They do not authorize connecting to a Supabase project, generating new Supabase exports, using its managed database/auth/API/storage/functions/realtime services, or treating it as the new platform. Do not execute old SQL against a live project and never run `scripts/sync_excel_to_supabase.py`.
 
-A malformed historical duplicate discovered on 2026-10-15 was reference-checked and archive-renamed to `../archive/superseded/DOC_14_MALFORMED_DUPLICATE_PROPOSAL_2026-10-15.md` on 2026-10-16. Its original date and proposal content are retained. Use the canonical `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` above; the archived duplicate is evidence only, not an independent authority.
+The current Flutter source still contains Supabase integration. It is a known mismatch that must be replaced by Laravel API calls and removed from the production code path in a dedicated tested implementation PR. Do not claim the repository is already Supabase-free. Existing business data may be imported only from an already available owner-controlled offline artifact outside Supabase; otherwise the data migration is not verified.
+
+
 
 ## Evidence and security rules
 

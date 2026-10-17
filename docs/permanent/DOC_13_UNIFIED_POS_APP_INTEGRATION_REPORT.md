@@ -1,7 +1,7 @@
 # DOC_13 — Unified Flutter POS App Integration Report
 
 
-> **Platform supersession notice — 2026-10-15:** This report records the existing Flutter/Supabase implementation and its verification gaps at the revisions described below. It is not the target platform architecture. The target for new implementation is defined by `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`: authenticated Laravel Central API, central relational configuration tables, and database-per-tenant operational data. References here to Supabase client initialization, `get_effective_config` RPC, Supabase schema/RLS, and old workflow outcomes are historical/source evidence and must not be copied as the new design. The current code still needs a separately verified migration; this notice does not claim that migration is complete.
+> **Platform supersession notice — updated 2026-10-17:** This report records an older Flutter/Supabase implementation and its historical verification gaps. It is not a target architecture or instruction to use a Supabase product. The current owner decision is `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`: Hostinger KVM2 + Coolify, Laravel/PHP 8.4 and private PostgreSQL 17, with no Supabase product use or project access, including read-only. References here to Supabase initialization, keys, RPC, schema/RLS and workflow outcomes are historical evidence only. The current code still contains incompatible Supabase paths; they must be replaced with tested Laravel API integrations before a compliant release. This notice does not claim the migration is complete.
 
 ---
 
