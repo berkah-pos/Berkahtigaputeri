@@ -66,7 +66,7 @@ final class EnsureTenantRequestOwnership
 
             if (
                 $membership === null
-                || ! (bool) $membership->is_active
+                || ! in_array($membership->is_active, [true, 1, '1', 't', 'true'], true)
                 || ! is_scalar($membership->tenant_id)
                 || ! hash_equals($tenantId, (string) $membership->tenant_id)
             ) {
