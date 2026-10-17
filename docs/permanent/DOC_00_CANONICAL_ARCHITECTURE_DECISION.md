@@ -10,7 +10,7 @@ This decision owns the Final POS configuration behavior: its inheritance order, 
 
 It does **not** own the target platform database schema, hosting, tenant database provisioning, authentication implementation, or deployment model. The accepted `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` owns the platform, engine and stack decision; `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details the target and its acceptance gates without overriding the ADR.
 
-The Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and authenticated `get_effective_config` RPC are part of the implementation still present on Flutter/main and are also historical migration inputs relative to the accepted target. Retain related SQL and reports for migration history and verification; do not erase them or implement new Supabase runtime paths from them. The accepted target is normalized central configuration storage behind the authenticated Laravel Central API, as selected by the owner ADR and detailed by DOC_14. This target is not yet the active runtime on `main`. The tracked `scripts/sync_excel_to_supabase.py` also contains a Supabase REST/RPC write path when invoked with cloud credentials; it is a legacy main-branch writer, not a read-only validator or the accepted target importer. Do not execute it against an unknown/shared project without explicit source approval and a backup/rollback plan.
+The previous Supabase `app_config(key PRIMARY KEY, value JSONB, updated_at)` table and `get_effective_config` RPC are historical implementation details. They may be retained in the repository for audit context only; they do not authorize current access to a Supabase product and are not an active migration path. The current owner target is normalized central configuration storage behind the authenticated Laravel Central API, as required by `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` and detailed by DOC_14. This target is not yet the active runtime on `main`. The tracked `scripts/sync_excel_to_supabase.py` contains a mutation-capable legacy Supabase REST/RPC writer and must not be executed. Do not access a Supabase project, even read-only, or add Supabase SDKs, credentials, URLs, API calls, or deployment dependencies. Existing runtime references are non-compliant legacy code and must be replaced by a tested Laravel API in a dedicated implementation PR.
 
 ## 2. Sole canonical inheritance model
 
@@ -104,7 +104,7 @@ Under the accepted target architecture (owner ADR #49), the planned effective-co
 - permit only a cache previously returned by the server for the exact tenant/device/service tuple as the documented offline fallback;
 - use expected-version/optimistic-concurrency checks for configuration writes.
 
-The current Supabase RPC code described in older documents is implementation evidence of the legacy path and must be replaced in the planned migration; it is not the target API contract.
+The current Supabase RPC/client code is a known legacy implementation gap that must be removed and replaced by the authenticated Laravel Central API. Do not call it, add to it, or use it as a fallback. This document alone does not prove the replacement is implemented.
 
 ## 7. Change control and acceptance
 
