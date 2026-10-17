@@ -234,12 +234,20 @@ final class ConfigurationContractTest extends TestCase
         $this->assertNotNull($tenantFixture);
 
         $this->createPlatformTenantAndUser($tenantId, $tenantFixture->template_id, $deviceId, $serviceName);
-        $apply = $importer->apply($manifest);
-        $this->assertSame(352, $apply['total']);
-        $this->assertSame(352, $apply['inserted']);
-        $this->assertSame(0, $apply['updated']);
-        $this->assertSame(0, $apply['unchanged']);
+        $this->artisan('config:import-workbook', [
+            'file' => $manifestPath,
+            '--apply' => true,
+        ])->expectsOutputToContain('APPLY PASS: inserted=352, updated=0, unchanged=0, total=352.')
+            ->expectsOutputToContain('POST-CHECK PASS')
+            ->assertSuccessful();
+
         $this->assertSame('PASS', $importer->postCheck($manifest)['status']);
+
+        $this->artisan('config:import-workbook', [
+            'file' => $manifestPath,
+            '--post-check' => true,
+        ])->expectsOutputToContain('POST-CHECK PASS: 352 stored scopes; keyset '.CanonicalWorkbookImporter::EXPECTED_KEYSET_MD5.'.')
+            ->assertSuccessful();
 
         $storedTenantScope = DB::connection('central')->table('tenant_configs')
             ->where('tenant_id', $tenantId)->where('service_scope', '__base__')->first();
