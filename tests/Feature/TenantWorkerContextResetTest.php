@@ -156,9 +156,9 @@ class TenantWorkerContextResetTest extends TestCase
                 $user->setAttribute($user->getKeyName(), 123457);
                 Auth::guard('web')->setUser($user);
 
-                throw new ` + singleSlashError + `('expected tenant A job failure');
+                throw new \RuntimeException('expected tenant A job failure');
             });
-        } catch (` + singleSlashError + ` $exception) {
+        } catch (\RuntimeException $exception) {
             $caught = true;
             $this->assertSame('expected tenant A job failure', $exception->getMessage());
         }
