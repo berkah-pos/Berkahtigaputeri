@@ -1,0 +1,411 @@
+{
+  "schema_version": 1,
+  "purpose": "Fail-closed release acceptance evidence contract. Specification only; not yet wired into CI.",
+  "architecture_authority": {
+    "adr_path": "docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md",
+    "accepted_pr": 49,
+    "configuration_contract_path": "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+  },
+  "target_stack": {
+    "php": "8.4",
+    "laravel": "13.x",
+    "filament": "5.x",
+    "auth": "Laravel Sanctum",
+    "tenancy_package_candidate": "stancl/tenancy 3.10.1; Composer-locked and tested",
+    "database": "PostgreSQL 17",
+    "target_topology": "One central database plus a separate database and restricted runtime role per tenant",
+    "client_boundary": "Authenticated Laravel Central API",
+    "offline_contract": "Flutter local-first SQLite and durable transactional outbox"
+  },
+  "activation_gate": {
+    "status": "blocked_until_dependency_and_stack_baseline_aligned",
+    "workflow_files_changed": false,
+    "branch_protection_changed": false,
+    "prerequisites": [
+      "Align PR #50 and all backend/security workflow definitions to the accepted PostgreSQL 17 architecture; remove MariaDB 11.4 as a target acceptance engine.",
+      "Commit and review the supported PHP 8.4/Laravel 13/Filament 5/Sanctum/stancl tenancy dependency lockfile and pass strict validation, clean install, platform checks and security audit on the same candidate SHA.",
+      "Add and execute PostgreSQL 17 real role/grant provisioning, isolation, recovery and application integration tests using disposable synthetic fixtures.",
+      "Review the evidence collector and required-check aggregator before making it a required CI check."
+    ]
+  },
+  "gate_policy": {
+    "mode": "fail_closed",
+    "every_check_required": true,
+    "required_status_for_every_check": "executed_pass",
+    "missing_required_check_fails": true,
+    "skipped_required_check_fails": true,
+    "partial_success_can_be_green": false,
+    "stale_success_can_be_green": false,
+    "wrong_stack_can_be_green": false,
+    "skipped_test_is_not_failure_or_pass": true,
+    "dependency_install_failure_is_distinct_from_test_failure": true,
+    "startup_failure_is_distinct_from_test_failure": true,
+    "exact_head_binding_required": true,
+    "required_identity_fields": [
+      "repository",
+      "pull_request_number",
+      "pr_head_sha",
+      "base_sha",
+      "tested_merge_sha",
+      "checkout_head_sha",
+      "workflow_id",
+      "workflow_name",
+      "workflow_revision_sha",
+      "run_id",
+      "run_attempt",
+      "job_id",
+      "job_name",
+      "started_at_utc",
+      "completed_at_utc",
+      "test_command",
+      "exit_code",
+      "stack_fingerprint",
+      "artifact_manifest"
+    ],
+    "stale_if_any_mismatch": [
+      "live_pr_head_sha != report.pr_head_sha",
+      "live_base_sha != report.base_sha",
+      "live_merge_sha != report.tested_merge_sha",
+      "checkout_head_sha != report.tested_merge_sha when the workflow claims to test the PR merge result",
+      "workflow_revision_sha differs from the reviewed required workflow revision"
+    ],
+    "allowed_statuses": [
+      "executed_pass",
+      "executed_test_failure",
+      "dependency_install_failure",
+      "startup_failure",
+      "skipped",
+      "stale_prior_head_success",
+      "blocked_wrong_stack",
+      "not_run",
+      "missing_evidence"
+    ],
+    "artifact_policy": {
+      "upload_logs_on_failure": true,
+      "test_summary_machine_readable": true,
+      "missing_required_artifact_fails": true,
+      "preserve_first_failure_and_stack_trace": true,
+      "redact_secrets": true,
+      "upload_step_must_not_mask_prior_failure": true
+    },
+    "environment_safety": {
+      "adversarial_tests": "Synthetic identities and fixtures; disposable environment only",
+      "destructive_tests": "Disposable databases/resources only",
+      "concurrency_and_load_tests": "Synthetic data and disposable environment only",
+      "backup_restore_tests": "Synthetic backup sources and clean disposable restore target only",
+      "live_supabase_production_dns_mutations": "Not authorized by this matrix"
+    }
+  },
+  "required_checks": [
+    {
+      "id": "AC-01",
+      "name": "Dependency and lockfile validation",
+      "required": true,
+      "target_stack": [
+        "PHP 8.4",
+        "Laravel 13.x",
+        "Filament 5.x",
+        "Sanctum",
+        "stancl/tenancy 3.10.1 candidate",
+        "PostgreSQL 17"
+      ],
+      "commands": [
+        "php --version",
+        "composer validate --strict --no-check-publish",
+        "composer install --no-interaction --prefer-dist --no-progress",
+        "composer check-platform-reqs",
+        "composer audit --locked --no-interaction"
+      ],
+      "acceptance_oracles": [
+        "composer.lock exists and matches composer.json without dependency update during CI",
+        "All required platform requirements pass",
+        "Security audit succeeds without disabling Composer security policy",
+        "Installed framework and tenancy versions match the approved target stack"
+      ],
+      "artifacts_required": [
+        "composer-validate.log",
+        "composer-install.log",
+        "composer-platform-reqs.log",
+        "composer-audit.log",
+        "composer-lock.sha256",
+        "installed-versions.json",
+        "php-extensions.json"
+      ],
+      "current_status": "blocked_wrong_stack"
+    },
+    {
+      "id": "AC-02",
+      "name": "Canonical workbook 352 counts and deterministic SHA-256",
+      "required": true,
+      "commands": [
+        "python -m unittest discover -s scripts/tests -p 'test_*.py'",
+        "python scripts/export_workbook_for_laravel.py --validate-only",
+        "python scripts/test_canonical_workbook_contract.py",
+        "Export canonical manifest twice in clean directories and compare manifest bytes and SHA-256"
+      ],
+      "acceptance_oracles": [
+        "Required sheets and canonical template IDs exist",
+        "Exactly 352 entries: global=1, template=3, tenant=100, service=140, device=108",
+        "Keys are unique and valid",
+        "Dry run performs no database writes",
+        "Two clean exports have identical canonical manifest bytes and SHA-256"
+      ],
+      "artifacts_required": [
+        "workbook-source.sha256",
+        "canonical-manifest.json",
+        "canonical-manifest.sha256",
+        "repeat-run-comparison.json",
+        "entry-type-counts.json",
+        "workbook-tests.xml",
+        "workbook-validation.log"
+      ],
+      "current_status": "missing_evidence"
+    },
+    {
+      "id": "AC-03",
+      "name": "Five-layer precedence and single-service isolation",
+      "required": true,
+      "commands": [
+        "php artisan test --filter=EffectiveConfigResolverTest",
+        "php artisan test --filter=VersionedConfigWriterTest",
+        "Run canonical Laravel/Flutter parity fixtures on the exact head"
+      ],
+      "acceptance_oracles": [
+        "GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE precedence is exact",
+        "Only explicitly defined fields override earlier values",
+        "Missing fields remain inherited",
+        "Only the requested service row is resolved",
+        "Tenant/device mismatch is rejected server-side",
+        "Same fixture and version yields the same effective config hash"
+      ],
+      "artifacts_required": [
+        "resolver-fixtures.json",
+        "resolver-expected-actual.json",
+        "effective-config-sha256.json",
+        "resolver-tests.xml",
+        "resolver-test.log"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-04",
+      "name": "Laravel clean PostgreSQL migrations, routes and auth",
+      "required": true,
+      "environment": "Disposable PostgreSQL 17 central DB plus tenant DBs",
+      "commands": [
+        "Apply central migrations from an empty disposable PostgreSQL database",
+        "Apply tenant migrations from empty disposable PostgreSQL databases",
+        "php artisan route:list --path=api/v1",
+        "Run Laravel feature tests for login, session restoration, token revocation and unauthenticated/unauthorized cases"
+      ],
+      "acceptance_oracles": [
+        "All required migrations succeed on PostgreSQL 17 from an empty state",
+        "Laravel boots and required API routes are present",
+        "Auth/session/token positive and negative tests pass"
+      ],
+      "artifacts_required": [
+        "postgresql-version.json",
+        "central-migrations.log",
+        "tenant-migrations.log",
+        "api-routes.txt",
+        "auth-tests.xml",
+        "laravel-boot.log"
+      ],
+      "current_status": "blocked_wrong_stack"
+    },
+    {
+      "id": "AC-05",
+      "name": "PostgreSQL 17 two-tenant provisioning and actual grants",
+      "required": true,
+      "environment": "Disposable PostgreSQL 17 only; synthetic tenant A/B",
+      "commands": [
+        "php artisan test --filter=TenantProvisioningPostgresGrantsTest",
+        "Capture reviewed pg_roles, pg_database, schema/table/sequence grants and default privileges",
+        "Verify runtime/broker/migrator role attributes and PUBLIC privileges"
+      ],
+      "acceptance_oracles": [
+        "Provisioning is repeatable, concurrent and safely recoverable",
+        "Tenant A runtime can access A but is denied B",
+        "Tenant B runtime can access B but is denied A",
+        "Web/queue runtime has no global CREATE ROLE/CREATEDB or tenant owner privileges",
+        "Actual PostgreSQL catalogs and negative connection/read/write attempts prove least privilege"
+      ],
+      "artifacts_required": [
+        "postgres-role-attributes.json",
+        "postgres-grants-redacted.json",
+        "provisioning-audit.jsonl",
+        "tenant-ab-denial-tests.xml",
+        "provisioning-tests.log",
+        "postgres-service.log"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-06",
+      "name": "Host, X-Forwarded-Host, membership, device and entitlement negatives",
+      "required": true,
+      "environment": "Disposable PostgreSQL 17 integration environment; synthetic identities",
+      "commands": [
+        "Run HTTP feature tests for Host and X-Forwarded-Host cases",
+        "Run negative membership, device ownership and entitlement/subscription authorization cases"
+      ],
+      "acceptance_oracles": [
+        "Spoofed/ambiguous Host and forwarded-host requests fail closed",
+        "Tenant membership, active device ownership and entitlement are resolved server-side",
+        "No cross-tenant response/body or write is allowed"
+      ],
+      "artifacts_required": [
+        "host-auth-negative-tests.xml",
+        "redacted-request-response-cases.json",
+        "security-log-extract.txt"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-07",
+      "name": "Long-lived worker tenant context isolation",
+      "required": true,
+      "environment": "Disposable PostgreSQL 17 plus isolated synthetic cache/filesystem",
+      "commands": [
+        "Run one long-lived worker against interleaved synthetic tenant A/B jobs",
+        "Inject job failure/retry and assert tenant context reset before the next job"
+      ],
+      "acceptance_oracles": [
+        "No DB, tenant, cache, filesystem/storage or effective-config context leaks across jobs",
+        "Context resets after success, exception, timeout and retry"
+      ],
+      "artifacts_required": [
+        "worker-context-transcript.jsonl",
+        "worker-context-tests.xml",
+        "worker.log",
+        "cache-filesystem-isolation.json"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-08",
+      "name": "Flutter analysis, tests and offline SQLite atomicity",
+      "required": true,
+      "commands": [
+        "flutter analyze --no-pub",
+        "flutter test --no-pub --reporter expanded",
+        "Run explicit offline sale/outbox SQLite atomicity, restart and retry tests"
+      ],
+      "acceptance_oracles": [
+        "Analysis and Flutter unit/widget tests pass",
+        "Local sale and outbox insert are atomic and roll back together on failure",
+        "Offline checkout does not call cloud endpoints",
+        "Pending outbox survives restart and retries correctly",
+        "Secure token/session restoration, revocation and explicit local-only mode are covered"
+      ],
+      "artifacts_required": [
+        "flutter-version-and-archive-sha256.json",
+        "pub-lock.sha256",
+        "flutter-analyze.log",
+        "flutter-tests.xml",
+        "flutter-test-expanded.log",
+        "offline-sqlite-atomicity.json"
+      ],
+      "current_status": "partial"
+    },
+    {
+      "id": "AC-09",
+      "name": "Sale/outbox replay and conflicting idempotency keys",
+      "required": true,
+      "environment": "Disposable Laravel/PostgreSQL 17 integration environment; synthetic transactions",
+      "commands": [
+        "Run authenticated sync integration tests for identical replay",
+        "Run conflicting idempotency-key payload tests",
+        "Run concurrent duplicate delivery and durable acknowledgement tests"
+      ],
+      "acceptance_oracles": [
+        "Identical key/payload replay returns the same durable receipt without duplicate effects",
+        "Same key with different payload returns a conflict",
+        "Outbox ACK occurs only after server durable commit",
+        "Concurrent replay cannot duplicate sale/accounting effects"
+      ],
+      "artifacts_required": [
+        "sync-payload-hashes.json",
+        "idempotency-tests.xml",
+        "receipt-and-row-assertions.json",
+        "sync-transaction.log"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-10",
+      "name": "Isolated deployment smoke",
+      "required": true,
+      "environment": "Disposable preview/staging target with synthetic credentials and data",
+      "commands": [
+        "Deploy the exact tested immutable image digest to the isolated target",
+        "Run health, route, auth, tenant routing and basic transaction smoke tests",
+        "Verify deployed image digest equals the tested image digest"
+      ],
+      "acceptance_oracles": [
+        "Deployed revision/image exactly matches the evidence report",
+        "Health, migrations, API routes, auth and tenant-scoped transaction smoke pass",
+        "Rollback evidence is recorded"
+      ],
+      "artifacts_required": [
+        "image-digest-and-sbom.json",
+        "deployment-identity.json",
+        "deployment-smoke.log",
+        "deployment-smoke-tests.xml",
+        "rollback-observation.json"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-11",
+      "name": "Central, per-tenant and storage backup/restore",
+      "required": true,
+      "environment": "Synthetic disposable PostgreSQL 17 and storage source/restore targets",
+      "commands": [
+        "Back up central DB, each tenant DB, storage/object data and required recoverable key material",
+        "Verify manifests and checksums",
+        "Restore into clean disposable targets and verify tenant boundaries, balances, config hashes and object bytes"
+      ],
+      "acceptance_oracles": [
+        "All required resources are in the backup manifest",
+        "Checksums verify before and after restore",
+        "Central, tenant and storage restores are successful and tenant boundaries remain intact",
+        "Restore duration and failures are recorded"
+      ],
+      "artifacts_required": [
+        "backup-scope-manifest.json",
+        "backup-checksums.sha256",
+        "restore-verification.json",
+        "restore.log",
+        "tenant-boundary-after-restore.json"
+      ],
+      "current_status": "not_run"
+    },
+    {
+      "id": "AC-12",
+      "name": "Performance and resource measurements",
+      "required": true,
+      "environment": "Synthetic workload in disposable environment only",
+      "commands": [
+        "Run the reviewed reproducible load workload",
+        "Capture throughput, p50/p95/p99 latency, error rate, CPU, peak memory, DB connections, disk/IO and storage growth",
+        "Compare the result to an owner-approved committed threshold budget"
+      ],
+      "acceptance_oracles": [
+        "Workload configuration and synthetic seed are reproducible",
+        "Metrics and errors are machine-readable",
+        "Threshold budget is approved and present",
+        "Measured results meet the budget with required headroom"
+      ],
+      "artifacts_required": [
+        "workload-config-and-seed-hash.json",
+        "raw-performance-metrics.json",
+        "performance-summary.json",
+        "resource-measurements.json",
+        "approved-threshold-reference.txt"
+      ],
+      "current_status": "not_run",
+      "blocker": "The ADR gives a KVM2 hardware envelope but no endpoint-specific performance thresholds; thresholds must be approved, not invented."
+    }
+  ]
+}
