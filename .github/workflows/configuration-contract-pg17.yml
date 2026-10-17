@@ -1,0 +1,143 @@
+name: Configuration Contract — Laravel / PostgreSQL 17
+
+on:
+  pull_request:
+    paths:
+      - "app/Console/Commands/ImportCanonicalWorkbook.php"
+      - "app/Http/Controllers/Controller.php"
+      - "app/Http/Controllers/Api/EffectiveConfigurationController.php"
+      - "app/Http/Middleware/RequireCanonicalCentralApiHost.php"
+      - "app/Providers/AppServiceProvider.php"
+      - "app/Services/Configuration/**"
+      - "routes/configuration.php"
+      - "database/migrations/central/**"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/export_workbook_for_laravel.py"
+      - "tests/Python/test_export_workbook_for_laravel.py"
+      - "tests/Python/test_configuration_cas_concurrency.py"
+      - "tests/Feature/ConfigurationContractTest.php"
+      - ".github/workflows/configuration-contract-pg17.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "app/Console/Commands/ImportCanonicalWorkbook.php"
+      - "app/Http/Controllers/Controller.php"
+      - "app/Http/Controllers/Api/EffectiveConfigurationController.php"
+      - "app/Http/Middleware/RequireCanonicalCentralApiHost.php"
+      - "app/Providers/AppServiceProvider.php"
+      - "app/Services/Configuration/**"
+      - "routes/configuration.php"
+      - "database/migrations/central/**"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/export_workbook_for_laravel.py"
+      - "tests/Python/test_export_workbook_for_laravel.py"
+      - "tests/Python/test_configuration_cas_concurrency.py"
+      - "tests/Feature/ConfigurationContractTest.php"
+      - ".github/workflows/configuration-contract-pg17.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: configuration-contract-pg17-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  configuration-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: berkahpos_central_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d berkahpos_central_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CENTRAL_DB_HOST: 127.0.0.1
+      CENTRAL_DB_PORT: "5432"
+      CENTRAL_DB_DATABASE: berkahpos_central_ci
+      CENTRAL_DB_USERNAME: postgres
+      CENTRAL_DB_PASSWORD: postgres
+      APP_ENV: testing
+      APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      DB_CONNECTION: central
+      QUEUE_CONNECTION: sync
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - name: Checkout the exact tested revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Install isolated workbook and PostgreSQL test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/config-contract-venv"
+          "$RUNNER_TEMP/config-contract-venv/bin/python" -m pip install --disable-pip-version-check openpyxl "psycopg[binary]"
+
+      - name: Validate workbook schema, counts, identifiers, key set and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH=. "$RUNNER_TEMP/config-contract-venv/bin/python" tests/Python/test_export_workbook_for_laravel.py
+          "$RUNNER_TEMP/config-contract-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+          mkdir -p tests/Fixtures build
+          "$RUNNER_TEMP/config-contract-venv/bin/python" scripts/export_workbook_for_laravel.py --output tests/Fixtures/generated-canonical-config-manifest.json
+
+      - name: Build locked PHP 8.4 / Laravel 13 test image
+        run: docker build --pull --target development --tag "berkah-pos-config-contract:${{ github.sha }}" .
+
+      - name: Create disposable central schema on PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD="$CENTRAL_DB_PASSWORD" postgres:17 \
+            psql -h "$CENTRAL_DB_HOST" -p "$CENTRAL_DB_PORT" -U "$CENTRAL_DB_USERNAME" -d "$CENTRAL_DB_DATABASE" \
+            -v ON_ERROR_STOP=1 -c "SELECT current_setting('server_version_num')::integer BETWEEN 170000 AND 179999 AS pg17" \
+            | grep -Eq '\bt\b'
+          docker run --rm --network host \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            "berkah-pos-config-contract:${{ github.sha }}" \
+            php artisan migrate --database=central --path=database/migrations/central --force
+
+      - name: Prove dry-run, apply, post-check, precedence, authorization and CAS contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            --volume "$PWD/build:/var/www/berkah-pos/build" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env CANONICAL_CONFIG_MANIFEST=/var/www/berkah-pos/tests/Fixtures/generated-canonical-config-manifest.json \
+            --env CONFIGURATION_FIXTURE_DIFF_PATH=/var/www/berkah-pos/build/configuration-fixture-diff.json \
+            "berkah-pos-config-contract:${{ github.sha }}" \
+            sh -lc 'touch .env && php artisan test --filter=ConfigurationContractTest --display-warnings --fail-on-warning'
+
+      - name: Race two independent PostgreSQL 17 clients against one expected version
+        shell: bash
+        run: |
+          set -euo pipefail
+          CAS_RESULT_PATH="$PWD/build/configuration-cas-concurrency.json" \
+            "$RUNNER_TEMP/config-contract-venv/bin/python" tests/Python/test_configuration_cas_concurrency.py
+
+      - name: Upload machine-readable configuration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: configuration-contract-evidence-${{ github.sha }}
+          path: |
+            build/configuration-fixture-diff.json
+            build/configuration-cas-concurrency.json
+          if-no-files-found: warn

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 from typing import Any
@@ -23,11 +24,18 @@ EXPECTED_KEYSET_MD5 = "1fd3d64219ecc7c333453c20da80e295"
 DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
 
 
+def normalize_header(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_") if value is not None else ""
+
+
 def row_dicts(ws) -> list[dict[str, Any]]:
     values = list(ws.iter_rows(values_only=True))
     if not values:
         return []
-    headers = [str(value).strip() if value is not None else "" for value in values[0]]
+    headers = [normalize_header(value) for value in values[0]]
+    nonempty_headers = [header for header in headers if header]
+    if len(nonempty_headers) != len(set(nonempty_headers)):
+        raise ValueError(f"{ws.title}: duplicate normalized column headers")
     rows: list[dict[str, Any]] = []
     for raw in values[1:]:
         if not any(value is not None for value in raw):
@@ -40,10 +48,26 @@ def text(value: Any) -> str:
     return str(value).strip() if value is not None else ""
 
 
+def normalized_identifier(value: Any, label: str, *, uppercase: bool = False) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ValueError(f"{label}: identifier must be a non-empty, already-trimmed string")
+    pattern = r"^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$" if uppercase else r"^[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*$"
+    if not re.fullmatch(pattern, value):
+        raise ValueError(f"{label}: identifier is not in canonical normalized form: {value!r}")
+    return value
+
+
 def bool_value(value: Any) -> bool:
     if isinstance(value, bool):
         return value
-    return text(value).lower() in {"true", "1", "yes", "active", "enabled"}
+    if value is None or text(value) == "":
+        raise ValueError("Required boolean flag is empty")
+    normalized = text(value).lower()
+    if normalized in {"true", "1", "yes", "active", "enabled"}:
+        return True
+    if normalized in {"false", "0", "no", "inactive", "disabled"}:
+        return False
+    raise ValueError(f"Invalid boolean flag: {value!r}")
 
 
 def parse_value(raw: Any, key: str) -> dict[str, Any]:
@@ -77,23 +101,71 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         tenant_rows = row_dicts(wb["TENANTS_MASTER"])
         device_rows = row_dicts(wb["DEVICES"])
         service_rows = row_dicts(wb["SERVICES"])
+        global_rows = row_dicts(wb["GLOBAL"])
+        readme_rows = row_dicts(wb["README_PRODUCTION"])
         export_rows = row_dicts(wb["APP_CONFIG_EXPORT"])
+
+        if not readme_rows:
+            raise ValueError("README_PRODUCTION must contain a header row and at least one documented row")
+        if not global_rows:
+            raise ValueError("GLOBAL sheet must contain a header row and at least one configuration row")
+        required_headers = {
+            "TEMPLATES": ({"template_id", "template"},),
+            "TENANTS_MASTER": ({"tenant_id"}, {"template_id"}),
+            "DEVICES": ({"device_id"}, {"tenant_id"}, {"is_active"}),
+            "SERVICES": ({"tenant_id"}, {"service"}, {"enabled"}),
+            "APP_CONFIG_EXPORT": ({"key"}, {"type"}, {"value_jsonb"}, {"sync_status"}),
+        }
+        for sheet_name, header_alternatives in required_headers.items():
+            headers = {normalize_header(value) for value in next(wb[sheet_name].iter_rows(values_only=True))}
+            for alternatives in header_alternatives:
+                if not (headers & alternatives):
+                    raise ValueError(f"{sheet_name} is missing required header from {sorted(alternatives)}")
 
         by_key: dict[str, dict[str, Any]] = {}
         for row in export_rows:
-            key = text(row.get("key"))
+            raw_key = row.get("key")
+            key = text(raw_key)
             if not key:
                 raise ValueError("APP_CONFIG_EXPORT contains an empty key")
+            if not isinstance(raw_key, str) or raw_key != key:
+                raise ValueError(f"APP_CONFIG_EXPORT key is not normalized: {raw_key!r}")
             if key in by_key:
                 raise ValueError(f"Duplicate canonical config key: {key}")
             if text(row.get("sync_status")).upper() not in {"READY", "ACTIVE", ""}:
                 raise ValueError(f"{key}: sync_status is not ready")
+            key_type = text(row.get("type")).lower()
+            if key == "global":
+                expected_type = "global"
+            elif key.startswith("template:"):
+                expected_type = "template"
+            elif ":service:" in key:
+                expected_type = "service"
+            elif key.startswith("tenant:"):
+                expected_type = "tenant"
+            elif key.startswith("device:"):
+                expected_type = "device"
+            else:
+                raise ValueError(f"Unknown canonical config key: {key!r}")
+            if key_type != expected_type:
+                raise ValueError(f"{key}: APP_CONFIG_EXPORT type={key_type!r} does not match expected {expected_type!r}")
             by_key[key] = {
                 "key": key,
                 "config": parse_value(row.get("value_jsonb"), key),
             }
 
         keys = set(by_key)
+        for key in keys:
+            if key == "global":
+                continue
+            valid = (
+                re.fullmatch(r"template:(BASIC|PRO|ENTERPRISE)", key)
+                or re.fullmatch(r"tenant:[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*", key)
+                or re.fullmatch(r"tenant:[a-z][a-z0-9]*(?:_[a-z0-9]+)*:service:(pos|akuntansi)", key)
+                or re.fullmatch(r"device:[a-z][a-z0-9]*(?:[_-][a-z0-9]+)*", key)
+            )
+            if not valid:
+                raise ValueError(f"Non-canonical or malformed configuration key: {key!r}")
         counts = {
             "global": sum(key == "global" for key in keys),
             "template": sum(key.startswith("template:") for key in keys),
@@ -113,15 +185,21 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         if keyset_md5 != EXPECTED_KEYSET_MD5:
             raise ValueError(f"Keyset hash mismatch: {keyset_md5}")
 
-        template_ids = {text(row.get("template_id") or row.get("template")).upper() for row in templates}
+        template_ids = {
+            normalized_identifier(row.get("template_id") or row.get("template"), "TEMPLATES.template_id", uppercase=True)
+            for row in templates
+        }
         if template_ids != EXPECTED_TEMPLATES or len(templates) != EXPECTED_COUNTS["template"]:
             raise ValueError(f"Template inventory mismatch: {sorted(template_ids)}")
 
         tenants: list[dict[str, Any]] = []
         tenant_ids: set[str] = set()
         for row in tenant_rows:
-            tenant_id = text(row.get("tenant_id"))
-            template_id = text(row.get("template_id")).upper()
+            tenant_id = normalized_identifier(row.get("tenant_id"), "TENANTS_MASTER.tenant_id")
+            raw_template_id = row.get("template_id")
+            template_id = text(raw_template_id)
+            if raw_template_id != template_id or template_id not in EXPECTED_TEMPLATES:
+                raise ValueError(f"{tenant_id}: template_id must be a canonical uppercase template ID")
             if not tenant_id or tenant_id in tenant_ids:
                 raise ValueError(f"Empty/duplicate tenant_id: {tenant_id!r}")
             if template_id not in EXPECTED_TEMPLATES:
@@ -137,15 +215,19 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         services: list[dict[str, Any]] = []
         service_pairs: set[tuple[str, str]] = set()
         for row in service_rows:
-            tenant_id = text(row.get("tenant_id"))
-            service = text(row.get("service")).lower()
-            if tenant_id not in tenant_ids or service not in {"pos", "akuntansi"}:
+            tenant_id = normalized_identifier(row.get("tenant_id"), "SERVICES.tenant_id")
+            raw_service = row.get("service")
+            service = text(raw_service)
+            if raw_service != service or tenant_id not in tenant_ids or service not in {"pos", "akuntansi"}:
                 raise ValueError(f"Invalid SERVICES mapping: {tenant_id}/{service}")
             pair = (tenant_id, service)
             if pair in service_pairs:
                 raise ValueError(f"Duplicate service mapping: {pair}")
             service_pairs.add(pair)
-            key = text(row.get("app_config_key")) or f"tenant:{tenant_id}:service:{service}"
+            expected_key = f"tenant:{tenant_id}:service:{service}"
+            key = text(row.get("app_config_key")) or expected_key
+            if key != expected_key:
+                raise ValueError(f"SERVICE row {pair} must map to its exact canonical key {expected_key}")
             if key not in by_key:
                 raise ValueError(f"SERVICE row {pair} references missing key {key}")
             services.append({"tenant_id": tenant_id, "service": service, "enabled": bool_value(row.get("enabled")), "config": by_key[key]["config"]})
@@ -155,9 +237,12 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         devices: list[dict[str, Any]] = []
         seen_devices: set[str] = set()
         for row in device_rows:
-            device_id = text(row.get("device_id"))
-            tenant_id = text(row.get("tenant_id"))
-            key = text(row.get("app_config_key")) or f"device:{device_id}"
+            device_id = normalized_identifier(row.get("device_id"), "DEVICES.device_id")
+            tenant_id = normalized_identifier(row.get("tenant_id"), "DEVICES.tenant_id")
+            expected_key = f"device:{device_id}"
+            key = text(row.get("app_config_key")) or expected_key
+            if key != expected_key:
+                raise ValueError(f"Device {device_id} must map to its exact canonical key {expected_key}")
             if not device_id or device_id in seen_devices:
                 raise ValueError(f"Empty/duplicate device id: {device_id!r}")
             if tenant_id not in tenant_ids or key not in by_key:
@@ -171,6 +256,16 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             })
         if len(devices) != EXPECTED_COUNTS["device"]:
             raise ValueError(f"DEVICES must contain 108 rows; got {len(devices)}")
+
+        expected_keys = {"global"}
+        expected_keys.update(f"template:{template_id}" for template_id in EXPECTED_TEMPLATES)
+        expected_keys.update(f"tenant:{tenant_id}" for tenant_id in tenant_ids)
+        expected_keys.update(f"tenant:{tenant_id}:service:{service}" for tenant_id, service in service_pairs)
+        expected_keys.update(f"device:{device_id}" for device_id in seen_devices)
+        if keys != expected_keys:
+            missing = sorted(expected_keys - keys)
+            extra = sorted(keys - expected_keys)
+            raise ValueError(f"Relational sheet/export key mismatch; missing={missing[:5]}, extra={extra[:5]}")
 
         template_payload = [
             {"id": template_id, "config": by_key[f"template:{template_id}"]["config"]}
