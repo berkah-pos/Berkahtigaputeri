@@ -24,6 +24,7 @@ The mandatory source reading order was completed: root `AGENTS.md`; DOC_00 canon
 | `docs/KVM2_RESOURCE_BUDGET.md` said “choose PostgreSQL or MariaDB” | PostgreSQL 17 selected; budget estimates remain explicitly unmeasured, undeployed, and uncertified | MariaDB results cannot satisfy PG17 acceptance. Budget remains planning only. |
 | `docs/runbooks/provisioning-state-machine.md` described a predictable DB name as a design invariant without surfacing confidentiality issue | Added explicit PR #67 architect decision gate; the name pattern is provisional, not an approved secrecy control | No architecture decision is made by this report. |
 | Older ADR16 / DOC13 / old hardening README looked like current authority | Added supersession/historic source-snapshot banners and current ADR/DOC/map pointers | Preserve content; stop legacy commands/statuses becoming active instructions. |
+| `btp-admin/auth.js` and `btp-admin/login.html` retain an old admin email and hosted Supabase client defaults | Explicitly recorded in the authority map and conflict register; code left untouched | Source-level no-Supabase gap remains NOT FIXED by this documentation-only PR; no credentials are reproduced. |
 | `docs/permanent/ACCEPTANCE_MATRIX_CI_EVIDENCE.md` named ADR16 as platform authority | Platform authority points to ADR17, DOC_00 remains configuration authority, DOC14 carries detailed gates | Split authority mirrors current owner decisions. |
 
 ## 3. Per-finding evidence
@@ -35,7 +36,7 @@ The mandatory source reading order was completed: root `AGENTS.md`; DOC_00 canon
 | F-03 | Resource budget engine conflict | Budget said “Choose PostgreSQL or MariaDB only after DG-0” despite accepted ADR selecting PG17 | Replaced with PG17 selected; budget limits still estimated. |
 | F-04 | Database-name confidentiality open question | PR #67 proposes non-enumeration via PostgreSQL catalogs/statistics and possible stronger cluster/service isolation | Asked principal architect on [PR #67 comment](https://github.com/berkah-pos/Berkahtigaputeri/pull/67#issuecomment-6235064049). DECISION REQUIRED / NOT VERIFIED. No answer inferred. |
 | F-05 | Old current/green/certified documents | DOC_02–DOC_11 verification/certificate materials, DOC_13, hardening reports, Supabase/RLS SQL and migration files | Historic banner/pointer pass applied to the listed Supabase-era SQL files, verification guides/certificates and the 2026-10-11 hardening reports. The authority map identifies retained archive groups and the remaining separate workflow blocker. Old claims are not acceptance. |
-| F-06 | Legacy privileged identity drift | Old artifacts reference `satria@berkahtigaputeri.com` and `berkahtigaputeri@gmail.com` | Historical Supabase identities only; no current Laravel admin identity selected. |
+| F-06 | Legacy privileged identity drift | Old certificates reference `satria@berkahtigaputeri.com`; active-looking `btp-admin/auth.js` and `btp-admin/login.html` retain `berkahtigaputeri@gmail.com`, a hosted Supabase URL default and Supabase JS initialization | Historic identities are not current Laravel admin principals. The active-looking legacy static admin is a source-level policy gap outside this docs-only scope; not fixed here. No current Laravel identity selected. |
 | F-07 | Workflow violates no-Supabase rule | `.github/workflows/canonical-workbook-validate.yml` invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352` on changes under `docs/permanent/**` | Not changed here. Script NOT RUN. Ordinary CI is unsafe until separate authorized workflow fix. Commits carry `[skip ci]` to avoid triggering the command; workflow checks therefore remain NOT RUN/SKIPPED. |
 | F-08 | Historic snapshot and PR bases mistaken as live | Prior register anchored to `cb728bf...`; PR #67 base `5b0ad4d...`, head `cb1e6b1...`; PR #71 base `5b0ad4d...`; PR #70 base matched live `main` at inspection | Snapshot rebuilt; PR refs must be re-resolved before merge. |
 | F-09 | Historical source designation mistaken for current authorization | `OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` was superseded by ADR17 for operations | Kept as history only. No hosted Supabase project was accessed, not even read-only. |
@@ -62,8 +63,12 @@ The tracked workbook workflow is incompatible with the global no-Supabase policy
 - Workflow CI: **NOT RUN / SKIPPED intentionally**; see F-07.
 - PostgreSQL 17 provisioning, roles/grants, tenant A/B denial and database-name non-enumeration: **NOT RUN / NOT VERIFIED**.
 - Load, backup/restore, staging deployment and production acceptance: **NOT RUN / NOT VERIFIED**.
-- Local `git diff --check`, markdown CLI link checker and app/runtime tests: **NOT RUN** in connector-only work.
-- Static checks and exact PR HEAD SHA must be rerun/recorded before completion. No check should be promoted to PASS by inference.
+- GitHub-tree-backed static Markdown relative-target check: **PASS** for the 45 changed Markdown files (zero missing relative targets), with DOC_12 and DOC_14 rechecked after their later edits. The final SHA-bound result must be refreshed after this audit update.
+- Core active-document stale-main phrase contract check: **PASS** on the then-current candidate SHA `f2d5acfc4ddb6510008a025478e53a879ee33262` (zero hits across README, AGENTS, Cursor/Muse instructions, permanent README, roadmap, DOC_12, DOC_14 and pos-app README).
+- Static contract checks for authority order, DOC_12 topology, PG17 selected/estimated budget, and SQL banner wording: **PASS** for the checked files; exact final-tree banner coverage will be rechecked.
+- Change inventory at last compare: documentation and SQL comment headers only; **zero workflow files changed**. Workflow CI is intentionally skipped to prevent the prohibited sync script from being invoked.
+- Local `git diff --check`, a Markdown CLI checker, and app/runtime tests: **NOT RUN** in the connector-only workspace. No local checkout was available; static Markdown link-target checks were run against the GitHub tree instead.
+- Static checks and exact PR HEAD SHA must be refreshed/recorded after this audit update. No check should be promoted to PASS by inference.
 
 ## 6. Release sequence
 

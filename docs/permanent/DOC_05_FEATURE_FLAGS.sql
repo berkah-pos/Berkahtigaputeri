@@ -15,15 +15,17 @@
 -- It mutates public.tenants.features and inserts legacy app_config service keys,
 -- which conflicts with the current canonical workbook-owned Final Pos inventory.
 --
--- Current authorities:
---   docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
---   docs/permanent/DOC_02_FINAL_POS_RELATIONAL_OWNERSHIP.sql
---   scripts/sync_excel_to_supabase.py
+-- Historic authority pointers from the retired Supabase implementation (not current instructions):
+--   docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md remains the workbook semantics authority.
+--   docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md owns platform/no-Supabase policy.
+--   docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md specifies subordinate Laravel/PostgreSQL 17 gates.
+--   scripts/sync_excel_to_supabase.py is prohibited legacy code and must never be executed.
 --
 -- The only canonical app_config inventory is 352 keys from the workbook:
 -- 1 global + 3 templates + 100 tenants + 140 service rows + 108 devices.
 -- Runtime feature flags are resolved through canonical app_config; tenants.features
 -- is only a deprecated compatibility projection.
 --
--- Do not copy/paste the former seed into a live or staging database. Use a reviewed
--- workbook-sync workflow after the Phase 2/Phase 4 gates are satisfied.
+-- Do not copy/paste the former seed into any database. The former Supabase sync workflow is retired.
+-- The current Laravel/PostgreSQL 17 importer/validator must be separately implemented and reviewed;
+-- its existence or acceptance is NOT VERIFIED by this historic file.

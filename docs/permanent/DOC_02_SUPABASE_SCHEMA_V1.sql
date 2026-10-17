@@ -22,10 +22,15 @@
 --   docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
 -- Canonical data authority:
 --   config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx
--- Canonical synchronization validator:
+-- Historical-only Supabase synchronization script (PROHIBITED; do not execute):
 --   scripts/sync_excel_to_supabase.py
--- Current security migration:
+-- Historical-only Supabase migration (PROHIBITED; do not execute):
 --   supabase/migrations/20261008131700_p0_rls_identity_config_runtime_prep.sql
+-- Current platform/no-Supabase authority:
+--   docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Current subordinate implementation/acceptance gates:
+--   docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+--   docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md
 --
 -- FINAL POS CONFIG CONTRACT
 -- -------------------------
@@ -45,9 +50,10 @@
 -- Canonical merge order:
 --   GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 --
--- Do not add illustrative production app_config seeds here. Production configuration
--- is workbook-owned and is synchronized/versioned through the canonical importer and
--- atomic RPC. A partial seed is not a valid replacement for the 352-key authority.
+-- Do not add illustrative production app_config seeds here. The 352-key workbook remains
+-- the canonical configuration contract, but this historical Supabase schema/RPC is retired.
+-- A Laravel/PostgreSQL 17 importer and its transaction/versioning behavior require separate
+-- implementation and exact-SHA acceptance; they are NOT VERIFIED by this file.
 --
 -- Core relational projections used by Final Pos include:
 --   public.tenants
