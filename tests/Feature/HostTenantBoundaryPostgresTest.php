@@ -45,7 +45,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $this->assertGreaterThanOrEqual(170000, $version, 'These feature tests require real PostgreSQL 17.');
 
         config(['app.url' => 'https://central.example.test']);
-        SymfonyRequest::setTrustedProxies([], SymfonyRequest::HEADER_X_FORWARDED_ALL);
+        SymfonyRequest::setTrustedProxies([], 0);
         $this->ensureFixtureSchema();
     }
 
@@ -87,7 +87,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
                 Schema::connection('central')->dropIfExists($table);
             }
         } finally {
-            SymfonyRequest::setTrustedProxies([], SymfonyRequest::HEADER_X_FORWARDED_ALL);
+            SymfonyRequest::setTrustedProxies([], 0);
             parent::tearDown();
         }
     }
@@ -161,7 +161,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
 
     public function test_duplicated_host_parameters_in_forwarded_header_are_rejected(): void
     {
-        SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_ALL);
+        SymfonyRequest::setTrustedProxies(['10.10.0.2'], 0);
 
         $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
             ->withHeaders([

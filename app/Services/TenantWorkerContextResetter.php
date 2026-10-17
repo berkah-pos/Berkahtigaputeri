@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use Closure;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -65,7 +64,7 @@ final class TenantWorkerContextResetter
         ];
     }
 
-    private function reset(?Request $request = null): void
+    private function reset(): void
     {
         $failed = false;
 
@@ -144,13 +143,6 @@ final class TenantWorkerContextResetter
             Auth::shouldUse((string) (self::$baseline['auth.defaults.guard'] ?? 'web'));
         } catch (Throwable) {
             $failed = true;
-        }
-
-        if ($request !== null) {
-            foreach (['host_boundary', 'authorized_tenant', 'tenant_context', 'tenant_id', 'device_id'] as $attribute) {
-                $request->attributes->remove($attribute);
-            }
-
         }
 
         if ($failed) {

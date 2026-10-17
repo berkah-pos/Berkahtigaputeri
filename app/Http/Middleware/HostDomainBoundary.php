@@ -3,31 +3,31 @@
 namespace App\Http\Middleware;
 
 use App\Services\TenantHostResolver;
-use App\Services\TenantWorkerContextResetter;
 use Closure;
 use Illuminate\Http\Request;
 
 final class HostDomainBoundary
 {
-    public function __construct(
-        private readonly TenantHostResolver $resolver,
-        private readonly TenantWorkerContextResetter $resetter,
-    ) {
+    public function __construct(private readonly TenantHostResolver $resolver)
+    {
     }
 
     public function handle(Request $request, Closure $next): mixed
     {
-        return $this->resetter->runForRequest($request, function (Request $request) use ($next): mixed {
-            $context = $this->resolver->resolve($request);
+        $context = $this->resolver->resolve($request);
 
-            if ($context === null) {
-                abort(404);
-            }
+        if ($context === null) {
+            abort(404);
+        }
 
-            // Request-scoped state only; do not mutate global connection/config state here.
-            $request->attributes->set('host_boundary', $context);
+        // Host identity is request-scoped. Do not mutate process-global tenant,
+        // DB, cache, filesystem, or auth state here: concurrent requests can overlap.
+        $request->attributes->set('host_boundary', $context);
 
+        try {
             return $next($request);
-        });
+        } finally {
+            $request->attributes->remove('host_boundary');
+        }
     }
 }
