@@ -42,6 +42,7 @@
 - `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` and `DOC_00_MASTER_ROADMAP.md`: accepted target details and sequence, not implementation proof.
 - `docs/permanent/ACCEPTANCE_MATRIX_CI_EVIDENCE.md` and `config/ci/required-check-matrix.json`: acceptance specification; they do not claim their gates are already enforced or passed.
 - `docs/KVM2_RESOURCE_BUDGET.md`: **estimated** budget only until host/container/benchmark measurements exist.
+- `docs/development/LARAVEL_PG17_LOCAL_DEVELOPMENT.md`: local disposable PostgreSQL 17 workflow only, subordinate to the latest ADR; this is not production deployment or tenant-grant acceptance.
 - `docs/runbooks/backup-restore.md` and `docs/runbooks/provisioning-state-machine.md`: planning procedures only; no runbook is executed proof.
 
 ### Legacy SQL, guides and certificates — reference only
