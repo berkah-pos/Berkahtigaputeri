@@ -1,3 +1,14 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- This SQL is preserved as historical Supabase feature-flag/config evidence only.
+-- Never execute it in Supabase CLI, psql, CI, staging, production, or any disposable database.
+-- No Supabase project may be accessed, including read-only. Never run
+-- scripts/sync_excel_to_supabase.py, including --dry-run.
+-- Current authority: docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md;
+-- docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md;
+-- docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md; and
+-- docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md.
+-- Existing SQL below is retained for source-history analysis, not current acceptance.
+
 -- HISTORICAL / SUPERSEDED — DO NOT EXECUTE.
 --
 -- This file was an old two-service UAT seed for tenant IDs clientA/clientB.
