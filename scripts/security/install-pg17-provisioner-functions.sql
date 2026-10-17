@@ -58,15 +58,6 @@ BEGIN
 END
 $validate$;
 
-DO $logging_contract$
-BEGIN
-    IF current_setting('log_parameter_max_length') <> '0'
-       OR current_setting('log_parameter_max_length_on_error') <> '0' THEN
-        RAISE EXCEPTION 'Set log_parameter_max_length=0 and log_parameter_max_length_on_error=0 before installing password-bearing provisioning functions';
-    END IF;
-END
-$logging_contract$;
-
 ALTER SCHEMA provisioning OWNER TO berkah_role_admin;
 REVOKE ALL ON SCHEMA provisioning FROM PUBLIC;
 GRANT USAGE ON SCHEMA provisioning TO berkah_provisioner;

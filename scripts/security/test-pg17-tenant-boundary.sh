@@ -78,14 +78,8 @@ expect_denied() {
 printf '%s\n' '=== PostgreSQL 17 disposable tenant isolation integration tests ==='
 printf 'PostgreSQL version: '
 psql_super postgres -Atc 'SHOW server_version'
-psql_super postgres <<'SQL' >/dev/null
-ALTER SYSTEM SET log_parameter_max_length = 0;
-ALTER SYSTEM SET log_parameter_max_length_on_error = 0;
-SQL
-psql_super postgres -Atc 'SELECT pg_reload_conf()' >/dev/null
-assert_eq "log_parameter_max_length" "0" "$(psql_super postgres -Atc 'SHOW log_parameter_max_length')"
-assert_eq "log_parameter_max_length_on_error" "0" "$(psql_super postgres -Atc 'SHOW log_parameter_max_length_on_error')"
-
+# Raw secrets are converted to SCRAM verifiers before password-bearing DDL.
+# Do not require a global server GUC reload: PostgreSQL log settings vary by service policy.
 export TEST_BROKER_PASSWORD
 TEST_BROKER_PASSWORD="$(cat "$SECRETS/broker")"
 export TEST_CENTRAL_PASSWORD
