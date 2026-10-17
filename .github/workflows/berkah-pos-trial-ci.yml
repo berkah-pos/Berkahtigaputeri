@@ -81,44 +81,14 @@ jobs:
       - name: Run widget tests
         run: flutter test
 
-      - name: Locate Android SDK command-line tools
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -n "${ANDROID_HOME:-}" ]]; then
-            sdk_root="$ANDROID_HOME"
-          elif [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
-            sdk_root="$ANDROID_SDK_ROOT"
-          else
-            sdk_root="/usr/local/lib/android/sdk"
-          fi
-          if [[ ! -d "$sdk_root/cmdline-tools" ]]; then
-            echo "::error::Android command-line tools were not found under $sdk_root." >&2
-            exit 1
-          fi
-          sdkmanager_path="$(find "$sdk_root/cmdline-tools" -type f -name sdkmanager -print -quit)"
-          if [[ -z "$sdkmanager_path" ]]; then
-            echo "::error::sdkmanager was not found in the hosted runner Android SDK." >&2
-            exit 1
-          fi
-          echo "ANDROID_HOME=$sdk_root" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$sdk_root" >> "$GITHUB_ENV"
-          echo "$(dirname "$sdkmanager_path")" >> "$GITHUB_PATH"
-          echo "$sdk_root/platform-tools" >> "$GITHUB_PATH"
-          "$sdkmanager_path" --version
-
-      - name: Install NDK 27 with one retry
-        shell: bash
-        run: |
-          set -euo pipefail
-          set +o pipefail
-          yes | sdkmanager --licenses >/dev/null
-          set -o pipefail
-          sdkmanager --install "ndk;27.0.12077973" || {
-            echo "NDK download failed on first attempt; retrying once after 15 seconds."
-            sleep 15
-            sdkmanager --install "ndk;27.0.12077973"
-          }
+      - name: Set up Android SDK and required NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-36
+            build-tools;36.0.0
+            ndk;27.0.12077973
 
       - name: Build debug APK
         run: flutter build apk --debug
