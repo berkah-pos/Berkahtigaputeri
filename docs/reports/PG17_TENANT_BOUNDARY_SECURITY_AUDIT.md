@@ -36,7 +36,7 @@ Central tenant, domain, subscription, device and principal records must be autho
 - **berkah_runtime_<ulid>:** login with no role/database creation, superuser, replication, bypass-RLS or inheritance privileges. Gets schema USAGE, explicit DML, sequence USAGE/SELECT, and CONNECT to its own database only.
 - **berkah_migrator_<ulid>:** login and schema CREATE only during migration. It receives CONNECT while provisioning; finalization disables login, revokes CONNECT and broker membership in the same transaction as the ready marker.
 
-The CLI takes only a canonical ULID and derives role/database identifiers. It does not accept caller-selected names. Passwords are accepted from mode-0600 mounted files and sent through native prepared parameters. Both log_parameter_max_length and log_parameter_max_length_on_error must be zero before installer functions are applied.
+The CLI takes only a canonical ULID and derives role/database identifiers. It does not accept caller-selected names. High-entropy ASCII-hex passwords are accepted only from mode-0600 mounted files. Before password-bearing DDL, the broker derives a SCRAM-SHA-256 verifier and sends only that verifier through prepared parameters. Thus DDL statement logs contain a verifier rather than a raw login secret. Both log_parameter_max_length and log_parameter_max_length_on_error must be zero before installer functions are applied.
 
 ### Web/ordinary queue separation
 

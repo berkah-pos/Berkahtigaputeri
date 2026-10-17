@@ -23,11 +23,25 @@ $pdo = new PDO(
     $brokerPassword,
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
+$scramVerifier = static function (string $password): string {
+    if (!preg_match('/^[a-fA-F0-9]{64,128}$/', $password)) {
+        throw new InvalidArgumentException('Test password must be high-entropy hexadecimal.');
+    }
+    $salt = random_bytes(16);
+    $iterations = 4096;
+    $saltedPassword = hash_pbkdf2('sha256', $password, $salt, $iterations, 32, true);
+    $clientKey = hash_hmac('sha256', 'Client Key', $saltedPassword, true);
+    $storedKey = hash('sha256', $clientKey, true);
+    $serverKey = hash_hmac('sha256', 'Server Key', $saltedPassword, true);
+
+    return 'SCRAM-SHA-256$' . $iterations . ':' . base64_encode($salt)
+        . '$' . base64_encode($storedKey) . ':' . base64_encode($serverKey);
+};
 $stmt = $pdo->prepare('SELECT provisioning.ensure_tenant_roles(:tenant_id, :runtime_password, :migrator_password) AS state');
 $stmt->execute([
     'tenant_id' => $tenantId,
-    'runtime_password' => $runtimePassword,
-    'migrator_password' => $migratorPassword,
+    'runtime_password' => $scramVerifier($runtimePassword),
+    'migrator_password' => $scramVerifier($migratorPassword),
 ]);
 if ($stmt->fetchColumn() !== 'provisioning') {
     fwrite(STDERR, "unexpected non-provisioning state\n");

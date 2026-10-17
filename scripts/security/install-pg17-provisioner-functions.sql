@@ -185,8 +185,8 @@ $function$;
 
 CREATE OR REPLACE FUNCTION provisioning.ensure_tenant_roles(
     p_tenant_id text,
-    p_runtime_password text,
-    p_migrator_password text
+    p_runtime_verifier text,
+    p_migrator_verifier text
 )
 RETURNS text
 LANGUAGE plpgsql
@@ -223,9 +223,11 @@ BEGIN
     IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
-    IF p_runtime_password IS NULL OR octet_length(p_runtime_password) < 32
-       OR p_migrator_password IS NULL OR octet_length(p_migrator_password) < 32 THEN
-        RAISE EXCEPTION 'Secret input does not meet the minimum length' USING ERRCODE = '22023';
+    -- Accept only server-stored SCRAM-SHA-256 verifiers, never cleartext passwords.
+    -- Salt=16 bytes (24 Base64 chars), each key=32 bytes (44 Base64 chars).
+    IF p_runtime_verifier !~ '^SCRAM-SHA-256\$4096:[A-Za-z0-9+/]{22}==\$[A-Za-z0-9+/]{43}=:[A-Za-z0-9+/]{43}=$'
+       OR p_migrator_verifier !~ '^SCRAM-SHA-256\$4096:[A-Za-z0-9+/]{22}==\$[A-Za-z0-9+/]{43}=:[A-Za-z0-9+/]{43}=$' THEN
+        RAISE EXCEPTION 'Password verifier input has an invalid SCRAM format' USING ERRCODE = '22023';
     END IF;
 
     v_suffix := lower(p_tenant_id);
@@ -308,7 +310,7 @@ BEGIN
         END IF;
         EXECUTE format(
             'CREATE ROLE %I LOGIN NOINHERIT CONNECTION LIMIT 30 NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
-            v_runtime, p_runtime_password
+            v_runtime, p_runtime_verifier
         );
         EXECUTE format('COMMENT ON ROLE %I IS %L', v_runtime,
             'berkah-pos:tenant-role:v1;tenant=' || p_tenant_id || ';kind=runtime');
@@ -329,7 +331,7 @@ BEGIN
         END IF;
         EXECUTE format(
             'CREATE ROLE %I LOGIN NOINHERIT CONNECTION LIMIT 3 NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD %L',
-            v_migrator, p_migrator_password
+            v_migrator, p_migrator_verifier
         );
         EXECUTE format('COMMENT ON ROLE %I IS %L', v_migrator,
             'berkah-pos:tenant-role:v1;tenant=' || p_tenant_id || ';kind=migrator');

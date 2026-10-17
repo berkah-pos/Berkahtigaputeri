@@ -99,11 +99,32 @@ function readSecretFile(?string $path, string $label): string
         throw new InvalidArgumentException("Unable to read {$label} file.");
     }
     $secret = rtrim($secret, "\r\n");
-    if (strlen($secret) < 32 || str_contains($secret, "\0")) {
-        throw new InvalidArgumentException("Invalid protected {$label} value.");
+    if (!preg_match('/^[a-fA-F0-9]{64,128}$/', $secret)) {
+        throw new InvalidArgumentException("The {$label} must be 64–128 hexadecimal characters.");
     }
 
     return $secret;
+}
+
+/**
+ * Produce PostgreSQL's documented SCRAM-SHA-256 verifier format before sending
+ * credentials to SQL. PostgreSQL statement logging can contain DDL literals;
+ * raw passwords must never be interpolated into CREATE ROLE text.
+ * This deliberately restricts accepted credentials to ASCII hex (no SASLprep edge cases).
+ */
+function scramVerifier(string $password): string
+{
+    $salt = random_bytes(16);
+    $iterations = 4096;
+    $saltedPassword = hash_pbkdf2('sha256', $password, $salt, $iterations, 32, true);
+    $clientKey = hash_hmac('sha256', 'Client Key', $saltedPassword, true);
+    $storedKey = hash('sha256', $clientKey, true);
+    $serverKey = hash_hmac('sha256', 'Server Key', $saltedPassword, true);
+
+    return 'SCRAM-SHA-256$' . $iterations . ':'
+        . base64_encode($salt) . '$'
+        . base64_encode($storedKey) . ':'
+        . base64_encode($serverKey);
 }
 
 function connectBroker(): PDO
@@ -493,8 +514,8 @@ function provision(PDO $pdo, string $tenantId, string $runtimePassword, string $
         'SELECT provisioning.ensure_tenant_roles(:tenant_id, :runtime_password, :migrator_password) AS state',
         [
             'tenant_id' => $tenantId,
-            'runtime_password' => $runtimePassword,
-            'migrator_password' => $migratorPassword,
+            'runtime_password' => scramVerifier($runtimePassword),
+            'migrator_password' => scramVerifier($migratorPassword),
         ],
     );
     if ($state === null) {
