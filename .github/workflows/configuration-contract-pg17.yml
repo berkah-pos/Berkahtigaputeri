@@ -123,7 +123,7 @@ jobs:
             --env CANONICAL_CONFIG_MANIFEST=/var/www/berkah-pos/tests/Fixtures/generated-canonical-config-manifest.json \
             --env CONFIGURATION_FIXTURE_DIFF_PATH=/var/www/berkah-pos/build/configuration-fixture-diff.json \
             "berkah-pos-config-contract:${{ github.sha }}" \
-            php artisan test --filter=ConfigurationContractTest --display-warnings
+            sh -lc 'touch .env && php artisan test --filter=ConfigurationContractTest --display-warnings --fail-on-warning'
 
       - name: Race two independent PostgreSQL 17 clients against one expected version
         shell: bash
