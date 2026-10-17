@@ -1,6 +1,6 @@
 # KVM2 Resource Budget — Proposed Initial Limits
 
-**Status:** planning budget only; NOT measured, deployed, or load-test certified. Branch: `docs/kvm2-isolated-saas-architecture`.
+**Status:** planning estimate only — NOT measured, deployed, or load-test certified. PostgreSQL 17 is the accepted engine; this budget is a resource hypothesis, not a capacity promise. Branch names in this document are historical provenance only, not current branch state.
 
 ## Host constraint
 
@@ -11,14 +11,14 @@ Target host: Hostinger KVM2, advertised as 2 vCPU / 8 GB RAM / 100 GB NVMe, with
 | Budget | Target maximum | Operational constraint |
 |---|---:|---|
 | OS + Coolify + proxy reserve | 1.2 GiB | Reserved; do not allocate to app containers |
-| Database service | 3.0–3.5 GiB | Choose PostgreSQL or MariaDB only after DG-0; set engine-specific caches within the container budget |
+| Private PostgreSQL 17 service | 3.0–3.5 GiB | One database service hosts the central DB plus separate per-tenant databases/roles. This is a provisional service-level budget; tune PostgreSQL caches and connections only from measured evidence |
 | Laravel web/API | 1.0 GiB | One shared app service; monitor PHP/Octane worker count |
 | Queue workers total | 512 MiB | Start with one standard worker and one isolated provisioner role; not one worker per tenant |
 | Redis | 256 MiB | Private network; enforce maxmemory and eviction policy |
 | Workload burst/backup headroom | At least 500 MiB | Must remain available under the measured offline-sync burst |
 | **Target total at upper DB budget** | **6.968 GiB** | OS reserve + service budgets + operational headroom; verify against OS-visible memory |
 
-The table is a budget hypothesis, not proof that Docker's reported limits equal physical memory usage. CPU, kernel memory, page cache, Coolify spikes, image pulls, and backup activity must also be measured. Do not add per-container limits whose sum exceeds available memory and do not set a database memory cache equal to its full container limit.
+The accepted topology is PostgreSQL 17 with one central database and a separate database/restricted runtime role per tenant on this single private service; do not interpret the tenant database count as one database server/container per tenant. The table is a budget hypothesis, not proof that Docker's reported limits equal physical memory usage. CPU, kernel memory, page cache, Coolify spikes, image pulls, and backup activity must also be measured. Do not add per-container limits whose sum exceeds available memory and do not set a database memory cache equal to its full container limit.
 
 ## Initial guardrails
 

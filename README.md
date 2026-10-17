@@ -2,7 +2,7 @@
 
 **Canonical repository:** [`berkah-pos/Berkahtigaputeri`](https://github.com/berkah-pos/Berkahtigaputeri)  
 **Current owner decision:** [Hostinger KVM2 + Coolify, Laravel, PostgreSQL 17, no Supabase](docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md).  
-**Status snapshot:** current `main` SHA `aab154f87342f2a02a1319e1d370ce831dbef522`; initial Laravel/PostgreSQL 17 backend baseline CI passed at that exact SHA.
+**Historical baseline evidence:** implementation commit `aab154f87342f2a02a1319e1d370ce831dbef522` passed the initial Laravel/PostgreSQL 17 smoke CI at that exact SHA. This is not a live-`main` pointer; resolve the live branch ref before treating any SHA as current. See the [dated architecture audit snapshot](docs/reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md) and [authority/supersession map](docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md).
 
 Berkah POS is a local-first POS and accounting application whose configuration contract is defined by the canonical 352-entry workbook. The current owner decision is explicit: Hostinger KVM2 + Coolify, Laravel/PHP 8.4 and private PostgreSQL 17, with a reasonable measured scale-up path. No Supabase product or project access is allowed, including read-only. The accepted target and the currently implemented runtime are different states; do not describe the target as active merely because the ADR or open PRs exist.
 

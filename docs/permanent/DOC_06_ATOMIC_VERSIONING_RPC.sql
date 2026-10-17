@@ -1,3 +1,9 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- Supabase RPC contract retained for audit only; never apply to any environment.
+-- Current platform: docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Current target: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+-- Current authority map: docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md
+
 -- DOC_06 - ATOMIC APP_CONFIG VERSIONING RPC / FINAL POS
 -- Canonical Phase 6 write path for public.app_config.
 --

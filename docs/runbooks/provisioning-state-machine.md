@@ -24,7 +24,7 @@ The central database must store a durable provisioning-job record with these log
 - `id`: primary key
 - `tenant_id`: immutable ULID, NOT NULL, UNIQUE
 - `state`: NOT NULL; constrain to `pending`, `validating`, `creating_db`, `creating_users`, `migrating`, `seeding_domain`, `smoke_testing`, `ready`, `failed`, `cleanup_pending`
-- `db_name`: generated `berkahpos_t_<ulid_lower>`, NOT NULL, UNIQUE; respect selected engine's identifier length/format
+- `db_name`: unique generated database name, NOT NULL, UNIQUE. **Naming scheme: DECISION REQUIRED** pending the principal architect’s answer on PR #67 about database-name non-enumeration. Do not encode tenant identifiers deterministically or implement an opaque naming scheme until the owner resolves the required confidentiality boundary; after the decision, test format, collision resistance, catalog visibility and recovery.
 - `attempt`: integer, NOT NULL, default 0
 - `last_error`: nullable text, redacted to avoid storing secrets
 - `locked_at`: nullable timestamp

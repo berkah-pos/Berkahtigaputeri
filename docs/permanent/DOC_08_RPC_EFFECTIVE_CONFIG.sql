@@ -1,3 +1,9 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- Retired Supabase RPC/query contract retained for audit only; never apply/run against any environment.
+-- Current platform: docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Current target: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+-- Current authority map: docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md
+
 -- DOC_08 - RPC EFFECTIVE CONFIG / FINAL POS
 -- Canonical inheritance: GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE
 --
