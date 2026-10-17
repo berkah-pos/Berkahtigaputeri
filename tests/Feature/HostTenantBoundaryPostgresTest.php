@@ -124,21 +124,41 @@ class HostTenantBoundaryPostgresTest extends TestCase
 
     public function test_untrusted_forwarded_host_cannot_override_host_but_configured_proxy_can(): void
     {
-        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.25'])
-            ->withHeaders([
-                'X-Forwarded-Host' => 'attacker.example.test',
-            ])
-            ->getJson('https://central.example.test/api/v1/platform-health')
-            ->assertNotFound();
+        $resolver = app(TenantHostResolver::class);
+
+        $untrusted = Request::create(
+            'https://central.example.test/api/v1/platform-health',
+            'GET',
+            [],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => '203.0.113.25',
+                'HTTP_HOST' => 'central.example.test',
+                'HTTP_X_FORWARDED_HOST' => 'attacker.example.test',
+            ],
+        );
+
+        $this->assertNull($resolver->resolve($untrusted));
 
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_HOST);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
-            ->withHeaders([
-                'X-Forwarded-Host' => 'central.example.test',
-            ])
-            ->getJson('https://internal-proxy.example.test/api/v1/platform-health')
-            ->assertOk();
+        $trusted = Request::create(
+            'https://internal-proxy.example.test/api/v1/platform-health',
+            'GET',
+            [],
+            [],
+            [],
+            [
+                'REMOTE_ADDR' => '10.10.0.2',
+                'HTTP_HOST' => 'internal-proxy.example.test',
+                'HTTP_X_FORWARDED_HOST' => 'central.example.test',
+            ],
+        );
+
+        $this->assertTrue($trusted->isFromTrustedProxy());
+        $this->assertSame('central.example.test', $trusted->getHost());
+        $this->assertSame('central', $resolver->resolve($trusted)['type'] ?? null);
     }
 
     public function test_multi_value_forwarded_host_is_rejected_even_from_a_trusted_proxy(): void

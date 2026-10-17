@@ -6,6 +6,7 @@ use App\Services\TenantHostResolver;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -24,17 +25,14 @@ final class EnsureTenantRequestOwnership
     {
         try {
             $hostContext = $request->attributes->get('host_boundary');
-            $user = $request->user();
 
             if (
                 ! is_array($hostContext)
                 || ($hostContext['type'] ?? null) !== 'tenant'
                 || ! is_string($hostContext['tenant_id'] ?? null)
                 || $hostContext['tenant_id'] === ''
-                || $user === null
-                || ! (bool) $user->is_active
-                || ! is_scalar($user->tenant_id)
-                || (string) $user->tenant_id !== (string) $hostContext['tenant_id']
+                || ! is_string($hostContext['host'] ?? null)
+                || $hostContext['host'] === ''
             ) {
                 abort(404);
             }
@@ -53,6 +51,23 @@ final class EnsureTenantRequestOwnership
                 || ! hash_equals($tenantId, $currentHostContext['tenant_id'])
                 || ! is_string($currentHostContext['host'] ?? null)
                 || ! hash_equals($host, $currentHostContext['host'])
+            ) {
+                abort(404);
+            }
+
+            // Resolve bearer authentication only after host classification. Keeping
+            // auth:sanctum out of route middleware prevents framework priority from
+            // returning 401 before an invalid host has been rejected.
+            $user = Auth::guard('sanctum')->user();
+
+            if ($user === null) {
+                return response()->json(['message' => 'Unauthenticated.'], 401);
+            }
+
+            if (
+                ! (bool) $user->is_active
+                || ! is_scalar($user->tenant_id)
+                || ! hash_equals($tenantId, (string) $user->tenant_id)
             ) {
                 abort(404);
             }
