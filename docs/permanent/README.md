@@ -6,17 +6,18 @@ This directory records durable configuration contracts, platform decisions, secu
 
 ## Mandatory read order
 
-1. Root `AGENTS.md` — agent workflow, protected invariants, and evidence rules.
-2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole authority for five-layer configuration inheritance and the canonical 352-entry workbook contract.
-3. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — latest owner decision: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17, environment separation, reasonable growth path, and no Supabase product use.
-4. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier Laravel/PostgreSQL decision, now subordinate where it conflicts with the latest no-Supabase policy.
-5. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to both ADRs.
-6. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
-7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original platform choice is superseded by the latest owner ADR.
-8. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of old implementation and known gaps; it does not define the new platform target.
-9. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-10. Historical Supabase sync scripts and migration helpers — reference-only; prohibited from execution and not part of active validation.
-11. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
+1. Root `AGENTS.md` — agent workflow and protected invariants.
+2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — workbook and five-layer configuration authority.
+3. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current hosting, platform and no-Supabase policy.
+4. `AUTHORITY_AND_SUPERSESSION_MAP.md` — active authority and historical-only dispositions.
+5. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — target implementation and acceptance gates.
+6. `DOC_00_MASTER_ROADMAP.md` — execution order and acceptance gates.
+7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline/accounting contracts, subject to the current owner ADR.
+8. Read the relevant scoped sources, tests, runbooks and reports required for the assigned task. Never execute archived SQL or retired helper scripts.
+
+### Historical-only references
+
+The 2026-10-16 ADR, DOC_13 integration report and DOC_01 legacy-filename document are retained for source archaeology only; they are not current platform authorities. Old verification/certification reports, Supabase schema/RLS SQL and migration files are reference-only and must not appear as active acceptance instructions. The legacy sync helper listed in the historical-material section below is prohibited from execution, including dry-run.
 
 ## Authority boundaries
 
