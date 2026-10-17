@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This dated report or integration snapshot records the repository and evidence available at its stated date/commit. Preserve exact historical claims and run identities, but do not treat its old branch/main state, Supabase source-access statements, or “green/current” wording as today's status. Do not connect to a Supabase project or follow legacy SQL/sync instructions. Current platform authority is [ADR-2026-10-17](../permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md); current target gates are in [DOC_14](../permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md) and current audit/supersession notes are in the [conflict register](ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md) and [authority map](ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md).
+
+---
+
 # CI Evidence Snapshot — 2026-10-16
 
 **Report kind:** dated evidence snapshot; not a permanent “current head” certification.  

@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This legacy Flutter/Supabase integration report records source behavior and tests available at its stated date. Preserve its findings as history, but do not treat source descriptions or “current” status labels as proof against today's tree. Do not connect to Supabase or follow legacy SQL/sync instructions. Current platform authority: [owner ADR](ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md); current target: [DOC_14](DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md); current audit: [conflict register](../reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md); full authority map: [supersession map](../reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md).
+
+---
+
 # DOC_13 — Unified Flutter POS App Integration Report
 
 

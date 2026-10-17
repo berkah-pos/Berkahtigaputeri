@@ -1,3 +1,17 @@
+-- ============================================================================
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- Retired Supabase-era schema/RLS/RPC artifact. Preserved for audit only.
+-- Do not execute against any environment or use a Supabase CLI/API.
+-- Current platform authority:
+--   docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Target contract:
+--   docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+-- Configuration semantics only:
+--   docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
+-- Current docs status:
+--   docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md
+-- ============================================================================
+
 -- PHASE 2 - FINAL POS WORKBOOK RELATIONAL OWNERSHIP
 -- Canonical workbook owns tenants, devices, tenant_services, and app_config projections.
 -- Runtime feature flags are authoritative in app_config; tenants.features is legacy compatibility only.

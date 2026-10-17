@@ -1,7 +1,7 @@
 # Acceptance Matrix and CI Evidence Contract
 
 **Status:** Required acceptance specification; CI enforcement is intentionally not enabled by this documentation-only change.  
-**Architecture authority:** docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md, accepted in PR #49.  
+**Platform authority:** docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md. The 2026-10-16 ADR remains historical where it conflicts. **Configuration authority:** docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md.  
 **Configuration authority:** docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md.  
 **Purpose:** prevent a partial green, a skipped test, a result from another commit, or a test of the wrong database engine from being reported as acceptance.
 
@@ -63,6 +63,10 @@ All rows are required for release acceptance. Until the approved target stack is
 | AC-10 | **Deployment smoke** — immutable candidate image digest is deployed only to an isolated disposable preview/staging environment; health, API route, auth, tenant routing, migrations and basic tenant-scoped transaction flow pass; deployed image digest matches the tested build. | Isolated preview target with synthetic credentials and data. No production deployment or DNS mutation. | source head, image digest/SBOM, deployment identifier, redacted smoke transcript, health/route/auth results and rollback evidence. | Local image build/boot is not deployment smoke. |
 | AC-11 | **Backup and restore** — backup central DB, each tenant DB, storage/object data and required recoverable key material; verify backup manifests/checksums; restore central and tenant data into a clean isolated target; confirm object bytes/checksums, ownership, tenant boundaries, balances and config hashes. | Synthetic disposable PostgreSQL 17 environment and disposable storage target. Never restore destructive tests over an existing environment; secret material travels only via approved secret channel. | Backup scope manifest, per-object and database hashes, redacted command logs, restore transcript, tenant-isolation assertions, measured duration and verification report. | Backup file creation without a verified restore is not acceptance. |
 | AC-12 | **Performance and resource measurements** — reproducible synthetic workload with declared tenant/data cardinality; measure throughput, p50/p95/p99 latency, errors, CPU, peak RSS, DB connections, disk/IO and storage growth; compare to an owner-approved budget with sufficient headroom. | Isolated disposable environment only; record exact build/engine/runner/resource limits. No live or shared production load test. | workload seed/config/hash, raw benchmark output, metrics, summary, errors and approved threshold/budget reference. | The ADR gives an MVP hardware envelope but not endpoint-specific performance SLOs. No pass until the owner-approved thresholds are recorded and measurements are compared to them. |
+
+### Owner decision gate: database-name confidentiality
+
+PR #67 raises whether tenant runtime/owner/migrator roles must be unable to enumerate database and tenant-role names through PostgreSQL 17 catalogs/statistics, beyond CONNECT/read/write denial. The principal architect's decision is pending; see the [request for decision](https://github.com/berkah-pos/Berkahtigaputeri/pull/67#issuecomment-6235064049). Until resolved, report this as **DECISION REQUIRED / NOT VERIFIED**; do not assume it is accepted or rejected and do not use MariaDB results as evidence.
 
 ## 5. Artifact and failure-quality requirements
 

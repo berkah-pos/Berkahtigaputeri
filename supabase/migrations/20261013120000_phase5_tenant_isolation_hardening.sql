@@ -1,3 +1,10 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- Retired Supabase migration/test retained for audit history only; do not apply/run it.
+-- No Supabase connection, SQL execution, or migration command is authorized for this project.
+-- Current platform: docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Current target: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+-- Current authority map: docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md
+
 -- Phase 5 tenant isolation hardening.
 -- Canonical schema uses text tenant_id/device_id and app_config(key, value, updated_at).
 -- Direct app_config reads are DEVICE-only; aggregate configuration is RPC-only.

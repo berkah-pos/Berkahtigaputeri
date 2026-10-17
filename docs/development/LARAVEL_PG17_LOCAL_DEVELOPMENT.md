@@ -34,5 +34,5 @@ This baseline does not yet provision tenant databases or prove restricted tenant
 - Root manifest, lockfile, PHP 8.4 Docker runtime, Laravel 13, Filament 5 and Sanctum are introduced here.
 - Central and tenant migration files are smoke-tested on PostgreSQL 17. That is not proof of tenant privilege isolation or complete product data parity.
 - The effective-configuration business API, identity/enrollment flows, privileged PostgreSQL broker, host middleware, and true tenant A/B denial tests remain separate work.
-- Flutter on current main still contains a legacy Supabase client. The signed AAB workflow remains blocked until that path is replaced with tested Laravel API calls.
+- At the audit base SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`, Flutter source contained a legacy Supabase client. This is a dated source observation, not a dynamic `main` pointer; resolve the live branch and inspect the client before relying on status. The owner ADR prohibits Supabase use, and the signed AAB workflow must remain blocked until the legacy path is replaced with tested Laravel API calls.
 - The initial KVM2 host is a modest single-node MVP, not HA. Measure workload before changing connection pools, adding replicas, or splitting PostgreSQL onto another host.

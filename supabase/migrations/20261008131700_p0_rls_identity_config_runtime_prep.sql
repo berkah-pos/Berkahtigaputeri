@@ -1,3 +1,10 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- This retired Supabase migration is retained for audit history only; do not apply it.
+-- No Supabase connection or migration command is authorized for this project.
+-- Current platform: docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+-- Current target: docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+-- Current authority map: docs/reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md
+
 -- P0 RLS / identity / config isolation remediation
 -- Live-applied to project cztlmwzfrhyafgawphgw on 2026-10-08.
 -- Canonical config contract: GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE.
