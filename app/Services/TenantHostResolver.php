@@ -202,7 +202,9 @@ final class TenantHostResolver
         $schema = Schema::connection('central');
 
         if ($schema->hasColumn('domains', 'is_active')) {
-            return (bool) ($domain->is_active ?? false);
+            // Query Builder results are not Eloquent-cast; never cast the string "f"
+            // to true (PHP considers every non-empty string truthy).
+            return in_array($domain->is_active ?? false, [true, 1, '1', 't', 'true'], true);
         }
 
         if ($schema->hasColumn('domains', 'status')) {
