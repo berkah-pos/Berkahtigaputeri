@@ -1,7 +1,7 @@
 # DOC_01 — FINAL POS CONFIGURATION CONTRACT
 
 > **Legacy filename:** The historical filename says “3_LAYER”; the active contract is five layers.  
-> **Authority:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the inheritance and workbook contract. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` owns the target platform and central storage/runtime implementation.
+> **Authority:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns inheritance and workbook semantics. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` owns the current platform/no-Supabase decision; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details implementation gates. Historical Supabase schema/RPC references below are archive-only and do not authorize use or access.
 
 ## Canonical inheritance
 
