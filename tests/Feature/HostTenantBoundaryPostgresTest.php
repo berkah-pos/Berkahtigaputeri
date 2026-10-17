@@ -406,6 +406,48 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $this->assertNotSame($resolvedA, $resolvedB);
     }
 
+    public function test_host_context_is_cleared_if_downstream_middleware_throws(): void
+    {
+        [, $domain] = $this->createTenant('context-teardown');
+        $request = Request::create(
+            'https://'.$domain.'/api/v1/tenant/context',
+            'GET',
+            [],
+            [],
+            [],
+            ['HTTP_HOST' => $domain],
+        );
+
+        $caught = false;
+
+        try {
+            app(HostDomainBoundary::class)->handle($request, function (Request $active): never {
+                $this->assertSame('tenant', $active->attributes->get('host_boundary')['type'] ?? null);
+                $active->attributes->set('authorized_tenant', [
+                    'tenant_id' => 'tenant-A-private-fixture',
+                    'device_id' => 'device-A-private-fixture',
+                ]);
+                $active->attributes->set('tenant_context', 'tenant-A-private-fixture');
+                $active->attributes->set('tenant_id', 'tenant-A-private-fixture');
+                $active->attributes->set('device_id', 'device-A-private-fixture');
+
+                throw new \\RuntimeException('expected downstream failure');
+            });
+        } catch (\\RuntimeException $exception) {
+            $caught = true;
+            $this->assertSame('expected downstream failure', $exception->getMessage());
+        }
+
+        $this->assertTrue($caught, 'The fixture must exercise the downstream exception path.');
+
+        foreach (['host_boundary', 'authorized_tenant', 'tenant_context', 'tenant_id', 'device_id'] as $attribute) {
+            $this->assertFalse(
+                $request->attributes->has($attribute),
+                $attribute.' must be cleared when downstream middleware throws.',
+            );
+        }
+    }
+
     private function tenantRequest(string $host, string $deviceId, string $token)
     {
         return $this->withHeaders(['X-Device-ID' => $deviceId])
