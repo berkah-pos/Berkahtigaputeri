@@ -77,7 +77,7 @@ class CanonicalWorkbookExporterContractTest(unittest.TestCase):
             sheet.cell(row=row, column=columns["tenant_id"]).value = str(original).upper()
 
         self.mutate("TENANTS_MASTER", uppercase_first_tenant)
-        with self.assertRaisesRegex(ValueError, "normalized lowercase identifier"):
+        with self.assertRaisesRegex(ValueError, "identifier is not in canonical normalized form"):
             build_manifest(self.fixture)
 
     def test_duplicate_tenant_identifier_fails_closed(self) -> None:
