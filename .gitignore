@@ -41,3 +41,7 @@ node_modules/
 .vscode/
 .DS_Store
 *.log
+
+# Laravel / Composer generated files
+/vendor/
+/.phpunit.cache/
