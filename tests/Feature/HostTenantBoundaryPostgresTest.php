@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\HostDomainBoundary;
 use App\Models\Central\User;
 use App\Services\TenantHostResolver;
 use Illuminate\Database\Schema\Blueprint;
@@ -330,6 +331,34 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $this->tenantRequest($domainA, $deviceA, $tokenA)
             ->assertNotFound()
             ->assertDontSee($tenantB);
+    }
+
+    public function test_overlapping_host_boundary_requests_keep_context_request_scoped(): void
+    {
+        [$tenantA, $domainA] = $this->createTenant('overlap-a');
+        [$tenantB, $domainB] = $this->createTenant('overlap-b');
+
+        $boundary = app(HostDomainBoundary::class);
+        $requestA = Request::create('/', 'GET', [], [], [], ['HTTP_HOST' => $domainA]);
+        $requestB = Request::create('/', 'GET', [], [], [], ['HTTP_HOST' => $domainB]);
+
+        $boundary->handle($requestA, function (Request $activeA) use ($boundary, $requestB, $tenantA, $tenantB) {
+            $this->assertSame($tenantA, $activeA->attributes->get('host_boundary')['tenant_id']);
+
+            $boundary->handle($requestB, function (Request $activeB) use ($tenantB) {
+                $this->assertSame($tenantB, $activeB->attributes->get('host_boundary')['tenant_id']);
+
+                return response()->noContent();
+            });
+
+            // A remains A after B enters and exits the same middleware instance.
+            $this->assertSame($tenantA, $activeA->attributes->get('host_boundary')['tenant_id']);
+
+            return response()->noContent();
+        });
+
+        $this->assertFalse($requestA->attributes->has('host_boundary'));
+        $this->assertFalse($requestB->attributes->has('host_boundary'));
     }
 
     public function test_shared_resolver_keeps_interleaved_tenant_resolutions_request_scoped(): void
