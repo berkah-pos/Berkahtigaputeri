@@ -36,7 +36,7 @@
 
 ### Active current authorities and contracts
 
-- `AGENTS.md` and the two agent guides `.cursor/rules/berkah-pos.mdc` / `.github/muse-instructions.md`: operating order and guardrails; they must tell agents to resolve live refs rather than treat any historical SHA as live.
+- `AGENTS.md` and the two agent guides `.cursor/rules/berkah-pos.mdc` / `.github/muse-instructions.md`: operating order and guardrails. They now identify the scaffold test SHA as a historical implementation snapshot; agents must resolve live refs themselves and must not treat an embedded historic SHA as the current branch tip.
 - `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`: configuration/workbook semantics only.
 - `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`: platform/no-Supabase authority only.
 - `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` and `DOC_00_MASTER_ROADMAP.md`: accepted target details and sequence, not implementation proof.
@@ -78,15 +78,17 @@ Do not rewrite old SHA/run claims into new claims. Keep their dates and original
 This documentation-only work does not remove application or workflow logic. The current tree still contains legacy Supabase material that must not be executed or deployed:
 
 - `pos-app/pubspec.yaml`, `pos-app/lib/main.dart`, `pos-app/lib/core/config/config_service.dart` and the login/config flow retain Supabase SDK/runtime references. The no-Supabase product migration is incomplete until replaced by tested Laravel API behavior.
-- `btp-admin/` contains the retired static Admin/Supabase client.
+- `btp-admin/` contains the retired static Admin/Supabase client, including `btp-admin/auth.js` and `btp-admin/login.html`, which still contain the old `berkahtigaputeri@gmail.com` identity string. This is not verified as the current Laravel/Filament administrator identity. Do not treat it as current access policy or use it to authorize a login. The current target administrator identity/provisioning procedure is **NOT VERIFIED** and must be defined/tested in a separate implementation/security PR.
 - `scripts/sync_excel_to_supabase.py` is mutation-capable even with a misleading `--dry-run` name; `scripts/sync_excel_to_supabase_legacy.py` and `scripts/test_50_tenant_concurrency.py` are legacy Supabase test/write surfaces. Never run them and never provide credentials.
 - The currently tracked `.github/workflows/canonical-workbook-validate.yml` invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352`, including on changes under `docs/permanent/**`. That automation conflicts with the current absolute no-execution rule. This audit deliberately does not change workflow logic or run that command. Any PR touching those paths must skip its triggering workflow or otherwise avoid execution; its skipped result is **NOT RUN / NOT VERIFIED**, not a pass. A separate, reviewed workflow replacement is required.
 
-## 5. Unresolved owner decision: database-name confidentiality
+## 5. Unresolved owner decisions and identity boundary
 
 [PR #67](https://github.com/berkah-pos/Berkahtigaputeri/pull/67) raises whether tenant runtime, owner and migrator roles must be unable to enumerate central/tenant database names and tenant-specific role names through PG17 catalogs/statistics, in addition to cross-tenant CONNECT/read/write denial. The question has been posted to the principal architect in the PR discussion: [decision request](https://github.com/berkah-pos/Berkahtigaputeri/pull/67#issuecomment-6235064049).
 
-**Disposition: DECISION REQUIRED / NOT VERIFIED.** This map does not decide the question. The owner must state the required confidentiality boundary and residual exposure. Any proof must use actual disposable PG17 roles, catalogs and grants; do not use MariaDB output, source inspection or documentation assertions as substitutes. PR #67's recorded base SHA is a stale historical branch base, not proof of its live base; re-resolve base/head before merge.
+**Database-name confidentiality disposition: DECISION REQUIRED / NOT VERIFIED.** This map does not decide the question. The owner must state the required confidentiality boundary and residual exposure. Any proof must use actual disposable PG17 roles, catalogs and grants; do not use MariaDB output, source inspection or documentation assertions as substitutes. PR #67's recorded base SHA is a stale historical branch base, not proof of its live base; re-resolve base/head before merge.
+
+**Administrator identity disposition: NOT VERIFIED.** The old Supabase super-admin email/UUIDs in retained SQL/test files and the old email literal in `btp-admin/auth.js` / `btp-admin/login.html` are historical or legacy source, not an authoritative definition of a current Laravel/Filament administrator. This audit does not choose an administrator identity. The authenticated admin identity and bootstrap/provisioning procedure need explicit implementation, access-control tests, and secret-safe operational documentation.
 
 ## 6. Current resource-budget interpretation
 
