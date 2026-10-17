@@ -1,0 +1,447 @@
+{
+  "schema_version": "2.0.0",
+  "document_type": "canonical-required-acceptance-matrix",
+  "purpose": "Single fail-closed acceptance matrix. This file is the machine-readable source of truth for required gates; dated evidence lives in the separately keyed exact-head evidence index.",
+  "review_snapshot": {
+    "reviewed_at": "2026-10-17",
+    "timezone": "Asia/Jakarta",
+    "current_main_sha": "08af86065addcbcae0b03dbf085a2943fc8362bf",
+    "current_main_full_sha_verified_from_commit": true,
+    "current_release_candidate_sha": null,
+    "overall_status": "BLOCKED",
+    "overall_reason": "No integrated candidate has exact-current-head PASS evidence for all required gates. A scoped historical PASS cannot satisfy a different SHA, stack or gate."
+  },
+  "authority": {
+    "owner_platform_adr": "docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md",
+    "configuration_contract": "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md",
+    "detailed_topology": "docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md",
+    "roadmap": "docs/permanent/DOC_00_MASTER_ROADMAP.md",
+    "target_is_selected_not_a_release_claim": true
+  },
+  "target_stack": {
+    "host": "Hostinger KVM2 with Coolify; single-node MVP envelope; capacity claims require measurements",
+    "os": "Ubuntu 24.04 LTS target",
+    "php": "8.4",
+    "laravel": "13.x",
+    "filament": "5.x",
+    "authentication": "Laravel Sanctum",
+    "tenancy_package": "stancl/tenancy v3.10.1 candidate; committed lock and tests required",
+    "database": "PostgreSQL 17",
+    "database_topology": "One central database plus one separate database and restricted runtime role per tenant",
+    "client": "Flutter local-first SQLite plus authenticated Laravel Central API",
+    "forbidden_substitution": "MariaDB 11.4 tests are MariaDB-only and do not satisfy PostgreSQL 17 acceptance",
+    "prohibited_platform_use": "No Supabase product or project access, including read-only; legacy source is historical only"
+  },
+  "status_policy": {
+    "allowed_statuses": [
+      "PASS",
+      "FAIL",
+      "BLOCKED",
+      "NOT RUN / NOT VERIFIED"
+    ],
+    "pass_rule": "PASS is permitted only when the required oracle actually ran and passed on the exact reviewed candidate SHA, with workflow/run/attempt, tested SHA, engine/version, environment, scope, command/exit code, and required artifacts verified.",
+    "fail_rule": "FAIL means a target-applicable exact-SHA required check actually executed and failed. Preserve the failure, command, engine and run identity.",
+    "blocked_rule": "BLOCKED means a prerequisite, preflight, target-engine mismatch or unresolved dependency prevents the required oracle from qualifying. A failed preflight is not proof that downstream tests executed.",
+    "not_run_rule": "NOT RUN / NOT VERIFIED means no qualifying exact-scope evidence was located. Do not infer success from file presence, a runbook, a green parent workflow or an earlier SHA.",
+    "historical_rule": "Historical evidence rows are immutable records. Never change their SHA, run ID, engine, environment, scope or result to reflect a newer branch.",
+    "wrong_engine_rule": "MariaDB-only execution can be recorded as PASS/FAIL for MariaDB at that exact SHA, but is ineligible for PostgreSQL 17 acceptance.",
+    "aggregate_rule": "Overall status cannot be PASS while any required check is FAIL, BLOCKED or NOT RUN / NOT VERIFIED; there is no partial/aggregate GREEN.",
+    "workflow_settings_changed": false,
+    "application_code_changed": false,
+    "branch_protection_changed": false
+  },
+  "live_proposal_refs": {
+    "PR-53": {
+      "number": 53,
+      "url": "https://github.com/berkah-pos/Berkahtigaputeri/pull/53",
+      "state": "open",
+      "draft": true,
+      "base_branch": "main",
+      "base_sha": "d7ee23cfaada3405416b01d9e127e32b07fb1a38",
+      "head_branch": "qa/acceptance-matrix-ci-evidence-20261016",
+      "head_sha": "091594a18a0e648d557874066127fd5d24c83a42",
+      "base_is_stale": true,
+      "exact_head_evidence_note": "A workbook-only run 38906173717 passed on this candidate head; no artifact was returned by the artifact-list query, and this does not pass the integrated matrix."
+    },
+    "PR-58": {
+      "number": 58,
+      "url": "https://github.com/berkah-pos/Berkahtigaputeri/pull/58",
+      "state": "open",
+      "draft": true,
+      "base_branch": "main",
+      "base_sha": "d7ee23cfaada3405416b01d9e127e32b07fb1a38",
+      "head_branch": "qa/acceptance-matrix-evidence-20261016",
+      "head_sha": "31fa8628821ae107931d8ead74442b25af01de46",
+      "base_is_stale": true,
+      "exact_head_evidence_note": "No exact-head PR-triggered run was returned by the inspected first-page lookup; record as NOT RUN / NOT VERIFIED rather than asserting no run can exist."
+    }
+  },
+  "required_checks": [
+    {
+      "id": "AC-01",
+      "name": "Dependency, lockfile, platform requirements and security audit",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "N/A for dependency-resolution stage; target runtime PHP 8.4",
+      "environment": "GitHub Actions with the reviewed PHP 8.4 image; exact main-head run required",
+      "acceptance_oracles": [
+        "composer.json and composer.lock agree and CI installs from the committed lock without updating dependencies",
+        "Composer validate, platform checks and audit succeed with advisory blocking enabled",
+        "Installed PHP, Laravel, Filament, Sanctum and tenancy versions match the current owner ADR"
+      ],
+      "artifacts_required": [
+        "composer-validate.log",
+        "composer-install.log",
+        "composer-platform-reqs.log",
+        "composer-audit.log",
+        "composer-lock.sha256",
+        "installed-versions.json"
+      ],
+      "current_reason": "No qualifying dependency/audit run was found bound to exact current main 08af86065addcbcae0b03dbf085a2943fc8362bf. Baseline run 39005405149 is recorded against  aab154f87342f2a02a1319e1d370ce831dbef522 and is historical for current-main acceptance.",
+      "evidence_refs": [
+        "EV-39005405149-BASELINE",
+        "EV-38914169687-MARIADB-INTEGRATION",
+        "EV-38886111739-MARIADB-INTEGRATION"
+      ]
+    },
+    {
+      "id": "AC-02",
+      "name": "Canonical workbook: 352 entries, type counts and deterministic SHA-256 manifest",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "Not applicable; workbook/exporter validation only",
+      "environment": "GitHub Actions; isolated Python dependencies; validation-only with no database writes",
+      "acceptance_oracles": [
+        "Exact counts are global=1, template=3, tenant=100, service=140 and device=108, total=352",
+        "Required sheets and identifiers exist and keys are unique",
+        "Two clean runs emit byte-identical manifests with a verified SHA-256 digest"
+      ],
+      "artifacts_required": [
+        "workbook-source.sha256",
+        "canonical-manifest.json",
+        "canonical-manifest.sha256",
+        "repeat-run-hash-comparison.json",
+        "workbook-tests.xml"
+      ],
+      "current_reason": "Workbook workflows passed on older candidate heads, including #53 exact head 091594a18a0e648d557874066127fd5d24c83a42 (run 38906173717), but the exact-head run is not current main and GitHub returned no artifacts for it at inspection. The full deterministic SHA-256 acceptance oracle is therefore not verified on current main.",
+      "evidence_refs": [
+        "EV-38906173717-P53-WORKBOOK",
+        "EV-38856048876-P48-WORKBOOK",
+        "EV-38886111750-P50-E108-WORKBOOK",
+        "EV-38914169711-P50-29127-WORKBOOK"
+      ]
+    },
+    {
+      "id": "AC-03",
+      "name": "Five-layer effective configuration and one-service isolation",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 for integration cases; deterministic fixtures for resolver tests",
+      "environment": "Unit/feature tests plus disposable PostgreSQL 17 integration fixtures; no live customer data",
+      "acceptance_oracles": [
+        "Precedence is exactly GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE and only explicitly defined fields override",
+        "POS and Akuntansi are resolved separately; tenant, service and device ownership are server-authorized",
+        "Identical inputs and versions produce deterministic output and SHA-256"
+      ],
+      "artifacts_required": [
+        "resolver-fixtures.json",
+        "resolver-expected-actual.json",
+        "effective-config-sha256.json",
+        "resolver-tests.xml"
+      ],
+      "current_reason": "No qualifying resolver/API parity evidence was found on exact current main. Workbook counts, source guards or client-local tests do not prove resolver behavior.",
+      "evidence_refs": [
+        "EV-38886111739-MARIADB-INTEGRATION",
+        "EV-38914169687-MARIADB-INTEGRATION"
+      ]
+    },
+    {
+      "id": "AC-04",
+      "name": "Flutter analysis/unit/widget tests and local SQLite atomicity",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "Not applicable for local-client-only tests; no server database exercised",
+      "environment": "Flutter stable with pinned dependency lock; local SQLite fixtures; CI evidence must bind to the exact candidate SHA",
+      "acceptance_oracles": [
+        "Flutter analyzer and client unit/widget tests pass",
+        "Checkout/sale and outbox writes are atomic and roll back together on failure",
+        "Tests preserve local-first behavior without claiming cloud API parity"
+      ],
+      "artifacts_required": [
+        "flutter-version-and-lock-sha256.json",
+        "flutter-analyze.log",
+        "flutter-test-results.xml",
+        "sqlite-atomicity-tests.xml"
+      ],
+      "current_reason": "Flutter test workflows passed on the historical PR #48/#52 heads, but those heads are separate stale-base proposals. These checks do not establish authenticated API parity or cloud-sync acceptance on current main.",
+      "evidence_refs": [
+        "EV-38856048883-P48-FLUTTER",
+        "EV-38900260816-P52-FLUTTER",
+        "EV-38778107415-P48-PARENT-FLUTTER"
+      ]
+    },
+    {
+      "id": "AC-05",
+      "name": "Laravel dependency-backed boot, route/auth smoke and immutable image build",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 for the accepted target; an image-only subcheck must identify that no DB engine was exercised",
+      "environment": "GitHub Actions; exact candidate PHP 8.4/Laravel 13 image; disposable service dependencies only",
+      "acceptance_oracles": [
+        "Application boots and enumerates expected authenticated API routes",
+        "Smoke requests verify expected health, authorization and route behavior",
+        "Production image is built from the exact committed lock and tested candidate revision"
+      ],
+      "artifacts_required": [
+        "runtime-version-report.json",
+        "route-manifest.json",
+        "application-smoke.log",
+        "image-digest-and-sbom.json"
+      ],
+      "current_reason": "Run 39005405149 passed a limited backend/image smoke on recorded SHA aab154f87342f2a02a1319e1d370ce831dbef522, not exact current main. Image smoke on old MariaDB-target branches is narrower than PostgreSQL 17 application acceptance and is not deployment evidence.",
+      "evidence_refs": [
+        "EV-39005405149-BASELINE",
+        "EV-38886111739-IMAGE-SMOKE",
+        "EV-38914169687-IMAGE-SMOKE"
+      ]
+    },
+    {
+      "id": "AC-06",
+      "name": "Clean PostgreSQL 17 central and tenant migrations",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 only",
+      "environment": "Fresh disposable PostgreSQL 17 central database and tenant database(s); never staging or production",
+      "acceptance_oracles": [
+        "Central migrations apply from an empty database",
+        "Tenant migrations apply from an empty tenant database",
+        "Server version, extensions, migration transcript and resulting schema checks are retained"
+      ],
+      "artifacts_required": [
+        "postgresql-version.json",
+        "central-migrations.log",
+        "tenant-migrations.log",
+        "schema-inspection.json",
+        "migration-tests.xml"
+      ],
+      "current_reason": "Run 39005405149 recorded successful fresh central and tenant migration smoke tests at SHA aab154f87342f2a02a1319e1d370ce831dbef522. No exact-08af860 run or artifacts were found, so this historical result does not set the current-main row to PASS.",
+      "evidence_refs": [
+        "EV-39005405149-BASELINE"
+      ]
+    },
+    {
+      "id": "AC-07",
+      "name": "PostgreSQL 17 provisioning and actual database/role/grant privileges",
+      "required": true,
+      "status": "BLOCKED",
+      "engine": "PostgreSQL 17 only for acceptance; MariaDB 11.4 is non-target historical evidence",
+      "environment": "Disposable PostgreSQL 17 cluster; synthetic tenants A/B; real restricted roles and broker",
+      "acceptance_oracles": [
+        "Provisioning is repeatable, concurrency-safe, auditable and recoverable after interruption",
+        "Actual pg_roles, pg_database, PUBLIC CONNECT, schema/table/sequence and default privileges prove least privilege",
+        "Runtime roles cannot create databases/roles, perform DDL or access another tenant database"
+      ],
+      "artifacts_required": [
+        "postgres-role-attributes.json",
+        "postgres-grants-redacted.json",
+        "provisioning-audit.jsonl",
+        "provisioning-tests.xml",
+        "denied-cross-tenant-connect.log"
+      ],
+      "current_reason": "No qualifying PostgreSQL 17 real-role/grant test was found. The inspected PR #50 heads contain executed MariaDB 11.4 tenant-grant/provisioning failures. Those rows remain FAIL for MariaDB at their exact SHAs but cannot be converted into PG17 evidence.",
+      "evidence_refs": [
+        "EV-38886111739-MARIADB-INTEGRATION",
+        "EV-38886111736-MARIADB-INTEGRATION",
+        "EV-38914169687-MARIADB-INTEGRATION",
+        "EV-38914169628-MARIADB-INTEGRATION"
+      ]
+    },
+    {
+      "id": "AC-08",
+      "name": "Tenant isolation: Host/forwarded-host, authorization and long-lived worker boundaries",
+      "required": true,
+      "status": "BLOCKED",
+      "engine": "PostgreSQL 17 integration tests required",
+      "environment": "Disposable PostgreSQL 17 with synthetic tenants, identities, devices, domains, caches and files",
+      "acceptance_oracles": [
+        "Unknown/ambiguous Host and spoofed X-Forwarded-Host fail closed; central and tenant routes cannot cross",
+        "Membership, device ownership, tenant state and entitlements are checked server-side",
+        "Tenant A then tenant B in the same long-lived worker cannot share DB, cache, storage, guard or effective-config context"
+      ],
+      "artifacts_required": [
+        "host-auth-negative-tests.xml",
+        "redacted-request-response-cases.json",
+        "worker-context-transcript.jsonl",
+        "tenant-isolation-tests.xml"
+      ],
+      "current_reason": "PR #48/#52 backend/POS preflight failures prevented their downstream backend tenant-isolation jobs from executing; PR #50 MariaDB isolation/provisioning tests failed. No matching PG17 proof exists.",
+      "evidence_refs": [
+        "EV-38856048750-P48-PREFLIGHT",
+        "EV-38856048817-P48-POS-PREFLIGHT",
+        "EV-38900260758-P52-PREFLIGHT",
+        "EV-38900260866-P52-POS-PREFLIGHT",
+        "EV-38914169548-MARIADB-POS",
+        "EV-38914169628-MARIADB-INTEGRATION"
+      ]
+    },
+    {
+      "id": "AC-09",
+      "name": "Authenticated Laravel API parity for configuration and service-specific contracts",
+      "required": true,
+      "status": "BLOCKED",
+      "engine": "PostgreSQL 17-backed Laravel API required",
+      "environment": "Isolated API integration suite with synthetic tenant/device/session and canonical workbook fixtures",
+      "acceptance_oracles": [
+        "Documented authentication, tenant/device authorization, config version/hash and error envelopes match the canonical contract",
+        "POS and Akuntansi responses remain service-specific and cannot disclose another tenant's configuration",
+        "Current Flutter paths call the accepted authenticated Laravel API; no legacy Supabase runtime path is treated as target acceptance"
+      ],
+      "artifacts_required": [
+        "api-contract-tests.xml",
+        "route-auth-matrix.json",
+        "api-config-parity-report.json",
+        "redacted-api-transcript.json"
+      ],
+      "current_reason": "Current main documentation states Flutter still contains legacy Supabase integration and the target Laravel API migration is not complete. No end-to-end authenticated API parity evidence exists at exact current main; Supabase access is prohibited and is not an allowed test shortcut.",
+      "evidence_refs": [
+        "EV-39005405149-BASELINE"
+      ]
+    },
+    {
+      "id": "AC-10",
+      "name": "Flutter authenticated cloud sync, durable outbox replay and idempotency/conflict behavior",
+      "required": true,
+      "status": "BLOCKED",
+      "engine": "Laravel/PostgreSQL 17 integration required",
+      "environment": "Disposable PostgreSQL 17 API environment; synthetic sales/outbox records; local SQLite client fixtures",
+      "acceptance_oracles": [
+        "Client submits authenticated durable outbox entries and receives a persistent server receipt",
+        "Replay of an identical idempotency key/payload has no duplicate effect; same key with conflicting payload is rejected",
+        "Offline retry, acknowledgment, conflict state and server/local identity mapping are tested end to end"
+      ],
+      "artifacts_required": [
+        "sync-payload-hashes.json",
+        "idempotency-tests.xml",
+        "receipt-and-row-assertions.json",
+        "offline-replay-transcript.jsonl"
+      ],
+      "current_reason": "Historical Flutter test success is client/local scope only. The API parity gate is blocked and no exact-head authenticated Laravel/PostgreSQL outbox test was found.",
+      "evidence_refs": [
+        "EV-38856048883-P48-FLUTTER",
+        "EV-38900260816-P52-FLUTTER"
+      ]
+    },
+    {
+      "id": "AC-11",
+      "name": "Central, every tenant, storage/files and recovery-key backup/restore",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 plus applicable file/object storage and key-recovery boundary",
+      "environment": "Synthetic disposable source and clean isolated restore target; encrypted off-host artifacts",
+      "acceptance_oracles": [
+        "Backup scope includes central DB, each tenant DB and required non-database files/objects/key material",
+        "Manifest/checksums validate before restore and after restored data is verified",
+        "Restore drill proves usable application state and documents RPO/RTO measurements without claiming production recovery"
+      ],
+      "artifacts_required": [
+        "backup-scope-manifest.json",
+        "backup-checksums.sha256",
+        "restore-verification.json",
+        "restore-timing.json",
+        "recovery-key-handling-record.md"
+      ],
+      "current_reason": "No executed, scope-complete restore drill was found. Runbooks, scripts or a present backup artifact are not restore evidence.",
+      "evidence_refs": []
+    },
+    {
+      "id": "AC-12",
+      "name": "Synthetic load test and KVM2 resource/capacity measurements",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 and accepted application image",
+      "environment": "Disposable target only; synthetic workload; measured CPU/RAM/IO/connections/latency with documented headroom",
+      "acceptance_oracles": [
+        "Reproducible workload and seed/hash exercise representative API and sync paths",
+        "Throughput, p50/p95/p99 latency, errors, CPU, peak memory, database connections, disk/IO and growth are machine-readable",
+        "Pass thresholds are approved and referenced rather than invented from the hardware budget"
+      ],
+      "artifacts_required": [
+        "workload-config-and-seed-hash.json",
+        "raw-performance-metrics.json",
+        "performance-summary.json",
+        "resource-measurements.json",
+        "approved-threshold-reference.txt"
+      ],
+      "current_reason": "No qualifying current-target load report or owner-approved endpoint-specific threshold budget was found.",
+      "evidence_refs": []
+    },
+    {
+      "id": "AC-13",
+      "name": "Isolated staging deployment acceptance",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 target topology",
+      "environment": "Owner-authorized isolated staging; synthetic fixtures and separate credentials; immutable CI-produced image",
+      "acceptance_oracles": [
+        "Deployed image digest and source SHA match the exact tested candidate",
+        "Health, TLS, migration, API auth, tenant routing, client sync and backup/restore checks pass in staging",
+        "Rollback and operational/monitoring evidence are documented; staging is not presented as production"
+      ],
+      "artifacts_required": [
+        "deployment-identity.json",
+        "image-digest-and-sbom.json",
+        "staging-smoke.log",
+        "staging-acceptance.json",
+        "rollback-rehearsal.json"
+      ],
+      "current_reason": "No qualifying staging deployment and acceptance evidence was found for the current candidate.",
+      "evidence_refs": []
+    },
+    {
+      "id": "AC-14",
+      "name": "Production release, cutover and production acceptance",
+      "required": true,
+      "status": "NOT RUN / NOT VERIFIED",
+      "engine": "PostgreSQL 17 target topology",
+      "environment": "Production scope only after all prior gates pass and explicit owner approval is recorded",
+      "acceptance_oracles": [
+        "Production image, release SHA, migration plan, recovery path and approval record are exact and traceable",
+        "Cutover/health/rollback observation and post-release verification are completed under approved change control",
+        "Production status is not inferred from a staging environment, a green build, or an owner-selected architecture"
+      ],
+      "artifacts_required": [
+        "production-change-approval.md",
+        "production-deployment-identity.json",
+        "production-acceptance.json",
+        "rollback-observation.json"
+      ],
+      "current_reason": "No production deployment, cutover or acceptance evidence was found. This matrix does not authorize production mutations or release.",
+      "evidence_refs": []
+    },
+    {
+      "id": "AC-15",
+      "name": "Critical/high security finding closure",
+      "required": true,
+      "status": "BLOCKED",
+      "engine": "PostgreSQL 17 accepted-engine proof required for database tenant security findings",
+      "environment": "Reviewed issue register plus isolated adversarial security tests",
+      "acceptance_oracles": [
+        "Each critical/high finding has an owner, disposition, corrective change and exact-head retest evidence",
+        "PostgreSQL tenant provisioning and A-to-B denial are independently proven with real roles and grants",
+        "No open critical/high finding or skipped required security test is concealed by another passing job"
+      ],
+      "artifacts_required": [
+        "security-findings-register.json",
+        "remediation-evidence-index.json",
+        "pg17-isolation-tests.xml",
+        "independent-security-review.md"
+      ],
+      "current_reason": "MariaDB tenant grant/provisioning failures remain real historical failures on their recorded SHAs, and equivalent accepted-engine PostgreSQL 17 least-privilege proof has not been verified.",
+      "evidence_refs": [
+        "EV-38886111739-MARIADB-INTEGRATION",
+        "EV-38914169687-MARIADB-INTEGRATION",
+        "EV-38914169628-MARIADB-INTEGRATION"
+      ]
+    }
+  ]
+}
