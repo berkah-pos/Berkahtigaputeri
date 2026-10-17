@@ -10,9 +10,9 @@ on:
       - ".github/muse-instructions.md"
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
-      - "scripts/sync_excel_to_supabase.py"
-      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "scripts/export_workbook_for_laravel.py"
       - "scripts/tests/**"
+      - "tests/Python/**"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
   push:
@@ -25,9 +25,9 @@ on:
       - ".github/muse-instructions.md"
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
-      - "scripts/sync_excel_to_supabase.py"
-      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "scripts/export_workbook_for_laravel.py"
       - "scripts/tests/**"
+      - "tests/Python/**"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
   workflow_dispatch:
@@ -61,8 +61,8 @@ jobs:
           set -euo pipefail
           PYTHONPATH=. "$RUNNER_TEMP/final-pos-venv/bin/python" -m unittest discover -s scripts/tests -p 'test_*.py'
 
-      - name: Validate canonical workbook without network writes
+      - name: Validate canonical workbook with local-only exporter
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
