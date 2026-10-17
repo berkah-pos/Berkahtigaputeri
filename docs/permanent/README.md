@@ -15,7 +15,7 @@ This directory records durable configuration contracts, platform decisions, secu
 7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original platform choice is superseded by the latest owner ADR.
 8. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of old implementation and known gaps; it does not define the new platform target.
 9. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-10. `scripts/sync_excel_to_supabase.py` — prohibited legacy mutation-capable code. Never execute it and never supply Supabase credentials.
+10. Historical Supabase sync scripts and migration helpers — reference-only; prohibited from execution and not part of active validation.
 11. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
 
 ## Authority boundaries
