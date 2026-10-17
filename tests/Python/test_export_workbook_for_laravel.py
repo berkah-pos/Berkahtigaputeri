@@ -32,7 +32,7 @@ class CanonicalWorkbookExporterContractTest(unittest.TestCase):
         workbook = load_workbook(self.fixture)
         try:
             sheet = workbook[sheet_name]
-            headers = [normalize_header(value) for value in sheet[1]]
+            headers = [normalize_header(cell.value) for cell in sheet[1]]
             mutate_row(sheet, {name: index + 1 for index, name in enumerate(headers) if name})
             workbook.save(self.fixture)
         finally:
