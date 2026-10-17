@@ -215,13 +215,13 @@ class HostTenantBoundaryPostgresTest extends TestCase
             ->assertNotFound()
             ->assertDontSee($tenantB);
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId])
+        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
             ->withToken($token)
             ->getJson('/api/v1/tenant/context?service=POS&domain='.urlencode($domainB))
             ->assertNotFound()
             ->assertDontSee($domainB);
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId])
+        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
             ->withToken($token)
             ->getJson('/api/v1/tenant/context?service=POS&tenant_id='.urlencode($tenantB))
             ->assertNotFound()
