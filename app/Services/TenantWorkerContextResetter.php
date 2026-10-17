@@ -18,18 +18,6 @@ final class TenantWorkerContextResetter
      */
     private static ?array $baseline = null;
 
-    public function runForRequest(Request $request, Closure $next): mixed
-    {
-        $this->captureBaseline();
-        $this->reset($request);
-
-        try {
-            return $next($request);
-        } finally {
-            $this->reset($request);
-        }
-    }
-
     /**
      * Laravel queue middleware contract. Attach this middleware to every job that
      * may initialize tenancy or touch tenant-specific connection/config/cache/files.
