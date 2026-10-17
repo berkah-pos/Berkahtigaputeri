@@ -5,29 +5,30 @@
 ## 1. Required reading order
 
 1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — authoritative five-layer configuration and canonical workbook contract.
-2. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — selected hosting/database-engine/stack decision, evidence boundary, blockers and retirement policy.
-3. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed PostgreSQL 17 / Laravel target architecture and implementation acceptance gates, aligned to the owner ADR.
-4. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and acceptance gates.
-5. `docs/permanent/README.md` — permanent-document index and current authority map.
-6. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting and evidence protocols, subject to the platform-supersession notice.
-7. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — legacy implementation snapshot and known gaps; not deployment proof.
-8. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve the active five-layer Final POS contract.
-9. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
-10. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
+2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current owner decision for Hostinger KVM2, Coolify, Laravel, PostgreSQL 17, future scaling, and the prohibition on Supabase products.
+3. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier platform decision, subordinate to the 2026-10-17 no-Supabase decision where they conflict.
+4. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed PostgreSQL 17 / Laravel target architecture and implementation acceptance gates, subordinate to the newest owner ADR.
+5. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and acceptance gates.
+6. `docs/permanent/README.md` — permanent-document index and current authority map.
+7. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting and evidence protocols, subject to the newest platform decision.
+8. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — legacy implementation snapshot and known gaps; not deployment proof.
+9. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve the active five-layer Final POS contract.
+10. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
+11. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
 
 Do not claim to have read or verified a file that was not actually accessible.
 
 ## 2. Split architecture authority
 
 - **Configuration behavior:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`, merge precedence, the canonical workbook and exact 352-entry inventory.
-- **Platform, engine and stack decision:** `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects Laravel Central API on KVM2/Coolify with PostgreSQL 17, a central database and separate tenant databases/roles, and the approved target stack.
+- **Current platform and product-usage policy:** `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` selects Hostinger KVM2 + Coolify, Laravel/PHP 8.4, PostgreSQL 17, separate central/tenant databases, environment separation, and prohibits all Supabase product usage. It supersedes conflicting source-access/migration wording in the 2026-10-16 ADR.
 - **Detailed target implementation:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` translates that decision into the API, tenancy, security, migration and operational gates. It may not select a conflicting platform/engine.
 - **Execution order:** `DOC_00_MASTER_ROADMAP.md` governs phase gates.
 - **Implementation status:** current repository sources, executed CI, staging observations, tests and production evidence determine what is actually delivered. Documentation alone is not runtime proof.
-- **Current-main baseline (2026-10-16):** at `d7ee23cfaada3405416b01d9e127e32b07fb1a38`, `pos-app/pubspec.yaml` declares `supabase_flutter`, `pos-app/lib/main.dart` initializes Supabase, and `pos-app/lib/core/config/config_service.dart` requires an authenticated Supabase session. Root `composer.json` and `composer.lock` are absent. Therefore Laravel is the accepted target, not the implemented main runtime.
+- **Current-main baseline (reviewed 2026-10-17, main SHA `08af86065addcbcae0b03dbf085a2943fc8362bf`):** `pos-app/pubspec.yaml` still declares `supabase_flutter`, `pos-app/lib/main.dart` still initializes Supabase, and `pos-app/lib/core/config/config_service.dart` still requires a Supabase session. Root `composer.json` and `composer.lock` are absent. This current source is incompatible with the latest no-Supabase decision; do not claim the implementation is already compliant.
 - **Evidence classes must remain separate:** (1) source-verified on main, (2) target design accepted in the ADR, (3) implementation only on an open branch/PR, (4) CI results tied to exact head SHA, (5) staging observations, and (6) production deployment/acceptance. The dated baseline correction is `docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md`. Do not infer one class from another.
 
-If sources conflict about inheritance or the 352 workbook entries, DOC_00 wins. If documents conflict about hosting/database/stack, the owner ADR wins; it was accepted and merged by PR #49 and is binding on main. DOC_14 details but does not override it. Supabase source code/data and SQL remain current-main implementation and migration evidence as applicable; do not delete or represent them as retired without the stated cutover and retention gates.
+If sources conflict about inheritance or the 352 workbook entries, DOC_00 wins. For the current hosting, stack, environment, scalability and no-Supabase policy, the 2026-10-17 owner ADR wins. The 2026-10-16 ADR remains historical for compatible Laravel/PostgreSQL decisions but cannot authorize Supabase use or source access. DOC_14 and the roadmap must follow the latest ADR. Keep old SQL, reports and code only as clearly classified historical evidence; do not connect to Supabase, including read-only, and do not run `scripts/sync_excel_to_supabase.py`. Current source still contains an incompatible Supabase client, which must be replaced in a reviewed implementation PR before a compliant release.
 
 ## 3. Target platform decisions
 
@@ -37,10 +38,11 @@ The selected target is recorded in the owner ADR:
 - Target stack: PHP 8.4, Laravel 13.x, Filament 5.x, Sanctum, and Composer-locked/tested `stancl/tenancy` v3.10.1 as the initial candidate.
 - Database: PostgreSQL 17, on one private database service hosting the central DB plus one database and restricted runtime role per tenant.
 - A shared application image serves standard tenants. No app container or database server per standard tenant.
-- Laravel Central API is the client-facing API for identity, tenant/device authorization, entitlement, effective configuration and authenticated transaction sync. Supabase Auth/Data API/RPC/Edge Functions are not the final client-facing runtime boundary.
+- Laravel Central API is the only approved cloud API boundary for identity, tenant/device authorization, entitlement, effective configuration and authenticated transaction sync. No Supabase Auth/Data API/RPC/Storage/Edge Functions/Realtime product may be used, including as a temporary runtime dependency.
 - PostgreSQL provisioning must use a reviewed broker and tenant-scoped owners/runtime/migrator roles. Do not infer safe permissions from application-side name validation or tenancy package presence.
-- Keep legacy SQL, schema/function/RLS/extension inventories, identity mapping and hosted data as migration evidence. No destructive migration or hosted resource retirement before source identification, verified exports/backups, staging parity, rollback rehearsal and explicit owner approval.
+- Keep legacy SQL, code and prior source-designation reports only as archival evidence. Do not access either Supabase project or treat it as an active migration source. Existing business data may only be imported from an already available, owner-controlled offline export outside Supabase, after provenance and integrity validation; otherwise the data migration is not verified and a clean-start target remains the only supported engineering path. Never run the legacy Supabase sync script.
 - Build immutable app images in GitHub-hosted `ubuntu-24.04` CI and deploy only reviewed candidates. No unsupported tenant-capacity, HA, SLA or production-readiness assertion.
+- Scalability begins with measured limits on the single KVM2 node. Keep app instances replaceable, isolate environments, cap worker/database concurrency, and scale vertically before considering multiple Laravel replicas or a separate PostgreSQL host. No capacity/HA claim without load and restore evidence.
 
 The selected architecture is not deployed. **Owner source-of-record designation (2026-10-17, Asia/Jakarta):** Supabase project ID `cztlmwzfrhyafgawphgw` (`berkahtigaputeri-pos-staging`) is designated as the authoritative source resource for migration and production/source-of-record purposes, despite its existing `staging` label. This is an owner decision, not independent proof that the resource currently serves production traffic or that its export is complete. Migration remains blocked until an approved, sanitized read-only inventory/export and reconciliation, verified backup/checksum evidence, PostgreSQL security, parity, recovery and rollback gates pass, and cutover is separately approved. Do not mutate either project. See `docs/reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md`.
 
