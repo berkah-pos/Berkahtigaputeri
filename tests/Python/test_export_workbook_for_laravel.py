@@ -13,6 +13,7 @@ from scripts.export_workbook_for_laravel import (
     EXPECTED_KEYSET_MD5,
     EXPECTED_SHEETS,
     build_manifest,
+    normalize_header,
     parse_value,
 )
 
@@ -31,7 +32,7 @@ class CanonicalWorkbookExporterContractTest(unittest.TestCase):
         workbook = load_workbook(self.fixture)
         try:
             sheet = workbook[sheet_name]
-            headers = [str(value).strip() if value is not None else "" for value in sheet[1]]
+            headers = [normalize_header(value) for value in sheet[1]]
             mutate_row(sheet, {name: index + 1 for index, name in enumerate(headers) if name})
             workbook.save(self.fixture)
         finally:

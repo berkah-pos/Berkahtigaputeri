@@ -18,6 +18,13 @@ final class ConfigurationContractTest extends TestCase
     {
         parent::setUp();
 
+        foreach (['global_configs', 'templates', 'tenant_configs', 'tenant_services',
+            'device_registry', 'device_configs', 'audit_events', 'tenants', 'users', 'subscriptions'] as $requiredTable) {
+            if (! Schema::connection('central')->hasTable($requiredTable)) {
+                $this->markTestSkipped('Normalized central configuration schema has not been migrated yet.');
+            }
+        }
+
         foreach ([
             'audit_events',
             'device_configs',

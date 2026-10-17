@@ -24,14 +24,18 @@ EXPECTED_KEYSET_MD5 = "1fd3d64219ecc7c333453c20da80e295"
 DEFAULT_WORKBOOK = Path(__file__).resolve().parents[1] / "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
 
 
+def normalize_header(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", str(value).strip().lower()).strip("_") if value is not None else ""
+
+
 def row_dicts(ws) -> list[dict[str, Any]]:
     values = list(ws.iter_rows(values_only=True))
     if not values:
         return []
-    headers = [str(value).strip() if value is not None else "" for value in values[0]]
+    headers = [normalize_header(value) for value in values[0]]
     nonempty_headers = [header for header in headers if header]
     if len(nonempty_headers) != len(set(nonempty_headers)):
-        raise ValueError(f"{ws.title}: duplicate column headers")
+        raise ValueError(f"{ws.title}: duplicate normalized column headers")
     rows: list[dict[str, Any]] = []
     for raw in values[1:]:
         if not any(value is not None for value in raw):
@@ -113,7 +117,7 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             "APP_CONFIG_EXPORT": ({"key"}, {"type"}, {"value_jsonb"}, {"sync_status"}),
         }
         for sheet_name, header_alternatives in required_headers.items():
-            headers = {text(value) for value in next(wb[sheet_name].iter_rows(values_only=True))}
+            headers = {normalize_header(value) for value in next(wb[sheet_name].iter_rows(values_only=True))}
             for alternatives in header_alternatives:
                 if not (headers & alternatives):
                     raise ValueError(f"{sheet_name} is missing required header from {sorted(alternatives)}")

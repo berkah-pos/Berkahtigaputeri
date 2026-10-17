@@ -13,8 +13,8 @@ on:
       - "database/migrations/central/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
-      - "scripts/tests/test_export_workbook_for_laravel.py"
-      - "scripts/tests/test_configuration_cas_concurrency.py"
+      - "tests/Python/test_export_workbook_for_laravel.py"
+      - "tests/Python/test_configuration_cas_concurrency.py"
       - "tests/Feature/ConfigurationContractTest.php"
       - ".github/workflows/configuration-contract-pg17.yml"
   push:
@@ -30,8 +30,8 @@ on:
       - "database/migrations/central/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
-      - "scripts/tests/test_export_workbook_for_laravel.py"
-      - "scripts/tests/test_configuration_cas_concurrency.py"
+      - "tests/Python/test_export_workbook_for_laravel.py"
+      - "tests/Python/test_configuration_cas_concurrency.py"
       - "tests/Feature/ConfigurationContractTest.php"
       - ".github/workflows/configuration-contract-pg17.yml"
   workflow_dispatch:
@@ -88,7 +88,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PYTHONPATH=. "$RUNNER_TEMP/config-contract-venv/bin/python" -m unittest -v scripts.tests.test_export_workbook_for_laravel
+          PYTHONPATH=. "$RUNNER_TEMP/config-contract-venv/bin/python" tests/Python/test_export_workbook_for_laravel.py
           "$RUNNER_TEMP/config-contract-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
           mkdir -p tests/Fixtures build
           "$RUNNER_TEMP/config-contract-venv/bin/python" scripts/export_workbook_for_laravel.py --output tests/Fixtures/generated-canonical-config-manifest.json
@@ -130,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           CAS_RESULT_PATH="$PWD/build/configuration-cas-concurrency.json" \
-            "$RUNNER_TEMP/config-contract-venv/bin/python" scripts/tests/test_configuration_cas_concurrency.py
+            "$RUNNER_TEMP/config-contract-venv/bin/python" tests/Python/test_configuration_cas_concurrency.py
 
       - name: Upload machine-readable configuration evidence
         if: always()
