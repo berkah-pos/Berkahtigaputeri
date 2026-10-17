@@ -1,0 +1,93 @@
+name: PostgreSQL 17 Tenant Boundary Security
+
+on:
+  pull_request:
+    paths:
+      - "bin/**"
+      - "scripts/security/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "Dockerfile"
+      - ".github/workflows/pg17-tenant-boundary.yml"
+      - "docs/reports/PG17_TENANT_BOUNDARY_SECURITY_AUDIT.md"
+      - "docs/runbooks/provisioning-state-machine.md"
+  push:
+    branches: ["**"]
+    paths:
+      - "bin/**"
+      - "scripts/security/**"
+      - "docker-compose.yml"
+      - ".env.example"
+      - "Dockerfile"
+      - ".github/workflows/pg17-tenant-boundary.yml"
+      - "docs/reports/PG17_TENANT_BOUNDARY_SECURITY_AUDIT.md"
+      - "docs/runbooks/provisioning-state-machine.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pg17-tenant-boundary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tenant-boundary:
+    name: Real PostgreSQL 17 tenant boundary tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tenant_boundary_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d tenant_boundary_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CI_IMAGE: berkah-pos-tenant-boundary:${{ github.sha }}
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Check broker syntax and runtime credential boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/security/test-pg17-tenant-boundary.sh
+          if grep -En 'BROKER_DATABASE_(HOST|PORT|NAME|USERNAME|PASSWORD)' \
+              docker-compose.yml .env.example Dockerfile docker app routes config; then
+            echo "FAIL: broker connection credentials must not be passed to public app/queue configuration"
+            exit 1
+          fi
+          if ! grep -q "rolcreaterole.*'f'" bin/tenant-db-broker.php; then
+            echo "FAIL: broker must enforce NOCREATEROLE at runtime"
+            exit 1
+          fi
+          echo "PASS: no broker credential references in public web/queue configuration"
+
+      - name: Build PHP 8.4 image with PDO PostgreSQL
+        run: docker build --pull --target development --tag "$CI_IMAGE" .
+
+      - name: PHP syntax validation
+        run: docker run --rm --entrypoint php "$CI_IMAGE" -l /var/www/berkah-pos/bin/tenant-db-broker.php
+
+      - name: Run adversarial PostgreSQL 17 integration suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/security/test-pg17-tenant-boundary.sh | tee pg17-tenant-security-transcript.txt
+
+      - name: Upload redacted PostgreSQL 17 security transcript
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pg17-tenant-boundary-${{ github.sha }}
+          path: pg17-tenant-security-transcript.txt
+          if-no-files-found: warn
