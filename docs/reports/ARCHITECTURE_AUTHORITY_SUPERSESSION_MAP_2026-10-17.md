@@ -71,7 +71,7 @@ Do not rewrite old SHA/run claims into new claims. Keep their dates and original
 - `docs/reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` — historical resource designation; it does not authorize access to any Supabase project.
 - `docs/reports/LARAVEL_PG17_BASELINE_ACCEPTANCE_2026-10-17.md` — exact baseline commit / run evidence only, not current-main or product acceptance.
 - `docs/reports/CI_EVIDENCE_SNAPSHOT_2026-10-16.md`, `ACCEPTANCE_MATRIX_CI_EVIDENCE_2026-10-16.md`, `acceptance-matrix-ci-evidence-2026-10-16.json` — immutable evidence records for their stated candidate SHAs and dates.
-- `docs/reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md` — preserved content of the previous same-day register. Its embedded branch/main state is historical and superseded by the current-path register.
+- `docs/reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md` — the previous same-day register body is preserved unchanged after an archive-only banner. Its embedded branch/main state is historical and superseded by the current-path register.
 
 ## 4. Prohibited legacy surfaces still require a separate implementation/cleanup PR
 

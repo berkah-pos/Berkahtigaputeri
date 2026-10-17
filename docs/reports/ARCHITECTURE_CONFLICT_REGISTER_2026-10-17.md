@@ -1,6 +1,6 @@
 # Berkah POS Architecture Conflict Register — Audit Snapshot 2026-10-17
 
-> **Snapshot scope:** This report records documentation/source findings against the exact live `main` base resolved at the start of this audit. It is not a dynamic pointer to whatever `main` or the pull-request branch references after this snapshot. Historical reports and CI runs keep their own original SHAs; none is manually relabelled as current.
+> **Snapshot scope:** This report records documentation/source findings against the exact live `main` base resolved at the start of this audit. It is not a dynamic pointer to whatever `main` or the pull-request branch references after this snapshot. Historical reports and CI runs keep their own original SHAs; none is manually relabelled as current. The archived prior register includes a banner while preserving its prior body unchanged.
 
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Audit base SHA:** `371b7fdf0bf672b37ceb1023e647f114221bf797`  
@@ -11,7 +11,7 @@
 
 The accepted platform is unambiguous: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17, one central database plus a separate tenant database and restricted runtime role per tenant, and **no Supabase product/project use, including read-only**. DOC_00 alone governs the five-layer / 352-entry workbook semantics. DOC_14 and the roadmap are subordinate implementation/sequence documents.
 
-The principal defect is not a new platform dispute; it is that historical Supabase-era SQL, verification procedures, certificates, reports and a few stale implementation-SHA statements still look operationally current. The previous version of this same-day register also contained an old `main` snapshot. Its contents have been preserved at [ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md](../archive/superseded/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md); this file is the refreshed report.
+The principal defect is not a new platform dispute; it is that historical Supabase-era SQL, verification procedures, certificates, reports and a few stale implementation-SHA statements still look operationally current. The previous version of this same-day register also contained an old `main` snapshot. Its original body has been preserved unchanged below an archive-only banner at [ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md](../archive/superseded/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md); this file is the refreshed report.
 
 **Implementation is incomplete.** The Laravel/PG17 starter baseline and exact SHA-bound smoke run are historical baseline evidence only. The current Flutter, static Admin and legacy sync/test surfaces still contain Supabase references. No new product or production acceptance is asserted.
 
@@ -66,7 +66,7 @@ The following are intentionally preserved as historical facts and not silently �
 - Former Supabase super-admin identity statements (`satria@...`, `berkahtigaputeri@gmail.com`) and historical UUIDs in retained SQL/test files, plus the old email literal in `btp-admin/auth.js` and `btp-admin/login.html`. These are retained as history/legacy source; none is verified as the current Laravel/Filament administrator identity.
 - Old 3-layer and 5-row pilot expectations, `tenants.features` compatibility assertions, RLS/RPC/function names, project-local catalog/query output, APK build claims, and old “live staging” statements.
 - Supabase schema/RLS/versioning SQL and migrations. They are retained only for source history; no SQL was executed, and comment banners do not convert them into the target schema.
-- The previous architecture register at [its snapshot path](../archive/superseded/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md). The original report file is retained byte-for-byte there and in Git history.
+- The previous architecture register at [its snapshot path](../archive/superseded/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17_SNAPSHOT_cb728bf.md). The original report body is retained unchanged below the archive-only banner; the original file/blob is retained in Git history.
 
 ## 6. Constraints and validation status
 

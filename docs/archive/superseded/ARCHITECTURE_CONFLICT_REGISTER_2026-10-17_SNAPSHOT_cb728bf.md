@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — NOT CURRENT AUDIT STATE.** This is the preserved body of the earlier 2026-10-17 architecture conflict register. Its original branch, main SHA, findings and status wording describe that snapshot only. Do not use it as a current baseline; use the [refreshed conflict register](../../reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md) and [authority/supersession map](../../reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md). The original report content below is retained unchanged.
+
+---
+
 # Berkah POS Architecture Conflict Register — 2026-10-17
 
 > **LATEST OWNER PLATFORM DECISION — 2026-10-17 (Asia/Jakarta):** The owner has explicitly directed that Berkah POS use Hostinger KVM2 + Coolify as its initial hosting base, Laravel/PHP 8.4 for the application, and private PostgreSQL 17 for data, with a reasonable measured scaling path. **No Supabase product may be used or accessed by this project, including read-only project access.** This new direction supersedes the older source-designation addendum below as an operational instruction. That earlier addendum remains historical evidence only. Flutter still contains legacy Supabase client code, so product compliance is incomplete. The root Laravel/Composer/PostgreSQL 17 starter baseline has since reached main; see the current implementation update immediately below and `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`.
