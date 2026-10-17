@@ -5,16 +5,18 @@
 ## 1. Required reading order
 
 1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — authoritative five-layer configuration and canonical workbook contract.
-2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current owner decision for Hostinger KVM2, Coolify, Laravel, PostgreSQL 17, future scaling, and the prohibition on Supabase products.
-3. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier platform decision, subordinate to the 2026-10-17 no-Supabase decision where they conflict.
-4. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed PostgreSQL 17 / Laravel target architecture and implementation acceptance gates, subordinate to the newest owner ADR.
+2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current platform and no-Supabase policy.
+3. `docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md` — current authority and historical-only disposition.
+4. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target architecture and acceptance gates.
 5. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and acceptance gates.
-6. `docs/permanent/README.md` — permanent-document index and current authority map.
-7. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting and evidence protocols, subject to the newest platform decision.
-8. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — legacy implementation snapshot and known gaps; not deployment proof.
-9. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve the active five-layer Final POS contract.
-10. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
-11. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
+6. `docs/permanent/README.md` — active documentation index.
+7. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline/accounting and evidence protocols, subject to the current owner ADR.
+8. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — agent-specific directions.
+9. Read scoped code, SQL, tests, workflows and reports needed for the assigned task, but preserve historic evidence and never execute prohibited material.
+
+### Historical-only sources
+
+The 2026-10-16 owner ADR, DOC_13 integration snapshot, DOC_01 legacy filename, old verification/certification guides and Supabase SQL are retained for source archaeology only. Follow the current authority documents above where statements conflict. The legacy Supabase sync helpers are prohibited from execution, including dry-run; never provide credentials.
 
 Do not claim to have read or verified a file that was not actually accessible.
 
