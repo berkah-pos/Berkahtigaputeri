@@ -1,3 +1,11 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.**
+>
+> This is a dated Supabase-era security, synchronization or verification record retained for audit history only. Its “live/current/GREEN/CERTIFIED” words, old privileged identity, commands and outputs apply only to the historical state described below. It does not certify the Laravel/PostgreSQL 17 target. Do not access any Supabase project, including read-only, and never run `scripts/sync_excel_to_supabase.py`, even with `--dry-run`.
+>
+> Current authority: [DOC_00](DOC_00_CANONICAL_ARCHITECTURE_DECISION.md), [ADR-2026-10-17](ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md), [DOC_14](DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md), [roadmap](DOC_00_MASTER_ROADMAP.md), [authority map](AUTHORITY_AND_SUPERSESSION_MAP.md). The scaffold CI result is bound only to commit `aab154f87342f2a02a1319e1d370ce831dbef522` / run [39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149); real PG17 tenant grants/isolation, Flutter migration, restore and production release remain NOT VERIFIED.
+>
+> ---
+>
 # DOC_11 — P0 SECURITY VERIFICATION — 2026-10-08
 
 Status: **LIVE TARGET HARDENED / PROD CERTIFICATION NOT YET GREEN**

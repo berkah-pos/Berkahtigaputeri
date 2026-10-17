@@ -1,3 +1,14 @@
+-- HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE
+-- This SQL is a historical Supabase migration/test fixture retained for audit purposes.
+-- Never execute it against Supabase, PostgreSQL, CI, staging, production, or disposable DBs.
+-- No Supabase project may be accessed (including read-only); never run
+-- scripts/sync_excel_to_supabase.py, including --dry-run.
+-- Current authority: docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md,
+-- docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md,
+-- docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md, and
+-- docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md.
+-- Existing SQL below is not PostgreSQL 17 per-tenant acceptance evidence.
+
 -- Phase 5 tenant isolation hardening.
 -- Canonical schema uses text tenant_id/device_id and app_config(key, value, updated_at).
 -- Direct app_config reads are DEVICE-only; aggregate configuration is RPC-only.
