@@ -6,7 +6,7 @@
 
 ## 1. Authority and evidence
 
-Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns the configuration inheritance order and 352-entry workbook contract. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` selects the target platform, engine and stack; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` describes its detailed implementation. This roadmap defines phases and acceptance gates.
+Read `AGENTS.md` first. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns configuration inheritance and the 352-entry workbook contract. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` is the current authority for hosting, platform usage, stack, environment separation and scalability; the 2026-10-16 ADR is subordinate where it conflicts. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details implementation gates. This roadmap defines phases and acceptance gates.
 
 The current owner authority is `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, PostgreSQL 17, and no use of any Supabase product. An earlier source-designation record remains a historical fact only; no Supabase project may be accessed or used, including read-only. Existing-data migration is possible only from an already available, owner-controlled offline artifact outside Supabase. If no such artifact is available, data continuity remains a blocker; it does not block source-independent scaffolding, clean schema work, or disposable PG17 testing. Architecture selection does not prove implementation, migration, tenant isolation, backups or deployment.
 
