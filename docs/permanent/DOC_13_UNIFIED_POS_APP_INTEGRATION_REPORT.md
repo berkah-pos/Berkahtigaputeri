@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This is a source-integration snapshot, not current runtime or release certification. Its Supabase paths, identities, “current” wording and historic CI observations describe the source state at its recorded revision. Do not access any Supabase project, including read-only, and never run `scripts/sync_excel_to_supabase.py`. For present authority use [DOC_00](DOC_00_CANONICAL_ARCHITECTURE_DECISION.md), [ADR-2026-10-17](ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md), [DOC_14](DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md), [the roadmap](DOC_00_MASTER_ROADMAP.md) and [the authority/supersession map](AUTHORITY_AND_SUPERSESSION_MAP.md). Existing status statements below are retained as historic facts, not current acceptance.
+
+---
+
 # DOC_13 — Unified Flutter POS App Integration Report
 
 

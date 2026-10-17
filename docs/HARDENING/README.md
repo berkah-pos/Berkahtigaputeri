@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This hardening audit records a prior source-review baseline. Any Supabase access, `supabase db lint`, live RLS query, hosted project operation or Supabase-based test suggestion in this archive is retired and must not be run. No Supabase project may be accessed, including read-only; never run `scripts/sync_excel_to_supabase.py`. Current project decisions are [ADR-2026-10-17](../permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md), [DOC_00](../permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md), [DOC_14](../permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md), and [authority/supersession map](../permanent/AUTHORITY_AND_SUPERSESSION_MAP.md). Findings about source code remain dated observations; they are not present-day release acceptance.
+
+---
+
 # Production hardening audit — 2026-10-11
 
 **Scope:** repository `new-berkah/Berkahtigaputeri`, `main` snapshot inspected via GitHub API; audit branch `audit/production-hardening-20261011`.

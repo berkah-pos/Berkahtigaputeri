@@ -1,4 +1,6 @@
-# ADR-2026-10-16 — Owner Architecture Decision: Laravel Central API + PostgreSQL 17
+# ADR-2026-10-16 — Owner Architecture Decision
+
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This is a retained decision record, not the latest authority. Its compatible Laravel/PostgreSQL selection remains historical context; any statement suggesting Supabase product use, project access, hosted source inventory/export or source migration is superseded by [ADR-2026-10-17](ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md). Use [DOC_00](DOC_00_CANONICAL_ARCHITECTURE_DECISION.md) for the workbook contract, [DOC_14](DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md) for implementation gates, and [AUTHORITY_AND_SUPERSESSION_MAP](AUTHORITY_AND_SUPERSESSION_MAP.md) for current status. No live Supabase access or legacy sync execution is authorized.: Laravel Central API + PostgreSQL 17
 
 > **Supersession notice — 2026-10-17:** Read `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` first. The earlier decision to use Supabase as a source-of-record resource and its live inventory/export, source-access, migration, or retirement sequence is historical and is superseded. This repository must not connect to or use any Supabase product, including for read-only access. The compatible target choice—Hostinger KVM2 + Coolify, Laravel, and private PostgreSQL 17—remains in effect. Historical project IDs below are archival facts only, not permission or instruction to access them.
 
