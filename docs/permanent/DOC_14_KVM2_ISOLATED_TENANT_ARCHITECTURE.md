@@ -39,7 +39,7 @@ No row is green because the architecture was selected or a test was written. Mis
 
 ## 2. Authority and product contracts
 
-- ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md governs platform choice, database engine, stack baseline and migration/retirement constraints.
+- `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` governs current hosting, platform use, stack and no-Supabase policy. The 2026-10-16 ADR is historical for compatible Laravel/PostgreSQL choices and cannot override it.
 - DOC_00_CANONICAL_ARCHITECTURE_DECISION.md governs the logical configuration contract only: GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE; canonical workbook config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx; exactly 352 entries; BASIC, PRO and ENTERPRISE templates; one requested service per effective-config response.
 - DOC_00_MASTER_ROADMAP.md governs implementation order and phase acceptance.
 - Current source, current-head CI, actual grant tests, staging results and production evidence determine delivered status. Historical or source-only reports do not prove runtime behavior.
