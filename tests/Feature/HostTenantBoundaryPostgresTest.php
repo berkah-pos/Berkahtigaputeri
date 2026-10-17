@@ -221,7 +221,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
             ->assertNotFound()
             ->assertDontSee($domainB);
 
-        $this->withHeaders(['Host' => $domainA, 'X-Device-ID' => $deviceId])
+        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId])
             ->withToken($token)
             ->getJson('/api/v1/tenant/context?service=POS&tenant_id='.urlencode($tenantB))
             ->assertNotFound()
@@ -251,7 +251,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $deviceId = $this->createDevice($tenantId, (int) $user->getKey());
         $token = $user->createToken('malformed-selectors')->plainTextToken;
 
-        $this->withHeaders(['Host' => $domain, 'X-Device-ID' => $deviceId])
+        $this->withServerVariables(['HTTP_HOST' => $domain])->withHeaders(['X-Device-ID' => $deviceId])
             ->withToken($token)
             ->getJson('/api/v1/tenant/context?service%5B%5D=POS')
             ->assertNotFound();
