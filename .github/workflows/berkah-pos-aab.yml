@@ -178,28 +178,22 @@ jobs:
             echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
           fi
 
-      - name: Require cloud configuration for publisher-signed release
+      - name: Reject publisher-signed release while legacy Supabase runtime remains
         if: steps.signing.outputs.mode == 'release'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          if [[ -z "$SUPABASE_URL" || -z "$SUPABASE_PUBLISHABLE_KEY" ]]; then
-            echo "::error::A publisher-signed SaaS release requires SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY GitHub Actions secrets; refusing to build an accidentally local-only production package."
+          # The current Flutter client still contains a forbidden legacy path.
+          # Refuse a publisher-signed release until a reviewed PR replaces it
+          # with the Laravel API and removes the SDK/initialization/config vars.
+          if grep -R -n -E 'supabase_flutter|Supabase\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\.instance' lib pubspec.yaml; then
+            echo "::error::Publisher-signed release blocked: legacy Supabase client usage remains. Replace it with the tested Laravel API before release; do not configure Supabase secrets."
             exit 1
           fi
 
       - name: Build publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-        run: |
-          flutter build appbundle --release \
-            --dart-define="SUPABASE_URL=$SUPABASE_URL" \
-            --dart-define="SUPABASE_PUBLISHABLE_KEY=$SUPABASE_PUBLISHABLE_KEY"
+        run: flutter build appbundle --release
 
       - name: Build test-only debug-signed AAB
         if: steps.signing.outputs.mode == 'debug'
