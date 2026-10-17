@@ -2,14 +2,14 @@
 
 **Overall disposition: PLAN PREPARED; EXECUTION NOT RUN / NOT VERIFIED.**  
 **Repository:** berkah-pos/Berkahtigaputeri  
-**Canonical main SHA observed:** 5b0ad4d5808008c33e6cb66176e3433fad5902a0  
+**Canonical main SHA rechecked for this refresh:** 371b7fdf0bf672b37ceb1023e647f114221bf797  
 **Inspection time:** 2026-10-17, Asia/Jakarta  
 **Target:** Hostinger KVM2-class single node, Coolify, Laravel/PHP 8.4, private PostgreSQL 17, one central DB and one DB/restricted runtime role per tenant  
 **Change scope:** operational runbooks, measurement templates and this evidence report only. No application code or privilege code changed.
 
 ## 1. Authority and exact revision evidence
 
-Source materials inspected from the canonical repository at main SHA 5b0ad4d5808008c33e6cb66176e3433fad5902a0:
+The authority and operational source files below were rechecked on canonical `main` SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`. The SRE candidate was initially based on `5b0ad4d5808008c33e6cb66176e3433fad5902a0`; the branch is being advanced by a non-force-pushed merge with current `main`. The listed blob SHAs were confirmed unchanged on the refreshed `main`:
 
 | Source | Blob SHA | Operational interpretation |
 |---|---|---|
@@ -22,13 +22,13 @@ Source materials inspected from the canonical repository at main SHA 5b0ad4d5808
 
 ### CI evidence boundary
 
-- Current-main exact-SHA workflow observed: [Canonical Workbook Validation run 39006381253](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39006381253), commit 5b0ad4d5808008c33e6cb66176e3433fad5902a0, conclusion SUCCESS. This is workbook validation only.
-- The exact commit-status endpoint for that SHA returned zero status checks and aggregate state pending. No full PostgreSQL recovery or KVM2 load test was found/claimed for this SHA.
-- Historical baseline CI [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed dependency/bootstrap, disposable PostgreSQL 17 central/tenant migration smoke and production-image smoke on older baseline SHA aab154f87342f2a02a1319e1d370ce831dbef522. It is not restore, PITR, tenant privilege, staging, production or capacity evidence.
+- [Canonical Workbook Validation run 39006381253](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39006381253) passed on the former PR-base SHA `5b0ad4d5808008c33e6cb66176e3433fad5902a0`. It validates the workbook only and is not exact-head CI evidence for current `main` (`371b7fdf0bf672b37ceb1023e647f114221bf797`).
+- The historical baseline [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed dependency/bootstrap, disposable PostgreSQL 17 central/tenant migration smoke and production-image smoke on older baseline SHA `aab154f87342f2a02a1319e1d370ce831dbef522`. It is not restore, PITR, tenant privilege, staging, production or capacity evidence.
+- No exact-current-head recovery/load run or staging/production observation was obtained for this task.
 
 ## 2. Execution findings
 
-No authorized isolated recovery/load target, source backup inventory, protected vault/key verification, workload generator run or measured host metrics were made available in this task context. No infrastructure commands were run. This does not prove the owner has no backups; it means their existence, integrity, off-host status and recoverability could not be verified here.
+No authorized isolated recovery/load target, source backup inventory, protected vault/key verification, workload-generator run or measured host metrics were made available in this task context. No infrastructure commands were run. Source runbook revision: `371b7fdf0bf672b37ceb1023e647f114221bf797` (canonical `main` at review); original SRE candidate snapshot: `d1923635456ef828d5b9a3e636f2a999d0ebd8ff`. Target environment/repository/image revision: **NOT AVAILABLE — no authorized isolated target was supplied**, so no restore or load execution was started. This does not prove the owner has no backups; existence, integrity, off-host status and recoverability could not be verified here.
 
 | Gate | Status | Evidence needed to change status |
 |---|---|---|
