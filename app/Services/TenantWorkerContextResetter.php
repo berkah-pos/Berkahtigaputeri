@@ -109,7 +109,9 @@ final class TenantWorkerContextResetter
         try {
             $cache = app('cache');
 
-            if (method_exists($cache, 'forgetDriver')) {
+            if (method_exists($cache, 'forgetDrivers')) {
+                $cache->forgetDrivers();
+            } elseif (method_exists($cache, 'forgetDriver')) {
                 $drivers = array_unique(array_merge(
                     array_keys(self::$baseline['cache.stores'] ?? []),
                     [(string) (self::$baseline['cache.default'] ?? 'array')],
@@ -149,7 +151,6 @@ final class TenantWorkerContextResetter
                 $request->attributes->remove($attribute);
             }
 
-            $request->setUserResolver(static fn () => null);
         }
 
         if ($failed) {
