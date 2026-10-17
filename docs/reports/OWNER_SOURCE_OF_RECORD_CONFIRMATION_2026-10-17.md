@@ -1,5 +1,7 @@
 # Owner Source-of-Record Confirmation — 2026-10-17
 
+> **Historical decision notice — 2026-10-17:** This report records the owner's earlier source designation at that time. The later same-day owner ADR `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` supersedes it for current project operations. It must not be used to authorize connecting to either Supabase project, including read-only access, or to initiate inventory, export, migration, mutation, or cutover. This historical record is retained so the decision history is transparent.
+
 **Decision status:** OWNER-CONFIRMED SOURCE DESIGNATION  
 **Repository:** berkah-pos/Berkahtigaputeri  
 **Date/time context:** 2026-10-17, Asia/Jakarta  
