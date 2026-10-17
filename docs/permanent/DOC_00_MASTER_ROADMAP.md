@@ -1,6 +1,6 @@
 # BERKAH POS — MASTER ROADMAP
 
-**Updated:** 2026-10-16  
+**Updated:** 2026-10-17 (live PR / CI correction; historical rows remain SHA-bound)  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Purpose:** Ordered implementation gates for the Final POS configuration contract and the KVM2/Coolify isolated-tenant SaaS target.
 
@@ -54,7 +54,7 @@ The phase IDs defined in this roadmap — **Phase 0 through Phase 7** — are th
 | PR #46 — “Phase 3” config/CAS | Primarily Phase 5, with Phase 4 authorization/API prerequisites | Preserve narrow workbook-contract evidence; runtime/API parity remains unverified until it runs on the accepted stack. |
 | PR #47 — “Phase 4” host/domain and tenant A/B isolation | Phase 4 and Phase 6 | Security candidate remains RED until exact-head PostgreSQL host/auth/grant/worker tests pass. |
 | PRs #48 and #52 — “Phase 5” Flutter transition | Phase 5 | Open, stacked migration candidates; Flutter-only passes do not establish backend, API parity or cloud-sync acceptance. PR #48's current branch-local DOC_14 is marked SUPERSEDED / NOT CANONICAL and names PostgreSQL 17 in its header; it remains an unmerged snapshot that requires rebase/reconciliation alongside branch-level AGENTS/roadmap before merge. |
-| PR #50 — dependency lock/CI baseline | Phase 2 and cross-cutting CI gates | Open candidate; tenant-grant/POS/backend checks currently fail and the branch’s tenant-grant path is MariaDB-based. PostgreSQL 17 acceptance remains unverified. |
+| PR #50 — dependency lock/CI baseline | Phase 2 and cross-cutting CI gates | **CLOSED / MERGED into PR #47’s feature branch, not `main`.** PR #50 head `29127e8ecc9d2c4253939e26a1aa54a59a07cbff` was merged into base `security/phase-4-host-domain-isolation-20261015@c6b0cf27ebafbba9e4407fb61d130e4438af3c44`, producing PR #47 current head `14063ecb146b508c3af157954da2de28d8ab4461`. At that exact #47 head: workbook passes [run 38979840939](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840939); backend [38979840742](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840742), tenant-grant security [38979840825](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840825), and POS CI [38979841483](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979841483) fail. Integration jobs use MariaDB 11.4; PostgreSQL 17 acceptance remains **NOT VERIFIED**. Do not merge #50 again; #47 remains draft/RED and off `main`. |
 | PR #51 — security remediation | Phase 6 | Security gate is explicitly FAIL on the demonstrated MariaDB provisioner boundary; this is not PostgreSQL acceptance. |
 | PR #53 — acceptance matrix | Cross-cutting evidence protocol for Phases 2–7 | Draft evidence tooling/documentation; it is not application or deployment acceptance. |
 | PR #54 — operational-readiness runbooks | Planning inputs for Phases 6–7 | Draft planning/evidence templates only; no staging execution or production go/no-go has occurred. |
@@ -158,3 +158,8 @@ If a command or environment is unavailable, report **NOT RUN / NOT VERIFIED**. A
 - Every phase change must be committed on the working branch with a descriptive message and truthful GREEN/RED status.
 - If a phase remains blocked after two focused attempts, record the blocker in `docs/reports/BLOCKERS.md` and state the exact decision/input required from the owner.
 - Never declare “100% GREEN” while a required test is red, unknown, or unexecuted.
+
+
+## 5. Live branch-state correction — 2026-10-17
+
+The roadmap’s phase crosswalk remains canonical, but the live GitHub state changed after the earlier status snapshots. Current default branch is `main@08af86065addcbcae0b03dbf085a2943fc8362bf`. PR [#50](https://github.com/berkah-pos/Berkahtigaputeri/pull/50) is closed/merged to PR #47’s feature branch—not to `main`; its merge result is PR #47’s current head `14063ecb146b508c3af157954da2de28d8ab4461`. PR [#47](https://github.com/berkah-pos/Berkahtigaputeri/pull/47) remains draft/open. The current head has workbook validation PASS, while backend, tenant-grant security and POS CI FAIL (runs [38979840939](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840939), [38979840742](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840742), [38979840825](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840825), [38979841483](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979841483)). The failing tenant test names and workflow service are MariaDB-specific; this does not prove PostgreSQL 17 acceptance. Full live inventory, PR dependency graph, file owners and severity-ranked blockers are in `docs/reports/ARCHITECTURE_CONFLICT_REGISTER_ADDENDUM_2026-10-17.md`.
