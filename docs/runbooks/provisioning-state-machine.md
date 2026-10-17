@@ -11,7 +11,7 @@ Safe, idempotent, auditable tenant DB/user creation without root, without duplic
 
 ## Database-name policy decision — pending
 
-PR [#67](https://github.com/berkah-pos/Berkahtigaputeri/pull/67) raises whether database names and tenant-specific role names are confidential and must be non-enumerable by tenant runtime, owner and migrator roles. The principal architect must decide this explicitly. The deterministic `berkahpos_t_<ulid_lower>` name below is therefore only a historical/proposed naming contract, **not an approved secrecy control**. Do not claim database-name confidentiality or acceptance until the decision is recorded and disposable PostgreSQL 17 catalog/statistics enumeration tests run. No decision is made by this runbook.
+**Status: DECISION REQUIRED / NOT VERIFIED.** PR [#67](https://github.com/berkah-pos/Berkahtigaputeri/pull/67) raises whether database names and tenant-specific role names are confidential and must be non-enumerable by tenant runtime, owner and migrator roles. The principal architect must decide this explicitly. The deterministic `berkahpos_t_<ulid_lower>` name below is therefore only a historical/proposed naming contract, **not an approved secrecy control**. Do not claim database-name confidentiality or acceptance until the decision is recorded and disposable PostgreSQL 17 catalog/statistics enumeration tests run. No decision is made by this runbook.
 
 ## Roles
 
