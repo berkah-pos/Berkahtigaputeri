@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      POSTGRES_USER: ${CENTRAL_DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres17_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${CENTRAL_DB_USERNAME:-postgres} -d ${CENTRAL_DB_DATABASE:-berkahpos_central}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  app:
+    build:
+      context: .
+      target: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_NAME: "Berkah POS"
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_URL: http://localhost:8000
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: postgres
+      CENTRAL_DB_PORT: "5432"
+      CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      CENTRAL_DB_SSLMODE: disable
+      TENANT_DB_HOST: postgres
+      TENANT_DB_PORT: "5432"
+      TENANT_DB_DATABASE: ${TENANT_DB_DATABASE:-berkahpos_tenant}
+      TENANT_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
+      TENANT_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      TENANT_DB_SSLMODE: disable
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+volumes:
+  postgres17_data:

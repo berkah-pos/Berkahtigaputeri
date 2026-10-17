@@ -1,0 +1,220 @@
+name: Laravel PostgreSQL 17 Baseline
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/migrations/central/**"
+      - "database/migrations/tenant/**"
+      - "routes/**"
+      - "public/**"
+      - "tests/**"
+      - "composer.json"
+      - "composer.lock"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".gitignore"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "docker/**"
+      - "phpunit.xml"
+      - ".github/workflows/laravel-pg17-baseline.yml"
+      - "docs/development/**"
+  push:
+    branches: ["**"]
+    paths:
+      - "app/**"
+      - "bootstrap/**"
+      - "config/**"
+      - "database/migrations/central/**"
+      - "database/migrations/tenant/**"
+      - "routes/**"
+      - "public/**"
+      - "tests/**"
+      - "composer.json"
+      - "composer.lock"
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".gitignore"
+      - ".env.example"
+      - "docker-compose.yml"
+      - "docker/**"
+      - "phpunit.xml"
+      - ".github/workflows/laravel-pg17-baseline.yml"
+      - "docs/development/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: laravel-pg17-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pg17-baseline:
+    name: Locked PHP 8.4 / Laravel 13 / PostgreSQL 17 baseline
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: berkahpos_central_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d berkahpos_central_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CI_IMAGE: berkah-pos-platform-ci:${{ github.sha }}
+      PROD_IMAGE: berkah-pos-platform-production:${{ github.sha }}
+      CENTRAL_DB_HOST: 127.0.0.1
+      CENTRAL_DB_PORT: "5432"
+      CENTRAL_DB_DATABASE: berkahpos_central_ci
+      CENTRAL_DB_USERNAME: postgres
+      CENTRAL_DB_PASSWORD: postgres
+      TENANT_DB_HOST: 127.0.0.1
+      TENANT_DB_PORT: "5432"
+      TENANT_DB_DATABASE: berkahpos_tenant_ci
+      TENANT_DB_USERNAME: postgres
+      TENANT_DB_PASSWORD: postgres
+      APP_ENV: testing
+      APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+      DB_CONNECTION: central
+      QUEUE_CONNECTION: sync
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Assert manifest, lock, runtime and DB target
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("composer.json").read_text())
+          lock = json.loads(Path("composer.lock").read_text())
+          require = manifest["require"]
+          assert require["php"] == "^8.4"
+          assert require["laravel/framework"] == "^13.0"
+          assert require["filament/filament"] == "^5.0"
+          assert require["laravel/sanctum"] == "^4.0"
+          assert "stancl/tenancy" in require
+          tenancy = next(p for p in lock["packages"] if p["name"] == "stancl/tenancy")
+          assert tenancy["version"] == "v3.10.1", tenancy["version"]
+          assert require.get("ext-pdo_pgsql") == "*"
+          assert "ext-pdo_mysql" not in require
+          assert "ext-pdo_mysql" not in lock.get("platform", {})
+          db_config = Path("config/database.php").read_text()
+          assert "'default' => env('DB_CONNECTION', 'central')" in db_config
+          assert "'driver' => 'pgsql'" in db_config
+          for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
+              active = Path(active_path).read_text().lower()
+              assert "mariadb" not in active, active_path
+              assert "mysql:" not in active, active_path
+          for active_path in ["composer.json", ".env.example", "Dockerfile", "docker-compose.yml"]:
+              assert "SUPABASE_" not in Path(active_path).read_text(), active_path
+          print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
+          PY
+
+      - name: Build PHP 8.4 CI image and install locked dependencies cleanly
+        run: docker build --pull --target development --tag "$CI_IMAGE" .
+
+      - name: Validate dependencies and keep security audit enabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" composer validate --strict --no-check-publish
+          docker run --rm --network host "$CI_IMAGE" composer check-platform-reqs
+          docker run --rm --network host "$CI_IMAGE" composer audit --locked --no-interaction
+          docker run --rm "$CI_IMAGE" composer show --locked laravel/framework
+          docker run --rm "$CI_IMAGE" composer show --locked filament/filament
+          docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
+          docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
+
+      - name: Verify Laravel boot, API routes and feature smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan about
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
+          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
+
+      - name: Create disposable tenant database on PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE DATABASE berkahpos_tenant_ci"
+
+      - name: Migrate fresh central database on disposable PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            php artisan migrate --database=central --path=database/migrations/central --force
+
+      - name: Migrate fresh tenant database on disposable PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
+            php artisan migrate --database=tenant --path=database/migrations/tenant --force
+
+      - name: Verify central and tenant tables exist on PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
+            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','tenant_configs') ORDER BY table_name"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
+
+      - name: Build production image from the committed lock
+        run: docker build --pull --target production --tag "$PROD_IMAGE" .
+
+      - name: Smoke-test production image HTTP health and API route
+        shell: bash
+        run: |
+          set -euo pipefail
+          container="berkah-pos-prod-smoke-${{ github.run_id }}"
+          cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+          docker run -d --name "$container" -p 127.0.0.1:8080:80 \
+            --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
+            --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
+            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:8080/up
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/platform-health
+          docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked laravel/framework
+          docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked filament/filament
+          docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked stancl/tenancy
