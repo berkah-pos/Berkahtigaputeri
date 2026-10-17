@@ -2,7 +2,7 @@
 
 **Type:** documentation-only source audit and proposed reconciliation.  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
-**Live baseline resolved at task start:** `main` = `371b7fdf0bf672b37ceb1023e647f114221bf797`.  
+**Live baseline resolved at task start:** see the exact SHA in the header of [the live conflict-register snapshot](ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md). The SHA is intentionally not repeated here.  
 **Dedicated branch:** `docs/governance-recheck-2026-10-17`  
 **Scope:** documentation authority and evidence status only. No app implementation, SQL behavior, workflow logic, hosted environment or database was changed.
 
