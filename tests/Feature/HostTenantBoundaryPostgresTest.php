@@ -159,6 +159,19 @@ class HostTenantBoundaryPostgresTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_duplicated_host_parameters_in_forwarded_header_are_rejected(): void
+    {
+        SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_ALL);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
+            ->withHeaders([
+                'Host' => 'central.example.test',
+                'Forwarded' => 'for=192.0.2.60;host=central.example.test;host=attacker.example.test',
+            ])
+            ->getJson('/api/v1/platform-health')
+            ->assertNotFound();
+    }
+
     public function test_active_membership_device_subscription_and_service_entitlement_allow_only_server_checked_context(): void
     {
         [$tenantId, $domain] = $this->createTenant('member-a');

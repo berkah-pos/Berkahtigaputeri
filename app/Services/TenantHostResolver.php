@@ -143,6 +143,10 @@ final class TenantHostResolver
                 return null;
             }
 
+            if (preg_match_all('/(?:^|;)\\s*host\\s*=/', $rawForwarded) !== 1) {
+                return null;
+            }
+
             if (! preg_match('/(?:^|;)\s*host=(?:"([^"]+)"|([^;\s]+))/i', $rawForwarded, $matches)) {
                 return null;
             }
