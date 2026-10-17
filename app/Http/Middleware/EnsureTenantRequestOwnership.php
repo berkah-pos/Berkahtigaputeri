@@ -42,6 +42,37 @@ final class EnsureTenantRequestOwnership
             $tenantId = (string) $hostContext['tenant_id'];
             $host = (string) $hostContext['host'];
 
+            // Re-resolve immediately before authorizing tenant access. This narrows the
+            // host/domain and suspension race between routing and auth middleware.
+            $currentHostContext = $this->resolver->resolve($request);
+
+            if (
+                ! is_array($currentHostContext)
+                || ($currentHostContext['type'] ?? null) !== 'tenant'
+                || ! is_string($currentHostContext['tenant_id'] ?? null)
+                || ! hash_equals($tenantId, $currentHostContext['tenant_id'])
+                || ! is_string($currentHostContext['host'] ?? null)
+                || ! hash_equals($host, $currentHostContext['host'])
+            ) {
+                abort(404);
+            }
+
+            // Re-read the membership grant so a token authenticated just before a
+            // suspension/tenant reassignment cannot rely on a stale model snapshot.
+            $membership = DB::connection('central')
+                ->table('users')
+                ->where('id', $user->getAuthIdentifier())
+                ->first(['tenant_id', 'is_active']);
+
+            if (
+                $membership === null
+                || ! (bool) $membership->is_active
+                || ! is_scalar($membership->tenant_id)
+                || ! hash_equals($tenantId, (string) $membership->tenant_id)
+            ) {
+                abort(404);
+            }
+
             $tenantIdHeader = $request->header('X-Tenant-ID');
             $tenantIdHeaderValues = $tenantIdHeader === null ? [] : [$tenantIdHeader];
 
