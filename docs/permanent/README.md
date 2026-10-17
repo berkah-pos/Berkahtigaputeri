@@ -36,6 +36,8 @@ If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC
 
 See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated six-category snapshot and exact candidate CI status. The owner-designated source-of-record project is recorded in `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md`: project ID `cztlmwzfrhyafgawphgw`, despite its existing `staging` label. Source identity is confirmed; read-only inventory/export reconciliation and migration gates remain blocked. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
+For the later live PR/base/head and exact-head CI correction, read `../reports/ARCHITECTURE_CONFLICT_REGISTER_ADDENDUM_2026-10-17.md`. The main-branch SHA, PR #50 merge target, and PR #47 current CI state in earlier dated audit snapshots are not live status; their historical evidence rows remain preserved.
+
 ## Canonical configuration contract
 
 ```text

@@ -5,6 +5,15 @@
 **Original architecture date:** 2026-10-16; **source designation update:** 2026-10-17 (Asia/Jakarta)  
 **Scope boundary:** This document describes the selected target. It does not certify live infrastructure, completed data movement, tenant isolation, restore capability or production readiness.
 
+
+## Live evidence correction — 2026-10-17
+
+This dated revalidation supplements, and does not rewrite, the 2026-10-16 SHA-bound status table below. Current canonical default branch is `main@08af86065addcbcae0b03dbf085a2943fc8362bf`. Main remains Supabase-backed Flutter with no root Composer manifest/lockfile; the accepted Laravel/PostgreSQL 17 target is not implemented or deployed on main.
+
+PR [#50](https://github.com/berkah-pos/Berkahtigaputeri/pull/50) is **closed/merged into PR #47’s feature branch, not into main**. PR #50 head was `29127e8ecc9d2c4253939e26a1aa54a59a07cbff`; it merged into base `security/phase-4-host-domain-isolation-20261015@c6b0cf27ebafbba9e4407fb61d130e4438af3c44`, yielding PR [#47](https://github.com/berkah-pos/Berkahtigaputeri/pull/47) current head `14063ecb146b508c3af157954da2de28d8ab4461`. PR #47 remains draft/open with exact-head **workbook PASS** [run 38979840939](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840939), and **backend FAIL** [38979840742](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840742), **tenant-grant security FAIL** [38979840825](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840825), **POS CI FAIL** [38979841483](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979841483). The backend run’s production-image build/boot smoke-test subjob passes; the real MariaDB tenant provisioning/isolation tests fail. These are MariaDB 11.4-specific tests and provide **no PostgreSQL 17 provisioning, grant, or tenant-A/B acceptance evidence**.
+
+The source identity decision is owner-confirmed for project `cztlmwzfrhyafgawphgw` despite its staging label, but read-only inventory/export reconciliation, backup/restore integrity and migration/cutover gates remain blocked. The original table and prior report rows remain historical as-of their stated SHA/date; see `docs/reports/ARCHITECTURE_CONFLICT_REGISTER_ADDENDUM_2026-10-17.md` for the full current dependency graph, file ownership and gate status.
+
 The PostgreSQL 17 choice supersedes the earlier MariaDB 11.4 proposal. The managed-Supabase + IDCloudHost plan is not the target runtime. ADR-2026-10-16 is the decision record; this document must not override it.
 
 The current Phase 5 copy of DOC_14 on PR #48's branch is explicitly marked **SUPERSEDED / NOT CANONICAL** and names PostgreSQL 17 in its header. It remains an unmerged candidate snapshot and itself requires rebase/reconciliation of DOC_14 plus branch-level AGENTS/roadmap before merge. This canonical main-branch DOC_14 and the accepted owner ADR govern; do not treat the feature-branch copy as independent authority.
