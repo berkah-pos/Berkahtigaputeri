@@ -47,12 +47,12 @@ The sole merge order is `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`.
 
 ## Executed CI evidence
 
-All listed runs are bound to candidate head `710f3940ad4650235c00b945c9e93a66544b1fbc`.
+The implementation and contract tests passed on `847c6b6eb810fc70d51fd751638b6694cf0cb076`. All three linked workflows passed on `710f3940ad4650235c00b945c9e93a66544b1fbc`; the current PR head `f1f526003529d9164a15006985cc9c36b14034cb` only refreshes this report and changes no application or test files.
 
-- [Configuration Contract — Laravel / PostgreSQL 17, push run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865): **PASS**. Built from the committed PHP 8.4/Laravel 13 lock, migrated a disposable PostgreSQL 17 central database (including `device_configs`), exercised the configuration contract and race script, and uploaded the evidence artifact.
+- [Configuration Contract — Laravel / PostgreSQL 17, PR run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865): **PASS**. Built from the committed PHP 8.4/Laravel 13 lock, migrated a disposable PostgreSQL 17 central database (including `device_configs`), exercised the configuration contract and race script, and uploaded the evidence artifact.
 - [Configuration Contract — Laravel / PostgreSQL 17, PR run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865): **PASS**.
 - [Canonical Workbook Validation, PR run 39020902890](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902890): **PASS**.
-- [Laravel PostgreSQL 17 Baseline, push run 39020902903](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902903): **PASS**, including locked PHP/Laravel checks and fresh central/tenant PostgreSQL 17 migration smoke tests.
+- [Laravel PostgreSQL 17 Baseline, PR run 39020902903](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902903): **PASS**, including locked PHP/Laravel checks and fresh central/tenant PostgreSQL 17 migration smoke tests.
 
 The configuration feature suite reports **7 passed, 770 assertions, no test warnings**. The test container creates an empty ephemeral `.env` at runtime to prevent Dotenv warnings; no environment file or secrets are committed. The workflow enables PHPUnit's fail-on-warning behavior.
 
