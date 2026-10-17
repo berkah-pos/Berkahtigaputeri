@@ -160,6 +160,6 @@ If a command or environment is unavailable, report **NOT RUN / NOT VERIFIED**. A
 - Never declare “100% GREEN” while a required test is red, unknown, or unexecuted.
 
 
-## 5. Live branch-state correction — 2026-10-17
+## Live-state addendum — 2026-10-17
 
 The roadmap’s phase crosswalk remains canonical, but the live GitHub state changed after the earlier status snapshots. Current default branch is `main@08af86065addcbcae0b03dbf085a2943fc8362bf`. PR [#50](https://github.com/berkah-pos/Berkahtigaputeri/pull/50) is closed/merged to PR #47’s feature branch—not to `main`; its merge result is PR #47’s current head `14063ecb146b508c3af157954da2de28d8ab4461`. PR [#47](https://github.com/berkah-pos/Berkahtigaputeri/pull/47) remains draft/open. The current head has workbook validation PASS, while backend, tenant-grant security and POS CI FAIL (runs [38979840939](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840939), [38979840742](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840742), [38979840825](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979840825), [38979841483](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38979841483)). The failing tenant test names and workflow service are MariaDB-specific; this does not prove PostgreSQL 17 acceptance. Full live inventory, PR dependency graph, file owners and severity-ranked blockers are in `docs/reports/ARCHITECTURE_CONFLICT_REGISTER_ADDENDUM_2026-10-17.md`.
