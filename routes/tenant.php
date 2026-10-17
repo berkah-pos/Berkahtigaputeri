@@ -10,7 +10,6 @@ Route::prefix('v1/tenant')
     ->middleware([
         HostDomainBoundary::class,
         EnsureTenantHost::class,
-        'auth:sanctum',
         EnsureTenantRequestOwnership::class,
     ])
     ->group(function (): void {
