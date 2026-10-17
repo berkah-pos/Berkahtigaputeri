@@ -200,3 +200,18 @@ After that gate, the Laravel Platform Lead owns the fresh locked PHP/Laravel/Pos
 This audit verified repository sources, current GitHub default-branch identity, selected PR metadata/dependencies, documented candidate CI records, and file path availability. It did not connect to Supabase or PostgreSQL, export live project contents, alter schemas/grants/policies, run migrations, deploy a service, alter DNS/TLS/secrets, execute the mutation-capable legacy sync script, conduct a load test, restore a backup, approve a release, or access production.
 
 Where a required result was not directly available or was tied to a different SHA/engine, this report says NOT VERIFIED or identifies it as historical evidence. This report itself does not pass any P0/P1 gate and does not constitute production approval.
+
+
+## 12. QA acceptance-matrix evidence consolidation update — 2026-10-17
+
+**Fresh live-branch verification:** `main` advanced past the initially supplied snapshot `08af86065addcbcae0b03dbf085a2943fc8362bf`. The live ref now resolves to `5b0ad4d5808008c33e6cb66176e3433fad5902a0` (commit compare from this SHA to `main` is identical at the time of this addendum). The new matrix proposal is based on that live-main SHA. Older text above records its original audit snapshot and is not rewritten.
+
+- PR #53 remains open/draft at head `091594a18a0e648d557874066127fd5d24c83a42`, based on stale `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. Its workbook-only run 38906173717 passed on that exact PR head; the returned artifact list had no artifacts, and the run does not prove the other acceptance gates.
+- PR #58 remains open/draft at head `31fa8628821ae107931d8ead74442b25af01de46`, also based on stale `d7ee23cfaada3405416b01d9e127e32b07fb1a38`. The inspected exact-head PR-triggered run lookup returned no result in its first-page response; CI status for that head therefore remains NOT RUN / NOT VERIFIED, not an assertion that no run could exist.
+- PR #53 supplies the starting machine-readable matrix/policy. PR #58 supplies unique exact-head history, additional failure classifications and the critical/high security-closure gate. The fresh comparison expands the canonical matrix to 15 separate required gates and consolidates current references in `config/ci/required-check-matrix.json` plus one index `docs/reports/acceptance-matrix-ci-evidence-2026-10-17.json`.
+- Exact run/job inspection confirms PR #48 workbook/Flutter scoped passes versus preflight failures and skipped backend/POS tests; PR #50 runs at both `e108f5629d688ac2376f77ef1ebdc505501b1d60` and `29127e8ecc9d2c4253939e26a1aa54a59a07cbff` include MariaDB 11.4 provisioning/grant failures alongside distinct limited image-smoke passes. Preserve each head/run as a separate immutable record. MariaDB-only evidence does not satisfy PostgreSQL 17 acceptance.
+- PR #50 current live metadata is closed/merged to feature branch `security/phase-4-host-domain-isolation-20261015`; that does not make its historical candidate evidence current-main acceptance.
+- Historical source reports/PRs/branches were not deleted, rewritten, force-pushed or closed. The new mapping is recorded in `docs/reports/QA_MATRIX_EVIDENCE_CONSOLIDATION_2026-10-17.md`. Workflow definitions and branch-protection settings remain unchanged.
+- Overall acceptance remains **BLOCKED**. The prior root baseline run 39005405149 is PASS only for its recorded SHA `aab154f87342f2a02a1319e1d370ce831dbef522` and documented narrow scope; it is not relabeled as a run on `5b0ad4d5808008c33e6cb66176e3433fad5902a0`. No missing matrix row is promoted to PASS.
+
+This addendum is intentionally appended. Earlier audit rows and their historical main/head snapshots above remain unchanged.
