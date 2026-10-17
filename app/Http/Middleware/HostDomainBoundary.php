@@ -27,7 +27,9 @@ final class HostDomainBoundary
         try {
             return $next($request);
         } finally {
-            $request->attributes->remove('host_boundary');
+            foreach (['host_boundary', 'authorized_tenant', 'tenant_context', 'tenant_id', 'device_id'] as $attribute) {
+                $request->attributes->remove($attribute);
+            }
         }
     }
 }
