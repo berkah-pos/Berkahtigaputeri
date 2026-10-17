@@ -55,6 +55,8 @@ The existing 352-key configuration contract, service-specific resolution, MDR in
 
 The following observations were found during a source/document inspection of the repository tree at the 2026-10-12 baseline. Re-check the current branch and files before relying on these observations in a later task; code and deployments may change.
 
+> **Current implementation update — 2026-10-17:** The root PHP 8.4/Laravel 13/Filament 5/Sanctum/locked tenancy baseline and starter PostgreSQL 17 central/tenant migrations were later merged to `main` at `aab154f87342f2a02a1319e1d370ce831dbef522`. Exact-head [CI run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed locked install, validation/platform checks/audit, Laravel boot/routes, disposable PG17 central/tenant migration smoke, and production-image smoke. These baseline results do not prove a complete business API, tenant provisioning privileges/isolation, Flutter migration away from Supabase, production deployment, or recovery acceptance.
+
 ### Source evidence found
 
 - **berkah-pos-trial/pubspec.yaml** and **berkah-pos-trial/lib/main.dart**: a Flutter/Dart trial app using SQLite and an HTTP status endpoint. The code includes local product management, checkout, sales/items, reports, and settings.
