@@ -1,6 +1,6 @@
 # BERKAH POS — MASTER ROADMAP
 
-**Updated:** 2026-10-16  
+**Updated:** 2026-10-17 — refreshed after initial Laravel/PostgreSQL scaffold reached main  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Purpose:** Ordered implementation gates for the Final POS configuration contract and the KVM2/Coolify isolated-tenant SaaS target.
 
@@ -81,13 +81,13 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 
 ### PHASE 2 — Laravel foundation and central/tenant schema
 
-- Scaffold a clean Laravel 13/PHP 8.4 project with a committed `composer.lock`, Filament 5 panels, central and tenant migrations, environment templates, `Dockerfile`, deployment config, `/up` health check, and CI.
-- Pin and test the current supported PostgreSQL 17 minor in disposable CI/staging environments.
+- **Initial scaffold is now on main** at `aab154f87342f2a02a1319e1d370ce831dbef522`: PHP 8.4, Laravel 13, Filament 5, Sanctum, locked `stancl/tenancy` v3.10.1 candidate, central/tenant migration starter, local Compose, Docker image, and baseline CI. Exact-head [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed dependency validation/install/audit, boot/routes, fresh disposable PG17 central/tenant migration smoke checks, and production-image smoke. Extend this baseline rather than recreating it; this pass does not prove the complete product schema or tenant authorization.
+- Keep all further database work on disposable PostgreSQL 17. Complete and review the full normalized central schema, tenant operational schema, and migration/recovery design; do not infer completeness from the initial migration smoke pass.
 - Build the central/tenant schema from the accepted product contracts and reviewed offline artifacts, not from a live Supabase connection. Existing repository SQL may be read as historical evidence only; do not execute it or connect to a Supabase service. Audit required PostgreSQL types, indexes, constraints, transaction semantics, and application behavior directly in a disposable PostgreSQL 17 environment. Any data import must come from an already available owner-controlled offline export outside Supabase; otherwise start with empty test data and mark existing-data continuity NOT VERIFIED.
-- Define normalized central tables for tenants/domains/memberships/subscriptions/devices/configuration/versioning, and isolated tenant migrations for operational POS/accounting data.
+- Complete normalized central tables for tenants/domains/memberships/subscriptions/devices/configuration/versioning and the isolated tenant operational POS/accounting schema. Review all tables and constraints against the canonical business/workbook contracts.
 - Do not point schema experiments at production.
 
-**Acceptance:** clean install/build from the locked dependencies; fresh central/tenant migrations pass in an isolated PostgreSQL 17 test environment; `docs/reports/FASE_2_LARAVEL_SCHEMA.md`.
+**Baseline smoke gates:** clean locked install, Composer validation/platform checks/audit with no advisories, Laravel boot/routes, fresh disposable PostgreSQL 17 central/tenant migration smoke checks, and production-image smoke passed on `main` SHA `aab154f87342f2a02a1319e1d370ce831dbef522` in [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149). **Still required for Phase 2 acceptance:** complete reviewed central/tenant schemas and exact-SHA regression tests after schema changes; PostgreSQL provisioning privileges and tenant A/B isolation belong to Phase 3 and remain unverified. Record the detailed result in `docs/reports/FASE_2_LARAVEL_SCHEMA.md`.
 
 ### PHASE 3 — Tenant database provisioning and lifecycle
 
