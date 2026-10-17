@@ -7,7 +7,7 @@
 - Canonical contract: `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, blob SHA `388f07297cf406ee240f6941d6fd835c95f4186f`.
 - Canonical workbook: `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`, blob SHA `cb8775f498487eece091c32b2774f45daa183afd`.
 - Canonical `main` at task start: `5b0ad4d5808008c33e6cb66176e3433fad5902a0`.
-- Configuration implementation/test revision that passed: `847c6b6eb810fc70d51fd751638b6694cf0cb076`.
+- Configuration implementation/test revision that passed: `710f3940ad4650235c00b945c9e93a66544b1fbc`.
 - Stacked base: Agent E branch `security/laravel-host-tenant-boundary-20261017` at `2a6f2ab69880ab9cd6a82edcbc8fa1d4400a9dfb`.
 - Draft review PR: [#69](https://github.com/berkah-pos/Berkahtigaputeri/pull/69).
 
@@ -31,7 +31,7 @@ Required sheet order matched:
 
 Canonical template IDs are `BASIC`, `PRO`, `ENTERPRISE`. The sorted canonical key-set MD5 is `1fd3d64219ecc7c333453c20da80e295`.
 
-The exporter regression suite reports **12 tests passed**. Mutation cases cover wrong sheet layout, normalized duplicate headers/identifiers, duplicate or missing keys, wrong scope type/prefix, bad service-key mappings, invalid booleans, malformed JSON, and explicit null/false/zero/empty values. The exporter also cross-checks relational sheet mappings against the exported key set. Canonical workbook validation on the same candidate passed in [run 39020652892](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020652892).
+The exporter regression suite reports **12 tests passed**. Mutation cases cover wrong sheet layout, normalized duplicate headers/identifiers, duplicate or missing keys, wrong scope type/prefix, bad service-key mappings, invalid booleans, malformed JSON, and explicit null/false/zero/empty values. The exporter also cross-checks relational sheet mappings against the exported key set. Canonical workbook validation on the same candidate passed in [run 39020902890](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902890).
 
 ## Implemented API and storage contract
 
@@ -47,12 +47,12 @@ The sole merge order is `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`.
 
 ## Executed CI evidence
 
-All listed runs are bound to candidate head `847c6b6eb810fc70d51fd751638b6694cf0cb076`.
+All listed runs are bound to candidate head `710f3940ad4650235c00b945c9e93a66544b1fbc`.
 
-- [Configuration Contract — Laravel / PostgreSQL 17, push run 39020650065](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020650065): **PASS**. Built from the committed PHP 8.4/Laravel 13 lock, migrated a disposable PostgreSQL 17 central database (including `device_configs`), exercised the configuration contract and race script, and uploaded the evidence artifact.
-- [Configuration Contract — Laravel / PostgreSQL 17, PR run 39020652904](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020652904): **PASS**.
-- [Canonical Workbook Validation, PR run 39020652892](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020652892): **PASS**.
-- [Laravel PostgreSQL 17 Baseline, push run 39020650018](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020650018): **PASS**, including locked PHP/Laravel checks and fresh central/tenant PostgreSQL 17 migration smoke tests.
+- [Configuration Contract — Laravel / PostgreSQL 17, push run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865): **PASS**. Built from the committed PHP 8.4/Laravel 13 lock, migrated a disposable PostgreSQL 17 central database (including `device_configs`), exercised the configuration contract and race script, and uploaded the evidence artifact.
+- [Configuration Contract — Laravel / PostgreSQL 17, PR run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865): **PASS**.
+- [Canonical Workbook Validation, PR run 39020902890](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902890): **PASS**.
+- [Laravel PostgreSQL 17 Baseline, push run 39020902903](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902903): **PASS**, including locked PHP/Laravel checks and fresh central/tenant PostgreSQL 17 migration smoke tests.
 
 The configuration feature suite reports **7 passed, 770 assertions, no test warnings**. The test container creates an empty ephemeral `.env` at runtime to prevent Dotenv warnings; no environment file or secrets are committed. The workflow enables PHPUnit's fail-on-warning behavior.
 
@@ -64,8 +64,8 @@ The configuration feature suite reports **7 passed, 770 assertions, no test warn
 - Re-applying the same manifest was idempotent: 0 inserted, 0 updated, 352 unchanged; stored versions were not reset.
 - Workbook-vs-store artifact reports **352/352 normalized scopes matched**, including configuration SHA-256 values and metadata checks. The sample API result for `tenant_001 / infinix_001_410 / pos` matches its workbook-derived effective-config hash `08d075884332a4b187b64242c797218f0aa88fc35095e465d48a2a9454fe6362`. The sample asserts service isolation.
 
-Machine-readable outputs from [run 39020650065](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020650065):
-- [Evidence ZIP artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020650065/artifacts/12095654676) — contains `configuration-fixture-diff.json` (all 352 per-scope comparisons plus API sample) and `configuration-cas-concurrency.json`.
+Machine-readable outputs from [run 39020902865](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865):
+- [Evidence ZIP artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39020902865/artifacts/12096267730) — contains `configuration-fixture-diff.json` (all 352 per-scope comparisons plus API sample) and `configuration-cas-concurrency.json`.
 
 ## Version conflicts and concurrency evidence
 
