@@ -431,9 +431,9 @@ class HostTenantBoundaryPostgresTest extends TestCase
                 $active->attributes->set('tenant_id', 'tenant-A-private-fixture');
                 $active->attributes->set('device_id', 'device-A-private-fixture');
 
-                throw new \\RuntimeException('expected downstream failure');
+                throw new \RuntimeException('expected downstream failure');
             });
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $caught = true;
             $this->assertSame('expected downstream failure', $exception->getMessage());
         }
