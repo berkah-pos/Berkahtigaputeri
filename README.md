@@ -2,7 +2,7 @@
 
 **Canonical repository:** [`berkah-pos/Berkahtigaputeri`](https://github.com/berkah-pos/Berkahtigaputeri)  
 **Current owner decision:** [Hostinger KVM2 + Coolify, Laravel, PostgreSQL 17, no Supabase](docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md).  
-**Status snapshot:** current `main` SHA `aab154f87342f2a02a1319e1d370ce831dbef522`; initial Laravel/PostgreSQL 17 backend baseline CI passed at that exact SHA.
+**Historical implementation milestone:** commit `aab154f87342f2a02a1319e1d370ce831dbef522`; initial Laravel/PostgreSQL 17 backend baseline CI passed at that exact SHA. Do not treat this milestone SHA as live `main`; resolve the branch ref at the time of work.
 
 Berkah POS is a local-first POS and accounting application whose configuration contract is defined by the canonical 352-entry workbook. The current owner decision is explicit: Hostinger KVM2 + Coolify, Laravel/PHP 8.4 and private PostgreSQL 17, with a reasonable measured scale-up path. No Supabase product or project access is allowed, including read-only. The accepted target and the currently implemented runtime are different states; do not describe the target as active merely because the ADR or open PRs exist.
 
@@ -32,6 +32,8 @@ The canonical workbook is `config/FINAL_Production_Excel_A_WebC_Template_100Tena
 The legacy script `scripts/sync_excel_to_supabase.py` is mutation-capable and prohibited: never execute it or provide credentials. Historical SQL/functions/schemas/RLS and past source-designation reports may remain as audit material only; they are not a live source, migration path or permission to connect. Do not erase history or execute archived SQL. The current Flutter client still contains Supabase integration and must be migrated to tested Laravel API calls in a dedicated implementation PR.
 
 ## Runtime and documentation authority
+
+The current document authority/supersession hierarchy, legacy archive rules and historic certificate handling are maintained in [`docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md`](docs/permanent/AUTHORITY_AND_SUPERSESSION_MAP.md).
 
 - **Platform, engine and stack:** the accepted [owner ADR](docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md).
 - **Detailed target topology and acceptance gates:** [DOC_14](docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md), subordinate to the ADR.

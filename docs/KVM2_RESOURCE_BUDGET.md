@@ -1,6 +1,6 @@
 # KVM2 Resource Budget — Proposed Initial Limits
 
-**Status:** planning budget only; NOT measured, deployed, or load-test certified. Branch: `docs/kvm2-isolated-saas-architecture`.
+**Status:** PLANNING ESTIMATE ONLY — not measured, implemented as host limits, staged, production-deployed, or load-test certified. PostgreSQL 17 is the owner-selected engine; MariaDB is not a valid target-acceptance substitute. This document's historical branch label is not a live branch-state claim. See `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
 
 ## Host constraint
 
@@ -11,7 +11,7 @@ Target host: Hostinger KVM2, advertised as 2 vCPU / 8 GB RAM / 100 GB NVMe, with
 | Budget | Target maximum | Operational constraint |
 |---|---:|---|
 | OS + Coolify + proxy reserve | 1.2 GiB | Reserved; do not allocate to app containers |
-| Database service | 3.0–3.5 GiB | Choose PostgreSQL or MariaDB only after DG-0; set engine-specific caches within the container budget |
+| PostgreSQL 17 service | 3.0–3.5 GiB | Selected target only; actual container limits, cache settings and high-water usage remain NOT MEASURED. Keep engine-specific memory settings within the container budget. |
 | Laravel web/API | 1.0 GiB | One shared app service; monitor PHP/Octane worker count |
 | Queue workers total | 512 MiB | Start with one standard worker and one isolated provisioner role; not one worker per tenant |
 | Redis | 256 MiB | Private network; enforce maxmemory and eviction policy |
@@ -19,6 +19,10 @@ Target host: Hostinger KVM2, advertised as 2 vCPU / 8 GB RAM / 100 GB NVMe, with
 | **Target total at upper DB budget** | **6.968 GiB** | OS reserve + service budgets + operational headroom; verify against OS-visible memory |
 
 The table is a budget hypothesis, not proof that Docker's reported limits equal physical memory usage. CPU, kernel memory, page cache, Coolify spikes, image pulls, and backup activity must also be measured. Do not add per-container limits whose sum exceeds available memory and do not set a database memory cache equal to its full container limit.
+
+## Decision-dependent security guardrail
+
+**Database-name confidentiality: DECISION REQUIRED / NOT VERIFIED.** PR [#67](https://github.com/berkah-pos/Berkahtigaputeri/pull/67) asks the principal architect whether tenant runtime/owner/migrator roles must be unable to enumerate central/tenant database names and tenant-specific role names via PostgreSQL catalogs/statistics, and whether that requires stronger cluster/service isolation if shared-cluster non-enumeration cannot be proven. This budget does not decide that architectural question. Do not claim the shared PostgreSQL cluster passes that gate until the owner decision and real disposable-PG17 tests are recorded.
 
 ## Initial guardrails
 

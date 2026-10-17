@@ -28,7 +28,7 @@ If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC
 
 ### Status categories that must not be conflated
 
-- **Implemented on main:** verify tracked source and commit SHA. At `aab154f87342f2a02a1319e1d370ce831dbef522`, the initial Laravel/Composer/PostgreSQL 17 scaffold exists and its locked dependency, boot/routes, disposable PG17 central/tenant migration and production-image smoke CI passed in [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149). Flutter still contains a legacy Supabase path and the product is not compliant until that path is replaced by tested Laravel APIs.
+- **Implemented on main:** verify tracked source and commit SHA. The initial Laravel/Composer/PostgreSQL 17 scaffold milestone is commit `aab154f87342f2a02a1319e1d370ce831dbef522`; its locked dependency, boot/routes, disposable PG17 central/tenant migration and production-image smoke CI passed at that exact SHA in [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149). This is a historical exact-SHA milestone, not a live-main pointer. Flutter still contains a legacy Supabase path and the product is not compliant until that path is replaced by tested Laravel APIs.
 - **Target accepted in an ADR:** an architectural decision only; it does not imply code, staging or production delivery.
 - **Open branch/PR implementation:** unmerged candidate code only.
 - **Executed CI evidence:** tied to exact tested SHA and specific workflow/job; a partial pass does not imply aggregate acceptance.

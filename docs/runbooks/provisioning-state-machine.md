@@ -9,6 +9,10 @@ Safe, idempotent, auditable tenant DB/user creation without root, without duplic
 
 **Status:** proposed runbook, not yet executed. Engine-specific DDL and role grants are intentionally gated on DG-0/DG-3. Do not treat pseudocode below as portable SQL.
 
+## Database-name policy decision — pending
+
+PR [#67](https://github.com/berkah-pos/Berkahtigaputeri/pull/67) raises whether database names and tenant-specific role names are confidential and must be non-enumerable by tenant runtime, owner and migrator roles. The principal architect must decide this explicitly. The deterministic `berkahpos_t_<ulid_lower>` name below is therefore only a historical/proposed naming contract, **not an approved secrecy control**. Do not claim database-name confidentiality or acceptance until the decision is recorded and disposable PostgreSQL 17 catalog/statistics enumeration tests run. No decision is made by this runbook.
+
 ## Roles
 
 - `berkah_provisioner` — dedicated least-privilege identity that can create `berkahpos_t_%` DBs/users and grant on that pattern. No access to `berkahpos_central` data. Creds only in `provisioner` Coolify service (no public domain, private network).
