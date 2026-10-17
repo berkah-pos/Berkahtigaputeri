@@ -17,7 +17,7 @@ Berkah POS is a local-first POS and accounting application whose configuration c
 | **Historical source record** | An earlier owner decision designated a Supabase project. | The dated report is historical only. The latest ADR prohibits accessing or using either Supabase project. Existing-data continuity can only use an already available owner-controlled offline export outside Supabase; otherwise it remains NOT VERIFIED. |
 | **Production deployment/acceptance** | **NOT RUN / NOT VERIFIED** | No verified KVM2/Coolify production deployment, production cutover, production acceptance or completed migration is claimed. |
 
-For the dated revision-by-revision correction and validation boundaries, see [the source-of-truth correction report](docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md).
+For exact-SHA PHP/Laravel/PostgreSQL 17 dependency, boot/route, fresh disposable migration and production-image smoke evidence, see the [Laravel / PostgreSQL 17 Baseline Acceptance report](docs/reports/LARAVEL_PG17_BASELINE_ACCEPTANCE_2026-10-17.md). For historical revision-by-revision correction and validation boundaries, see [the source-of-truth correction report](docs/reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md).
 
 ## Canonical configuration contract
 
