@@ -42,7 +42,10 @@ final class EnsureTenantRequestOwnership
             $tenantId = (string) $hostContext['tenant_id'];
             $host = (string) $hostContext['host'];
 
-            $this->assertSelectorsMatch($request, 'tenant_id', [$request->header('X-Tenant-ID')], $tenantId);
+            $tenantIdHeader = $request->header('X-Tenant-ID');
+            $tenantIdHeaderValues = $tenantIdHeader === null ? [] : [$tenantIdHeader];
+
+            $this->assertSelectorsMatch($request, 'tenant_id', $tenantIdHeaderValues, $tenantId);
             $this->assertDomainSelectorsMatch($request, $host);
 
             $deviceId = $request->header('X-Device-ID');
@@ -137,14 +140,19 @@ final class EnsureTenantRequestOwnership
                 'service' => $service,
             ];
 
-            $request->attributes->set('authorized_tenant', $authorizedContext);
-
-            return $next($request);
         } catch (Throwable) {
             // A single indistinguishable denial covers unknown, inactive and mismatched
             // resources. Do not include IDs, database names, or exception messages.
             abort(404);
         }
+
+        if (! is_array($authorizedContext ?? null)) {
+            abort(404);
+        }
+
+        $request->attributes->set('authorized_tenant', $authorizedContext);
+
+        return $next($request);
     }
 
     private function assertDomainSelectorsMatch(Request $request, string $effectiveHost): void
