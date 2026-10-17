@@ -35,7 +35,7 @@ If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC
 - **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
 - **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
 
-See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the earlier dated implementation/CI snapshot; do not mistake its old main SHA for current status. `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` records an earlier source designation and is retained as history only. The newer ADR prohibits access to either project, even read-only. Data continuity can use only an already-existing owner-controlled offline export outside Supabase; if none exists, keep it NOT VERIFIED. Missing evidence stays `NOT RUN / NOT VERIFIED`.
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the earlier dated implementation/CI snapshot; do not mistake its old main SHA for current status. `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` records an earlier source designation and is retained as history only. The newer ADR prohibits access to either project, even read-only. Data continuity can use only an already-existing owner-controlled offline export outside Supabase; if none exists, keep it NOT VERIFIED. Missing evidence stays `NOT RUN / NOT VERIFIED`. The initial PHP/Laravel/PostgreSQL 17 scaffold pass is recorded with its exact SHA and workflow evidence in `../reports/LARAVEL_PG17_BASELINE_ACCEPTANCE_2026-10-17.md`; this is baseline smoke evidence, not production acceptance.
 
 ## Canonical configuration contract
 
