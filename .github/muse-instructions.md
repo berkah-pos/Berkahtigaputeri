@@ -11,7 +11,7 @@ Before changing code, schemas, CI, or infrastructure, read root `AGENTS.md` and 
 5. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — ordered execution gates.
 6. `docs/permanent/README.md` — document index.
 7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` and `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — offline/business/evidence details and legacy source snapshot, subject to the newest platform decision.
-8. Relevant scoped contracts, source, migrations, tests, workflows, and reports.
+7. Relevant scoped contracts, source, migrations, tests, workflows, and reports.
 
 ## Invariants
 
