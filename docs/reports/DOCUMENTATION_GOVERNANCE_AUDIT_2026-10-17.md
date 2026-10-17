@@ -26,6 +26,8 @@ The mandatory source reading order was completed: root `AGENTS.md`; DOC_00 canon
 | Older ADR16 / DOC13 / old hardening README looked like current authority | Added supersession/historic source-snapshot banners and current ADR/DOC/map pointers | Preserve content; stop legacy commands/statuses becoming active instructions. |
 | `btp-admin/auth.js` and `btp-admin/login.html` retain an old admin email and hosted Supabase client defaults | Explicitly recorded in the authority map and conflict register; code left untouched | Source-level no-Supabase gap remains NOT FIXED by this documentation-only PR; no credentials are reproduced. |
 | `docs/permanent/ACCEPTANCE_MATRIX_CI_EVIDENCE.md` named ADR16 as platform authority | Platform authority points to ADR17, DOC_00 remains configuration authority, DOC14 carries detailed gates | Split authority mirrors current owner decisions. |
+| `AGENTS.md` and the permanent README required the superseded ADR16, DOC13 legacy integration snapshot, DOC01 legacy filename and prohibited sync helper in the active read order | Both reading orders now prioritize the authority map and current documents; legacy files are separated under historical-only references | Keeps legacy evidence discoverable without presenting it as current instructions or a required active workflow. |
+| Retired SQL comments still called the old sync helper the “canonical validator” and pointed to the Supabase migration as current | `DOC_02_SUPABASE_SCHEMA_V1.sql` and `DOC_05_FEATURE_FLAGS.sql` now label those lines historic and point to ADR17/DOC14/the map | SQL logic is unchanged; no retired SQL or sync script was executed. |
 
 ## 3. Per-finding evidence
 
