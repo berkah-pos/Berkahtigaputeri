@@ -28,14 +28,14 @@ If a document conflicts with DOC_00 on inheritance or the workbook contract, DOC
 
 ### Status categories that must not be conflated
 
-- **Implemented on main:** verify tracked source and commit SHA. At the documented main baseline, Flutter still has Supabase code and the root has no Composer manifest/lock; that is a known gap against the latest owner decision, not an approved architecture.
+- **Implemented on main:** verify tracked source and commit SHA. At `aab154f87342f2a02a1319e1d370ce831dbef522`, the initial Laravel/Composer/PostgreSQL 17 scaffold exists and its locked dependency, boot/routes, disposable PG17 central/tenant migration and production-image smoke CI passed in [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149). Flutter still contains a legacy Supabase path and the product is not compliant until that path is replaced by tested Laravel APIs.
 - **Target accepted in an ADR:** an architectural decision only; it does not imply code, staging or production delivery.
 - **Open branch/PR implementation:** unmerged candidate code only.
 - **Executed CI evidence:** tied to exact tested SHA and specific workflow/job; a partial pass does not imply aggregate acceptance.
 - **Staging observations:** observations of the named staging resources only; not authority to migrate or proof of production.
 - **Production deployment/acceptance:** only claimed with direct dated production evidence and explicit acceptance.
 
-See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the dated implementation/CI snapshot. `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` records an earlier source designation and is retained as history only. The newer ADR prohibits access to either project, even read-only. Data continuity can use only an already-existing owner-controlled offline export outside Supabase; if none exists, keep it NOT VERIFIED. Missing evidence stays `NOT RUN / NOT VERIFIED`.
+See `../reports/SOURCE_OF_TRUTH_ALIGNMENT_CORRECTION_2026-10-16.md` for the earlier dated implementation/CI snapshot; do not mistake its old main SHA for current status. `../reports/OWNER_SOURCE_OF_RECORD_CONFIRMATION_2026-10-17.md` records an earlier source designation and is retained as history only. The newer ADR prohibits access to either project, even read-only. Data continuity can use only an already-existing owner-controlled offline export outside Supabase; if none exists, keep it NOT VERIFIED. Missing evidence stays `NOT RUN / NOT VERIFIED`.
 
 ## Canonical configuration contract
 

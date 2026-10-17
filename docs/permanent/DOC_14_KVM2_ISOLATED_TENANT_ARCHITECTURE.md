@@ -5,7 +5,7 @@
 **Hosting baseline:** Hostinger KVM2 (documented initial package: 2 vCPU, 8 GB RAM, 100 GB NVMe), Ubuntu 24.04 LTS, Docker and Coolify; PHP 8.4 / Laravel 13.x / Filament 5.x / Sanctum; private PostgreSQL 17.  
 **Tenant data design:** One central DB plus one database and restricted runtime role per tenant; one shared Laravel application image serves standard tenants.  
 **Supersession:** Any earlier clause in this document that instructs a Supabase connection, live inventory/export, source reconciliation, Supabase-based migration, or hosted-resource retirement is replaced by the latest owner ADR. Existing SQL, code and reports remain repository history only.  
-**Implementation baseline reviewed:** `main` SHA `08af86065addcbcae0b03dbf085a2943fc8362bf`. Flutter still contains Supabase integration and no root Composer manifest/lock exists; that is a known implementation gap, not an accepted runtime.
+**Current implementation baseline reviewed:** `main` SHA `aab154f87342f2a02a1319e1d370ce831dbef522`. The root PHP 8.4/Laravel 13/Filament 5/Sanctum/tenancy dependency baseline, local Compose, initial central/tenant migrations and CI smoke workflow now exist. Exact-head [CI run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed locked dependency validation/audit, boot/routes, fresh disposable PG17 central/tenant migrations, and production-image smoke. Flutter still contains legacy Supabase integration and tenant privilege isolation/API parity/production readiness remain unverified.
 
 The accepted target is intended to support convenient local development, isolated CI/staging and a controlled production deployment from the same reviewed application image. The initial KVM2 node is a modest single-node MVP, not HA. Capacity, tenant count, availability and recovery targets remain unverified until measured.
 
@@ -15,7 +15,7 @@ The accepted target is intended to support convenient local development, isolate
 |---|---|---|
 | Hosting and stack | **SELECTED** | Hostinger KVM2 + Coolify; PHP 8.4, Laravel 13, Filament 5, Sanctum, PostgreSQL 17 |
 | Supabase product use | **PROHIBITED** | No app, build, test, CI, staging, production or read-only project use; the current Flutter source is still non-compliant and must be replaced |
-| Root dependency baseline | **NOT PRESENT ON MAIN** | Reviewed `composer.json` / `composer.lock`, clean locked install, security audit with policy enabled |
+| Root dependency baseline | **PRESENT — initial scaffold on main** | `composer.json` / `composer.lock` are committed; clean locked install, Composer validate/platform check/audit, boot/routes, disposable PG17 central/tenant migrations, and production-image smoke passed on `aab154f87342f2a02a1319e1d370ce831dbef522` in [run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149). Full product API and tenant-privilege acceptance remain separate gates. |
 | Local development and CI | **NOT VERIFIED** | Repeatable no-Supabase local workflow and disposable PostgreSQL 17 CI, separated from production |
 | Fresh central/tenant migrations | **NOT RUN ON PG17** | Clean central and tenant migrations executed against disposable PostgreSQL 17 |
 | PostgreSQL provisioning/security | **NOT VERIFIED** | Reviewed broker and actual role/database/grant inspection plus negative tenant A/B tests |
@@ -89,7 +89,7 @@ Historical repository files may describe Supabase Auth helpers, RLS, JSONB, func
 
 Target baseline: PHP 8.4; Laravel 13.x; Filament 5.x; Laravel Sanctum; stancl/tenancy v3.10.1 initially, pinned through a reviewed composer.lock; PostgreSQL 17; Ubuntu 24.04 LTS; GitHub-hosted ubuntu-24.04 runners.
 
-These versions are architecture selections, not claims of current installation or successful dependency resolution. Require Composer resolution and tests with security advisories enabled, clean application boot, API route registration, central and tenant migrations, and tests against disposable PostgreSQL 17. Do not disable Composer security policy or broadly suppress advisories. Filament major-version migrations must be tested instead of performed as string replacement. Pin deployment images/digests after CI verification; build images in CI, not on the workload node.
+The initial locked versions have now been installed and smoke-tested on main SHA `aab154f87342f2a02a1319e1d370ce831dbef522` with security advisory blocking enabled and no advisories reported (run 39005405149). This verifies dependency and baseline smoke gates only. Secure PostgreSQL provisioning, real per-tenant role/grant inspection, denied tenant-A-to-tenant-B access, full authenticated API parity, and production deployment/recovery remain unverified. Keep Composer security policy enabled and do not broadly suppress advisories. Filament major-version changes must be tested rather than performed as string replacement. Pin deployment images/digests after CI verification; build images in CI, not on the workload node.
 
 ## 7. Operations, resource budget, reasonable scalability and recovery
 
