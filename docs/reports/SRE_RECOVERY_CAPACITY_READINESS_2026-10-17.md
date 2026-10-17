@@ -61,8 +61,10 @@ Candidate lab thresholds are in the load runbook and require product-owner ratif
 - docs/evidence/templates/tenant-backup-coverage.csv — one-row-per expected central/tenant database coverage reconciliation.
 - docs/evidence/templates/restore-drill.csv — restore/PITR/single-tenant/sentinel measurements and source/target revision record.
 - docs/evidence/templates/load-test-samples.csv — time-series workload, CPU/RAM/connection/latency/disk/queue/retry samples.
+- docs/evidence/restore-2026-10-17.md — dated non-execution record. It records each recovery gate as NOT RUN / NOT VERIFIED; it is not a successful restore result.
+- docs/evidence/load-2026-10-17.md — dated non-execution record. It records the missing authorized load target and all metrics as NOT RUN / NOT VERIFIED; it is not a performance result.
 
-Templates have headers only. No measurements have been fabricated or written into them.
+CSV templates remain headers only. No measurements, checksums, restore durations, RPO/RTO or load results have been fabricated.
 
 ## 5. Safety invariants preserved
 
