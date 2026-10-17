@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This malformed duplicate is archive-only, not a canonical architecture decision. Do not use its MariaDB/MySQL details, migration steps, resource estimates or former migration-to-Supabase path as current instructions. Current platform authority: [2026-10-17 owner ADR](../../permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md); canonical target: [DOC_14](../../permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md); cross-document map: [authority/supersession map](../../reports/ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md).
+
+---
+
 > **Archive record — 2026-10-16.** This file was archive-renamed from `docs/permanent/DOC_x5f_14_x5f_KVM2_x5f_ISOLATED_x5f_TENANT_x5f_ARCHITECTURE (1).md` after inspecting current-main references. Its original proposal date (2026-10-15) and proposal text are retained below. It is historical evidence only; the canonical target and current authority are the merged owner ADR and `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
 
 # Historical duplicate — KVM2/Supabase architecture proposal (NOT CANONICAL)
