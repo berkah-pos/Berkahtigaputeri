@@ -97,16 +97,13 @@ class HostTenantBoundaryPostgresTest extends TestCase
     {
         [, $domain] = $this->createTenant('central-boundary');
 
-        $this->withServerVariables(['HTTP_HOST' => 'central.example.test'])
-            ->getJson('/api/v1/platform-health')
+        $this->getJson('https://central.example.test/api/v1/platform-health')
             ->assertOk();
 
-        $this->withServerVariables(['HTTP_HOST' => $domain])
-            ->getJson('/api/v1/platform-health')
+        $this->getJson('https://'.$domain.'/api/v1/platform-health')
             ->assertNotFound();
 
-        $this->withServerVariables(['HTTP_HOST' => 'central.example.test'])
-            ->getJson('/api/v1/tenant/context?service=POS')
+        $this->getJson('https://central.example.test/api/v1/tenant/context?service=POS')
             ->assertNotFound();
     }
 
@@ -114,8 +111,7 @@ class HostTenantBoundaryPostgresTest extends TestCase
     {
         [, $domain] = $this->createTenant('host-not-found');
 
-        $this->withServerVariables(['HTTP_HOST' => 'unknown-custom.example.test'])
-            ->getJson('/api/v1/platform-health')
+        $this->getJson('https://unknown-custom.example.test/api/v1/platform-health')
             ->assertNotFound()
             ->assertDontSee($domain);
 
@@ -128,20 +124,20 @@ class HostTenantBoundaryPostgresTest extends TestCase
 
     public function test_untrusted_forwarded_host_cannot_override_host_but_configured_proxy_can(): void
     {
-        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.25', 'HTTP_HOST' => 'central.example.test'])
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.25'])
             ->withHeaders([
                 'X-Forwarded-Host' => 'attacker.example.test',
             ])
-            ->getJson('/api/v1/platform-health')
+            ->getJson('https://central.example.test/api/v1/platform-health')
             ->assertNotFound();
 
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_HOST);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2', 'HTTP_HOST' => 'internal-proxy.example.test'])
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
             ->withHeaders([
                 'X-Forwarded-Host' => 'central.example.test',
             ])
-            ->getJson('/api/v1/platform-health')
+            ->getJson('https://internal-proxy.example.test/api/v1/platform-health')
             ->assertOk();
     }
 
@@ -149,11 +145,11 @@ class HostTenantBoundaryPostgresTest extends TestCase
     {
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], SymfonyRequest::HEADER_X_FORWARDED_HOST);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2', 'HTTP_HOST' => 'central.example.test'])
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
             ->withHeaders([
                 'X-Forwarded-Host' => 'central.example.test,attacker.example.test',
             ])
-            ->getJson('/api/v1/platform-health')
+            ->getJson('https://central.example.test/api/v1/platform-health')
             ->assertNotFound();
     }
 
@@ -161,11 +157,11 @@ class HostTenantBoundaryPostgresTest extends TestCase
     {
         SymfonyRequest::setTrustedProxies(['10.10.0.2'], 0);
 
-        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2', 'HTTP_HOST' => 'central.example.test'])
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.0.2'])
             ->withHeaders([
                 'Forwarded' => 'for=192.0.2.60;host=central.example.test;host=attacker.example.test',
             ])
-            ->getJson('/api/v1/platform-health')
+            ->getJson('https://central.example.test/api/v1/platform-health')
             ->assertNotFound();
     }
 
@@ -176,9 +172,9 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $deviceId = $this->createDevice($tenantId, (int) $user->getKey());
         $token = $user->createToken('security-feature-test')->plainTextToken;
 
-        $this->withServerVariables(['HTTP_HOST' => $domain])->withHeaders(['X-Device-ID' => $deviceId])
+        $this->withHeaders(['X-Device-ID' => $deviceId])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS')
+            ->getJson('https://'.$domain.'/api/v1/tenant/context?service=POS')
             ->assertOk()
             ->assertExactJson([
                 'tenant_id' => $tenantId,
@@ -193,11 +189,11 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $user = $this->createUser($this->tenantIds[0]);
         $deviceId = $this->createDevice($this->tenantIds[0], (int) $user->getKey());
 
-        $this->withServerVariables(['HTTP_HOST' => $domain])->withHeaders([
+        $this->withHeaders([
             'X-Device-ID' => $deviceId,
             'X-Publishable-Key' => 'public-but-not-an-identity',
         ])
-            ->getJson('/api/v1/tenant/context?service=POS')
+            ->getJson('https://'.$domain.'/api/v1/tenant/context?service=POS')
             ->assertUnauthorized();
     }
 
@@ -209,21 +205,21 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $deviceId = $this->createDevice($tenantA, (int) $user->getKey());
         $token = $user->createToken('selector-test')->plainTextToken;
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantB])
+        $this->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantB])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS')
+            ->getJson('https://'.$domainA.'/api/v1/tenant/context?service=POS')
             ->assertNotFound()
             ->assertDontSee($tenantB);
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
+        $this->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS&domain='.urlencode($domainB))
+            ->getJson('https://'.$domainA.'/api/v1/tenant/context?service=POS&domain='.urlencode($domainB))
             ->assertNotFound()
             ->assertDontSee($domainB);
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
+        $this->withHeaders(['X-Device-ID' => $deviceId, 'X-Tenant-ID' => $tenantA])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS&tenant_id='.urlencode($tenantB))
+            ->getJson('https://'.$domainA.'/api/v1/tenant/context?service=POS&tenant_id='.urlencode($tenantB))
             ->assertNotFound()
             ->assertDontSee($tenantB);
     }
@@ -237,9 +233,9 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $deviceB = $this->createDevice($tenantB, (int) $userB->getKey());
         $tokenA = $userA->createToken('device-owner-a')->plainTextToken;
 
-        $this->withServerVariables(['HTTP_HOST' => $domainA])->withHeaders(['X-Device-ID' => $deviceB])
+        $this->withHeaders(['X-Device-ID' => $deviceB])
             ->withToken($tokenA)
-            ->getJson('/api/v1/tenant/context?service=POS')
+            ->getJson('https://'.$domainA.'/api/v1/tenant/context?service=POS')
             ->assertNotFound()
             ->assertDontSee($tenantB);
     }
@@ -251,14 +247,14 @@ class HostTenantBoundaryPostgresTest extends TestCase
         $deviceId = $this->createDevice($tenantId, (int) $user->getKey());
         $token = $user->createToken('malformed-selectors')->plainTextToken;
 
-        $this->withServerVariables(['HTTP_HOST' => $domain])->withHeaders(['X-Device-ID' => $deviceId])
+        $this->withHeaders(['X-Device-ID' => $deviceId])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service%5B%5D=POS')
+            ->getJson('https://'.$domain.'/api/v1/tenant/context?service%5B%5D=POS')
             ->assertNotFound();
 
-        $this->withServerVariables(['HTTP_HOST' => $domain])->withHeaders(['X-Device-ID' => 'device A,device B'])
+        $this->withHeaders(['X-Device-ID' => 'device A,device B'])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS')
+            ->getJson('https://'.$domain.'/api/v1/tenant/context?service=POS')
             ->assertNotFound();
     }
 
@@ -374,9 +370,9 @@ class HostTenantBoundaryPostgresTest extends TestCase
 
     private function tenantRequest(string $host, string $deviceId, string $token)
     {
-        return $this->withServerVariables(['HTTP_HOST' => $host])->withHeaders(['X-Device-ID' => $deviceId])
+        return $this->withHeaders(['X-Device-ID' => $deviceId])
             ->withToken($token)
-            ->getJson('/api/v1/tenant/context?service=POS');
+            ->getJson('https://'.$host.'/api/v1/tenant/context?service=POS');
     }
 
     /**
