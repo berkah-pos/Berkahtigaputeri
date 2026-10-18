@@ -29,7 +29,7 @@ Current `main` commit `371b7fdf0bf672b37ceb1023e647f114221bf797` has no GitHub A
 - Matrix-file commit recorded by the GitHub API before this report was added: `1973250557eac736e5bbc063574c0f04e8cf7dc3`.
 - The commit adding the report and the final branch tip are reflected in the draft PR’s current head metadata; the final handoff records the exact final SHA. A report cannot embed its own commit hash without changing the commit, so use the immutable PR head/commit page as the branch revision pointer.
 - No source, migration, workflow, ADR or permanent architecture document was edited in this workstream. No CI was triggered by this report, and no local test/build command was run here.
-- PR: to be opened as a **draft** against `main`; this report is a recommendation and is not a request to merge or release.
+- PR: [#80 — release scope and governance audit](https://github.com/berkah-pos/Berkahtigaputeri/pull/80) is open as a **draft** against `main`; this report is a recommendation and is not a request to merge or release.
 
 ## 3. Authority documents and inspection scope
 
