@@ -1,0 +1,144 @@
+name: Phase 5 Flutter Transition Checks
+
+on:
+  pull_request:
+    paths:
+      - "pos-app/**"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/export_workbook_for_laravel.py"
+      - "scripts/verify_flutter_config_parity.py"
+      - "scripts/tests/test_flutter_config_parity.py"
+      - ".github/workflows/phase5-flutter-transition-ci.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "pos-app/**"
+      - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
+      - "scripts/export_workbook_for_laravel.py"
+      - "scripts/verify_flutter_config_parity.py"
+      - "scripts/tests/test_flutter_config_parity.py"
+      - ".github/workflows/phase5-flutter-transition-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase5-flutter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Flutter analysis, tests, and canonical harness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Prepare report directory
+        shell: bash
+        run: mkdir -p "$RUNNER_TEMP/phase5-logs"
+
+      - name: Install workbook validator dependencies
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 -m pip install --disable-pip-version-check openpyxl 2>&1 | tee "$RUNNER_TEMP/phase5-logs/python-dependencies.txt"
+
+      - name: Validate canonical workbook and parity harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/export_workbook_for_laravel.py --validate-only 2>&1 | tee "$RUNNER_TEMP/phase5-logs/workbook-validation.txt"
+          python3 scripts/test_canonical_workbook_contract.py 2>&1 | tee "$RUNNER_TEMP/phase5-logs/workbook-tests.txt"
+          python3 scripts/tests/test_flutter_config_parity.py 2>&1 | tee "$RUNNER_TEMP/phase5-logs/parity-harness-tests.txt"
+
+      - name: Check forbidden Flutter raw config-table fallback
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R -n -E "from[[:space:]]*\\([[:space:]]*['\\\"]app_config['\\\"]" pos-app/lib --include='*.dart'; then
+            echo "ERROR: Direct app_config table access is forbidden in Flutter."
+            exit 1
+          fi
+          echo "PASS: no raw app_config table fallback found in pos-app/lib."
+
+      - name: Set up Java 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install Flutter stable from official distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/flutter-sdk.tar.xz"
+          python3 - "$archive" <<'PY'
+          import hashlib
+          import json
+          import pathlib
+          import shutil
+          import sys
+          import urllib.request
+          destination = pathlib.Path(sys.argv[1])
+          metadata_url = "https://storage.googleapis.com/flutter_infra_release/releases/releases_linux.json"
+          request = urllib.request.Request(metadata_url, headers={"User-Agent": "berkah-pos-phase5-ci"})
+          with urllib.request.urlopen(request, timeout=30) as response:
+              metadata = json.load(response)
+          releases = [entry for entry in metadata["releases"] if entry.get("channel") == "stable"]
+          if not releases:
+              raise SystemExit("No Flutter stable release found in official metadata.")
+          release = max(releases, key=lambda entry: entry.get("release_date", ""))
+          archive_path = release.get("archive", "")
+          expected = release.get("sha256", "").lower()
+          if not archive_path.startswith("stable/linux/flutter_linux_") or not archive_path.endswith("-stable.tar.xz"):
+              raise SystemExit("Unexpected official Flutter archive path.")
+          if len(expected) != 64:
+              raise SystemExit("Official Flutter metadata did not provide SHA-256.")
+          url = "https://storage.googleapis.com/flutter_infra_release/releases/" + archive_path
+          request = urllib.request.Request(url, headers={"User-Agent": "berkah-pos-phase5-ci"})
+          with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as output:
+              shutil.copyfileobj(response, output)
+          actual = hashlib.sha256(destination.read_bytes()).hexdigest()
+          if actual != expected:
+              raise SystemExit("Flutter archive SHA-256 mismatch.")
+          print("Verified official Flutter stable " + str(release.get("version", "unknown")) + " SHA256=" + actual)
+          PY
+          tar -xf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/flutter/bin/flutter" --version 2>&1 | tee "$RUNNER_TEMP/phase5-logs/flutter-version.txt"
+
+      - name: Resolve Flutter dependencies
+        shell: bash
+        working-directory: pos-app
+        run: |
+          set -o pipefail
+          flutter pub get 2>&1 | tee "$RUNNER_TEMP/phase5-logs/flutter-pub-get.txt"
+
+      - name: Run flutter analyze
+        if: always()
+        shell: bash
+        working-directory: pos-app
+        run: |
+          set -o pipefail
+          flutter analyze --no-pub 2>&1 | tee "$RUNNER_TEMP/phase5-logs/flutter-analyze.txt"
+
+      - name: Run flutter test
+        if: always()
+        shell: bash
+        working-directory: pos-app
+        run: |
+          set -o pipefail
+          flutter test --no-pub --reporter expanded 2>&1 | tee "$RUNNER_TEMP/phase5-logs/flutter-test.txt"
+
+      - name: Upload exact check output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: phase5-flutter-check-output
+          path: ${{ runner.temp }}/phase5-logs
+          if-no-files-found: warn
+          retention-days: 30

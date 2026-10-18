@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,6 +17,7 @@ void main() {
     final client = CentralApiClient(
       baseUrl: 'https://api.example.invalid',
       preferences: preferences,
+      secureStorage: const FlutterSecureStorage(),
     );
 
     await tester.pumpWidget(

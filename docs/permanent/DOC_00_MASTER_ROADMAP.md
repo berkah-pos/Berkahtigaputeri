@@ -1,14 +1,14 @@
 # Berkah POS — KVM2 Migration and Acceptance Roadmap
 
 **Status:** Active ordered rollout plan. No historical Supabase green report certifies this new architecture.
-**Architecture authorities:** root `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, and `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`.
+**Architecture authorities:** current-main `AGENTS.md`, `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`, and `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md`; current-main DOC_14 is subordinate implementation detail. This Phase 5 roadmap snapshot is superseded until rebased.
 
 ## Product goal
 
 Deliver a secure, offline-first POS and accounting SaaS:
 - Flutter/SQLite for local POS transactions and durable outbox;
 - Laravel 13.x / PHP 8.4 Central API and Filament 5.x administration (unless a reviewed ADR replaces this selection);
-- MariaDB 11.4 LTS central database plus physically isolated database per tenant on one private DB server;
+- PostgreSQL 17 central database plus a separate database and restricted runtime role per tenant on one private DB service;
 - Coolify deployment on the Hostinger KVM2 target;
 - a server-enforced subscription model, controlled tenant/device identity and durable cloud sync.
 
@@ -26,9 +26,9 @@ Keep the canonical workbook's 352-key inventory and the exact `GLOBAL -> TEMPLAT
 ## Phase 1 — Laravel foundation
 
 - Target stack per root AGENTS.md Section 3: Laravel 13.x, PHP 8.4, Sanctum, Filament 5.x, and Composer-locked/tested `stancl/tenancy` v3.10.x resolve in Composer. The inspected migration branch is not compliant yet; see the proposed stack-baseline ADR for review.
-- MariaDB 11.4 LTS supports the target central schema plus isolated tenant databases.
+- PostgreSQL 17 is the selected engine; prove the target central schema and per-tenant databases/roles in disposable environments.
 - Root Dockerfile, Compose, .env.example, health check `/up`, Coolify-ready environment and GitHub-hosted CI are present.
-- Central migrations run on a clean disposable MariaDB.
+- Central migrations run on a clean disposable PostgreSQL 17 environment.
 - CI boots the app and enumerates API routes.
 
 **Gate:** reproducible dependency installation and clean database migration.
@@ -36,7 +36,7 @@ Keep the canonical workbook's 352-key inventory and the exact `GLOBAL -> TEMPLAT
 ## Phase 2 — Tenant isolation and platform identity
 
 - Central tenant/domain/user/device/subscription records.
-- Tenant creation safely provisions a separate tenant DB inside the same private MariaDB server and applies tenant migrations.
+- Tenant creation safely provisions a separate tenant DB inside the same private PostgreSQL 17 service and applies tenant migrations.
 - Tenant domain routing is validated against central domain records.
 - API membership/device/subscription checks precede tenant DB initialization.
 - Central panel is restricted to active platform administrators.
@@ -96,7 +96,7 @@ Keep the canonical workbook's 352-key inventory and the exact `GLOBAL -> TEMPLAT
 ## Phase 8 — Hosted legacy retirement and cutover
 
 - Freeze old hosted Supabase writes before final export.
-- Verify full export checksums, counts and tenant ownership; compare against imported MariaDB records.
+- Verify full export checksums, counts and tenant ownership; compare against imported PostgreSQL records.
 - Exercise rollback by switching the mobile API base to the approved prior version or restoring pre-cutover service using the written runbook.
 - Obtain explicit data-retention and production cutover approval.
 - Only then revoke old backend secrets, disable hosted functions/jobs and request hosted project deletion through an authorized operator.

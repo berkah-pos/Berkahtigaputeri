@@ -11,6 +11,22 @@ import 'features/home/home_screen.dart';
 
 const String _centralApiBaseUrl =
     String.fromEnvironment('CENTRAL_API_BASE_URL');
+const String _configSourceModeName = String.fromEnvironment(
+  'CONFIG_SOURCE_MODE',
+  defaultValue: 'laravel',
+);
+const bool _configSourceKillSwitch = bool.fromEnvironment(
+  'CONFIG_SOURCE_KILL_SWITCH',
+  defaultValue: false,
+);
+const String _dualModeStartedAtUtc = String.fromEnvironment(
+  'CONFIG_DUAL_MODE_STARTED_AT_UTC',
+  defaultValue: '2026-10-15T00:00:00Z',
+);
+const String _dualModeDeadlineUtc = String.fromEnvironment(
+  'CONFIG_DUAL_MODE_DEADLINE_UTC',
+  defaultValue: '2026-11-12T00:00:00Z',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +50,14 @@ Future<void> main() async {
       secureStorage: const FlutterSecureStorage(),
     );
     await apiClient.hydrateSession();
-    configService = ConfigService(apiClient, preferences);
+    configService = ConfigService(
+      apiClient,
+      preferences,
+      sourceMode: ConfigSourceMode.parse(_configSourceModeName),
+      killSwitch: _configSourceKillSwitch,
+      dualModeStartedAt: DateTime.tryParse(_dualModeStartedAtUtc),
+      dualModeDeadline: DateTime.tryParse(_dualModeDeadlineUtc),
+    );
     cloudConfigurationMessage = '';
   }
 

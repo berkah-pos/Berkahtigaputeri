@@ -21,30 +21,26 @@ class CentralApiClient {
 
   final String baseUrl;
   final SharedPreferences preferences;
-  final FlutterSecureStorage? secureStorage;
+  final FlutterSecureStorage secureStorage;
   final http.Client _http;
   String? _cachedToken;
 
   CentralApiClient({
     required this.baseUrl,
     required this.preferences,
-    this.secureStorage,
+    required this.secureStorage,
     http.Client? httpClient,
   }) : _http = httpClient ?? http.Client();
 
   bool get hasSession => (_token ?? '').isNotEmpty;
 
-  String? get _token => _cachedToken ?? preferences.getString(_tokenKey);
+  String? get _token => _cachedToken;
 
   Future<void> hydrateSession() async {
-    final vault = secureStorage;
-    if (vault != null) {
-      _cachedToken = await vault.read(key: _tokenKey);
-      // Never fall back to a legacy plain-text preference in production mode.
-      await preferences.remove(_tokenKey);
-    } else {
-      _cachedToken = preferences.getString(_tokenKey);
-    }
+    // Remove tokens written by earlier builds before reading the secure vault.
+    await preferences.remove(_tokenKey);
+    final token = (await secureStorage.read(key: _tokenKey))?.trim();
+    _cachedToken = token == null || token.isEmpty ? null : token;
   }
 
   Uri _uri(String path, [Map<String, String>? query]) {
@@ -77,14 +73,17 @@ class CentralApiClient {
         statusCode: response.statusCode,
       );
     }
-    _cachedToken = token;
-    final vault = secureStorage;
-    if (vault != null) {
-      await vault.write(key: _tokenKey, value: token);
-      await preferences.remove(_tokenKey);
-    } else {
-      await preferences.setString(_tokenKey, token);
+    // Publish an authenticated session only after secure persistence succeeds.
+    await preferences.remove(_tokenKey);
+    await secureStorage.write(key: _tokenKey, value: token);
+    final stored = await secureStorage.read(key: _tokenKey);
+    if (stored != token) {
+      await secureStorage.delete(key: _tokenKey);
+      throw const CentralApiException(
+        'Token tidak dapat diverifikasi pada secure storage.',
+      );
     }
+    _cachedToken = token;
   }
 
   Future<void> signOut() async {
@@ -100,8 +99,11 @@ class CentralApiClient {
       }
     } finally {
       _cachedToken = null;
-      await secureStorage?.delete(key: _tokenKey);
-      await preferences.remove(_tokenKey);
+      try {
+        await secureStorage.delete(key: _tokenKey);
+      } finally {
+        await preferences.remove(_tokenKey);
+      }
     }
   }
 
