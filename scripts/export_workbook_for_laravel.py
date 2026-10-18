@@ -6,10 +6,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
-from pathlib import Path
 import sys
-from typing import Any
+import tempfile
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Iterable
 
 from openpyxl import load_workbook
 
@@ -90,8 +93,77 @@ def parse_value(raw: Any, key: str) -> dict[str, Any]:
     return parsed
 
 
+
+
+def _assert_exact_inventory(
+    label: str,
+    expected: Iterable[Any],
+    actual: Iterable[Any],
+    *,
+    exception_type: type[Exception] = RuntimeError,
+) -> None:
+    expected_set = set(expected)
+    actual_set = set(actual)
+    missing = expected_set - actual_set
+    extra = actual_set - expected_set
+    if missing or extra:
+        missing_sample = sorted(str(value) for value in missing)[:10]
+        extra_sample = sorted(str(value) for value in extra)[:10]
+        raise exception_type(
+            f"Exact inventory mismatch for {label}; "
+            f"missing={missing_sample}; extra={extra_sample}"
+        )
+
+
+def canonical_manifest_bytes(manifest: dict[str, Any]) -> bytes:
+    """Return the one canonical UTF-8 representation used for hashing and export."""
+    encoded = json.dumps(
+        manifest,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    return (encoded + "\n").encode("utf-8")
+
+
+def _atomic_write_bytes(destination: Path, content: bytes) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+            delete=False,
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            temporary.write(content)
+            temporary.flush()
+            os.fsync(temporary.fileno())
+        os.replace(temporary_path, destination)
+        temporary_path = None
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
+def write_manifest(manifest: dict[str, Any], output: Path) -> str:
+    """Write canonical manifest bytes and a detached SHA-256 checksum sidecar."""
+    output = Path(output)
+    payload = canonical_manifest_bytes(manifest)
+    digest = hashlib.sha256(payload).hexdigest()
+    _atomic_write_bytes(output, payload)
+    checksum_path = output.with_name(output.name + ".sha256")
+    _atomic_write_bytes(checksum_path, f"{digest}  {output.name}\n".encode("ascii"))
+    return digest
+
+
 def build_manifest(workbook: Path) -> dict[str, Any]:
-    wb = load_workbook(workbook, data_only=True, read_only=True)
+    workbook_bytes = workbook.read_bytes()
+    source_sha256 = hashlib.sha256(workbook_bytes).hexdigest()
+    wb = load_workbook(BytesIO(workbook_bytes), data_only=True, read_only=True)
     try:
         if wb.sheetnames != EXPECTED_SHEETS:
             raise ValueError(
@@ -182,9 +254,6 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             raise ValueError(f"Unknown canonical key prefixes: {sorted(unknown)[:10]}")
 
         keyset_md5 = hashlib.md5("\n".join(sorted(keys)).encode("utf-8")).hexdigest()
-        if keyset_md5 != EXPECTED_KEYSET_MD5:
-            raise ValueError(f"Keyset hash mismatch: {keyset_md5}")
-
         template_ids = {
             normalized_identifier(row.get("template_id") or row.get("template"), "TEMPLATES.template_id", uppercase=True)
             for row in templates
@@ -262,10 +331,18 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         expected_keys.update(f"tenant:{tenant_id}" for tenant_id in tenant_ids)
         expected_keys.update(f"tenant:{tenant_id}:service:{service}" for tenant_id, service in service_pairs)
         expected_keys.update(f"device:{device_id}" for device_id in seen_devices)
-        if keys != expected_keys:
-            missing = sorted(expected_keys - keys)
-            extra = sorted(keys - expected_keys)
-            raise ValueError(f"Relational sheet/export key mismatch; missing={missing[:5]}, extra={extra[:5]}")
+        _assert_exact_inventory(
+            "APP_CONFIG_EXPORT versus relational sheet scopes",
+            expected_keys,
+            keys,
+            exception_type=ValueError,
+        )
+        if keyset_md5 != EXPECTED_KEYSET_MD5:
+            raise ValueError(f"Keyset hash mismatch: {keyset_md5}")
+
+        tenants.sort(key=lambda row: row["tenant_id"])
+        services.sort(key=lambda row: (row["tenant_id"], row["service"]))
+        devices.sort(key=lambda row: row["device_id"])
 
         template_payload = [
             {"id": template_id, "config": by_key[f"template:{template_id}"]["config"]}
@@ -278,6 +355,7 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         return {
             "schema_version": 1,
             "source_workbook": workbook.name,
+            "source_sha256": source_sha256,
             "counts": counts,
             "keyset_md5": keyset_md5,
             "global_config": global_config,
@@ -298,12 +376,22 @@ def main() -> int:
     args = parser.parse_args()
     try:
         manifest = build_manifest(args.workbook)
-        print(f"PASS: {sum(manifest['counts'].values())} keys; counts={manifest['counts']}; keyset_md5={manifest['keyset_md5']}")
+        encoded_manifest = canonical_manifest_bytes(manifest)
+        manifest_sha256 = hashlib.sha256(encoded_manifest).hexdigest()
+        print(
+            f"PASS: {sum(manifest['counts'].values())} keys; "
+            f"counts={manifest['counts']}; keyset_md5={manifest['keyset_md5']}; "
+            f"source_sha256={manifest['source_sha256']}; manifest_sha256={manifest_sha256}"
+        )
         if args.validate_only:
             return 0
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        print(f"Wrote local import manifest: {args.output}")
+        actual_digest = write_manifest(manifest, args.output)
+        if actual_digest != manifest_sha256:
+            raise RuntimeError("Manifest digest changed between validation and writing.")
+        print(
+            f"Wrote local import manifest: {args.output}; "
+            f"SHA-256={actual_digest}; checksum={args.output.name}.sha256"
+        )
         return 0
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

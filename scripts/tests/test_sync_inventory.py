@@ -2,7 +2,7 @@
 
 import unittest
 
-from scripts.sync_excel_to_supabase_legacy import _assert_exact_inventory
+from scripts.export_workbook_for_laravel import _assert_exact_inventory
 
 
 class ExactInventoryTests(unittest.TestCase):
