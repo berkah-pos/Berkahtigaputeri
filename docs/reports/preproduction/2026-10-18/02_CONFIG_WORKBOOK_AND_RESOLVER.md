@@ -27,7 +27,7 @@ No database synchronization, database query, migration, or production write was 
 | Workbook blob at base | cb8775f498487eece091c32b2774f45daa183afd |
 | Files changed in-scope | scripts/export_workbook_for_laravel.py; added scripts/test_canonical_workbook_contract.py; this report |
 | Files deliberately not changed | Workbook .xlsx, Laravel resolver/importer, workflow YAML, ADRs, DOC_00, Supabase scripts |
-| PR | To be recorded after the draft PR is opened; no merge or approval is authorized by this workstream. |
+| PR | Draft PR #78: https://github.com/berkah-pos/Berkahtigaputeri/pull/78; no merge or approval is authorized by this workstream. |
 
 Repository clone was attempted with:
 
