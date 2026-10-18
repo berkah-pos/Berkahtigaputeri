@@ -215,7 +215,7 @@ jobs:
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
 
       - name: Build production image from the committed lock
-        run: docker build --pull --target production --tag "$PROD_IMAGE" .
+        run: docker build --pull --target production --build-arg VCS_REF="$GITHUB_SHA" --tag "$PROD_IMAGE" .
 
       - name: Smoke-test production image HTTP health and API route
         shell: bash
