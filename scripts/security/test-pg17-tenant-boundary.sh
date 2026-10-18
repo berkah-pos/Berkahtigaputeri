@@ -257,7 +257,7 @@ SELECT r.rolname AS default_privilege_owner, g.rolname AS grantee, d.defaclobjty
 SQL
 
 A_RUNTIME_PASS="$(cat "$SECRETS/runtime-a")"
-A_PRODUCT_ID="$(psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -Atc "INSERT INTO products(sku,quantity) VALUES ('runtime-a-crud',3) RETURNING id")"
+A_PRODUCT_ID="$(psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -Atc "WITH inserted AS (INSERT INTO products(sku,quantity) VALUES ('runtime-a-crud',3) RETURNING id) SELECT id FROM inserted")"
 [[ "$A_PRODUCT_ID" =~ ^[0-9]+$ ]]
 psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -c "UPDATE products SET quantity=8 WHERE id=$A_PRODUCT_ID" >/dev/null
 assert_eq "tenant A own update" "8" "$(psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -Atc "SELECT quantity FROM products WHERE id=$A_PRODUCT_ID")"
