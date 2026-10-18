@@ -19,6 +19,7 @@ on:
       - ".env.example"
       - "docker-compose.yml"
       - "docker/**"
+      - "scripts/ops/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
@@ -41,6 +42,7 @@ on:
       - ".env.example"
       - "docker-compose.yml"
       - "docker/**"
+      - "scripts/ops/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
@@ -129,6 +131,7 @@ jobs:
 
       - name: Validate local Compose and isolated PostgreSQL runtime roles
         env:
+          APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
           PG_BOOTSTRAP_USERNAME: postgres
           PG_BOOTSTRAP_PASSWORD: ci-bootstrap-only
           CENTRAL_DB_DATABASE: berkahpos_central
