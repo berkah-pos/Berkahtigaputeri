@@ -712,5 +712,15 @@ try {
     $sqlState = $error instanceof PDOException && is_array($error->errorInfo)
         ? (string) ($error->errorInfo[0] ?? 'N/A')
         : 'N/A';
-    failClosed('operation rejected or unable to complete safely', $sqlState);
+
+    // PDO exceptions can contain SQL or server diagnostic details, so never echo them.
+    // Application validation/state errors are static messages authored above; redact
+    // any long token/verifier pattern as a defence in depth before emitting the reason.
+    $reason = 'unexpected error class ' . (new ReflectionClass($error))->getShortName();
+    if ($error instanceof InvalidArgumentException || $error instanceof RuntimeException) {
+        $reason = preg_replace('/[\\x00-\\x1F\\x7F]/', ' ', $error->getMessage()) ?? 'request rejected';
+        $reason = preg_replace('/SCRAM-SHA-256\\$[^[:space:]]+/', '[SCRAM_VERIFIER_REDACTED]', $reason) ?? 'request rejected';
+        $reason = preg_replace('/[A-Fa-f0-9]{64,}/', '[LONG_TOKEN_REDACTED]', $reason) ?? 'request rejected';
+    }
+    failClosed($reason, $sqlState);
 }
