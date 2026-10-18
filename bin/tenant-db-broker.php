@@ -192,6 +192,7 @@ function connectBroker(): PDO
 
     assertBrokerCentralAcl($pdo);
     assertBrokerMemberships($pdo);
+    assertBrokerTenantConnectBoundaries($pdo);
 
     return $pdo;
 }
@@ -330,6 +331,55 @@ function assertBrokerCentralAcl(PDO $pdo): void
  * Only unfinished, tenant-specific SET memberships from berkah_role_admin are accepted.
  * This is an allowlist, not a denylist of known PostgreSQL predefined roles.
  */
+/**
+ * Refuse privilege drift that would let the provisioner CONNECT to any ready tenant DB.
+ * The only permitted exception is a database tied to a durable, unfinished intent,
+ * with the exact expected owner, role memberships and pre-create/provisioning marker.
+ */
+function assertBrokerTenantConnectBoundaries(PDO $pdo): void
+{
+    $unexpected = row(
+        $pdo,
+        "SELECT d.datname
+           FROM pg_database d
+          WHERE left(d.datname, length('berkahpos_t_')) = 'berkahpos_t_'
+            AND has_database_privilege(current_user, d.datname, 'CONNECT')
+            AND NOT EXISTS (
+                SELECT 1
+                  FROM provisioning.tenant_provisioning_intents i
+                 WHERE i.database_name = d.datname
+                   AND i.owner_role = 'berkah_owner_' || lower(i.tenant_id)
+                   AND i.state IN ('database_intent', 'provisioning')
+                   AND EXISTS (
+                       SELECT 1 FROM pg_auth_members m
+                       JOIN pg_roles member ON member.oid = m.member
+                       JOIN pg_roles granted ON granted.oid = m.roleid
+                       WHERE member.rolname = current_user AND granted.rolname = i.owner_role
+                   )
+                   AND EXISTS (
+                       SELECT 1 FROM pg_auth_members m
+                       JOIN pg_roles member ON member.oid = m.member
+                       JOIN pg_roles granted ON granted.oid = m.roleid
+                       WHERE member.rolname = current_user
+                         AND granted.rolname = 'berkah_migrator_' || lower(i.tenant_id)
+                   )
+                   AND pg_get_userbyid(d.datdba) = i.owner_role
+                   AND (
+                       (i.state = 'database_intent' AND NOT d.datallowconn
+                        AND shobj_description(d.oid, 'pg_database') IS NULL)
+                       OR
+                       (i.state = 'provisioning' AND d.datallowconn
+                        AND shobj_description(d.oid, 'pg_database') =
+                            'berkah-pos:tenant-db:v1;tenant=' || i.tenant_id || ';state=provisioning')
+                   )
+            )
+          LIMIT 1"
+    );
+    if ($unexpected !== null) {
+        throw new RuntimeException('Broker has CONNECT access to an unapproved tenant database.');
+    }
+}
+
 function assertBrokerMemberships(PDO $pdo): void
 {
     $memberships = query(

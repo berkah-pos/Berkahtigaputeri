@@ -14,11 +14,13 @@ B_ID="01ARZ3NDEKTSV4RRFFQ69G5FAW"
 C_ID="01ARZ3NDEKTSV4RRFFQ69G5FAX"
 D_ID="01ARZ3NDEKTSV4RRFFQ69G5FAY"
 E_ID="01ARZ3NDEKTSV4RRFFQ69G5FAZ"
+F_ID="01ARZ3NDEKTSV4RRFFQ69G5FB0"
 A_DB="berkahpos_t_${A_ID,,}"
 B_DB="berkahpos_t_${B_ID,,}"
 C_DB="berkahpos_t_${C_ID,,}"
 D_DB="berkahpos_t_${D_ID,,}"
 E_DB="berkahpos_t_${E_ID,,}"
+F_DB="berkahpos_t_${F_ID,,}"
 C_OWNER="berkah_owner_${C_ID,,}"
 C_RUNTIME="berkah_runtime_${C_ID,,}"
 C_MIGRATOR="berkah_migrator_${C_ID,,}"
@@ -34,7 +36,7 @@ make_secret() {
   openssl rand -hex 32 > "$SECRETS/$name"
   chmod 600 "$SECRETS/$name"
 }
-for name in broker central runtime-a migrator-a runtime-b migrator-b runtime-c migrator-c runtime-d migrator-d runtime-e migrator-e; do
+for name in broker central runtime-a migrator-a runtime-b migrator-b runtime-c migrator-c runtime-d migrator-d runtime-e migrator-e runtime-f migrator-f; do
   make_secret "$name"
 done
 
@@ -229,6 +231,13 @@ run_broker finalize "$D_ID"
 assert_eq "retrying finalization does not duplicate database" "1" "$(psql_super postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='$D_DB'")"
 run_broker finalize "$A_ID"
 run_broker finalize "$B_ID"
+
+# A ready-tenant CONNECT grant to the broker must be detected on any later broker entry.
+psql_super postgres -c "GRANT CONNECT ON DATABASE \"$A_DB\" TO berkah_provisioner" >/dev/null
+expect_denied "broker refuses CONNECT drift on a ready tenant DB" 'FAIL CLOSED' \
+  run_broker provision "$F_ID" --runtime-password-file=/run/secrets/runtime-f --migrator-password-file=/run/secrets/migrator-f
+psql_super postgres -c "REVOKE CONNECT ON DATABASE \"$A_DB\" FROM berkah_provisioner" >/dev/null
+assert_eq "CONNECT drift did not create tenant F database" "0" "$(psql_super postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='$F_DB'")"
 
 printf '%s\n' '--- Redacted pg_roles / database ownership transcript ---'
 psql_super postgres <<SQL
