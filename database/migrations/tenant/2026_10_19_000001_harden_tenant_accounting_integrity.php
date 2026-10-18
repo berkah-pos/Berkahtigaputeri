@@ -544,7 +544,7 @@ return new class extends Migration
             "CREATE CONSTRAINT TRIGGER btp_posted_journal_integrity_lines AFTER INSERT OR UPDATE OR DELETE ON journal_lines DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_posted_journal_integrity()",
 
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_assert_sale_event_integrity() RETURNS trigger AS $
+            CREATE OR REPLACE FUNCTION btp_assert_sale_event_integrity() RETURNS trigger AS $btp$
             DECLARE
               event_key text;
               sale_row sales%ROWTYPE;
@@ -700,7 +700,7 @@ return new class extends Migration
               END IF;
               RETURN NULL;
             END;
-            $ LANGUAGE plpgsql
+            $btp$ LANGUAGE plpgsql
             SQL,
             "CREATE CONSTRAINT TRIGGER btp_sale_integrity_sales AFTER INSERT OR UPDATE OR DELETE ON sales DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
             "CREATE CONSTRAINT TRIGGER btp_sale_integrity_items AFTER INSERT OR UPDATE OR DELETE ON sale_items DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
