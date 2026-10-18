@@ -17,6 +17,24 @@ return new class extends Migration
             throw new RuntimeException('Accounting integrity requires PostgreSQL 17; wrong database driver.');
         }
 
+        // Fail before any DDL if prior business transactions need an explicit,
+        // reconciled migration. Never retrofit triggers and then silently accept
+        // history whose posted/stock/event state cannot be proven.
+        foreach (['sales', 'sale_items', 'inventory_movements', 'journal_entries', 'journal_lines', 'sync_receipts'] as $table) {
+            if ($db->table($table)->exists()) {
+                throw new RuntimeException("Migration stopped: existing {$table} records require a separate owner-approved offline reconciliation and migration plan.");
+            }
+        }
+
+        if ($db->table('inventory_lots')->whereRaw('quantity_remaining <> quantity_received')->exists()) {
+            throw new RuntimeException('Migration stopped: existing lot balances differ from received quantities and cannot be reconciled without source movement history.');
+        }
+
+        if (Schema::connection('tenant')->hasTable('inventory_cost_layers')
+            && $db->table('inventory_cost_layers')->exists()) {
+            throw new RuntimeException('Migration stopped: existing cost layers require an explicit migration and reconciliation plan.');
+        }
+
         foreach ([
             ['products', 'price'],
             ['inventory_lots', 'unit_cost'],
@@ -35,10 +53,6 @@ return new class extends Migration
             if ($fractional) {
                 throw new RuntimeException("Migration stopped: {$table}.{$column} contains fractional Rupiah. Reconcile the owner-controlled offline data before migration.");
             }
-        }
-
-        if ($db->table('journal_entries')->exists() || $db->table('journal_lines')->exists()) {
-            throw new RuntimeException('Migration stopped: existing journal rows cannot be safely classified as draft/posted from schema alone. Reconcile and certify an offline migration before applying this migration.');
         }
 
         Schema::connection('tenant')->create('chart_of_accounts', function (Blueprint $table): void {
@@ -208,6 +222,21 @@ return new class extends Migration
             $table->index(['product_id', 'acquired_at', 'id'], 'cost_layers_fifo_idx');
         });
 
+        // Preserve reconciled opening lots by creating matching FIFO layers.
+        // The preflight above guarantees no historical movement/sale requires
+        // interpretation; changed lot balances were rejected.
+        $db->unprepared(<<<'SQL'
+            INSERT INTO inventory_cost_layers (
+                id, product_id, lot_id, source_event_id, quantity_received,
+                quantity_remaining, unit_cost, acquired_at, created_at, updated_at
+            )
+            SELECT
+                'opening:' || id, product_id, id, NULL, quantity_received,
+                quantity_remaining, unit_cost, received_at AT TIME ZONE 'UTC',
+                now(), now()
+            FROM inventory_lots
+        SQL);
+
         Schema::connection('tenant')->create('sale_lot_allocations', function (Blueprint $table): void {
             $table->bigInteger('sale_item_id');
             $table->unsignedInteger('allocation_no');
@@ -253,7 +282,18 @@ return new class extends Migration
               ADD CONSTRAINT cost_layer_quantities_valid CHECK (quantity_received > 0 AND quantity_remaining >= 0 AND quantity_remaining <= quantity_received),
               ADD CONSTRAINT cost_layer_unit_cost_nonnegative CHECK (unit_cost >= 0);
             ALTER TABLE sale_items
-              ADD CONSTRAINT sale_item_money_nonnegative CHECK (unit_price >= 0 AND line_total >= 0 AND cogs_amount >= 0);
+              ADD CONSTRAINT sale_item_money_nonnegative CHECK (unit_price >= 0 AND line_total >= 0 AND cogs_amount >= 0),
+              ADD CONSTRAINT sale_item_quantity_positive_integer CHECK (quantity > 0 AND quantity = trunc(quantity)),
+              ADD CONSTRAINT sale_item_line_total_integrity CHECK (line_total = unit_price * quantity);
+            ALTER TABLE sale_lot_allocations
+              ADD CONSTRAINT sale_lot_allocation_quantity_valid CHECK (quantity > 0 AND quantity = trunc(quantity));
+            ALTER TABLE cost_layer_consumptions
+              ADD CONSTRAINT cost_consumption_values_valid CHECK (quantity > 0 AND quantity = trunc(quantity) AND unit_cost >= 0 AND total_cost = quantity * unit_cost);
+            ALTER TABLE inventory_movements
+              ADD CONSTRAINT sale_out_movement_valid CHECK (
+                movement_type <> 'sale_out'
+                OR (source_event_id IS NOT NULL AND movement_key IS NOT NULL AND lot_id IS NOT NULL AND quantity < 0 AND quantity = trunc(quantity))
+              );
             ALTER TABLE accounting_periods
               ADD CONSTRAINT period_month_is_first CHECK (period_month = date_trunc('month', period_month)::date),
               ADD CONSTRAINT period_status_valid CHECK (status IN ('open', 'closed')),
@@ -304,7 +344,7 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_locked_coa_guard BEFORE INSERT OR UPDATE OR DELETE ON chart_of_accounts FOR EACH ROW EXECUTE FUNCTION btp_guard_locked_coa()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $
             DECLARE owner_name text;
             BEGIN
               SELECT pg_get_userbyid(datdba) INTO owner_name FROM pg_database WHERE datname = current_database();
@@ -313,15 +353,23 @@ return new class extends Migration
                 IF OLD.status = 'closed' THEN RAISE EXCEPTION 'Closed accounting period is immutable'; END IF;
                 RETURN OLD;
               END IF;
+              IF TG_OP = 'INSERT' THEN
+                IF NEW.status NOT IN ('open', 'closed') THEN RAISE EXCEPTION 'Invalid accounting period status'; END IF;
+                IF NEW.status = 'closed' AND (NEW.closed_at IS NULL OR COALESCE(NULLIF(NEW.closed_by, ''), '') = '') THEN
+                  RAISE EXCEPTION 'Closing a period requires closed_at and closed_by';
+                END IF;
+                RETURN NEW;
+              END IF;
               IF OLD.status = 'closed' THEN RAISE EXCEPTION 'Closed accounting period is immutable'; END IF;
+              IF NEW.status NOT IN ('open', 'closed') THEN RAISE EXCEPTION 'Invalid accounting period status'; END IF;
               IF NEW.status = 'closed' AND (NEW.closed_at IS NULL OR COALESCE(NULLIF(NEW.closed_by, ''), '') = '') THEN
                 RAISE EXCEPTION 'Closing a period requires closed_at and closed_by';
               END IF;
               RETURN NEW;
             END;
-            $$ LANGUAGE plpgsql
+            $ LANGUAGE plpgsql
             SQL,
-            "CREATE TRIGGER btp_period_close_guard BEFORE UPDATE OR DELETE ON accounting_periods FOR EACH ROW EXECUTE FUNCTION btp_guard_period_close()",
+            "CREATE TRIGGER btp_period_close_guard BEFORE INSERT OR UPDATE OR DELETE ON accounting_periods FOR EACH ROW EXECUTE FUNCTION btp_guard_period_close()",
             <<<'SQL'
             CREATE OR REPLACE FUNCTION btp_guard_journal_header() RETURNS trigger AS $$
             DECLARE period_status text;
@@ -375,7 +423,7 @@ return new class extends Migration
                 SELECT status, journal_date INTO parent_status, journal_day FROM journal_entries WHERE id = OLD.journal_entry_id;
                 IF parent_status = 'posted' THEN RAISE EXCEPTION 'Posted journal lines are immutable'; END IF;
               END IF;
-              SELECT status, journal_date INTO parent_status, journal_day FROM journal_entries WHERE id = target_id;
+              SELECT status, journal_date INTO parent_status, journal_day FROM journal_entries WHERE id = target_id FOR UPDATE;
               IF parent_status = 'posted' THEN RAISE EXCEPTION 'Posted journal lines are immutable'; END IF;
               IF journal_day IS NOT NULL THEN
                 SELECT status INTO period_status FROM accounting_periods
@@ -406,21 +454,85 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_inventory_quantity_guard BEFORE INSERT OR UPDATE ON inventory_lots FOR EACH ROW EXECUTE FUNCTION btp_guard_inventory_quantity()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_cost_layer_quantity() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION btp_guard_cost_layer_quantity() RETURNS trigger AS $
+            DECLARE lot_product text;
             BEGIN
               IF TG_OP = 'UPDATE' AND (NEW.product_id <> OLD.product_id OR NEW.lot_id <> OLD.lot_id) THEN
                 RAISE EXCEPTION 'Cost layer identity cannot change';
               END IF;
               PERFORM 1 FROM products WHERE id = NEW.product_id FOR UPDATE;
               IF NOT FOUND THEN RAISE EXCEPTION 'Cost layer references an unknown product'; END IF;
+              SELECT product_id INTO lot_product FROM inventory_lots WHERE id = NEW.lot_id FOR UPDATE;
+              IF NOT FOUND OR lot_product <> NEW.product_id THEN
+                RAISE EXCEPTION 'Cost layer lot must belong to the same product';
+              END IF;
               IF NEW.quantity_received <= 0 OR NEW.quantity_remaining < 0 OR NEW.quantity_remaining > NEW.quantity_received OR NEW.unit_cost < 0 THEN
                 RAISE EXCEPTION 'Cost layer invariant violated';
               END IF;
               RETURN NEW;
             END;
-            $$ LANGUAGE plpgsql
+            $ LANGUAGE plpgsql
             SQL,
             "CREATE TRIGGER btp_cost_layer_quantity_guard BEFORE INSERT OR UPDATE ON inventory_cost_layers FOR EACH ROW EXECUTE FUNCTION btp_guard_cost_layer_quantity()",
+
+            <<<'SQL'
+            CREATE OR REPLACE FUNCTION btp_guard_inventory_movement() RETURNS trigger AS $btpm$
+            DECLARE lot_product text;
+            BEGIN
+              IF NEW.lot_id IS NOT NULL THEN
+                SELECT product_id INTO lot_product FROM inventory_lots WHERE id = NEW.lot_id FOR UPDATE;
+                IF NOT FOUND OR lot_product <> NEW.product_id THEN
+                  RAISE EXCEPTION 'Inventory movement lot must belong to the same product';
+                END IF;
+              END IF;
+              IF NEW.movement_type = 'sale_out' THEN
+                IF NEW.source_event_id IS NULL OR NEW.movement_key IS NULL OR NEW.lot_id IS NULL
+                   OR NEW.quantity >= 0 OR NEW.quantity <> trunc(NEW.quantity) THEN
+                  RAISE EXCEPTION 'Sale-out movement requires an event, unique key, lot and negative whole-unit quantity';
+                END IF;
+              END IF;
+              RETURN NEW;
+            END;
+            $btpm$ LANGUAGE plpgsql
+            SQL,
+            "CREATE TRIGGER btp_inventory_movement_guard BEFORE INSERT OR UPDATE ON inventory_movements FOR EACH ROW EXECUTE FUNCTION btp_guard_inventory_movement()",
+            <<<'SQL'
+            CREATE OR REPLACE FUNCTION btp_guard_sale_lot_allocation() RETURNS trigger AS $btpa$
+            DECLARE expected_product text; lot_product text;
+            BEGIN
+              SELECT product_id INTO expected_product FROM sale_items WHERE id = NEW.sale_item_id FOR UPDATE;
+              IF NOT FOUND THEN RAISE EXCEPTION 'Lot allocation references an unknown sale item'; END IF;
+              SELECT product_id INTO lot_product FROM inventory_lots WHERE id = NEW.lot_id FOR UPDATE;
+              IF NOT FOUND OR lot_product <> expected_product THEN
+                RAISE EXCEPTION 'FEFO allocation lot must belong to the sale item product';
+              END IF;
+              IF NEW.quantity <= 0 OR NEW.quantity <> trunc(NEW.quantity) THEN
+                RAISE EXCEPTION 'FEFO allocation requires a positive whole-unit quantity';
+              END IF;
+              RETURN NEW;
+            END;
+            $btpa$ LANGUAGE plpgsql
+            SQL,
+            "CREATE TRIGGER btp_sale_lot_allocation_guard BEFORE INSERT OR UPDATE ON sale_lot_allocations FOR EACH ROW EXECUTE FUNCTION btp_guard_sale_lot_allocation()",
+            <<<'SQL'
+            CREATE OR REPLACE FUNCTION btp_guard_cost_layer_consumption() RETURNS trigger AS $btpc$
+            DECLARE expected_product text; layer_product text;
+            BEGIN
+              SELECT product_id INTO expected_product FROM sale_items WHERE id = NEW.sale_item_id FOR UPDATE;
+              IF NOT FOUND THEN RAISE EXCEPTION 'FIFO consumption references an unknown sale item'; END IF;
+              SELECT product_id INTO layer_product FROM inventory_cost_layers WHERE id = NEW.cost_layer_id FOR UPDATE;
+              IF NOT FOUND OR layer_product <> expected_product THEN
+                RAISE EXCEPTION 'FIFO cost layer must belong to the sale item product';
+              END IF;
+              IF NEW.quantity <= 0 OR NEW.quantity <> trunc(NEW.quantity)
+                 OR NEW.unit_cost < 0 OR NEW.total_cost <> NEW.quantity * NEW.unit_cost THEN
+                RAISE EXCEPTION 'FIFO consumption values are invalid';
+              END IF;
+              RETURN NEW;
+            END;
+            $btpc$ LANGUAGE plpgsql
+            SQL,
+            "CREATE TRIGGER btp_cost_layer_consumption_guard BEFORE INSERT OR UPDATE ON cost_layer_consumptions FOR EACH ROW EXECUTE FUNCTION btp_guard_cost_layer_consumption()",
             <<<'SQL'
             CREATE OR REPLACE FUNCTION btp_prevent_posted_mutation() RETURNS trigger AS $$
             BEGIN
@@ -743,6 +855,9 @@ return new class extends Migration
             'btp_inventory_movements_immutable',
             'btp_sale_items_immutable',
             'btp_sales_immutable',
+            'btp_cost_layer_consumption_guard',
+            'btp_sale_lot_allocation_guard',
+            'btp_inventory_movement_guard',
             'btp_cost_layer_quantity_guard',
             'btp_inventory_quantity_guard',
             'btp_journal_line_guard',
@@ -766,6 +881,9 @@ return new class extends Migration
                 'btp_inventory_movements_immutable' => 'inventory_movements',
                 'btp_sale_items_immutable' => 'sale_items',
                 'btp_sales_immutable' => 'sales',
+                'btp_cost_layer_consumption_guard' => 'cost_layer_consumptions',
+                'btp_sale_lot_allocation_guard' => 'sale_lot_allocations',
+                'btp_inventory_movement_guard' => 'inventory_movements',
                 'btp_cost_layer_quantity_guard' => 'inventory_cost_layers',
                 'btp_inventory_quantity_guard' => 'inventory_lots',
                 'btp_journal_line_guard' => 'journal_lines',
@@ -775,6 +893,9 @@ return new class extends Migration
             });
         }
         foreach ([
+            'btp_guard_cost_layer_consumption',
+            'btp_guard_sale_lot_allocation',
+            'btp_guard_inventory_movement',
             'btp_assert_sale_event_integrity',
             'btp_assert_posted_journal_integrity',
             'btp_prevent_posted_mutation',
@@ -797,8 +918,11 @@ return new class extends Migration
         $db->unprepared('DROP INDEX IF EXISTS inventory_movement_event_idx');
         $db->unprepared('DROP INDEX IF EXISTS accounting_period_status_idx');
         $db->unprepared('ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS inventory_movement_key_unique, DROP CONSTRAINT IF EXISTS inventory_movement_lot_fk, DROP CONSTRAINT IF EXISTS inventory_movement_product_fk');
-        $db->unprepared('ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_item_sale_fk, DROP CONSTRAINT IF EXISTS sale_item_product_fk, DROP CONSTRAINT IF EXISTS sale_item_money_nonnegative');
+        $db->unprepared('ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_item_sale_fk, DROP CONSTRAINT IF EXISTS sale_item_product_fk, DROP CONSTRAINT IF EXISTS sale_item_money_nonnegative, DROP CONSTRAINT IF EXISTS sale_item_quantity_positive_integer, DROP CONSTRAINT IF EXISTS sale_item_line_total_integrity');
         $db->unprepared('ALTER TABLE inventory_lots DROP CONSTRAINT IF EXISTS inventory_lot_product_fk, DROP CONSTRAINT IF EXISTS inventory_lot_quantities_valid, DROP CONSTRAINT IF EXISTS inventory_lot_cost_nonnegative');
+        $db->unprepared('ALTER TABLE sale_lot_allocations DROP CONSTRAINT IF EXISTS sale_lot_allocation_quantity_valid');
+        $db->unprepared('ALTER TABLE cost_layer_consumptions DROP CONSTRAINT IF EXISTS cost_consumption_values_valid');
+        $db->unprepared('ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS sale_out_movement_valid');
         $db->unprepared('ALTER TABLE journal_lines DROP CONSTRAINT IF EXISTS journal_lines_entry_fk, DROP CONSTRAINT IF EXISTS journal_lines_account_fk, DROP CONSTRAINT IF EXISTS journal_lines_entry_line_unique, DROP CONSTRAINT IF EXISTS journal_line_amounts_valid');
         $db->unprepared('ALTER TABLE journal_entries DROP CONSTRAINT IF EXISTS journal_reversal_fk, DROP CONSTRAINT IF EXISTS journal_reversal_not_self, DROP CONSTRAINT IF EXISTS journal_currency_idr, DROP CONSTRAINT IF EXISTS journal_type_valid, DROP CONSTRAINT IF EXISTS journal_status_valid');
         $db->unprepared('ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_currency_idr, DROP CONSTRAINT IF EXISTS sales_total_matches, DROP CONSTRAINT IF EXISTS sales_money_nonnegative');
