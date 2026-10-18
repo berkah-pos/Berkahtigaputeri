@@ -26,6 +26,8 @@ on:
       - "docs/runbooks/**"
       - "docs/evidence/templates/**"
       - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/reports/OPS_TARGET_AUDIT_2026-10-18.md"
+      - "docs/evidence/restore-2026-10-18.md"
   push:
     branches: ["**"]
     paths:
@@ -52,6 +54,8 @@ on:
       - "docs/runbooks/**"
       - "docs/evidence/templates/**"
       - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/reports/OPS_TARGET_AUDIT_2026-10-18.md"
+      - "docs/evidence/restore-2026-10-18.md"
   workflow_dispatch:
 
 permissions:
