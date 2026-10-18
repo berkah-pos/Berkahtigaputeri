@@ -11,7 +11,7 @@ source="berkah-pg-restore-source-${GITHUB_RUN_ID:-local}-${RANDOM}"
 target="berkah-pg-restore-target-${GITHUB_RUN_ID:-local}-${RANDOM}"
 pitr="berkah-pg-pitr-source-${GITHUB_RUN_ID:-local}-${RANDOM}"
 pitr_target="berkah-pg-pitr-target-${GITHUB_RUN_ID:-local}-${RANDOM}"
-started_epoch="$(date +%s)"
+started_ms="$(date +%s%3N)"
 
 cleanup() {
   docker rm -f "$source" "$target" "$pitr" "$pitr_target" >/dev/null 2>&1 || true
@@ -134,12 +134,12 @@ docker run -d --name "$target" --network none \
   -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=synthetic-target-only \
   postgres:17 >/dev/null
 wait_pg "$target"
-restore_started="$(date +%s)"
+restore_started_ms="$(date +%s%3N)"
 restore_db "$target" "$central" "$work/backups/central.dump"
 restore_db "$target" "$tenant_a" "$work/backups/tenant-a.dump"
 restore_db "$target" "$tenant_b" "$work/backups/tenant-b.dump"
-restore_finished="$(date +%s)"
-logical_restore_seconds=$((restore_finished - restore_started))
+restore_finished_ms="$(date +%s%3N)"
+logical_restore_ms=$((restore_finished_ms - restore_started_ms))
 
 tenant_inventory="$(exec_query "$target" "$central" "SELECT string_agg(tenant_id, ',' ORDER BY tenant_id) FROM tenant_registry")"
 test "$tenant_inventory" = "SYNTH_TENANT_A,SYNTH_TENANT_B" || fail "central registry mismatch after restore"
@@ -175,7 +175,7 @@ test "$single_restored" = "SYNTH_TENANT_A" || fail "single-tenant restore target
 
 echo "LOGICAL_RESTORE=PASS"
 echo "SOURCE_DATABASES=central+2_tenant"
-echo "LOGICAL_RESTORE_SECONDS=$logical_restore_seconds"
+echo "LOGICAL_RESTORE_MILLISECONDS=$logical_restore_ms"
 echo "SINGLE_TENANT_RESTORE=PASS"
 echo "SENTINEL_UNCHANGED=PASS"
 echo "OBJECT_PAYLOAD_CHECKSUMS=PASS"
@@ -225,7 +225,7 @@ test -f "$work/pitr-base/PG_VERSION" || fail "physical base backup missing PG_VE
 docker create --name "$pitr_target" --network none \
   -e PGDATA=/tmp/pitr-base -e RECOVERY_TARGET_TIME="$target_time" \
   -v "$pitr_wal:/tmp/wal:ro" --entrypoint /bin/bash postgres:17 \
-  -lc 'set -e; chown -R postgres:postgres "$PGDATA"; touch "$PGDATA/recovery.signal"; exec gosu postgres postgres -D "$PGDATA" -c "restore_command=cp /tmp/wal/%f %p" -c "recovery_target_time=$RECOVERY_TARGET_TIME" -c "recovery_target_inclusive=on" -c "recovery_target_action=promote" -c "archive_mode=off" -c "archive_command=" ' >/dev/null
+  -lc 'set -e; chown -R postgres:postgres "$PGDATA"; touch "$PGDATA/recovery.signal"; exec gosu postgres /usr/lib/postgresql/17/bin/postgres -D "$PGDATA" -c "restore_command=cp /tmp/wal/%f %p" -c "recovery_target_time=$RECOVERY_TARGET_TIME" -c "recovery_target_inclusive=on" -c "recovery_target_action=promote" -c "archive_mode=off" -c "archive_command=" ' >/dev/null
 docker cp "$work/pitr-base/." "$pitr_target:/tmp/pitr-base/"
 docker start "$pitr_target" >/dev/null
 
@@ -248,14 +248,14 @@ after_present="$(exec_query "$pitr_target" "$pitr_db" "SELECT count(*) FROM pitr
 test "$before_present" = "1" || fail "PITR omitted a committed marker before target time"
 test "$after_present" = "0" || fail "PITR retained a marker committed after target time"
 recovered_time="$(exec_query "$pitr_target" "$pitr_db" "SELECT pg_last_xact_replay_timestamp()::text")"
-elapsed=$(( $(date +%s) - started_epoch ))
+elapsed_ms=$(( $(date +%s%3N) - started_ms ))
 
 echo "PITR=PASS"
 echo "PITR_REQUESTED_TARGET_UTC=$target_time"
 echo "PITR_ACTUAL_LAST_REPLAYED_TX=$recovered_time"
 echo "PITR_ARCHIVED_WAL_SEGMENTS=$archive_count"
 echo "PITR_MARKER_BOUNDARY=PASS (before-target present; after-target absent)"
-echo "TOTAL_RECOVERY_TEST_SECONDS=$elapsed"
+echo "TOTAL_RECOVERY_TEST_MILLISECONDS=$elapsed_ms"
 echo "SCOPE_LIMIT=synthetic disposable PostgreSQL 17 logical restore and physical base+WAL PITR only; no off-host storage, real vault, Coolify state, production or business data validated"
 
 if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
@@ -265,8 +265,8 @@ if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
     echo "- Single-tenant restore to new DB; second-tenant sentinel unchanged: **PASS**"
     echo "- File/object payload checksum + synthetic recovery-key artifact checksum: **PASS**"
     echo "- Separate base-backup + WAL PITR marker boundary: **PASS**"
-    echo "- Logical restore seconds: $logical_restore_seconds"
-    echo "- Total recovery test seconds: $elapsed"
+    echo "- Logical restore duration: ${logical_restore_ms} ms"
+    echo "- Total recovery test duration: ${elapsed_ms} ms"
     echo "- Requested PITR UTC target: $target_time"
     echo "- Last replayed transaction timestamp: $recovered_time"
     echo "- Archived WAL segments observed: $archive_count"
