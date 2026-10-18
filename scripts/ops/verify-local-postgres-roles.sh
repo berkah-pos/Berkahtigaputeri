@@ -109,6 +109,22 @@ if docker exec -e PGPASSWORD=central-runtime-test-only "$container_name" \
   echo "Central runtime unexpectedly dropped a migration-owned table." >&2
   exit 1
 fi
+if docker exec -e PGPASSWORD=central-runtime-test-only "$container_name" \
+  psql -h 127.0.0.1 -U berkah_central_runtime -d "$central_db" -X -v ON_ERROR_STOP=1 \
+  -c "UPDATE ops_role_probe SET payload = 'mutated'" >/dev/null 2>&1; then
+  echo "Central runtime unexpectedly updated append-only default-grant table." >&2
+  exit 1
+fi
+if docker exec -e PGPASSWORD=central-runtime-test-only "$container_name" \
+  psql -h 127.0.0.1 -U berkah_central_runtime -d "$central_db" -X -v ON_ERROR_STOP=1 \
+  -c "DELETE FROM ops_role_probe" >/dev/null 2>&1; then
+  echo "Central runtime unexpectedly deleted append-only default-grant table rows." >&2
+  exit 1
+fi
+probe_count="$(docker exec -e PGPASSWORD=central-runtime-test-only "$container_name" \
+  psql -h 127.0.0.1 -U berkah_central_runtime -d "$central_db" -X -Atqc \
+  "SELECT count(*) FROM ops_role_probe WHERE payload = 'dml-ok'")"
+test "$probe_count" = "1"
 
 central_can_create_schema="$(docker exec -e PGPASSWORD=central-runtime-test-only "$container_name" \
   psql -h 127.0.0.1 -U berkah_central_runtime -d "$central_db" -X -Atqc \
