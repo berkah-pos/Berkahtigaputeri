@@ -1,6 +1,6 @@
 # Runbook — PostgreSQL 17 Backup, Restore, and Recovery Validation
 
-**Status: PLAN ONLY — NOT RUN / NOT VERIFIED.** This runbook is an operational procedure, not evidence of configured backups, successful restore, PITR, or an accepted RPO/RTO. The current owner ADR selects PostgreSQL 17 and prohibits all Supabase product/project access, including read-only access.
+**Status: PLANNING RUNBOOK — NOT EXECUTED against owner/off-host backup material or a Hostinger target.** A separate synthetic disposable PostgreSQL 17 CI drill passed logical restore of a synthetic central DB plus two tenant DBs, single-tenant restore with a sentinel, payload/fake-key artifact checksums and a separate base-backup/WAL PITR boundary test in [run 39116920068](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39116920068), repeated for the later candidate in [run 39117320619](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39117320619); see `docs/evidence/restore-2026-10-18.md` for exact scoped evidence. Those CI tests do not execute this runbook against off-host backups, real keys/object storage, a real registry/catalog snapshot or a Hostinger target. They do not validate any production backup or establish RPO/RTO. The current owner ADR selects PostgreSQL 17 and prohibits all Supabase product/project access, including read-only access.
 
 ## 1. Purpose and safety boundary
 
