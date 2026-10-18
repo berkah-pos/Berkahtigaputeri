@@ -190,14 +190,9 @@ echo "RESTORE_MANIFEST_END"
 pitr_wal="$work/wal"
 docker run -d --name "$pitr" --network none \
   -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=synthetic-pitr-only \
-  -v "$pitr_wal:/wal" postgres:17 >/dev/null
-wait_pg "$pitr"
-
-docker exec "$pitr" psql -U postgres -d postgres -X -v ON_ERROR_STOP=1 \
-  -c "ALTER SYSTEM SET archive_mode = 'on'" \
-  -c "ALTER SYSTEM SET archive_command = 'test ! -f /wal/%f && cp %p /wal/%f'" \
-  -c "ALTER SYSTEM SET archive_timeout = '1s'" >/dev/null
-docker exec -u postgres "$pitr" pg_ctl -D /var/lib/postgresql/data -m fast -w restart >/dev/null
+  -v "$pitr_wal:/wal" postgres:17 \
+  -c wal_level=replica -c archive_mode=on -c archive_timeout=1s \
+  -c "archive_command=test ! -f /wal/%f && cp %p /wal/%f" >/dev/null
 wait_pg "$pitr"
 archive_mode="$(exec_query "$pitr" postgres "SHOW archive_mode")"
 test "$archive_mode" = "on" || fail "PITR source archive_mode did not enable"
