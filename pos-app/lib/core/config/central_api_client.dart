@@ -14,6 +14,145 @@ class CentralApiException implements Exception {
   String toString() => message;
 }
 
+/// Strict, typed representation of the complete Laravel effective-config envelope.
+///
+/// Config values and scope/version metadata travel together into the durable cache.
+/// The caller's expected scope is checked before a response can be accepted.
+class EffectiveConfigResponse {
+  EffectiveConfigResponse({
+    required this.effectiveConfig,
+    required this.tenantId,
+    required this.deviceId,
+    required this.service,
+    required this.effectiveVersion,
+    required this.configHash,
+    required this.scopedHash,
+    required this.layerVersions,
+    required this.meta,
+  });
+
+  final Map<String, dynamic> effectiveConfig;
+  final String tenantId;
+  final String deviceId;
+  final String service;
+  final String effectiveVersion;
+  final String configHash;
+  final String scopedHash;
+  final Map<String, int> layerVersions;
+  final Map<String, dynamic> meta;
+
+  String get effectiveRevision => meta['effective_revision'] as String;
+  String get versionVector => meta['version_vector'] as String;
+  bool get deviceConfigMissing => meta['device_config_missing'] as bool;
+  Map<String, dynamic>? get subscription {
+    final value = meta['subscription'];
+    return value == null ? null : Map<String, dynamic>.from(value as Map);
+  }
+
+  factory EffectiveConfigResponse.fromJson(
+    Map<String, dynamic> json, {
+    required String expectedTenantId,
+    required String expectedDeviceId,
+    required String expectedService,
+  }) {
+    if (json['tenant_id'] != expectedTenantId ||
+        json['device_id'] != expectedDeviceId ||
+        json['service'] != expectedService) {
+      throw const FormatException(
+        'Effective configuration response does not match the requested scope.',
+      );
+    }
+
+    final rawConfig = json['effective_config'];
+    final rawMeta = json['meta'];
+    final rawLayerVersions = json['layer_versions'];
+    if (rawConfig is! Map || rawMeta is! Map || rawLayerVersions is! Map) {
+      throw const FormatException(
+        'Effective configuration response is missing its envelope or metadata.',
+      );
+    }
+    final meta = Map<String, dynamic>.from(rawMeta);
+    final effectiveVersion = _requiredString(
+      json['effective_version'],
+      'effective_version',
+    );
+    final configHash = _requiredHash(json['config_hash'], 'config_hash');
+    final scopedHash = _requiredHash(json['scoped_hash'], 'scoped_hash');
+
+    if (meta['effective_version'] != effectiveVersion ||
+        meta['config_hash'] != configHash ||
+        meta['scoped_hash'] != scopedHash) {
+      throw const FormatException(
+        'Effective configuration top-level and meta fields disagree.',
+      );
+    }
+    if (meta['effective_revision'] is! String ||
+        meta['version_vector'] is! String ||
+        meta['device_config_missing'] is! bool ||
+        (meta['subscription'] != null && meta['subscription'] is! Map) ||
+        meta['layer_versions'] is! Map) {
+      throw const FormatException(
+        'Effective configuration version metadata is incomplete or invalid.',
+      );
+    }
+
+    final nestedLayers = Map<String, dynamic>.from(meta['layer_versions'] as Map);
+    final layers = <String, int>{};
+    for (final name in const <String>[
+      'global', 'template', 'tenant', 'service', 'device',
+    ]) {
+      final topValue = rawLayerVersions[name];
+      final nestedValue = nestedLayers[name];
+      if (topValue is! num ||
+          nestedValue is! num ||
+          topValue.toInt() != topValue ||
+          nestedValue.toInt() != nestedValue ||
+          topValue.toInt() != nestedValue.toInt()) {
+        throw FormatException('Invalid or inconsistent layer version: ' + name);
+      }
+      layers[name] = topValue.toInt();
+    }
+
+    return EffectiveConfigResponse(
+      effectiveConfig: Map<String, dynamic>.from(rawConfig),
+      tenantId: expectedTenantId,
+      deviceId: expectedDeviceId,
+      service: expectedService,
+      effectiveVersion: effectiveVersion,
+      configHash: configHash,
+      scopedHash: scopedHash,
+      layerVersions: layers,
+      meta: meta,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'effective_config': effectiveConfig,
+        'effective_version': effectiveVersion,
+        'config_hash': configHash,
+        'scoped_hash': scopedHash,
+        'layer_versions': layerVersions,
+        'tenant_id': tenantId,
+        'device_id': deviceId,
+        'service': service,
+        'meta': meta,
+      };
+
+  static String _requiredString(dynamic value, String field) {
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('Missing or invalid ' + field + '.');
+    }
+    return value;
+  }
+
+  static String _requiredHash(dynamic value, String field) {
+    if (value is! String || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(value)) {
+      throw FormatException('Missing or invalid SHA-256 ' + field + '.');
+    }
+    return value.toLowerCase();
+  }
+}
+
 /// Authenticated client for the Laravel Central API. No Supabase client,
 /// public database credential, or client-side tenant table access is used.
 class CentralApiClient {
@@ -24,6 +163,9 @@ class CentralApiClient {
   final FlutterSecureStorage secureStorage;
   final http.Client _http;
   String? _cachedToken;
+
+  /// Invoked when the server rejects a previously stored bearer token.
+  void Function()? onSessionInvalidated;
 
   CentralApiClient({
     required this.baseUrl,
@@ -86,28 +228,44 @@ class CentralApiClient {
     _cachedToken = token;
   }
 
-  Future<void> signOut() async {
+  /// Clears the local session regardless of network outcome.
+  ///
+  /// Returns true only when the server confirmed logout (or rejected an already
+  /// invalid token). A failed remote request is never reported as successful
+  /// revocation even though the device copy is removed.
+  Future<bool> signOut() async {
     final token = _token;
+    var remoteRevocationConfirmed = token == null || token.isEmpty;
     try {
       if (token != null && token.isNotEmpty) {
-        await _http
+        final response = await _http
             .post(
               _uri('/api/v1/auth/logout'),
               headers: _headers(token),
             )
             .timeout(const Duration(seconds: 10));
+        remoteRevocationConfirmed =
+            (response.statusCode >= 200 && response.statusCode < 300) ||
+            response.statusCode == 401;
       }
+    } catch (_) {
+      remoteRevocationConfirmed = false;
     } finally {
-      _cachedToken = null;
-      try {
-        await secureStorage.delete(key: _tokenKey);
-      } finally {
-        await preferences.remove(_tokenKey);
-      }
+      await _clearLocalSession();
+    }
+    return remoteRevocationConfirmed;
+  }
+
+  Future<void> _clearLocalSession() async {
+    _cachedToken = null;
+    try {
+      await secureStorage.delete(key: _tokenKey);
+    } finally {
+      await preferences.remove(_tokenKey);
     }
   }
 
-  Future<Map<String, dynamic>> getEffectiveConfig({
+  Future<EffectiveConfigResponse> getEffectiveConfig({
     required String tenantId,
     required String deviceId,
     required String service,
@@ -130,14 +288,36 @@ class CentralApiClient {
         .timeout(const Duration(seconds: 20));
     final body = _decodeResponse(response);
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 401) {
+        // A rejected bearer token is not a cacheable outage. Drop local copies
+        // and let the app return to its login route before propagating the 401.
+        try {
+          await _clearLocalSession();
+        } catch (_) {
+          // Preserve the authoritative 401 even if the OS credential vault fails.
+        }
+        onSessionInvalidated?.call();
+      }
       throw CentralApiException(
         _errorMessage(body, 'Konfigurasi ditolak oleh Laravel Central API.'),
         statusCode: response.statusCode,
       );
     }
-    final value = body['effective_config'] ?? body;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    throw const CentralApiException('Respons konfigurasi tidak valid.');
+    try {
+      return EffectiveConfigResponse.fromJson(
+        body,
+        expectedTenantId: tenantId,
+        expectedDeviceId: deviceId,
+        expectedService: service,
+      );
+    } catch (_) {
+      // Any parse/type failure from a 2xx payload is a contract failure, not a
+      // transport outage: ConfigService must not silently serve stale data.
+      throw CentralApiException(
+        'Respons konfigurasi atau metadata versi/hash tidak valid.',
+        statusCode: response.statusCode,
+      );
+    }
   }
 
   Map<String, String> _headers(String token) => {

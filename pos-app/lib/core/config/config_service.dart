@@ -1,4 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:http/http.dart' show ClientException;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,26 +79,36 @@ class TenantFeatures {
 }
 
 class EffectiveConfigResult {
-  final Map<String, dynamic> value;
+  final EffectiveConfigResponse response;
   final bool fromCache;
   final ConfigSourceMode sourceMode;
   final bool parityVerified;
 
   const EffectiveConfigResult({
-    required this.value,
+    required this.response,
     required this.fromCache,
     this.sourceMode = ConfigSourceMode.laravel,
     this.parityVerified = false,
   });
+
+  Map<String, dynamic> get value => response.effectiveConfig;
+  String get effectiveVersion => response.effectiveVersion;
+  String get configHash => response.configHash;
+  String get scopedHash => response.scopedHash;
+  Map<String, int> get layerVersions => response.layerVersions;
+  String get effectiveRevision => response.effectiveRevision;
+  String get versionVector => response.versionVector;
+  bool get deviceConfigMissing => response.deviceConfigMissing;
+  Map<String, dynamic>? get subscription => response.subscription;
 }
 
 class _CachedEffectiveConfig {
   const _CachedEffectiveConfig({
-    required this.value,
+    required this.response,
     required this.parityVerified,
   });
 
-  final Map<String, dynamic> value;
+  final EffectiveConfigResponse response;
   final bool parityVerified;
 }
 
@@ -167,10 +181,20 @@ class ConfigService {
     _validateScope(tenantId: tenantId, deviceId: deviceId, service: service);
     // Expiry dominates even a cached-parity result under the emergency kill switch.
     if (sourceMode == ConfigSourceMode.dual) _validateDualWindow();
-    final cacheKey = _effectiveCacheKey(tenantId, deviceId, service);
+    final cacheKey = _effectiveCacheKey(
+      tenantId,
+      deviceId,
+      service,
+      sourceMode.name,
+    );
 
     if (killSwitch) {
-      final cached = _readFreshCache(cacheKey);
+      final cached = _readFreshCache(
+        cacheKey,
+        tenantId: tenantId,
+        deviceId: deviceId,
+        service: service,
+      );
       if (cached != null) {
         await _recordTelemetry(service: service, status: 'kill_switch_cache');
         return _cacheResult(cached);
@@ -188,29 +212,42 @@ class ConfigService {
             'A Laravel Central API login is required for effective configuration.',
           );
         }
+        EffectiveConfigResponse response;
         try {
-          final value = await _client.getEffectiveConfig(
+          response = await _client.getEffectiveConfig(
             tenantId: tenantId,
             deviceId: deviceId,
             service: service,
           );
-          await _writeCache(cacheKey, value, parityVerified: false);
-          await _recordTelemetry(service: service, status: 'laravel_resolved');
-          return EffectiveConfigResult(
-            value: value,
-            fromCache: false,
-            sourceMode: sourceMode,
-          );
         } catch (error) {
-          if (error is CentralApiException &&
-              const <int>{401, 402, 403, 422}.contains(error.statusCode)) {
-            rethrow;
-          }
-          final cached = _readFreshCache(cacheKey);
+          if (!_isCacheFallbackEligible(error)) rethrow;
+          final cached = _readFreshCache(
+            cacheKey,
+            tenantId: tenantId,
+            deviceId: deviceId,
+            service: service,
+          );
           if (cached == null) rethrow;
           await _recordTelemetry(service: service, status: 'laravel_cache_fallback');
           return _cacheResult(cached);
         }
+
+        // Local cache/telemetry failures are not API outages and must never be
+        // converted into a stale-cache success by the transport fallback path.
+        await _writeCache(
+          cacheKey,
+          response,
+          tenantId: tenantId,
+          deviceId: deviceId,
+          service: service,
+          parityVerified: false,
+        );
+        await _recordTelemetry(service: service, status: 'laravel_resolved');
+        return EffectiveConfigResult(
+          response: response,
+          fromCache: false,
+          sourceMode: sourceMode,
+        );
 
       case ConfigSourceMode.dual:
         if (!_client.hasSession) {
@@ -227,7 +264,7 @@ class ConfigService {
         }
         // Neither source may silently win. Source failure or any value mismatch
         // fails closed, leaves the parity cache unchanged and blocks cutover.
-        final laravelValue = await _client.getEffectiveConfig(
+        final laravelResponse = await _client.getEffectiveConfig(
           tenantId: tenantId,
           deviceId: deviceId,
           service: service,
@@ -237,16 +274,24 @@ class ConfigService {
           deviceId: deviceId,
           service: service,
         );
-        if (_canonicalJson(laravelValue) != _canonicalJson(legacyValue)) {
+        if (_canonicalJson(laravelResponse.effectiveConfig) !=
+            _canonicalJson(legacyValue)) {
           await _recordTelemetry(service: service, status: 'parity_failed');
           throw ConfigParityException(service);
         }
-        await _writeCache(cacheKey, laravelValue, parityVerified: true);
+        await _writeCache(
+          cacheKey,
+          laravelResponse,
+          tenantId: tenantId,
+          deviceId: deviceId,
+          service: service,
+          parityVerified: true,
+        );
         await _recordTelemetry(
           service: service, status: 'parity_passed', parityVerified: true);
 
         return EffectiveConfigResult(
-          value: laravelValue,
+          response: laravelResponse,
           fromCache: false,
           sourceMode: sourceMode,
           parityVerified: true,
@@ -280,6 +325,19 @@ class ConfigService {
     }
   }
 
+  static bool _isCacheFallbackEligible(Object error) {
+    if (error is CentralApiException) {
+      final status = error.statusCode;
+      return status != null && status >= 500 && status < 600;
+    }
+
+    // Only failures that indicate a request could not complete can use the
+    // fresh exact-scope cache. Local persistence and programming errors bubble.
+    return error is TimeoutException ||
+        error is ClientException ||
+        error is IOException;
+  }
+
   static void _validateScope({
     required String tenantId,
     required String deviceId,
@@ -299,13 +357,19 @@ class ConfigService {
 
   Future<void> _writeCache(
     String cacheKey,
-    Map<String, dynamic> value, {
+    EffectiveConfigResponse response, {
+    required String tenantId,
+    required String deviceId,
+    required String service,
     required bool parityVerified,
   }) async {
     await _preferences.setString(
       cacheKey,
       jsonEncode(<String, dynamic>{
-        'value': value,
+        'response': response.toJson(),
+        'tenant_id': tenantId,
+        'device_id': deviceId,
+        'service': service,
         'cached_at_utc': _clock().toUtc().toIso8601String(),
         'source_mode': sourceMode.name,
         'parity_verified': parityVerified,
@@ -313,7 +377,12 @@ class ConfigService {
     );
   }
 
-  _CachedEffectiveConfig? _readFreshCache(String cacheKey) {
+  _CachedEffectiveConfig? _readFreshCache(
+    String cacheKey, {
+    required String tenantId,
+    required String deviceId,
+    required String service,
+  }) {
     final raw = _preferences.getString(cacheKey);
     if (raw == null) return null;
     try {
@@ -321,8 +390,11 @@ class ConfigService {
       if (decoded is! Map) return null;
       final envelope = Map<String, dynamic>.from(decoded);
       if (envelope['source_mode'] != sourceMode.name ||
+          envelope['tenant_id'] != tenantId ||
+          envelope['device_id'] != deviceId ||
+          envelope['service'] != service ||
           envelope['cached_at_utc'] is! String ||
-          envelope['value'] is! Map) {
+          envelope['response'] is! Map) {
         return null;
       }
       final parityVerified = envelope['parity_verified'] == true;
@@ -332,21 +404,30 @@ class ConfigService {
       final cachedAt = DateTime.tryParse(envelope['cached_at_utc'] as String);
       if (cachedAt == null) return null;
       final age = _clock().toUtc().difference(cachedAt.toUtc());
-      if (age.isNegative || age > cacheTtl) return null;
+      if (age.isNegative || age >= cacheTtl) return null;
+
+      final response = EffectiveConfigResponse.fromJson(
+        _asJsonMap(envelope['response']),
+        expectedTenantId: tenantId,
+        expectedDeviceId: deviceId,
+        expectedService: service,
+      );
       return _CachedEffectiveConfig(
-        value: _asJsonMap(envelope['value']),
+        response: response,
         parityVerified: parityVerified,
       );
     } on FormatException {
       return null;
     } on TypeError {
       return null;
+    } on ArgumentError {
+      return null;
     }
   }
 
   EffectiveConfigResult _cacheResult(_CachedEffectiveConfig cached) {
     return EffectiveConfigResult(
-      value: cached.value,
+      response: cached.response,
       fromCache: true,
       sourceMode: sourceMode,
       parityVerified: cached.parityVerified,
@@ -427,11 +508,13 @@ class ConfigService {
     String tenantId,
     String deviceId,
     String service,
+    String sourceMode,
   ) =>
       'central.effective.' +
       _cacheSegment(tenantId) + '.' +
       _cacheSegment(deviceId) + '.' +
-      _cacheSegment(service);
+      _cacheSegment(service) + '.' +
+      _cacheSegment(sourceMode);
 
   // Base64url has no period separator, so arbitrary IDs cannot collide across scopes.
   static String _cacheSegment(String value) =>

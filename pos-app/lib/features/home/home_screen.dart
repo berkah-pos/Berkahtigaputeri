@@ -232,7 +232,7 @@ class _DashboardScreenState extends State<_DashboardScreen> {
           (await db.rawQuery('SELECT COUNT(*) AS value FROM products'))
               .single['value']! as int;
       final pendingCount = (await db.rawQuery(
-        "SELECT COUNT(*) AS value FROM outbox_events WHERE status <> 'acknowledged'",
+        "SELECT COUNT(*) AS value FROM outbox_events WHERE status <> 'synced'",
       )).single['value']! as int;
       if (!mounted) return;
       setState(() {
