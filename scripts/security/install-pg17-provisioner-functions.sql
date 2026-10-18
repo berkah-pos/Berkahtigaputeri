@@ -39,6 +39,7 @@ DECLARE
     v_replication boolean;
     v_bypassrls boolean;
     v_inherit boolean;
+    v_connlimit integer;
 BEGIN
     SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit
       INTO v_login, v_super, v_createdb, v_createrole, v_replication, v_bypassrls, v_inherit
@@ -48,11 +49,11 @@ BEGIN
         RAISE EXCEPTION 'berkah_role_admin attributes violate the reviewed no-login function-owner contract';
     END IF;
 
-    SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit
-      INTO v_login, v_super, v_createdb, v_createrole, v_replication, v_bypassrls, v_inherit
+    SELECT rolcanlogin, rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit, rolconnlimit
+      INTO v_login, v_super, v_createdb, v_createrole, v_replication, v_bypassrls, v_inherit, v_connlimit
       FROM pg_roles WHERE rolname = 'berkah_provisioner';
     IF NOT FOUND OR NOT v_login OR v_super OR NOT v_createdb OR v_createrole
-       OR v_replication OR v_bypassrls OR v_inherit THEN
+       OR v_replication OR v_bypassrls OR v_inherit OR v_connlimit <> 3 THEN
         RAISE EXCEPTION 'berkah_provisioner attributes violate the reviewed CREATEDB-only broker contract';
     END IF;
 END

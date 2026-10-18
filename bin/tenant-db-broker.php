@@ -163,7 +163,7 @@ function connectBroker(): PDO
     $principal = row(
         $pdo,
         'SELECT current_user AS role_name, current_database() AS database_name,
-                rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit
+                rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit, rolconnlimit
            FROM pg_roles WHERE rolname = current_user'
     );
     if ($principal === null || $principal['role_name'] !== BROKER_ROLE
@@ -185,6 +185,9 @@ function connectBroker(): PDO
     }
     if ($identityViolations !== []) {
         throw new RuntimeException('Broker role catalog attributes violate the contract: ' . implode(',', $identityViolations));
+    }
+    if ((int) $principal['rolconnlimit'] !== 3) {
+        throw new RuntimeException('Broker connection limit must remain capped at three sessions.');
     }
 
     assertBrokerCentralAcl($pdo);
@@ -264,6 +267,15 @@ function verifyRole(PDO $pdo, string $name, string $tenantId, string $kind, bool
         ['role_name' => $name],
     ) !== null) {
         throw new RuntimeException('Tenant role is unexpectedly a member of another PostgreSQL role.');
+    }
+    $expectedConnLimit = match ($kind) {
+        'owner' => -1,
+        'runtime' => 30,
+        'migrator' => 3,
+        default => throw new InvalidArgumentException('Unknown tenant role kind.'),
+    };
+    if ((int) $role['rolconnlimit'] !== $expectedConnLimit) {
+        throw new RuntimeException('Tenant role connection limit violates the role contract.');
     }
 
     return $role;
