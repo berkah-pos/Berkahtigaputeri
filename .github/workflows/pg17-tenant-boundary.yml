@@ -66,7 +66,7 @@ jobs:
             echo "FAIL: broker connection credentials must not be passed to public app/queue configuration"
             exit 1
           fi
-          if ! grep -q "rolcreaterole.*'f'" bin/tenant-db-broker.php; then
+          if ! grep -q "'rolcreaterole' => false" bin/tenant-db-broker.php; then
             echo "FAIL: broker must enforce NOCREATEROLE at runtime"
             exit 1
           fi
