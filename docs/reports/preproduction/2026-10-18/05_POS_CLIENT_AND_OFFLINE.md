@@ -190,6 +190,7 @@ Tidak ada operasi database remote, secret rotation, deployment, perubahan DNS, p
 | pos-app/lib/features/pos/checkout_screen.dart | Cancel cart, stable retry identity, correct local-success status and post-commit callback warning |
 | pos-app/lib/features/home/reports_screen.dart | Label/icon status antrean lokal yang tidak menandakan cloud acknowledged |
 | pos-app/test/pos/checkout/payment_service_test.dart | Rollback fault injection, local concurrent checkout, file DB reopen/replay; analyzer warnings kemudian dibersihkan |
+| pos-app/test/home/cashier_screen_checkout_test.dart | Update success/status text expectations to match the truthful local-only checkout UI |
 | pos-app/test/pos/checkout/stable_checkout_request_factory_test.dart | Reuse/rotate/reset key unit tests |
 | docs/reports/preproduction/2026-10-18/05_POS_CLIENT_AND_OFFLINE.md | Laporan ini |
 
