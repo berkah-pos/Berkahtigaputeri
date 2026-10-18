@@ -8,7 +8,7 @@
 
 The selected platform authority requires PostgreSQL 17 with one central database and a separate database plus restricted runtime login for every tenant. RLS or tenancy-package presence is not a substitute for this boundary.
 
-Source inspection found a high-risk credential fallback: the tenant connection inherited CENTRAL_DB_USERNAME and CENTRAL_DB_PASSWORD when tenant-specific values were absent. The local Compose configuration explicitly reused the central identity (which defaults to postgres). That fallback has been removed on this branch and the CI preflight now asserts the tenant connection does not reference central credentials. Execution of the new PostgreSQL privilege tests is pending the exact-head GitHub Actions run.
+Source inspection found a high-risk credential fallback: the tenant connection inherited CENTRAL_DB_USERNAME and CENTRAL_DB_PASSWORD when tenant-specific values were absent. The local Compose configuration explicitly reused the central identity (which defaults to postgres). That fallback has been removed on this branch. On the current tested PR source head f84552c528a8abe07e242b2578e9451fcc285d8f, GitHub Actions run 39130938641 (run #165) completed SUCCESSFULLY. Its disposable PostgreSQL 17.11 harness passed with actual synthetic runtime logins for Tenant A/B own-tenant CRUD/sequence use, denied cross-tenant and central access, runtime DDL/role/database tampering, owner/role flags, default ACLs, PUBLIC privileges, function execution, and database/schema matrices. The tested PR merge checkout SHA was a84337de54edc58ceebccc257571c35e9feea506; the run's attempt number was not exposed by the available run metadata and is explicitly not asserted here. The complete workflow also passed its remaining dependency/migration/image/HTTP smoke steps.
 
 The larger release blocker remains open: a reviewed PostgreSQL provisioning broker and actual central/tenant runtime integration are not present in the inspected baseline. app/Console/Commands/ImportCanonicalWorkbook.php imports and calls App\Models\Central\Tenant, with a comment claiming Tenant::save() provisions a database, but app/Models/Central/Tenant.php and config/tenancy.php could not be found on the inspected baseline. No provisioner connection or reviewed role/grant implementation was found in config/database.php. The package lock and successful starter migration smoke do not close this gate.
 
@@ -19,9 +19,13 @@ The larger release blocker remains open: a reviewed PostgreSQL provisioning brok
 | Canonical repository | berkah-pos/Berkahtigaputeri |
 | Exact base SHA | 371b7fdf0bf672b37ceb1023e647f114221bf797 |
 | Working branch | audit/preprod-postgres-isolation-2026-10-18 |
-| Implementation head before this report was added | fe3dfce0c11b69030a702ea93db5b070451232a5 |
-| Final report-containing SHA / PR | Resolve from the final branch head and PR metadata; listed in the completion handoff because a commit cannot embed its own content-derived SHA |
-| PR | Pending creation at report drafting; expected to remain unmerged and reviewable |
+| Exact tested PR source head | f84552c528a8abe07e242b2578e9451fcc285d8f |
+| Tested PR merge checkout SHA | a84337de54edc58ceebccc257571c35e9feea506 |
+| Workflow | [Laravel PostgreSQL 17 Baseline — run #165 / ID 39130938641](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641) |
+| Workflow status | SUCCESS; disposable tenant-isolation step and artifact upload succeeded; remaining build and HTTP/image smoke steps also succeeded |
+| Workflow attempt | NOT RETURNED by the available workflow-run metadata; not inferred |
+| Test artifact | [pg17-tenant-isolation artifact #12137702221](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641/artifacts/12137702221); ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4 |
+| PR | [Draft PR #79](https://github.com/berkah-pos/Berkahtigaputeri/pull/79); open, unmerged |
 | Production changes | None |
 | Supabase | Not accessed or used |
 
@@ -42,7 +46,7 @@ Out of scope: changing accepted architecture, application authentication/API imp
 | bash scripts/security/verify_pg17_tenant_isolation.sh | Local container | NOT RUN | No local psql/service and Docker are unavailable. No local SQL result artifact exists. |
 | php artisan test | Local container | NOT RUN | PHP/vendor install and a disposable PostgreSQL target are not available in this environment. |
 
-The branch adds a CI test against the PostgreSQL 17 service. Until the corresponding run executes and its run ID, attempt, tested SHA, conclusion and artifact are inspected, every database assertion remains NOT RUN / NOT VERIFIED.
+TEST-EXECUTED: bash /security/verify_pg17_tenant_isolation.sh ran inside the workflow's loopback-only disposable PostgreSQL 17 service, with ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES, approved service marker, workflow run ID 39130938641, and merge checkout SHA a84337de54edc58ceebccc257571c35e9feea506. Target reported PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2). The script emitted RESULT: PASS and exited 0; workflow run #165 completed SUCCESS. Artifact: #12137702221, ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4. This is positive evidence for the synthetic PG privilege contract only, not acceptance of an application provisioning broker or tenant HTTP/worker boundaries. The exact run attempt number was not exposed by the connector and remains unverified.
 
 ## 4. Authoritative documents read
 
@@ -112,31 +116,31 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 
 | ID | Acceptance criterion | Status | Evidence / blocker |
 |---|---|---|---|
-| PGISO-01 | Actual server is PostgreSQL 17 on isolated disposable target | NOT RUN locally; CI pending | Local container lacks psql and Docker. New CI harness refuses non-loopback hosts and non-PG17 servers. |
-| PGISO-02 | One central DB and different DB per tenant; correct database owners | NOT RUN | Synthetic CI harness creates distinct central/A/B DBs with separate NOLOGIN owners; no CI result retrieved yet. |
-| PGISO-03 | Runtime role attributes, LOGIN, SUPERUSER, CREATEDB, CREATEROLE, REPLICATION, BYPASSRLS, INHERIT and role memberships | NOT RUN | Harness records sanitized pg_roles fields and asserts least privilege for runtime roles; no test output yet. |
-| PGISO-04 | PUBLIC CONNECT, database/schema/table/sequence grants, default privileges and function EXECUTE | NOT RUN | Harness tests PUBLIC ACLs, defaults for future tables/sequences, private function ACL, and expected grants/denials; no test output yet. |
-| PGISO-05 | Tenant A/B and central CONNECT denial | NOT RUN | Harness tests denied connection, then deliberately grants CONNECT only in disposable test DBs to verify second-layer schema/object denial; no test output yet. |
-| PGISO-06 | Tenant A own SELECT/INSERT/UPDATE/DELETE and sequence use; cross-tenant SELECT/INSERT/UPDATE/DELETE/sequence denied | NOT RUN | Synthetic runtime identities are used by the harness, not only the superuser; CI result pending. |
-| PGISO-07 | Runtime cannot create schema objects, create roles/databases, set SUPERUSER, or assume migrator | NOT RUN | Negative probes are in the harness; CI result pending. |
+| PGISO-01 | Actual server is PostgreSQL 17 on isolated disposable target | VERIFIED — harness environment only | Run 39130938641 reported PostgreSQL 17.11; loopback disposable service; harness exited 0. Local container itself still lacks psql/Docker. |
+| PGISO-02 | One central DB and different DB per tenant; correct database owners | VERIFIED — synthetic fixture only | Three distinct disposable databases were created; catalog output showed central/A/B databases owned by separate NOLOGIN roles. This does not verify app-side tenant provisioning. |
+| PGISO-03 | Runtime role attributes, LOGIN, SUPERUSER, CREATEDB, CREATEROLE, REPLICATION, BYPASSRLS, INHERIT and role memberships | VERIFIED — synthetic fixture only | Sanitized pg_roles output showed runtime roles LOGIN=true and SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS/INHERIT=false; owner roles NOLOGIN; role-membership oracles passed both directions. |
+| PGISO-04 | PUBLIC CONNECT, database/schema/table/sequence grants, default privileges and function EXECUTE | VERIFIED — synthetic fixture only | PUBLIC DB CONNECT, schema/table/sequence rights and default ACL checks passed for central/A/B. Private function PUBLIC EXECUTE was denied; future table and sequence defaults match intended runtime DML/sequence access. |
+| PGISO-05 | Tenant A/B and central CONNECT denial | VERIFIED — synthetic fixture only | Both runtimes were denied initial CONNECT to the other tenant and central DB. The harness then intentionally granted CONNECT only within disposable DBs; object/schema/sequence/function and central-data access still failed. |
+| PGISO-06 | Tenant A own SELECT/INSERT/UPDATE/DELETE and sequence use; cross-tenant SELECT/INSERT/UPDATE/DELETE/sequence denied | VERIFIED — synthetic fixture only | A and B completed own-DB SELECT/INSERT/UPDATE/DELETE and sequence use. Cross-tenant CRUD/sequence/function attempts failed as expected in both directions, including after accidental CONNECT grants. |
+| PGISO-07 | Runtime cannot create schema objects, create roles/databases, set SUPERUSER, or assume migrator | VERIFIED — synthetic fixture only | CREATE TABLE, CREATE ROLE, CREATE DATABASE, ALTER ROLE to SUPERUSER, SET ROLE to migrator all produced expected permission denials. |
 | PGISO-08 | Tenant name/DB-name manipulation and safe provisioning idempotency/concurrency/interruption | BLOCKED | No real application provisioner/job/state machine is implemented or available to test. |
 | PGISO-09 | Forged tenant/device/resource IDs, Host/X-Forwarded-Host, inactive domains/membership/subscription/device, direct API/RPC-like entry/replay | BLOCKED | Current API contains only a public platform-health route in the inspected baseline; actual authenticated tenant route/middleware implementation is not present for these end-to-end tests. |
 | PGISO-10 | Central reads use an explicit central connection; central models are bound to the central connection | PARTIAL / BLOCKED | ImportCanonicalWorkbook::importCentral() wraps a transaction in DB::connection('central'), and App\Models\Central\User declares $connection = 'central'. Other imported central models and App\Models\Central\Tenant could not be found at expected PSR-4 paths; no model-wide proof is available. |
 | PGISO-11 | Tenant context/connection/cache/path/guard reset on request failure and reused worker A→B | BLOCKED | Import command has a local try/finally Tenancy::end() around per-device work, but there is no verified worker integration suite or configured tenancy middleware. |
-| PGISO-12 | Tenant runtime never inherits central credentials | SOURCE FIX APPLIED; TEST EXECUTION PENDING | Branch removes central credential fallback from config/database.php and docker-compose.yml; CI preflight now asserts the tenant connection section has no central credential reference. |
-| PGISO-13 | Provisioner and runtime credentials are separated; only private provisioning service has elevated credentials | BLOCKED | No actual provisioner connection, service, environment separation proof or provisioning audit implementation was found. |
-| PGISO-14 | Exact-head CI and sanitized output artifact | PENDING | New step in .github/workflows/laravel-pg17-baseline.yml runs the disposable PG17 harness and uploads a redacted log. Record run ID, attempt, SHA, conclusion and artifact after execution. |
+| PGISO-12 | Tenant runtime never inherits central credentials | VERIFIED — source + CI guard | Fix is in config/database.php, .env.example and docker-compose.yml; static preflight passed on the tested source head. Runtime app DB switching still depends on a future broker/configuration implementation. |
+| PGISO-13 | Provisioner and runtime credentials are separated; only private provisioning service has elevated credentials | BLOCKED | No actual provisioner connection, service, environment separation proof or provisioning audit implementation was found. Synthetic roles are test fixtures only. |
+| PGISO-14 | Exact-head CI and sanitized output artifact | VERIFIED for run identity except attempt metadata | Workflow run #165 / ID 39130938641 completed SUCCESS on PR source head f84552c... and checkout merge SHA a84337de...; artifact #12137702221 uploaded with ZIP digest above. Attempt field was not returned by connector; note as a reporting limitation. |
 
 ## 8. Findings
 
-### P0-01 — Tenant connection inherited central credentials (mitigation on this branch; execution pending)
+### P0-01 — Tenant connection inherited central credentials (source fix applied and guarded in CI)
 
 - **Severity / confidence:** P0 release blocker; High confidence in source observation. No evidence establishes that this fallback was actually used in production.
 - **Base source:** config/database.php, tenant connection originally defaulted TENANT_DB_USERNAME to central/global username and TENANT_DB_PASSWORD to central/global password (base lines 25–26); docker-compose.yml also sourced both tenant values from the central identity (base lines 41–42). The base Compose central username default was postgres.
 - **Impact:** Any code path using the fallback could turn a tenant-scoped DB connection into the central database identity, potentially defeating the database-per-tenant security boundary and widening the consequences of injection or connection-switch bugs.
 - **Reproduction evidence:** SOURCE-VERIFIED from the exact base files. A live exploit or production configuration read was NOT RUN and is not claimed.
 - **Fix applied:** Tenant config now uses TENANT_DB_USERNAME with a non-privileged sentinel fallback and an empty password, never central values; Compose supplies separate invalid placeholders unless a tenant runtime login is deliberately configured; .env.example documents separate credentials. The CI preflight checks these assertions.
-- **Closure test:** Exact-head CI must pass the static guard and PG17 role/grant harness. The branch fix is not certified until these runs produce evidence.
+- **Closure test evidence:** The static guard passed on the tested source head in workflow run 39130938641. The PG17 harness also passed on that head. These observations certify the source fallback is removed and the generic grant harness passes; they do not prove any deployed app configuration or existing production secrets were read. The finding remains a P0 release risk until the real app broker/runtime configuration is implemented and tested with its actual scoped roles.
 
 ### P0-02 — No verifiable PostgreSQL provisioning broker / tenant model / tenant grant path
 
@@ -163,6 +167,15 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 - **Recommendation:** The Laravel/API owner must add the model mappings and central connection declarations, then the tenant/API workstream must implement server-derived authorization and HTTP/worker integration tests. Avoid competing implementation changes across scopes until routed by the coordinator.
 - **Closure test:** Assert every central model's $connection, send positive and hostile tenant/device/Host requests against disposable PG17, then process A and B jobs in one long-lived worker with exception/retry context reset.
 
+### P1-05 — PostgreSQL PUBLIC function EXECUTE must be revoked at the creator's global default ACL
+
+- **Severity / confidence:** P1 for the required provisioning contract; High confidence from executed disposable PostgreSQL 17.11 testing.
+- **Evidence:** The first harness iterations found that an ALTER DEFAULT PRIVILEGES ... IN SCHEMA ... REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC does not cancel the role-global default EXECUTE privilege. The negative oracle reported effective EXECUTE until the fixture revoked it globally for each object-creating role. The final tested run checked function ACL catalogs and ran an actual runtime call that was denied.
+- **Impact:** A future application broker that applies only schema-scoped revocation could accidentally leave newly created functions executable by PUBLIC, widening callable surface and potentially becoming a data-exposure or privilege-escalation path if a function is unsafe or SECURITY DEFINER.
+- **Fix applied to test contract:** The harness now applies ALTER DEFAULT PRIVILEGES FOR ROLE ... REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC globally for the synthetic central owner and tenant migrators; it tests resulting function ACLs and actual runtime denials.
+- **Residual risk:** No real app broker exists in the inspected baseline, so this is a required provisioning implementation rule, not a confirmed source fix to the product provisioner.
+- **Closure test:** When the application broker is implemented, independently verify its creator roles' global and per-schema default privileges for future tables, sequences and functions, using real PG17 runtime logins.
+
 ## 9. Changes made on this branch
 
 - config/database.php: removed fallback from tenant runtime username/password to central/global credentials; fail closed when a tenant-scoped user is not configured.
@@ -179,12 +192,13 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 | command -v psql | Tool container | 1 | NOT RUN: local psql missing |
 | command -v docker | Tool container | 1 | NOT RUN: local Docker missing |
 | git ls-remote ... HEAD | Tool container | 128 | Could not resolve github.com; source revision is instead pinned/verified through GitHub repository API |
-| CI static guard of tenant config | GitHub-hosted Ubuntu 24.04, PR/push workflow | PENDING | Exact run ID/attempt/SHA and log must be added after CI execution |
-| bash /security/verify_pg17_tenant_isolation.sh | Disposable postgres:17 CI service, loopback only | PENDING | Expected artifact: pg17-tenant-isolation.log; no result asserted yet |
-| php artisan test | GitHub-hosted CI image, if workflow reaches step | PENDING | Must be bound to exact branch head/run; separate from the privilege harness |
+| CI static guard of tenant config | GitHub-hosted Ubuntu 24.04, workflow run 39130938641 (#165), PR head f84552c... / tested merge checkout a84337de... | exit 0 / PASS | The static guard passed before the harness step. Workflow URL: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641 |
+| docker run ... postgres:17 bash /security/verify_pg17_tenant_isolation.sh | Disposable PostgreSQL 17.11 CI service, loopback only, synthetic runtime logins | exit 0 / PASS | RESULT: PASS; role/database/object/default-ACL matrices and negative denial probes logged. Artifact #12137702221, SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4 |
+| Whole workflow: Laravel PostgreSQL 17 Baseline | GitHub-hosted Ubuntu 24.04; run 39130938641 / #165 | exit 0 / SUCCESS | Harness step/upload, locked dependency/security audit, app boot/routes/tests, disposable central/tenant migrations, production image and HTTP health/API smoke all completed successfully. Attempt number not returned by connector. |
+| php artisan test within CI image | Same run; exact tested merge checkout SHA a84337de... | PASS as part of completed workflow | Test step completed success. This is not a tenant provisioning/API acceptance suite. |
 | Broker/provisioning, HTTP and worker integration tests | Disposable PostgreSQL 17 + app integration environment | BLOCKED / NOT RUN | Application broker/model/tenancy configuration not present in inspected baseline |
 
-For every eventual CI result, update this register with workflow name, run ID, attempt, tested SHA, status, URL and sanitized artifact path. A passing synthetic role harness will prove the contract exercised by that harness only; it will not close the absent application broker or HTTP/worker gates.
+Historical test-harness failures on earlier PR heads were corrected before run 39130938641: run 39129149824 exposed a mismatched role-denial assertion; run 39130223786 exposed the global default function EXECUTE issue; run 39130568857 exposed a shell-style comment inside a SQL heredoc; and an earlier matrix pass exposed a text/char cast error. These are superseded failures at earlier heads, not hidden or treated as passes. The latest source head's harness passed. The workflow metadata wrapper did not return attempt count, so that identity field remains unverified. A passing synthetic role harness proves only its fixture contract; it will not close the absent application broker or HTTP/worker gates.
 
 ## 11. Residual risk and dependencies
 
