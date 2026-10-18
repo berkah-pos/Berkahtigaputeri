@@ -344,7 +344,7 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_locked_coa_guard BEFORE INSERT OR UPDATE OR DELETE ON chart_of_accounts FOR EACH ROW EXECUTE FUNCTION btp_guard_locked_coa()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $
+            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $$
             DECLARE owner_name text;
             BEGIN
               SELECT pg_get_userbyid(datdba) INTO owner_name FROM pg_database WHERE datname = current_database();
@@ -454,7 +454,7 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_inventory_quantity_guard BEFORE INSERT OR UPDATE ON inventory_lots FOR EACH ROW EXECUTE FUNCTION btp_guard_inventory_quantity()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_cost_layer_quantity() RETURNS trigger AS $
+            CREATE OR REPLACE FUNCTION btp_guard_cost_layer_quantity() RETURNS trigger AS $$
             DECLARE lot_product text;
             BEGIN
               IF TG_OP = 'UPDATE' AND (NEW.product_id <> OLD.product_id OR NEW.lot_id <> OLD.lot_id) THEN
