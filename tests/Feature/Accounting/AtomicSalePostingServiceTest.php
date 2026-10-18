@@ -403,13 +403,15 @@ class AtomicSalePostingServiceTest extends TestCase
 
         foreach ($commands as $index => $command) {
             $appPath = base_path();
+            $autoloadLiteral = var_export($appPath.'/vendor/autoload.php', true);
+            $bootstrapLiteral = var_export($appPath.'/bootstrap/app.php', true);
             $commandEncoded = base64_encode(json_encode($command, JSON_THROW_ON_ERROR));
             $barrierLiteral = var_export($barrier, true);
             $commandLiteral = var_export($commandEncoded, true);
             $resultLiteral = var_export($resultPaths[$index], true);
             $script = <<<PHP
-require {$this->phpLiteral($appPath.'/vendor/autoload.php')};
-\$app = require {$this->phpLiteral($appPath.'/bootstrap/app.php')};
+require {$autoloadLiteral};
+\$app = require {$bootstrapLiteral};
 \$app->make(Illuminate\\Contracts\\Console\\Kernel::class)->bootstrap();
 \$tenant = config('database.connections.tenant');
 \$tenant['username'] = getenv('TENANT_RUNTIME_DB_USERNAME') ?: 'berkahpos_tenant_runtime_test';
@@ -639,8 +641,4 @@ PHP;
         return number_format((float) $value, 3, '.', '');
     }
 
-    private function phpLiteral(string $value): string
-    {
-        return var_export($value, true);
-    }
 }
