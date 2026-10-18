@@ -65,7 +65,7 @@ function row(PDO $pdo, string $sql, array $params = []): ?array
 
 function verifyTenantId(string $tenantId): void
 {
-    if (!preg_match('/^[0-9A-HJKMNP-TV-Z]{26}$/', $tenantId)) {
+    if (!preg_match('/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/', $tenantId)) {
         throw new InvalidArgumentException('Tenant ID must be a canonical 26-character ULID.');
     }
 }
@@ -187,23 +187,8 @@ function connectBroker(): PDO
         throw new RuntimeException('Broker role catalog attributes violate the contract: ' . implode(',', $identityViolations));
     }
 
-    $forbiddenMembership = row(
-        $pdo,
-        "SELECT 1
-           FROM pg_auth_members m
-           JOIN pg_roles member ON member.oid = m.member
-           JOIN pg_roles granted ON granted.oid = m.roleid
-          WHERE member.rolname = current_user
-            AND granted.rolname IN (
-              'pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files',
-              'pg_write_server_files', 'pg_execute_server_program', 'pg_monitor',
-              'pg_signal_backend', 'berkah_role_admin'
-            )
-          LIMIT 1"
-    );
-    if ($forbiddenMembership !== null) {
-        throw new RuntimeException('Broker has an unapproved privileged-role membership.');
-    }
+    assertBrokerCentralAcl($pdo);
+    assertBrokerMemberships($pdo);
 
     return $pdo;
 }
@@ -272,6 +257,14 @@ function verifyRole(PDO $pdo, string $name, string $tenantId, string $kind, bool
         || pgBool($role['rolbypassrls']) || pgBool($role['rolinherit'])) {
         throw new RuntimeException('Tenant role has unexpected PostgreSQL attributes.');
     }
+    if (row(
+        $pdo,
+        'SELECT 1 FROM pg_auth_members m JOIN pg_roles member ON member.oid = m.member
+          WHERE member.rolname = :role_name LIMIT 1',
+        ['role_name' => $name],
+    ) !== null) {
+        throw new RuntimeException('Tenant role is unexpectedly a member of another PostgreSQL role.');
+    }
 
     return $role;
 }
@@ -298,6 +291,109 @@ function databaseMeta(PDO $pdo, string $database): ?array
            FROM pg_database d WHERE d.datname = :database_name",
         ['database_name' => $database],
     );
+}
+
+function assertBrokerCentralAcl(PDO $pdo): void
+{
+    $centralAcl = row(
+        $pdo,
+        "SELECT
+             has_database_privilege('berkah_provisioner', d.datname, 'CONNECT') AS broker_connect,
+             COALESCE(bool_or(a.grantee = 0 AND a.privilege_type = 'CONNECT'), FALSE) AS public_connect,
+             COALESCE(bool_or(a.grantee = 0 AND a.privilege_type = 'TEMPORARY'), FALSE) AS public_temp
+           FROM pg_database d
+           LEFT JOIN LATERAL aclexplode(COALESCE(d.datacl, acldefault('d', d.datdba))) a ON TRUE
+          WHERE d.datname = 'berkahpos_central'
+          GROUP BY d.oid, d.datname"
+    );
+    if ($centralAcl === null
+        || pgBool($centralAcl['broker_connect'])
+        || pgBool($centralAcl['public_connect'])
+        || pgBool($centralAcl['public_temp'])) {
+        throw new RuntimeException('Central database is missing or exposes CONNECT/TEMPORARY to PUBLIC or the broker.');
+    }
+}
+
+/**
+ * Only unfinished, tenant-specific SET memberships from berkah_role_admin are accepted.
+ * This is an allowlist, not a denylist of known PostgreSQL predefined roles.
+ */
+function assertBrokerMemberships(PDO $pdo): void
+{
+    $memberships = query(
+        $pdo,
+        "SELECT granted.rolname AS role_name, granted.rolcanlogin, granted.rolsuper,
+                granted.rolcreatedb, granted.rolcreaterole, granted.rolreplication,
+                granted.rolbypassrls, granted.rolinherit, granted.rolconnlimit,
+                m.admin_option, m.inherit_option, m.set_option, grantor.rolname AS grantor_name,
+                shobj_description(granted.oid, 'pg_authid') AS role_comment
+           FROM pg_auth_members m
+           JOIN pg_roles member ON member.oid = m.member
+           JOIN pg_roles granted ON granted.oid = m.roleid
+           JOIN pg_roles grantor ON grantor.oid = m.grantor
+          WHERE member.rolname = current_user
+          ORDER BY granted.rolname"
+    )->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($memberships as $member) {
+        $comment = is_string($member['role_comment'] ?? null) ? $member['role_comment'] : '';
+        if (!preg_match(
+            '/^berkah-pos:tenant-role:v1;tenant=([0-7][0-9A-HJKMNP-TV-Z]{25});kind=(owner|migrator)$/',
+            $comment,
+            $matches
+        )) {
+            throw new RuntimeException('Broker has an unexpected PostgreSQL role membership.');
+        }
+
+        $tenantId = $matches[1];
+        $kind = $matches[2];
+        $names = namesFor($tenantId);
+        if ($member['role_name'] !== $names[$kind]
+            || $member['grantor_name'] !== 'berkah_role_admin'
+            || pgBool($member['admin_option'])
+            || pgBool($member['inherit_option'])
+            || !pgBool($member['set_option'])) {
+            throw new RuntimeException('Broker membership violates the tenant role/SET-only grant contract.');
+        }
+
+        $expectedLogin = $kind === 'migrator';
+        $expectedConnLimit = $kind === 'owner' ? -1 : 3;
+        if (pgBool($member['rolcanlogin']) !== $expectedLogin
+            || pgBool($member['rolsuper']) || pgBool($member['rolcreatedb'])
+            || pgBool($member['rolcreaterole']) || pgBool($member['rolreplication'])
+            || pgBool($member['rolbypassrls']) || pgBool($member['rolinherit'])
+            || (int) $member['rolconnlimit'] !== $expectedConnLimit) {
+            throw new RuntimeException('Broker membership target role has unexpected PostgreSQL attributes.');
+        }
+
+        $intent = row(
+            $pdo,
+            'SELECT tenant_id, database_name, owner_role, state
+               FROM provisioning.tenant_provisioning_intents WHERE tenant_id = :tenant_id',
+            ['tenant_id' => $tenantId],
+        );
+        if ($intent === null
+            || !in_array($intent['state'], ['database_intent', 'provisioning'], true)
+            || $intent['database_name'] !== $names['database']
+            || $intent['owner_role'] !== $names['owner']) {
+            throw new RuntimeException('Broker membership does not match an unfinished tenant provisioning intent.');
+        }
+
+        $database = databaseMeta($pdo, $names['database']);
+        if ($intent['state'] === 'database_intent') {
+            if ($database !== null
+                && ($database['owner_name'] !== $names['owner']
+                    || $database['database_comment'] !== null
+                    || pgBool($database['datallowconn']))) {
+                throw new RuntimeException('Unfinished pre-create tenant state is not safely closed/unmarked.');
+            }
+        } elseif ($database === null
+            || $database['owner_name'] !== $names['owner']
+            || $database['database_comment'] !== databaseComment($tenantId, 'provisioning')
+            || !pgBool($database['datallowconn'])) {
+            throw new RuntimeException('Unfinished tenant membership is not backed by a marked provisioning database.');
+        }
+    }
 }
 
 /** Database-wide PUBLIC ACL values from actual pg_database.datacl, not role-name pseudo-principals. */
