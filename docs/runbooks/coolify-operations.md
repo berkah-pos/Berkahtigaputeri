@@ -125,7 +125,7 @@ Current repository evidence does not establish a registry-backed immutable deplo
 |---|---|
 | Owner architecture / PostgreSQL 17 / no-Supabase authority | **SELECTED / BINDING** |
 | Local developer Compose topology, named PG volume and loopback port bindings | **SOURCE CONFIG PRESENT; NOT EXECUTED IN THIS AUDIT** |
-| Local PostgreSQL bootstrap/runtime privilege separation | **CANDIDATE CHANGE ADDED; CI EXECUTION REQUIRED** |
+| Local PostgreSQL bootstrap/runtime privilege separation | **DISPOSABLE CI ROLE FIXTURE PASS (run 39116920068 / 39117320619); production roles/provisioner NOT VERIFIED** |
 | Actual Ubuntu 24.04/KVM2/Coolify installation and host resource readings | **NOT RUN / NOT VERIFIED** |
 | Production Coolify services, persistent DB mounts, public listeners/firewall and admin access policy | **NOT PROVIDED / NOT VERIFIED** |
 | Production TLS, trusted proxy and host/header behavior | **NOT RUN / NOT VERIFIED** |
