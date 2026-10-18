@@ -610,7 +610,7 @@ function finalizeTenant(PDO $pdo, string $tenantId): void
 
     $tenant = connectTemporaryTenant($pdo, $tenantId, $names);
     try {
-        withRole($tenant, $names['migrator'], function () use ($tenant): void {
+        withRole($tenant, $names['migrator'], function () use ($tenant, $names): void {
             $required = ['migrations', 'products', 'sales', 'sync_receipts'];
             $statement = $tenant->query(
                 "SELECT table_name FROM information_schema.tables
