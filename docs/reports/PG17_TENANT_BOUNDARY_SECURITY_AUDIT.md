@@ -5,11 +5,15 @@
 **Scope:** PostgreSQL 17 roles/grants, isolated tenant provisioning, recovery, negative database-role tests.  
 **Data limits:** Synthetic tenant IDs and data only. The harness makes no Supabase connection, uses no MariaDB, and never targets hosted production/staging.
 
+**Latest executed candidate:** `c4a71a4a3a0e587c776bb16c96b027790bd4729e` (code under test; main remains `371b7fdf0bf672b37ceb1023e647f114221bf797`).
+**Exact-head CI evidence:** [PostgreSQL 17 workflow run #41 — SUCCESS](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39085362968) · [redacted run artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39085362968/artifacts/12120711758). The workflow used actual PostgreSQL `17.11`, not mocks. It passed PHP syntax/container build and every scripted database assertion, including broker CONNECT drift against a ready tenant DB.
+**This is not production certification:** application identity/host/domain/device/subscription/worker boundaries are absent or unverified, and live Coolify secret/network isolation was not inspected.
+
 ## Executive decision
 
-**OVERALL: FAIL — end-to-end tenant isolation is not certified.** The candidate adds a PostgreSQL-specific broker and a real-role integration suite, but the audited application baseline does not yet integrate this broker into a complete tenant request boundary. A passing database-only workflow is not approval to deploy the backend.
+**OVERALL: FAIL — release remains blocked; end-to-end tenant isolation is not certified.** The independent PostgreSQL 17 provisioning/ACL test suite is PASS at the exact code SHA above. That proves the tested role, database, schema, table, sequence, recovery and broker-drift cases inside a disposable PostgreSQL 17.11 service. It does not prove the production app’s identity boundary or live deployment configuration.
 
-At the audit anchor, routes/api.php exposes only a platform health route and routes/web.php exposes a root status page. No implemented domain/tenant/device authorization middleware, authenticated tenant business API, long-running queue tenant-context boundary, or connection from central identity records to the broker was found. These are missing controls, not presumptive passes.
+At main@371b7fdf0bf672b37ceb1023e647f114221bf797, `routes/api.php` exposes only `/api/v1/platform-health` and `routes/web.php` exposes a root status page. No implemented domain/tenant/device authorization middleware, authenticated tenant business API, long-running queue tenant-context boundary, or central identity-to-broker connection was found. The PG17 gate is green; those application/deployment gates remain open.
 
 ## STRIDE threat model
 
@@ -30,17 +34,17 @@ Central tenant, domain, subscription, device and principal records must be autho
 
 ### Role contract
 
-- **berkah_provisioner:** LOGIN, CREATEDB, NOCREATEROLE, NOSUPERUSER, NOREPLICATION, NOBYPASSRLS, NOINHERIT. CONNECT only to maintenance database postgres. No central database CONNECT.
+- **berkah_provisioner:** LOGIN, CREATEDB, NOCREATEROLE, NOSUPERUSER, NOREPLICATION, NOBYPASSRLS, NOINHERIT, connection limit 3. CONNECT only to maintenance database `postgres`; no central or ready-tenant CONNECT. On every broker entry, role/intent metadata and tenant database CONNECT access are validated, including drift against other ready tenants.
 - **berkah_role_admin:** NOLOGIN, CREATEROLE, NOCREATEDB, NOSUPERUSER, NOREPLICATION, NOBYPASSRLS, NOINHERIT. Owns the fixed-schema SECURITY DEFINER functions; it is not a web/queue login.
 - **berkah_owner_<ulid>:** non-login tenant database owner. Broker membership is temporary SET TRUE, ADMIN FALSE, INHERIT FALSE while provisioning.
-- **berkah_runtime_<ulid>:** login with no role/database creation, superuser, replication, bypass-RLS or inheritance privileges. Gets schema USAGE, explicit DML, sequence USAGE/SELECT, and CONNECT to its own database only.
-- **berkah_migrator_<ulid>:** login and schema CREATE only during migration. It receives CONNECT while provisioning; finalization disables login, revokes CONNECT and broker membership in the same transaction as the ready marker.
+- **berkah_runtime_<ulid>:** LOGIN with connection limit 30 and no role/database creation, superuser, replication, bypass-RLS or inheritance privileges. Gets schema USAGE, explicit DML, sequence USAGE/SELECT, and CONNECT to its own database only.
+- **berkah_migrator_<ulid>:** LOGIN with connection limit 3 during migration and schema CREATE only in its own tenant database. It receives CONNECT while provisioning; finalization sets NOLOGIN, revokes CONNECT and broker membership in the same transaction as the ready marker.
 
 The CLI takes only a canonical ULID and derives role/database identifiers. It does not accept caller-selected names. High-entropy ASCII-hex passwords are accepted only from mode-0600 mounted files. Before password-bearing DDL, the broker derives a SCRAM-SHA-256 verifier and sends only that verifier through prepared parameters. Thus DDL statement logs contain a verifier rather than a raw login secret. Operationally set log_parameter_max_length and log_parameter_max_length_on_error to zero where server policy allows. The test does not assume an ALTER SYSTEM reload succeeded; the essential control is that no raw password is ever interpolated into DDL.
 
 ### Web/ordinary queue separation
 
-Normal Docker Compose, app, route and queue configuration must not contain BROKER_DATABASE_* values. Only a private one-shot provisioning process may receive the broker secret. CI scans normal app/queue configuration, but that is **not proof of the live Coolify/container environment**. Production container environment and secret mounts remain NOT VERIFIED until inspected.
+Normal Docker Compose, app, route, and queue configuration must not contain broker/provisioner/migrator credential variables. The exact-head workflow’s recursive source/config scan passed on c4a71a4, and explicitly fails on grep/path errors. This proves only that the scanned tracked configuration does not contain those variable names; it is **not proof of the live Coolify/container environment**. Production environment variables, secret mounts, container ingress, and web/ordinary-queue separation remain NOT VERIFIED until inspected.
 
 ### Recovery and non-destruction
 
@@ -74,21 +78,28 @@ The harness generates synthetic high-entropy secrets under a mode-0700 temporary
 
 ## Gate register
 
-The following reflects the state at report authoring. Do not promote a gate from the presence of test code to PASS; update it only from the actual workflow output and catalog transcript.
+The statuses below distinguish executed evidence from source inspection and unverified deployment gates. CI evidence applies to the exact code SHA `c4a71a4a3a0e587c776bb16c96b027790bd4729e`, run [#41](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39085362968), with [redacted transcript artifact](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39085362968/artifacts/12120711758).
 
-| Gate | Decision at authoring | Evidence/status |
+| Gate | Decision | Evidence / limitation |
 |---|---|---|
-| Current source topology and app integration | **FAIL** | Complete authenticated tenant identity and database-selection path absent at pinned main. |
-| PG17 role attributes/memberships/database ownership | **NOT RUN / NOT VERIFIED** | Real PG17 workflow added; execution transcript not yet reviewed. |
-| PUBLIC CONNECT/TEMP, central access, schema/table/sequence/default ACLs | **NOT RUN / NOT VERIFIED** | Catalog assertions are in the harness; no execution result is claimed here. |
-| A→B CONNECT/SELECT/INSERT/UPDATE/DELETE/sequence | **NOT RUN / NOT VERIFIED** | Negative tests use real role logins; no execution result is claimed here. |
-| Manipulated DB names, collision and database preservation | **NOT RUN / NOT VERIFIED** | CLI, durable intent and collision tests added; no execution result is claimed here. |
-| Concurrent/retried/interrupted provisioning and finalization | **NOT RUN / NOT VERIFIED** | Advisory lock/recovery scenarios added; no execution result is claimed here. |
-| Broker NOCREATEROLE and no central CONNECT | **NOT RUN / NOT VERIFIED** | Catalog assertions and actual connection denials added; no execution result is claimed here. |
-| Web/ordinary queue cannot access broker secret | **NOT VERIFIED in deployment** | Repository scan only; live Coolify process environments and secret mounts not inspected. |
-| Forged tenant/device, hostile Host/X-Forwarded-Host, inactive domain/subscription/device | **NOT RUN / NOT VERIFIED** | No protected tenant API or host/domain/device authorization middleware exists at audit anchor. |
-| Reused worker tenant-context reset | **NOT RUN / NOT VERIFIED** | No tenant-scoped worker context implementation exists at audit anchor. |
-| Independent certification | **FAIL** | App identity boundary absent and PG17 execution evidence pending. Do not release on DB tests alone. |
+| Real PostgreSQL 17.11 broker/provisioner execution | **PASS** | Container build, PHP syntax, helper installation and actual integration suite passed on exact tested code SHA. |
+| Broker identity attributes and connection cap | **PASS** | NOCREATEROLE/NOINHERIT and role flags enforced; broker connection-limit drift to unlimited was denied. |
+| Strict broker membership allowlist | **PASS** | Function-owner and arbitrary custom-role memberships rejected; tenant-role nested membership rejected during interrupted recovery. |
+| Intent integrity and interruption recovery | **PASS** | Broker can read intent metadata but direct UPDATE is denied; a closed/unmarked database is recovered only against its durable matching intent; existing data was preserved. |
+| Provision/finalize idempotency and concurrency | **PASS** | Concurrent calls yielded exactly one database and one marked runtime role; repeated finalization did not duplicate the database. |
+| Central database access | **PASS (DB layer)** | PUBLIC CONNECT revoked; broker cannot connect central; a central CONNECT grant drift is detected; synthetic central runtime can read only the central fixture. |
+| Ready tenant broker CONNECT drift | **PASS** | An injected broker CONNECT grant to ready tenant A made a subsequent provisioning attempt fail closed before tenant F was created. |
+| PUBLIC, schema/table/sequence/default ACLs | **PASS (tested fixtures)** | PUBLIC CONNECT/TEMP and schema/data privileges revoked; runtime has only tested intended DML/sequence rights; newly created migration function has no PUBLIC EXECUTE. |
+| A→B cross-tenant database/object access | **PASS (DB layer)** | A cannot connect to B; even with temporary CONNECT/schema USAGE, A is denied SELECT/INSERT/UPDATE/DELETE and sequence use against B. |
+| Malformed tenant ID/name override/collision | **PASS (tested cases)** | Invalid and ULID-overflow IDs rejected; caller DB override rejected; unverified pre-existing DB keeps original owner/marker and is not adopted/dropped. |
+| Global CREATEDB blast radius | **CONFIRMED RESIDUAL** | Test proves broker can create an arbitrary unrelated database. PostgreSQL CREATEDB is cluster-wide; prefix restrictions in CLI do not contain a stolen credential. |
+| Authenticated tenant API and central tenant/domain/subscription/device authorization | **FAIL / NOT IMPLEMENTED** | Main source has only platform-health route; no business API/auth middleware was found at pinned source SHA. |
+| Host / X-Forwarded-Host trust and tenant resolution | **FAIL / NOT IMPLEMENTED** | No tested trusted-host/domain resolution boundary exists in the audited app. |
+| Queue tenant-context setup/reset across reused jobs | **FAIL / NOT IMPLEMENTED** | No implemented tenant-scoped worker context and teardown tests found. |
+| Live web/queue vs broker secret separation and private process ingress | **NOT VERIFIED** | CI source scan is not a Coolify runtime inspection; environment, mounts and service ingress have not been observed. |
+| PostgreSQL TLS and certificate verification in deployment | **NOT VERIFIED** | The PHP DSN does not explicitly require `sslmode=verify-full`; live network/TLS settings have not been inspected. |
+| Backup/restore, capacity/load and data continuity | **NOT RUN / NOT VERIFIED** | No restore drill/load evidence; no permitted source-of-record migration/continuity artifact was validated. |
+| Independent release certification | **FAIL** | Database provisioning suite passed; application identity, runtime secrets/network, TLS and operational recovery gates remain open. Do not release. |
 
 ## Release blockers
 
@@ -97,6 +108,8 @@ The following reflects the state at report authoring. Do not promote a gate from
 3. Require the real PostgreSQL 17 workflow in CI and retain the redacted transcript as release evidence. Package/middleware presence is not evidence of isolation.
 4. Send provisioning events and PostgreSQL audit logs to a separate protected sink. A table inside the maintenance DB is not a tamper-proof audit boundary.
 5. Mitigate global CREATEDB risk with private broker isolation, storage/connection quotas, monitoring and a documented compromise response.
+6. Configure and verify PostgreSQL TLS with certificate and hostname validation (`sslmode=verify-full`) for the actual KVM2 private service; test failure on an invalid certificate/hostname.
+7. Exercise tenant HTTP denial cases, queue context cleanup, backup restore, and connection/load limits before promoting the candidate.
 
 ## References
 
