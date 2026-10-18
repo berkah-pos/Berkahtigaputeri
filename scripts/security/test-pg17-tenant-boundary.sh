@@ -39,12 +39,12 @@ done
 
 psql_super() {
   local db="$1"; shift
-  docker run --rm --network host -e PGPASSWORD=postgres -e TEST_BROKER_PASSWORD -e TEST_CENTRAL_PASSWORD \
+  docker run --rm -i --network host -e PGPASSWORD=postgres -e TEST_BROKER_PASSWORD -e TEST_CENTRAL_PASSWORD \
     postgres:17 psql -X -v ON_ERROR_STOP=1 -h 127.0.0.1 -p 5432 -U postgres -d "$db" "$@"
 }
 psql_as() {
   local user="$1" password="$2" db="$3"; shift 3
-  PGPASSWORD="$password" docker run --rm --network host \
+  PGPASSWORD="$password" docker run --rm -i --network host \
     -e PGPASSWORD -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGUSER="$user" -e PGDATABASE="$db" \
     postgres:17 psql -X -v ON_ERROR_STOP=1 "$@"
 }
