@@ -79,6 +79,54 @@ final class ConfigurationContractTest extends TestCase
         $this->assertSame(false, $body->missing_device_config);
     }
 
+    public function test_expected_version_is_the_device_scope_version_when_global_is_higher(): void
+    {
+        $user = $this->createAuthorizedContext('tenant_alpha', 'device_alpha', ['pos']);
+        DB::connection('central')->table('global_configs')->where('key', 'global')->update(['version' => 20]);
+        Sanctum::actingAs($user);
+
+        $read = $this->getJson('/api/v1/configuration/pos?device_id=device_alpha')->assertOk();
+        $body = json_decode($read->getContent(), false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(20, $body->version, 'The compatibility version is the maximum version across scopes.');
+        $this->assertSame(20, $body->layer_versions->global);
+        $this->assertSame(6, $body->layer_versions->device, 'A device override CAS must use the device-layer version.');
+
+        $before = DB::connection('central')->table('device_configs')->where('device_id', 'device_alpha')->first();
+        $beforeHash = CanonicalConfig::sha256(CanonicalConfig::decodeObject($before->config));
+        $beforeAuditCount = DB::connection('central')->table('audit_events')->count();
+
+        $this->patchJson('/api/v1/configuration/pos', [
+            'device_id' => 'device_alpha',
+            'expected_version' => 20,
+            'config' => ['top_level_version_must_not_be_used_for_device_cas' => true],
+        ])->assertStatus(409)->assertJson([
+            'error' => 'configuration_version_conflict',
+            'expected_version' => 20,
+            'current_version' => 6,
+        ]);
+
+        $afterConflict = DB::connection('central')->table('device_configs')->where('device_id', 'device_alpha')->first();
+        $this->assertSame($beforeHash, CanonicalConfig::sha256(CanonicalConfig::decodeObject($afterConflict->config)));
+        $this->assertSame(6, (int) $afterConflict->version);
+        $this->assertSame($beforeAuditCount, DB::connection('central')->table('audit_events')->count());
+        $this->assertObjectNotHasProperty(
+            'top_level_version_must_not_be_used_for_device_cas',
+            CanonicalConfig::decodeObject($afterConflict->config)
+        );
+
+        $write = $this->patchJson('/api/v1/configuration/pos', [
+            'device_id' => 'device_alpha',
+            'expected_version' => 6,
+            'config' => ['device_override_cas' => true],
+        ])->assertOk()->assertJsonPath('write.version', 7);
+
+        $afterWrite = json_decode($write->getContent(), false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(20, $afterWrite->version, 'The top-level compatibility version remains the maximum scope version.');
+        $this->assertSame(20, $afterWrite->layer_versions->global);
+        $this->assertSame(7, $afterWrite->layer_versions->device);
+        $this->assertSame(1, DB::connection('central')->table('audit_events')->count());
+    }
+
     public function test_unknown_service_and_missing_device_selector_fail_closed(): void
     {
         $user = $this->createAuthorizedContext('tenant_alpha', 'device_alpha', ['pos']);
@@ -181,6 +229,48 @@ final class ConfigurationContractTest extends TestCase
         $this->assertObjectNotHasProperty('retry_partial_write_must_not_exist', $afterRetryConfig);
         $this->assertObjectNotHasProperty('partial_write_must_not_exist', $afterRetryConfig);
         $this->assertSame(1, DB::connection('central')->table('audit_events')->count());
+    }
+
+    public function test_manifest_source_sha256_must_match_the_canonical_workbook(): void
+    {
+        $manifestPath = getenv('CANONICAL_CONFIG_MANIFEST');
+        if (! is_string($manifestPath) || ! is_file($manifestPath)) {
+            $this->markTestSkipped('Set CANONICAL_CONFIG_MANIFEST to the manifest generated from the canonical XLSX.');
+        }
+
+        $contents = file_get_contents($manifestPath);
+        $this->assertIsString($contents);
+        $manifest = json_decode($contents, false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(CanonicalWorkbookImporter::EXPECTED_SOURCE_SHA256, $manifest->source_sha256);
+
+        $manifest->source_sha256 = str_repeat('0', 64);
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Manifest source SHA-256 does not identify the canonical workbook bytes.');
+        app(CanonicalWorkbookImporter::class)->validateManifest($manifest);
+    }
+
+    public function test_import_command_rejects_tampered_manifest_before_database_access(): void
+    {
+        $manifestPath = getenv('CANONICAL_CONFIG_MANIFEST');
+        if (! is_string($manifestPath) || ! is_file($manifestPath)) {
+            $this->markTestSkipped('Set CANONICAL_CONFIG_MANIFEST to the manifest generated from the canonical XLSX.');
+        }
+
+        $contents = file_get_contents($manifestPath);
+        $this->assertIsString($contents);
+        $temporaryPath = sys_get_temp_dir().'/berkah-pos-manifest-'.bin2hex(random_bytes(8)).'.json';
+        $checksumPath = $temporaryPath.'.sha256';
+        file_put_contents($temporaryPath, $contents);
+        file_put_contents($checksumPath, str_repeat('0', 64).'  '.basename($temporaryPath)."\n");
+        $this->beforeApplicationDestroyed(static function () use ($temporaryPath, $checksumPath): void {
+            @unlink($temporaryPath);
+            @unlink($checksumPath);
+        });
+
+        DB::shouldReceive('connection')->never();
+        $this->artisan('config:import-workbook', ['file' => $temporaryPath])
+            ->expectsOutputToContain('Manifest SHA-256 checksum does not match its sidecar.')
+            ->assertFailed();
     }
 
     public function test_default_import_command_is_a_database_free_dry_run(): void

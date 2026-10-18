@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ast
+import hashlib
 import json
 import shutil
 import tempfile
@@ -13,8 +15,10 @@ from scripts.export_workbook_for_laravel import (
     EXPECTED_KEYSET_MD5,
     EXPECTED_SHEETS,
     build_manifest,
+    canonical_manifest_bytes,
     normalize_header,
     parse_value,
+    write_manifest,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -48,6 +52,8 @@ class CanonicalWorkbookExporterContractTest(unittest.TestCase):
         self.assertEqual(EXPECTED_COUNTS, manifest["counts"])
         self.assertEqual(352, sum(manifest["counts"].values()))
         self.assertEqual(EXPECTED_KEYSET_MD5, manifest["keyset_md5"])
+        self.assertEqual("2df1a708480e039fef0111f49da015beeb18de7d3896e16fd3debf74cdd602cd", manifest["source_sha256"])
+        self.assertEqual(hashlib.sha256(WORKBOOK.read_bytes()).hexdigest(), manifest["source_sha256"])
         self.assertEqual(3, len(manifest["templates"]))
         self.assertEqual(100, len(manifest["tenants"]))
         self.assertEqual(140, len(manifest["services"]))
@@ -154,6 +160,70 @@ class CanonicalWorkbookExporterContractTest(unittest.TestCase):
         self.assertEqual(0, parsed["zero_value"])
         self.assertEqual("", parsed["empty_value"])
         self.assertEqual(1, parsed["version"])
+
+
+    def test_manifest_projection_order_is_stable(self) -> None:
+        manifest = build_manifest(WORKBOOK)
+        self.assertEqual(sorted(row["tenant_id"] for row in manifest["tenants"]), [row["tenant_id"] for row in manifest["tenants"]])
+        self.assertEqual(sorted((row["tenant_id"], row["service"]) for row in manifest["services"]), [(row["tenant_id"], row["service"]) for row in manifest["services"]])
+        self.assertEqual(sorted(row["device_id"] for row in manifest["devices"]), [row["device_id"] for row in manifest["devices"]])
+
+    def test_canonical_manifest_bytes_and_sha256_repeat_across_clean_runs(self) -> None:
+        first_manifest = build_manifest(WORKBOOK)
+        second_manifest = build_manifest(WORKBOOK)
+        with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
+            first_path = Path(first_dir) / "manifest.json"
+            second_path = Path(second_dir) / "manifest.json"
+            first_digest = write_manifest(first_manifest, first_path)
+            second_digest = write_manifest(second_manifest, second_path)
+            first_bytes = first_path.read_bytes()
+            second_bytes = second_path.read_bytes()
+            self.assertEqual(first_bytes, second_bytes)
+            self.assertEqual(canonical_manifest_bytes(first_manifest), first_bytes)
+            self.assertEqual(hashlib.sha256(first_bytes).hexdigest(), first_digest)
+            self.assertEqual(first_digest, second_digest)
+            self.assertEqual(f"{first_digest}  manifest.json\n".encode("ascii"), first_path.with_name("manifest.json.sha256").read_bytes())
+            self.assertEqual(first_path.with_name("manifest.json.sha256").read_bytes(), second_path.with_name("manifest.json.sha256").read_bytes())
+
+    def test_offline_exporter_imports_no_network_or_database_clients(self) -> None:
+        source_path = ROOT / "scripts/export_workbook_for_laravel.py"
+        source = source_path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(source_path))
+        imported_roots: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_roots.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_roots.add(node.module.split(".", 1)[0])
+        forbidden = {"requests", "httpx", "urllib", "urllib3", "psycopg", "psycopg2", "sqlalchemy", "supabase", "socket", "sqlite3", "asyncpg"}
+        self.assertFalse(imported_roots & forbidden, sorted(imported_roots & forbidden))
+        self.assertNotIn("SUPABASE_URL", source)
+        self.assertNotIn("SUPABASE_SERVICE_KEY", source)
+
+    def test_extra_export_row_fails_closed(self) -> None:
+        def append_extra(sheet, columns):
+            row = sheet.max_row + 1
+            sheet.cell(row=row, column=columns["key"]).value = "tenant:tenant_extra"
+            sheet.cell(row=row, column=columns["type"]).value = "tenant"
+            sheet.cell(row=row, column=columns["value_jsonb"]).value = json.dumps({"version": 1})
+            sheet.cell(row=row, column=columns["sync_status"]).value = "READY"
+        self.mutate("APP_CONFIG_EXPORT", append_extra)
+        with self.assertRaisesRegex(ValueError, "Expected.*keys"):
+            build_manifest(self.fixture)
+
+    def test_missing_template_assignment_fails_closed(self) -> None:
+        def remove_assignment(sheet, columns):
+            sheet.cell(row=2, column=columns["template_id"]).value = ""
+        self.mutate("TENANTS_MASTER", remove_assignment)
+        with self.assertRaisesRegex(ValueError, "template_id must be a canonical uppercase template ID"):
+            build_manifest(self.fixture)
+
+    def test_malformed_device_identifier_fails_closed(self) -> None:
+        def malformed_device(sheet, columns):
+            sheet.cell(row=2, column=columns["device_id"]).value = "Device Bad"
+        self.mutate("DEVICES", malformed_device)
+        with self.assertRaisesRegex(ValueError, "identifier is not in canonical normalized form"):
+            build_manifest(self.fixture)
 
 
 if __name__ == "__main__":
