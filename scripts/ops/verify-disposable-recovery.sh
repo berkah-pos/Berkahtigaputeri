@@ -52,7 +52,7 @@ dump_db() {
 restore_db() {
   local name="$1" db="$2" archive="$3"
   create_db "$name" "$db"
-  docker exec -i "$name" pg_restore -U postgres --dbname="$db" --no-owner --no-acl - < "$archive"
+  docker exec -i "$name" pg_restore -U postgres --dbname="$db" --no-owner --no-acl < "$archive"
 }
 
 mkdir -p "$work/backups" "$work/source-objects" "$work/recovered-objects" "$work/wal"
