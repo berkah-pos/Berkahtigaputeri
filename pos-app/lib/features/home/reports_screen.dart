@@ -163,12 +163,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
           Card(
             child: ListTile(
               leading: Icon(
-                _pendingSync == 0 ? Icons.cloud_done : Icons.cloud_off,
+                _pendingSync == 0 ? Icons.inbox_outlined : Icons.cloud_off,
               ),
               title: Text(
                 _pendingSync == 0
-                    ? 'Tidak ada event tertunda'
-                    : '$_pendingSync event menunggu sinkronisasi',
+                    ? 'Antrean lokal kosong'
+                    : '$_pendingSync event menunggu sinkronisasi lokal',
               ),
               subtitle: const Text(
                 'Belum ada worker cloud yang aktif pada aplikasi ini. '

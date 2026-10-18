@@ -1,5 +1,8 @@
 // lib/features/pos/checkout/payment_service.dart
 
+import 'dart:convert';
+import 'dart:math';
+
 import '../../../core/time/business_date.dart';
 import '../../accounting/models/journal_entry.dart';
 import '../cart/sale_calculator.dart';
@@ -100,6 +103,78 @@ class PaymentRequest {
         );
       }
     }
+  }
+}
+
+/// Keeps a checkout's transaction ID and timestamp stable across retries.
+///
+/// The same cart/method request reuses one local idempotency key after a
+/// transient local failure. This in-memory helper does not replace the durable
+/// SQLite sale/outbox or server-side idempotency contract.
+class StableCheckoutRequestFactory {
+  StableCheckoutRequestFactory({
+    String Function()? idGenerator,
+    DateTime Function()? clock,
+  })  : _idGenerator = idGenerator ?? _generateTransactionId,
+        _clock = clock ?? DateTime.now;
+
+  final String Function() _idGenerator;
+  final DateTime Function() _clock;
+  String? _requestShape;
+  String? _transactionId;
+  DateTime? _occurredAtUtc;
+
+  PaymentRequest create({
+    required PaymentMethod method,
+    required List<PaymentLineInput> lines,
+    int transactionDiscountAmount = 0,
+    String? reservationId,
+    String timezone = BusinessDate.timezoneId,
+  }) {
+    final shape = jsonEncode(<String, Object?>{
+      'method': method.name,
+      'transactionDiscountAmount': transactionDiscountAmount,
+      'reservationId': reservationId?.trim(),
+      'timezone': timezone,
+      'lines': lines
+          .map((line) => <String, Object?>{
+                'productId': line.productId.trim(),
+                'quantity': line.quantity,
+                'itemDiscountAmount': line.itemDiscountAmount,
+              })
+          .toList(growable: false),
+    });
+
+    if (_requestShape != shape || _transactionId == null || _occurredAtUtc == null) {
+      _requestShape = shape;
+      _transactionId = _idGenerator();
+      _occurredAtUtc = _clock().toUtc();
+    }
+
+    final request = PaymentRequest(
+      transactionId: _transactionId!,
+      method: method,
+      occurredAtUtc: _occurredAtUtc!,
+      lines: lines,
+      transactionDiscountAmount: transactionDiscountAmount,
+      reservationId: reservationId,
+      timezone: timezone,
+    );
+    request.validate();
+    return request;
+  }
+
+  /// Call when the operator cancels the cart or a transaction is saved.
+  void reset() {
+    _requestShape = null;
+    _transactionId = null;
+    _occurredAtUtc = null;
+  }
+
+  static String _generateTransactionId() {
+    final micros = DateTime.now().toUtc().microsecondsSinceEpoch;
+    final suffix = Random.secure().nextInt(0x7fffffff).toRadixString(16);
+    return 'TRX-$micros-$suffix';
   }
 }
 
