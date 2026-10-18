@@ -18,51 +18,51 @@ SELECT format(
   'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'central_migrator_username', :'central_migrator_password'
 )
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'central_migrator_username') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'central_migrator_username') \gexec
 SELECT format(
   'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'central_migrator_username', :'central_migrator_password'
-) \gexec;
+) \gexec
 SELECT format(
   'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'central_runtime_username', :'central_runtime_password'
 )
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'central_runtime_username') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'central_runtime_username') \gexec
 SELECT format(
   'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'central_runtime_username', :'central_runtime_password'
-) \gexec;
+) \gexec
 
 SELECT format(
   'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'tenant_migrator_username', :'tenant_migrator_password'
 )
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant_migrator_username') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant_migrator_username') \gexec
 SELECT format(
   'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'tenant_migrator_username', :'tenant_migrator_password'
-) \gexec;
+) \gexec
 SELECT format(
   'CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'tenant_runtime_username', :'tenant_runtime_password'
 )
-WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant_runtime_username') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant_runtime_username') \gexec
 SELECT format(
   'ALTER ROLE %I WITH LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS',
   :'tenant_runtime_username', :'tenant_runtime_password'
-) \gexec;
+) \gexec
 
 SELECT format('CREATE DATABASE %I OWNER %I', :'central_db', :'central_migrator_username')
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'central_db') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'central_db') \gexec
 SELECT format('CREATE DATABASE %I OWNER %I', :'tenant_db', :'tenant_migrator_username')
-WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'tenant_db') \gexec;
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'tenant_db') \gexec
 
-SELECT format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM PUBLIC', :'central_db') \gexec;
+SELECT format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM PUBLIC', :'central_db') \gexec
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I, %I',
-  :'central_db', :'central_migrator_username', :'central_runtime_username') \gexec;
-SELECT format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM PUBLIC', :'tenant_db') \gexec;
+  :'central_db', :'central_migrator_username', :'central_runtime_username') \gexec
+SELECT format('REVOKE ALL PRIVILEGES ON DATABASE %I FROM PUBLIC', :'tenant_db') \gexec
 SELECT format('GRANT CONNECT ON DATABASE %I TO %I, %I',
-  :'tenant_db', :'tenant_migrator_username', :'tenant_runtime_username') \gexec;
+  :'tenant_db', :'tenant_migrator_username', :'tenant_runtime_username') \gexec
 
 \connect :central_db
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
