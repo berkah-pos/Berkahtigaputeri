@@ -155,6 +155,13 @@ jobs:
           docker compose --file docker-compose.yml config --quiet
           bash scripts/ops/verify-local-postgres-roles.sh
 
+      - name: Run synthetic PostgreSQL logical restore, tenant sentinel and PITR drills
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ops/verify-disposable-recovery.sh
+          bash scripts/ops/verify-disposable-recovery.sh
+
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
 
