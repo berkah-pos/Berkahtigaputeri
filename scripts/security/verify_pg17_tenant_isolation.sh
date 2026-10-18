@@ -105,13 +105,13 @@ cleanup() {
   if [[ "$CREATED_RESOURCES" == "1" ]]; then
     log "CLEANUP: drop only this run's preflight-absent disposable databases/roles"
     for database in "${DATABASES[@]}"; do
-      if ! admin_sql "DROP DATABASE IF EXISTS \\"$database\\" WITH (FORCE)" >/dev/null 2>&1; then
+      if ! admin_sql "DROP DATABASE IF EXISTS \"$database\" WITH (FORCE)" >/dev/null 2>&1; then
         CLEANUP_FAILED=1
         log "CLEANUP_FAIL: disposable database $database could not be removed"
       fi
     done
     for role in "${ROLES[@]}"; do
-      if ! admin_sql "DROP ROLE IF EXISTS \\"$role\\"" >/dev/null 2>&1; then
+      if ! admin_sql "DROP ROLE IF EXISTS \"$role\"" >/dev/null 2>&1; then
         CLEANUP_FAILED=1
         log "CLEANUP_FAIL: disposable role $role could not be removed"
       fi
@@ -285,8 +285,8 @@ expect_denied "Tenant A CONNECT to central database" "permission denied for data
 expect_denied "Tenant B CONNECT to tenant A database" "permission denied for database" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT 1"
 expect_denied "Tenant B CONNECT to central database" "permission denied for database" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT 1"
 
-admin_sql "GRANT CONNECT ON DATABASE \\"$DB_B\\" TO \\"$RUNTIME_A\\""
-admin_sql "GRANT CONNECT ON DATABASE \\"$CENTRAL_DB\\" TO \\"$RUNTIME_A\\""
+admin_sql "GRANT CONNECT ON DATABASE \"$DB_B\" TO \"$RUNTIME_A\""
+admin_sql "GRANT CONNECT ON DATABASE \"$CENTRAL_DB\" TO \"$RUNTIME_A\""
 admin_sql "GRANT CONNECT ON DATABASE \"$DB_A\" TO \"$RUNTIME_B\""
 admin_sql "GRANT CONNECT ON DATABASE \"$CENTRAL_DB\" TO \"$RUNTIME_B\""
 assert_value "Tenant A has no B schema USAGE" "$DB_B" "SELECT NOT has_schema_privilege('$RUNTIME_A','tenant_b','USAGE')" "t"
@@ -318,8 +318,8 @@ expect_denied "Tenant B DELETE A after accidental CONNECT grant" "permission den
 expect_denied "Tenant B sequence use in A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT nextval('tenant_a.isolation_probe_id_seq')"
 expect_denied "Tenant B SELECT central data after accidental CONNECT" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT * FROM central_data.central_marker"
 
-admin_sql "REVOKE CONNECT ON DATABASE \\"$DB_B\\" FROM \\"$RUNTIME_A\\""
-admin_sql "REVOKE CONNECT ON DATABASE \\"$CENTRAL_DB\\" FROM \\"$RUNTIME_A\\""
+admin_sql "REVOKE CONNECT ON DATABASE \"$DB_B\" FROM \"$RUNTIME_A\""
+admin_sql "REVOKE CONNECT ON DATABASE \"$CENTRAL_DB\" FROM \"$RUNTIME_A\""
 admin_sql "REVOKE CONNECT ON DATABASE \"$DB_A\" FROM \"$RUNTIME_B\""
 admin_sql "REVOKE CONNECT ON DATABASE \"$CENTRAL_DB\" FROM \"$RUNTIME_B\""
 
