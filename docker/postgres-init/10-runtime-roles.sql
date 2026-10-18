@@ -68,20 +68,20 @@ SELECT format('GRANT CONNECT ON DATABASE %I TO %I, %I',
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO :"central_migrator_username";
 GRANT USAGE ON SCHEMA public TO :"central_runtime_username";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"central_runtime_username";
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO :"central_runtime_username";
+GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO :"central_runtime_username";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"central_runtime_username";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"central_migrator_username" IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"central_runtime_username";
+  GRANT SELECT, INSERT ON TABLES TO :"central_runtime_username";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"central_migrator_username" IN SCHEMA public
-  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO :"central_runtime_username";
+  GRANT USAGE, SELECT ON SEQUENCES TO :"central_runtime_username";
 
 \connect :tenant_db
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO :"tenant_migrator_username";
 GRANT USAGE ON SCHEMA public TO :"tenant_runtime_username";
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"tenant_runtime_username";
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO :"tenant_runtime_username";
+GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO :"tenant_runtime_username";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"tenant_runtime_username";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"tenant_migrator_username" IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant_runtime_username";
+  GRANT SELECT, INSERT ON TABLES TO :"tenant_runtime_username";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"tenant_migrator_username" IN SCHEMA public
-  GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO :"tenant_runtime_username";
+  GRANT USAGE, SELECT ON SEQUENCES TO :"tenant_runtime_username";
