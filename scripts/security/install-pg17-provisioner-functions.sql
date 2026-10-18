@@ -422,6 +422,15 @@ BEGIN
         VALUES (p_tenant_id, 'role_membership_granted', v_migrator, SESSION_USER);
     END IF;
 
+    -- The broker temporarily SET ROLEs to this NOLOGIN owner when finalizing the
+    -- database. Grant only the schema plus this exact function; finalization
+    -- revokes both in the same transaction as the ready-state transition.
+    EXECUTE format('GRANT USAGE ON SCHEMA provisioning TO %I', v_owner);
+    EXECUTE format(
+        'GRANT EXECUTE ON FUNCTION provisioning.finalize_tenant_roles(text) TO %I',
+        v_owner
+    );
+
     RETURN 'provisioning';
 END
 $function$;
@@ -572,6 +581,14 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Durable provisioning intent cannot transition to ready' USING ERRCODE = '55000';
     END IF;
+
+    -- Revoke the temporary maintenance-schema capability before the same
+    -- transaction commits the ready marker and runtime/migrator ACL transition.
+    EXECUTE format(
+        'REVOKE EXECUTE ON FUNCTION provisioning.finalize_tenant_roles(text) FROM %I',
+        v_owner
+    );
+    EXECUTE format('REVOKE USAGE ON SCHEMA provisioning FROM %I', v_owner);
     RETURN 'ready';
 END
 $function$;
