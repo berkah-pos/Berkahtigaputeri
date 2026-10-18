@@ -133,8 +133,8 @@ trap cleanup EXIT
 
 log "RUN: PostgreSQL 17 disposable tenant-isolation role/grant harness"
 log "TARGET: host=loopback port=$PGPORT admin_database=$PGDATABASE"
-server_version="$(admin_sql "SELECT current_setting('server_version')")"
-server_version_num="$(admin_sql "SHOW server_version_num" | tr -d '[:space:]')"
+server_version="$(query "$PGDATABASE" "SELECT current_setting('server_version')")"
+server_version_num="$(query "$PGDATABASE" "SHOW server_version_num" | tr -d '[:space:]')"
 [[ "$server_version_num" == 17* ]] || fail "target engine is not PostgreSQL 17 (observed server_version=$server_version)"
 admin_is_superuser="$(query "$PGDATABASE" "SELECT rolsuper FROM pg_roles WHERE rolname = current_user" | tr -d '[:space:]')"
 [[ "$admin_is_superuser" == "t" ]] || fail "test setup identity must be superuser on the disposable service"
