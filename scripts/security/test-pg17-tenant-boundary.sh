@@ -113,6 +113,13 @@ export BROKER_DATABASE_PASSWORD
 BROKER_DATABASE_PASSWORD="$(cat "$SECRETS/broker")"
 unset TEST_BROKER_PASSWORD TEST_CENTRAL_PASSWORD
 
+# Fail closed if a privileged membership is accidentally granted to the broker.
+# This is deliberately temporary and exists only in the disposable PG17 cluster.
+psql_super postgres -c 'GRANT berkah_role_admin TO berkah_provisioner WITH SET TRUE, INHERIT FALSE, ADMIN FALSE' >/dev/null
+expect_denied "broker refuses CREATEROLE function-owner membership" 'FAIL CLOSED' \
+  run_broker provision "$A_ID" --runtime-password-file=/run/secrets/runtime-a --migrator-password-file=/run/secrets/migrator-a
+psql_super postgres -c 'REVOKE berkah_role_admin FROM berkah_provisioner' >/dev/null
+
 run_broker provision "$A_ID" --runtime-password-file=/run/secrets/runtime-a --migrator-password-file=/run/secrets/migrator-a
 run_broker provision "$B_ID" --runtime-password-file=/run/secrets/runtime-b --migrator-password-file=/run/secrets/migrator-b
 

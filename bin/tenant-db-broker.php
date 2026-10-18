@@ -197,12 +197,12 @@ function connectBroker(): PDO
             AND granted.rolname IN (
               'pg_read_all_data', 'pg_write_all_data', 'pg_read_server_files',
               'pg_write_server_files', 'pg_execute_server_program', 'pg_monitor',
-              'pg_signal_backend'
+              'pg_signal_backend', 'berkah_role_admin'
             )
           LIMIT 1"
     );
     if ($forbiddenMembership !== null) {
-        throw new RuntimeException('Broker has an unapproved predefined-role membership.');
+        throw new RuntimeException('Broker has an unapproved privileged-role membership.');
     }
 
     return $pdo;
