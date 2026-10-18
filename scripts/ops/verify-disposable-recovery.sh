@@ -225,7 +225,7 @@ test -f "$work/pitr-base/PG_VERSION" || fail "physical base backup missing PG_VE
 docker create --name "$pitr_target" --network none \
   -e PGDATA=/tmp/pitr-base -e RECOVERY_TARGET_TIME="$target_time" \
   -v "$pitr_wal:/tmp/wal:ro" --entrypoint /bin/bash postgres:17 \
-  -lc 'set -e; chown -R postgres:postgres "$PGDATA"; touch "$PGDATA/recovery.signal"; exec gosu postgres /usr/lib/postgresql/17/bin/postgres -D "$PGDATA" -c "restore_command=cp /tmp/wal/%f %p" -c "recovery_target_time=$RECOVERY_TARGET_TIME" -c "recovery_target_inclusive=on" -c "recovery_target_action=promote" -c "archive_mode=off" -c "archive_command=" ' >/dev/null
+  -lc 'set -e; chown -R postgres:postgres "$PGDATA"; chmod 0700 "$PGDATA"; touch "$PGDATA/recovery.signal"; exec gosu postgres /usr/lib/postgresql/17/bin/postgres -D "$PGDATA" -c "restore_command=cp /tmp/wal/%f %p" -c "recovery_target_time=$RECOVERY_TARGET_TIME" -c "recovery_target_inclusive=on" -c "recovery_target_action=promote" -c "archive_mode=off" -c "archive_command=" ' >/dev/null
 docker cp "$work/pitr-base/." "$pitr_target:/tmp/pitr-base/"
 docker start "$pitr_target" >/dev/null
 
