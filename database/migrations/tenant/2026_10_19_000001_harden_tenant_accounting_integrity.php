@@ -256,8 +256,7 @@ return new class extends Migration
               ADD CONSTRAINT period_status_valid CHECK (status IN ('open', 'closed')),
               ADD CONSTRAINT period_closed_metadata CHECK ((status = 'open' AND closed_at IS NULL AND closed_by IS NULL) OR (status = 'closed' AND closed_at IS NOT NULL AND closed_by IS NOT NULL));
             ALTER TABLE journal_entries
-              ADD CONSTRAINT journal_reversal_fk FOREIGN KEY (reversal_of_entry_id) REFERENCES journal_entries(id),
-              ADD CONSTRAINT journal_lines_use_known_coa CHECK (true);
+              ADD CONSTRAINT journal_reversal_fk FOREIGN KEY (reversal_of_entry_id) REFERENCES journal_entries(id);
             ALTER TABLE journal_lines
               ADD CONSTRAINT journal_lines_entry_fk FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id),
               ADD CONSTRAINT journal_lines_account_fk FOREIGN KEY (account_code) REFERENCES chart_of_accounts(account_code);
@@ -277,7 +276,7 @@ return new class extends Migration
         SQL);
 
         $db->statement(
-            "INSERT INTO accounting_periods (period_month, status, created_at, updated_at) VALUES (date_trunc('month', CURRENT_DATE)::date, 'open', now(), now()) ON CONFLICT (period_month) DO NOTHING"
+            "INSERT INTO accounting_periods (period_month, status, created_at, updated_at) VALUES (date_trunc('month', CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Jakarta')::date, 'open', now(), now()) ON CONFLICT (period_month) DO NOTHING"
         );
 
         $this->installTriggers($db);
@@ -301,8 +300,11 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_locked_coa_guard BEFORE INSERT OR UPDATE OR DELETE ON chart_of_accounts FOR EACH ROW EXECUTE FUNCTION btp_guard_locked_coa()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $$
+            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $
+            DECLARE owner_name text;
             BEGIN
+              SELECT pg_get_userbyid(datdba) INTO owner_name FROM pg_database WHERE datname = current_database();
+              IF current_user <> owner_name THEN RAISE EXCEPTION 'Only the database owner may administer accounting periods'; END IF;
               IF TG_OP = 'DELETE' THEN
                 IF OLD.status = 'closed' THEN RAISE EXCEPTION 'Closed accounting period is immutable'; END IF;
                 RETURN OLD;
@@ -343,7 +345,9 @@ return new class extends Migration
                    OR COALESCE(NULLIF(NEW.idempotency_key, ''), '') = '' THEN
                   RAISE EXCEPTION 'Posting requires actor, device, app version, transaction reference and idempotency key';
                 END IF;
-                IF NEW.entry_type = 'sale' AND (NEW.source_event_id IS NULL OR NEW.reversal_of_entry_id IS NOT NULL OR NEW.payload_sha256 !~ '^[0-9a-f]{64}
+                IF NEW.entry_type = 'sale' AND (NEW.source_event_id IS NULL OR NEW.reversal_of_entry_id IS NOT NULL OR NEW.payload_sha256 IS NULL OR length(NEW.payload_sha256) <> 64) THEN
+                  RAISE EXCEPTION 'Sale journal requires source_event_id, canonical payload hash and cannot be a reversal';
+                END IF;
                 IF NEW.entry_type = 'reversal' AND NEW.reversal_of_entry_id IS NULL THEN
                   RAISE EXCEPTION 'Reversal journal requires reversal_of_entry_id';
                 END IF;
@@ -533,6 +537,172 @@ return new class extends Migration
             SQL,
             "CREATE CONSTRAINT TRIGGER btp_posted_journal_integrity_header AFTER INSERT OR UPDATE ON journal_entries DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_posted_journal_integrity()",
             "CREATE CONSTRAINT TRIGGER btp_posted_journal_integrity_lines AFTER INSERT OR UPDATE OR DELETE ON journal_lines DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_posted_journal_integrity()",
+
+            <<<'SQL'
+            CREATE OR REPLACE FUNCTION btp_assert_sale_event_integrity() RETURNS trigger AS $
+            DECLARE
+              event_key text;
+              sale_row sales%ROWTYPE;
+              source_sale_id text;
+              item_count bigint;
+              movement_count bigint;
+              receipt_count bigint;
+              journal_count bigint;
+              audit_count bigint;
+              line_subtotal bigint;
+              expected_cogs bigint;
+              payment_account text;
+              payment_debit numeric;
+              payment_credit numeric;
+              revenue_debit numeric;
+              revenue_credit numeric;
+              cogs_debit numeric;
+              cogs_credit numeric;
+              inventory_debit numeric;
+              inventory_credit numeric;
+            BEGIN
+              IF TG_TABLE_NAME = 'sales' THEN
+                IF TG_OP = 'DELETE' THEN event_key := OLD.source_event_id; ELSE event_key := NEW.source_event_id; END IF;
+              ELSIF TG_TABLE_NAME = 'inventory_movements' THEN
+                IF TG_OP = 'DELETE' THEN
+                  IF OLD.movement_type <> 'sale_out' THEN RETURN NULL; END IF;
+                  event_key := OLD.source_event_id;
+                ELSE
+                  IF NEW.movement_type <> 'sale_out' THEN RETURN NULL; END IF;
+                  event_key := NEW.source_event_id;
+                END IF;
+              ELSIF TG_TABLE_NAME = 'sync_receipts' THEN
+                IF TG_OP = 'DELETE' THEN event_key := OLD.event_id; ELSE event_key := NEW.event_id; END IF;
+              ELSIF TG_TABLE_NAME = 'sale_items' THEN
+                IF TG_OP = 'DELETE' THEN source_sale_id := OLD.sale_id; ELSE source_sale_id := NEW.sale_id; END IF;
+                SELECT source_event_id INTO event_key FROM sales WHERE id = source_sale_id;
+              ELSIF TG_TABLE_NAME = 'sale_lot_allocations' THEN
+                IF TG_OP = 'DELETE' THEN
+                  SELECT s.source_event_id INTO event_key FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.id = OLD.sale_item_id;
+                ELSE
+                  SELECT s.source_event_id INTO event_key FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.id = NEW.sale_item_id;
+                END IF;
+              ELSIF TG_TABLE_NAME = 'cost_layer_consumptions' THEN
+                IF TG_OP = 'DELETE' THEN
+                  SELECT s.source_event_id INTO event_key FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.id = OLD.sale_item_id;
+                ELSE
+                  SELECT s.source_event_id INTO event_key FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.id = NEW.sale_item_id;
+                END IF;
+              ELSE
+                RETURN NULL;
+              END IF;
+
+              IF event_key IS NULL THEN RETURN NULL; END IF;
+              SELECT * INTO sale_row FROM sales WHERE source_event_id = event_key;
+              IF NOT FOUND THEN
+                RAISE EXCEPTION 'Sale-related movement/receipt references an event without a sale header';
+              END IF;
+              IF sale_row.currency_code <> 'IDR' OR sale_row.tax_amount <> 0 OR sale_row.total_amount <> sale_row.subtotal THEN
+                RAISE EXCEPTION 'Only IDR whole-unit, zero-tax sales are currently supported; tax policy requires owner approval';
+              END IF;
+
+              SELECT count(*), COALESCE(sum(line_total), 0), COALESCE(sum(cogs_amount), 0)
+                INTO item_count, line_subtotal, expected_cogs
+                FROM sale_items WHERE sale_id = sale_row.id;
+              IF item_count < 1 OR line_subtotal <> sale_row.subtotal THEN
+                RAISE EXCEPTION 'Sale line items must be present and sum exactly to subtotal';
+              END IF;
+              IF EXISTS (SELECT 1 FROM sale_items WHERE sale_id = sale_row.id AND line_total <> unit_price * quantity) THEN
+                RAISE EXCEPTION 'Sale line total must equal integer unit price multiplied by quantity';
+              END IF;
+
+              IF EXISTS (
+                SELECT 1 FROM sale_items si
+                WHERE si.sale_id = sale_row.id
+                  AND si.quantity <> COALESCE((SELECT sum(a.quantity) FROM sale_lot_allocations a WHERE a.sale_item_id = si.id), 0)
+              ) THEN
+                RAISE EXCEPTION 'FEFO lot allocations must equal each sold line quantity';
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM sale_items si
+                WHERE si.sale_id = sale_row.id
+                  AND (si.quantity <> COALESCE((SELECT sum(c.quantity) FROM cost_layer_consumptions c WHERE c.sale_item_id = si.id), 0)
+                    OR si.cogs_amount <> COALESCE((SELECT sum(c.total_cost) FROM cost_layer_consumptions c WHERE c.sale_item_id = si.id), 0))
+              ) THEN
+                RAISE EXCEPTION 'FIFO layer consumption and COGS must reconcile for every sale line';
+              END IF;
+
+              IF EXISTS (
+                SELECT 1
+                FROM (SELECT product_id, sum(quantity) AS sold_qty FROM sale_items WHERE sale_id = sale_row.id GROUP BY product_id) si
+                LEFT JOIN (SELECT product_id, -sum(quantity) AS moved_qty FROM inventory_movements WHERE source_event_id = event_key AND movement_type = 'sale_out' GROUP BY product_id) im USING (product_id)
+                WHERE si.sold_qty <> COALESCE(im.moved_qty, 0)
+              ) THEN
+                RAISE EXCEPTION 'Per-product stock movements must equal sold quantities';
+              END IF;
+              IF EXISTS (
+                SELECT 1
+                FROM sale_lot_allocations a
+                JOIN sale_items si ON si.id = a.sale_item_id
+                LEFT JOIN inventory_movements m ON m.source_event_id = event_key AND m.lot_id = a.lot_id AND m.product_id = si.product_id AND m.movement_type = 'sale_out'
+                WHERE si.sale_id = sale_row.id
+                GROUP BY a.lot_id, si.product_id
+                HAVING sum(a.quantity) <> -COALESCE(sum(m.quantity), 0)
+              ) THEN
+                RAISE EXCEPTION 'Per-lot FEFO allocations must reconcile to immutable inventory movements';
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM inventory_lots l
+                WHERE l.id IN (SELECT a.lot_id FROM sale_lot_allocations a JOIN sale_items si ON si.id = a.sale_item_id WHERE si.sale_id = sale_row.id)
+                  AND l.quantity_remaining <> l.quantity_received + COALESCE((SELECT sum(m.quantity) FROM inventory_movements m WHERE m.lot_id = l.id AND m.movement_type = 'sale_out'), 0)
+              ) THEN
+                RAISE EXCEPTION 'Physical lot balance does not reconcile to immutable stock movements';
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM inventory_cost_layers l
+                WHERE l.id IN (SELECT c.cost_layer_id FROM cost_layer_consumptions c JOIN sale_items si ON si.id = c.sale_item_id WHERE si.sale_id = sale_row.id)
+                  AND l.quantity_remaining <> l.quantity_received - COALESCE((SELECT sum(c.quantity) FROM cost_layer_consumptions c WHERE c.cost_layer_id = l.id), 0)
+              ) THEN
+                RAISE EXCEPTION 'FIFO cost-layer balance does not reconcile to immutable consumptions';
+              END IF;
+
+              SELECT count(*) INTO movement_count FROM inventory_movements WHERE source_event_id = event_key AND movement_type = 'sale_out';
+              SELECT count(*) INTO receipt_count FROM sync_receipts WHERE event_id = event_key AND device_id = sale_row.device_id AND payload_sha256 = sale_row.request_fingerprint;
+              SELECT count(*) INTO journal_count FROM journal_entries WHERE source_event_id = event_key AND status = 'posted' AND entry_type = 'sale';
+              SELECT count(*) INTO audit_count FROM accounting_events e JOIN journal_entries j ON j.id = e.journal_entry_id
+                WHERE j.source_event_id = event_key AND e.event_type = 'journal.posted' AND e.device_id = sale_row.device_id AND e.idempotency_key = event_key;
+              IF movement_count < 1 OR receipt_count <> 1 OR journal_count <> 1 OR audit_count <> 1 THEN
+                RAISE EXCEPTION 'Sale, stock, balanced journal, accounting event and idempotent sync receipt must commit together';
+              END IF;
+
+              SELECT CASE sale_row.payment_method WHEN 'cash' THEN '1-1010' WHEN 'qris' THEN '1-1020' WHEN 'transfer' THEN '1-1030' ELSE NULL END
+                INTO payment_account;
+              IF payment_account IS NULL THEN RAISE EXCEPTION 'Unsupported payment method for sale posting'; END IF;
+              SELECT COALESCE(sum(debit), 0), COALESCE(sum(credit), 0) INTO payment_debit, payment_credit
+                FROM journal_lines l JOIN journal_entries j ON j.id = l.journal_entry_id WHERE j.source_event_id = event_key AND l.account_code = payment_account;
+              SELECT COALESCE(sum(debit), 0), COALESCE(sum(credit), 0) INTO revenue_debit, revenue_credit
+                FROM journal_lines l JOIN journal_entries j ON j.id = l.journal_entry_id WHERE j.source_event_id = event_key AND l.account_code = '4-4010';
+              SELECT COALESCE(sum(debit), 0), COALESCE(sum(credit), 0) INTO cogs_debit, cogs_credit
+                FROM journal_lines l JOIN journal_entries j ON j.id = l.journal_entry_id WHERE j.source_event_id = event_key AND l.account_code = '5-5010';
+              SELECT COALESCE(sum(debit), 0), COALESCE(sum(credit), 0) INTO inventory_debit, inventory_credit
+                FROM journal_lines l JOIN journal_entries j ON j.id = l.journal_entry_id WHERE j.source_event_id = event_key AND l.account_code = '1-1040';
+              IF payment_debit <> sale_row.total_amount OR payment_credit <> 0
+                OR revenue_debit <> 0 OR revenue_credit <> sale_row.subtotal
+                OR cogs_debit <> expected_cogs OR cogs_credit <> 0
+                OR inventory_debit <> 0 OR inventory_credit <> expected_cogs THEN
+                RAISE EXCEPTION 'Sale journal lines do not match payment, revenue, COGS and inventory values';
+              END IF;
+              IF EXISTS (
+                SELECT 1 FROM journal_lines l JOIN journal_entries j ON j.id = l.journal_entry_id
+                WHERE j.source_event_id = event_key AND l.account_code NOT IN (payment_account, '4-4010', '5-5010', '1-1040')
+              ) THEN
+                RAISE EXCEPTION 'Sale journal contains an unapproved COA posting';
+              END IF;
+              RETURN NULL;
+            END;
+            $ LANGUAGE plpgsql
+            SQL,
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_sales AFTER INSERT OR UPDATE OR DELETE ON sales DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_items AFTER INSERT OR UPDATE OR DELETE ON sale_items DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_movements AFTER INSERT OR UPDATE OR DELETE ON inventory_movements DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_allocations AFTER INSERT OR UPDATE OR DELETE ON sale_lot_allocations DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_consumptions AFTER INSERT OR UPDATE OR DELETE ON cost_layer_consumptions DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
+            "CREATE CONSTRAINT TRIGGER btp_sale_integrity_receipts AFTER INSERT OR UPDATE OR DELETE ON sync_receipts DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION btp_assert_sale_event_integrity()",
         ];
 
         foreach ($statements as $statement) {
@@ -641,6 +811,7 @@ return new class extends Migration
             'ALTER TABLE sale_items ALTER COLUMN unit_cost TYPE NUMERIC(18,2) USING unit_cost::NUMERIC(18,2)',
             'ALTER TABLE journal_lines ALTER COLUMN debit TYPE NUMERIC(18,2) USING debit::NUMERIC(18,2)',
             'ALTER TABLE journal_lines ALTER COLUMN credit TYPE NUMERIC(18,2) USING credit::NUMERIC(18,2)',
+            'ALTER TABLE sale_items ALTER COLUMN unit_cost SET NOT NULL',
         ] as $statement) {
             $db->unprepared($statement);
         }
