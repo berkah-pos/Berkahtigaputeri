@@ -58,6 +58,16 @@ BEGIN
 END
 $validate$;
 
+DO $central_acl$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'berkahpos_central') THEN
+        RAISE EXCEPTION 'Canonical central database berkahpos_central must exist before provisioning is enabled';
+    END IF;
+    EXECUTE 'REVOKE CONNECT, TEMPORARY ON DATABASE berkahpos_central FROM PUBLIC';
+    EXECUTE 'REVOKE CONNECT, TEMPORARY ON DATABASE berkahpos_central FROM berkah_provisioner';
+END
+$central_acl$;
+
 ALTER SCHEMA provisioning OWNER TO berkah_role_admin;
 REVOKE ALL ON SCHEMA provisioning FROM PUBLIC;
 GRANT USAGE ON SCHEMA provisioning TO berkah_provisioner;
@@ -66,7 +76,7 @@ SET ROLE berkah_role_admin;
 
 CREATE TABLE IF NOT EXISTS provisioning.audit_events (
     event_id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    tenant_id text NOT NULL CHECK (tenant_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'),
+    tenant_id text NOT NULL CHECK (tenant_id ~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$'),
     action text NOT NULL CHECK (action IN (
         'role_created', 'role_membership_granted', 'role_membership_revoked',
         'database_created', 'database_acl_hardened', 'schema_acl_hardened',
@@ -80,7 +90,7 @@ ALTER TABLE provisioning.audit_events OWNER TO berkah_role_admin;
 REVOKE ALL ON TABLE provisioning.audit_events FROM PUBLIC, berkah_provisioner;
 
 CREATE TABLE IF NOT EXISTS provisioning.tenant_provisioning_intents (
-    tenant_id text PRIMARY KEY CHECK (tenant_id ~ '^[0-9A-HJKMNP-TV-Z]{26}$'),
+    tenant_id text PRIMARY KEY CHECK (tenant_id ~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$'),
     database_name text NOT NULL UNIQUE,
     owner_role text NOT NULL UNIQUE,
     state text NOT NULL CHECK (state IN ('database_intent', 'provisioning', 'ready')),
@@ -105,7 +115,7 @@ BEGIN
     IF SESSION_USER <> 'berkah_provisioner' THEN
         RAISE EXCEPTION 'Caller is not the dedicated provisioning broker' USING ERRCODE = '42501';
     END IF;
-    IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
+    IF p_tenant_id !~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
     v_suffix := lower(p_tenant_id);
@@ -145,7 +155,7 @@ BEGIN
     IF SESSION_USER <> 'berkah_provisioner' THEN
         RAISE EXCEPTION 'Caller is not the dedicated provisioning broker' USING ERRCODE = '42501';
     END IF;
-    IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
+    IF p_tenant_id !~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
     v_suffix := lower(p_tenant_id);
@@ -211,7 +221,7 @@ BEGIN
         RAISE EXCEPTION 'Caller is not the dedicated provisioning broker' USING ERRCODE = '42501';
     END IF;
 
-    IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
+    IF p_tenant_id !~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
     -- Accept only server-stored SCRAM-SHA-256 verifiers, never cleartext passwords.
@@ -451,7 +461,7 @@ BEGIN
     IF SESSION_USER <> 'berkah_provisioner' THEN
         RAISE EXCEPTION 'Caller is not the dedicated provisioning broker' USING ERRCODE = '42501';
     END IF;
-    IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
+    IF p_tenant_id !~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
 
@@ -520,7 +530,7 @@ BEGIN
     IF SESSION_USER <> 'berkah_provisioner' THEN
         RAISE EXCEPTION 'Caller is not the dedicated provisioning broker' USING ERRCODE = '42501';
     END IF;
-    IF p_tenant_id !~ '^[0-9A-HJKMNP-TV-Z]{26}$' THEN
+    IF p_tenant_id !~ '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' THEN
         RAISE EXCEPTION 'Tenant identifier is not a canonical ULID' USING ERRCODE = '22023';
     END IF;
 
