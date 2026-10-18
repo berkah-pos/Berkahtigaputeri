@@ -10,10 +10,11 @@
 
 **Recommendation: NO-GO.** Backend hardening is in progress, but the accounting migration and test suite have not yet completed a successful exact-head PostgreSQL 17 run.
 
-At report authoring:
-- Run 39177446446 on source SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed failed during tenant migration parsing with “Unmatched ')'”. That malformed tail was removed.
-- Run 39178355190 on SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4 was still in progress when checked, after removing the ineffective global RuntimeException import. Its conclusion was not a pass.
-- No production database was accessed. The intended execution target is the disposable PostgreSQL 17 service in CI.
+CI evidence updated 2026-10-19:
+- Run 39178518622, attempt 1, completed successfully on source SHA fd1a9e0489bc589e87361dbcdb2deeca098a3eea. Tenant migration, restricted runtime role setup, Laravel test execution, schema assertions, production-image build, and HTTP health/API smoke all executed successfully. The PHPUnit output still reported 15 warnings and 177 assertions; the warnings are associated with test helpers attempting to read files absent from the container image and must be cleaned up before calling the suite warning-free.
+- This successful run predates the additional fail-closed legacy-data preflight and new lot/product/movement relationship guards committed afterward. Latest implementation SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d is under a new PG17 CI run (39178727994) and must be judged separately. Its result was not available at this report update.
+- Earlier run 39177446446 on SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed failed during tenant migration parsing with “Unmatched ')'”; that malformed tail was removed. Run 39178355190 on SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4 failed because the period trigger delimiter was a single dollar; both failures remain preserved as historical exact-SHA evidence.
+- No production database was accessed. All PostgreSQL work was against the disposable CI service.
 
 Open P0 blockers:
 1. Migration and trigger SQL must apply cleanly to an empty PostgreSQL 17 tenant database; earlier exact-SHA runs failed before tests executed.
@@ -70,9 +71,11 @@ CI is intended to run the candidate through the Laravel PostgreSQL 17 baseline w
 
 **Evidence rule:** the workflow must conclude success for the precise current source head and every test oracle must execute. A migration failure makes downstream tests skipped, which is NOT PASS. Historical green runs from different SHAs are not proof for this implementation.
 
-Earlier branch-only evidence remains separate:
-- Laravel PG17 baseline run 39131351376, attempt 1, passed on separate branch SHA 6062df7b9a0fd94db17107d654f9b3e16622531b. It did not include the new accounting migration/service/tests.
-- Current implementation branch runs failed before accounting tests: SHA 8505f72fd2b8cd2480820820e7d74694423c5f6a and SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed. The latter failure was the malformed PHP tail. SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4 was still running when this section was drafted; its outcome must be refreshed before any gate is called passed.
+Exact-head run comparison:
+- Run 39178518622 / attempt 1 / SHA fd1a9e0489bc589e87361dbcdb2deeca098a3eea: **job success**, with all 18 workflow steps successful; PHPUnit: 15 warnings, 177 assertions. This is meaningful execution evidence for that earlier implementation state, but it is not a warning-free test-suite result.
+- Run 39178727994 / current tested head SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d: **in progress at report update**. This later SHA includes additional legacy-data preflight, opening cost-layer bootstrap and PostgreSQL relationship constraints/triggers; it is the relevant current code candidate.
+- Earlier failures remain evidence: run 39177446446 at SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed failed with an unmatched PHP parenthesis; run 39178355190 at SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4 failed with a single-dollar PL/pgSQL delimiter. They were fixed in subsequent commits, not overwritten.
+- Branch-only run 39131351376 / SHA 6062df7b9a0fd94db17107d654f9b3e16622531b passed the prior PostgreSQL baseline, but it did not include this accounting migration/service/tests.
 
 ## 5. Atomic scenarios and sanitized journal example
 
