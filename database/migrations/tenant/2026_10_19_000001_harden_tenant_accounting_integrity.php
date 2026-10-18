@@ -304,7 +304,7 @@ return new class extends Migration
             SQL,
             "CREATE TRIGGER btp_locked_coa_guard BEFORE INSERT OR UPDATE OR DELETE ON chart_of_accounts FOR EACH ROW EXECUTE FUNCTION btp_guard_locked_coa()",
             <<<'SQL'
-            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $
+            CREATE OR REPLACE FUNCTION btp_guard_period_close() RETURNS trigger AS $$
             DECLARE owner_name text;
             BEGIN
               SELECT pg_get_userbyid(datdba) INTO owner_name FROM pg_database WHERE datname = current_database();
