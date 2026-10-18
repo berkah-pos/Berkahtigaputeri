@@ -428,6 +428,10 @@ void main() {
           ),
         ],
       );
+      // Adding the opening lot creates one legitimate inventory receipt
+      // movement before checkout. The failed sale must preserve that baseline.
+      final initialInventoryMovementCount =
+          await _count(database, 'inventory_movements');
       const transactionId = 'TRX-ATOMIC-FAIL';
       await database.database.insert('outbox_events', <String, Object?>{
         'id': 'outbox:sale:$transactionId',
@@ -457,11 +461,15 @@ void main() {
       expect((await database.database.query('inventory_lots')).single['on_hand_qty'], 2);
       expect((await database.database.query('inventory_cost_layers')).single['remaining_qty'], 2);
       for (final table in <String>[
-        'sales', 'sale_items', 'journals', 'journal_lines',
-        'inventory_movements', 'stock_movements',
+        'sales', 'sale_items', 'journals', 'journal_lines', 'stock_movements',
       ]) {
         expect(await _count(database, table), 0, reason: '$table must roll back');
       }
+      expect(
+        await _count(database, 'inventory_movements'),
+        initialInventoryMovementCount,
+        reason: 'inventory movements must roll back to the pre-checkout baseline',
+      );
       expect(await _count(database, 'outbox_events'), 1);
       final sentinel = (await database.database.query('outbox_events')).single;
       expect(sentinel['entity_id'], 'sentinel');
