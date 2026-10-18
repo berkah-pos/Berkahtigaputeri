@@ -110,6 +110,43 @@ This matrix distinguishes the accepted target contract from a real application p
 | Provisioner broker | No central table access | Only approved provision/create/grant operations | Only approved provision/create/grant operations | Not an application runtime | NOT IMPLEMENTED / NOT VERIFIED; exact privileges and name-validation boundary remain a release blocker |
 | Public web / ordinary queue process | No privileged connection | Runtime credential only after tenant authorization | No access to other tenant credentials or broker secrets | Must be bound to one authorized tenant context per operation | Must not receive PROVISIONER_*, migrator, root or equivalent privileged secrets |
 
+## 6.1 Observed disposable PostgreSQL 17 privilege evidence
+
+**Source:** run 39130938641, checkout SHA a84337de54edc58ceebccc257571c35e9feea506, PostgreSQL 17.11. All rows below use generated synthetic role/database names and contain no customer data or secrets.
+
+### Role attributes
+
+Column order: role | LOGIN | SUPERUSER | CREATEDB | CREATEROLE | REPLICATION | BYPASSRLS | INHERIT.
+
+| Role class | LOGIN | SUPERUSER | CREATEDB | CREATEROLE | REPLICATION | BYPASSRLS | INHERIT |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Central DB owner | false | false | false | false | false | false | false |
+| Tenant A/B DB owners | false | false | false | false | false | false | false |
+| Tenant A/B migrators (test fixture only) | true | false | false | false | false | false | false |
+| Tenant A/B runtime | true | false | false | false | false | false | false |
+
+### Database CONNECT / CREATE / TEMP matrix
+
+| Database | Runtime A CONNECT | Runtime B CONNECT | Runtime CREATE/TEMP |
+|---|---:|---:|---|
+| Central | Denied | Denied | Denied for both |
+| Tenant A | Granted | Denied | Denied for both |
+| Tenant B | Denied | Granted | Denied for both |
+
+### Own-tenant object privileges
+
+For both runtime roles in their own tenant database: schema USAGE=true; schema CREATE=false; table SELECT/INSERT/UPDATE/DELETE=true; table TRUNCATE/REFERENCES/TRIGGER=false; sequence USAGE/SELECT/UPDATE=true; function EXECUTE on the fixture private function=false. Actual CREATE/UPDATE/DELETE and sequence-use operations succeeded only in the assigned tenant DB.
+
+### Cross-tenant and central negatives
+
+- Initial CONNECT from A to B, A to central, B to A and B to central was denied.
+- After the harness deliberately added CONNECT to those disposable databases only, both directions still failed schema USAGE, SELECT, INSERT, UPDATE, DELETE, sequence use, and private function execution; central table/sequence/function access also failed.
+- Runtime CREATE TABLE, CREATE ROLE, CREATE DATABASE, ALTER ROLE to SUPERUSER and SET ROLE to the migrator all returned the expected privilege-denial errors.
+- The catalog assertions passed for PUBLIC database CONNECT; PUBLIC schema USAGE/CREATE; PUBLIC table and sequence privileges; default ACLs for central owner and tenant migrators; and PUBLIC EXECUTE on central/tenant fixture functions.
+- The sanitized log included role flags, database owners, database/object privilege matrices, default privilege matrices and final line “RESULT: PASS — disposable PostgreSQL 17 role/grant contract probes all passed.” The uploaded artifact is linked in Section 2.
+
+**Boundary:** this is a test of PostgreSQL's privilege behavior with synthetic users and grants. It is not proof that the current Laravel product broker provisions the same grants, nor proof of application-level tenant selection, hostname authorization, or worker context reset.
+
 ## 7. Acceptance gates
 
 Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A source test harness is not a passing database test.
