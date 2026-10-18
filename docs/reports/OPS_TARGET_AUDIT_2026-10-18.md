@@ -1,6 +1,6 @@
 # Operational Target Audit — KVM2 / Coolify / PostgreSQL 17 (2026-10-18)
 
-**Disposition: CONFIGURATION/DOCUMENTATION HARDENING IN CANDIDATE BRANCH; HOST DEPLOYMENT, RESTORE AND CAPACITY EXECUTION NOT RUN / NOT VERIFIED.**  
+**Disposition: SYNTHETIC DISPOSABLE CI LOGICAL RESTORE + PITR PASS; Hostinger/Coolify deployment, real off-host recovery and KVM2 capacity remain NOT RUN / NOT VERIFIED.**  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Reviewed main baseline:** `371b7fdf0bf672b37ceb1023e647f114221bf797` (2026-10-18 repository inspection)  
 **Candidate branch:** `sre/recovery-capacity-plan-2026-10-17`, tied to PR #70. Do not merge or deploy solely because these changes are present.  
@@ -27,7 +27,7 @@ The full DOC_14 and latest 2026-10-17 owner ADR agree on private PostgreSQL 17, 
 
 PR #70 is the SRE runbook/planning candidate, not execution evidence. The PR body itself explicitly records that an authorized isolated target was unavailable and restore/load execution did not occur. Its prior documented workbook CI run validates the workbook only; prior Laravel PG17 baseline CI was for an older source SHA and covered dependency/bootstrap, migration smoke and local production-image smoke only. Neither result proves secure production networking, backup validity, successful restore/PITR, production tenant grants, or KVM2 capacity.
 
-Current recovery/load plans and date-stamped records are **planning/non-execution outputs**. The reports from 2026-10-17 have been preserved as such; this report does not retroactively convert them into results.
+Current recovery/load plans and the 2026-10-17 date-stamped records remain as historical planning/non-execution records. A subsequent synthetic CI recovery drill passed under PR #70 candidate head `6652545a76c417ceaf3d791b6897474e9a4c357a`, merge checkout `7c626a8bba34be96bacf69ba99fc21f876cae5aa`, workflow [run 39116920068](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39116920068). Its scope, checksums and durations are recorded in `docs/evidence/restore-2026-10-18.md`; it does not change production/off-host `NOT RUN / NOT VERIFIED` status.
 
 ## 3. Service and network exposure inventory
 
@@ -90,9 +90,9 @@ Before any load ramp, collect OS-visible `free -b`/meminfo, Docker/cgroup usage 
 
 ## 6. Backup, restore, PITR and file/object recovery
 
-**Result: NO BACKUP WAS VALIDATED BY THIS AUDIT; RESTORE EXECUTION NOT RUN / NOT VERIFIED.**
+**Result: SYNTHETIC DISPOSABLE CI LOGICAL RESTORE AND PITR PASS; NO REAL OFF-HOST/OWNER BACKUP OR PRODUCTION RESTORE VALIDATED.**
 
-No authorized isolated target, owner-controlled backup artifact, off-host remote readback, vault/key material, central registry/catalog snapshot, or application image/schema revision was provided for a drill. No restore command, decrypt, archive verification, database query, object fetch, or infrastructure mutation was executed. This does not prove that the owner has no backup; it means existence, coverage, integrity, off-host storage, key custody and recoverability are unverified.
+No authorized Hostinger/owner recovery target, real off-host backup artifact, remote object-store readback, production vault/key material, or real central registry/catalog snapshot was provided. An isolated synthetic GitHub Actions PostgreSQL 17 drill **did execute and pass**: central + two tenant logical restores, small accounting-fixture balance checks, payload/fake-key artifact checksums, single-tenant restore into a new DB with an unchanged second-tenant sentinel, and a separate physical base-backup/WAL PITR marker-boundary test. Run [39116920068](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39116920068), tested candidate head `6652545a76c417ceaf3d791b6897474e9a4c357a`. This does not prove real off-host backup existence, encryption, retention, key custody, business-object recovery, or production recoverability.
 
 Required independent scenarios, each with an evidence record:
 1. Central database and **at least two different registry-derived tenant databases** from a verified off-host backup set. Record run ID, source/target SHA and image digest, PG version, encrypted manifest and SHA-256 checksums, verified registry/catalog/backup-set counts, start/end/duration, restored row/aggregate/schema invariants, tenant IDs as pseudonyms, and application smoke result.
@@ -101,7 +101,7 @@ Required independent scenarios, each with an evidence record:
 4. PITR as a separate scenario: verify the continuous base-backup + WAL chain, restore to a fixed requested timestamp, validate known markers before/after target time, record requested versus achieved recovery time and actual elapsed duration.
 5. Read back remote objects and verify checksum equality before restore. Encryption/checksum/archive-list success is necessary but not a restore pass. Do not mark a backup valid until restore and application-level integrity checks pass.
 
-`docs/runbooks/backup-restore.md`, `docs/evidence/templates/tenant-backup-coverage.csv`, and `docs/evidence/templates/restore-drill.csv` provide the planned path and evidence shape. `docs/evidence/restore-2026-10-17.md` explicitly records non-execution. RPO/RTO objectives, actual achieved values and restore durations: **NOT APPROVED/NOT MEASURED**.
+`docs/runbooks/backup-restore.md`, `docs/evidence/templates/tenant-backup-coverage.csv`, and `docs/evidence/templates/restore-drill.csv` provide the planned path and evidence shape. `docs/evidence/restore-2026-10-17.md` remains the original non-execution record; `docs/evidence/restore-2026-10-18.md` records the synthetic CI pass only. Logical fixture restore phase was 647 ms; complete synthetic restore/PITR script was 21.585 s. Neither duration is production RTO. Production RPO/RTO objectives and achieved values remain **NOT APPROVED/NOT MEASURED**.
 
 ## 7. Load profile and stop limits
 
@@ -137,8 +137,8 @@ No rollback, forward recovery, incident drill or alert-delivery exercise ran as 
 | DOC_14 and latest owner ADR reviewed | **DONE — source read in full** |
 | PR #70 inspected as a planning candidate | **DONE — not execution evidence; not merged by this audit** |
 | Local Compose, image/entrypoint, Nginx/Supervisor, routes, env example and PG17 workflow inspected | **SOURCE AUDITED** |
-| Local bootstrap/runtime DB-role separation and disposable role test added in candidate branch | **CANDIDATE CHANGE — CI must pass; local volume init caveat applies** |
-| Current candidate branch CI for the changed role test | **NOT VERIFIED until exact latest run result is recorded** |
+| Local bootstrap/runtime DB-role separation and disposable role test | **CI PASS in run 39116920068 on tested candidate head `6652545a76c417ceaf3d791b6897474e9a4c357a`; fresh-volume-only init caveat applies** |
+| Candidate CI baseline + local role test + synthetic recovery/PITR step | **OVERALL WORKFLOW PASS in run 39116920068; exact code/test head recorded above** |
 | Hostinger KVM2 Ubuntu/Coolify install, host memory/stats, Docker stats and disk | **NOT RUN / NOT VERIFIED** |
 | Actual Coolify service list, volumes, network policies, host firewall and admin exposure | **NOT RUN / NOT VERIFIED** |
 | Production TLS, forwarded headers/trusted proxy, dependency readiness | **NOT RUN / NOT VERIFIED** |
