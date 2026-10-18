@@ -127,6 +127,25 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
+      - name: Validate local Compose and isolated PostgreSQL runtime roles
+        env:
+          PG_BOOTSTRAP_USERNAME: postgres
+          PG_BOOTSTRAP_PASSWORD: ci-bootstrap-only
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkah_central_runtime
+          CENTRAL_DB_PASSWORD: central-runtime-test-only
+          CENTRAL_DB_MIGRATOR_USERNAME: berkah_central_migrator
+          CENTRAL_DB_MIGRATOR_PASSWORD: central-migrator-test-only
+          TENANT_DB_DATABASE: berkahpos_tenant
+          TENANT_DB_USERNAME: berkah_tenant_runtime
+          TENANT_DB_PASSWORD: tenant-runtime-test-only
+          TENANT_DB_MIGRATOR_USERNAME: berkah_tenant_migrator
+          TENANT_DB_MIGRATOR_PASSWORD: tenant-migrator-test-only
+        run: |
+          set -euo pipefail
+          docker compose --file docker-compose.yml config --quiet
+          bash scripts/ops/verify-local-postgres-roles.sh
+
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
 
