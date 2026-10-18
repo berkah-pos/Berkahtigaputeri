@@ -52,7 +52,7 @@ Complete the new template `docs/evidence/templates/service-exposure-inventory.cs
 
 1. **Local DB privilege boundary:** local Compose previously provided PostgreSQL bootstrap/superuser credentials to the app's central and tenant connections. Candidate changes separate bootstrap-only credentials, central/tenant runtime identities and database-scoped migration identities. A psql init script creates a local central database and one local tenant fixture with restricted roles/grants. The bootstrap identity is passed to only the PostgreSQL container; the app gets only runtime identity passwords.
 2. **Unprivileged local app/worker execution:** candidate Compose specifies UID/GID 33, drops Linux capabilities and sets `no-new-privileges`. The dev image now gives Laravel writable storage/cache paths to `www-data`; the entrypoint does not attempt `chown` if started non-root. Ordinary queue commands should likewise be run as UID 33 and never receive bootstrap/migration/provisioner secrets.
-3. **Disposable role contract test:** `scripts/ops/verify-local-postgres-roles.sh` runs a PostgreSQL 17 container on `--network none` with synthetic credentials, verifies role flags, central/runtime vs tenant/runtime connection denial, default SELECT/INSERT and denied UPDATE/DELETE/DDL. The PG baseline workflow now runs Compose config validation and this script before the baseline build. These tests are **not executed evidence until a current successful CI run is inspected**; even if green, they verify only the one local fixture, not the production provisioning broker or per-tenant isolation.
+3. **Disposable role contract test:** `scripts/ops/verify-local-postgres-roles.sh` runs a PostgreSQL 17 container on `--network none` with synthetic credentials, verifies role flags, central/runtime vs tenant/runtime connection denial, default SELECT/INSERT and denied UPDATE/DELETE/DDL. It passed in workflow [run 39116920068](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39116920068), which also passed the full Laravel/PG17 baseline. It verifies one local fixture only—not the production provisioning broker or arbitrary per-tenant isolation.
 4. **Image source label:** the production image build now passes the workflow SHA to `VCS_REF`. A label is not an OCI registry digest and is not proof of signature/provenance, image publication, or a Coolify rollout.
 5. **Resource budget corrected:** `docs/KVM2_RESOURCE_BUDGET.md` now separates planning assumptions from measured resources, removes the old engine-choice and default-Redis contradictions, states there is no established fixed connection cap, and explicitly forbids a tenant-count/capacity claim without tests.
 6. Added `docs/runbooks/coolify-operations.md` to document exposure requirements, deploy identity, immutable artifact requirements, health/readiness, TLS/proxy trust, backups, measuring, incident handling and rollback. Added `docs/evidence/templates/service-exposure-inventory.csv`.
@@ -144,10 +144,10 @@ No rollback, forward recovery, incident drill or alert-delivery exercise ran as 
 | Production TLS, forwarded headers/trusted proxy, dependency readiness | **NOT RUN / NOT VERIFIED** |
 | Immutable registry push and digest-pinned deployment | **NOT VERIFIED** |
 | Actual production DB runtime/migration/provisioner roles and tenant-A/B denied access | **NOT RUN / NOT VERIFIED** |
-| Off-host encrypted backup/readback/checksum and key retrieval | **NOT RUN / NOT VERIFIED** |
-| Central + two-tenant restore including files/objects/key references | **NOT RUN / NOT VERIFIED** |
-| PITR and isolated single-tenant restore/sentinel | **NOT RUN / NOT VERIFIED** |
-| Restore manifest/integrity checks/duration/RPO/RTO | **NOT MEASURED** |
+| Off-host encrypted backup/readback/checksum and real key retrieval | **NOT RUN / NOT VERIFIED** |
+| Synthetic central + two-tenant restore, local payload checksums and fake-key artifact check | **PASS in run 39116920068; not off-host, no actual object store/vault** |
+| PITR and isolated single-tenant restore/sentinel | **PASS (synthetic disposable CI only); production/off-host PITR and tenant restore NOT RUN / NOT VERIFIED** |
+| Synthetic fixture restore checksums/integrity/durations | **PASS; see `docs/evidence/restore-2026-10-18.md`; 647 ms logical phase, 21.585 s full synthetic script, not production RTO** |
 | Actual memory/CPU/connections/disk high-water, sync burst and API/DB p95/p99 | **NOT MEASURED** |
 | Queue age/backlog/retries, backup-overlap impact and resource headroom | **NOT MEASURED** |
 | Alert delivery and rollback/forward recovery rehearsal | **NOT RUN / NOT VERIFIED** |
