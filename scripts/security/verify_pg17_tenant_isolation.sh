@@ -206,7 +206,7 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "$migrator" IN SCHEMA "$schema"
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "$runtime";
 ALTER DEFAULT PRIVILEGES FOR ROLE "$migrator" IN SCHEMA "$schema"
   GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO "$runtime";
-# PostgreSQL per-schema REVOKE cannot cancel globally granted default privileges.
+-- PostgreSQL per-schema REVOKE cannot cancel globally granted default privileges.
 ALTER DEFAULT PRIVILEGES FOR ROLE "$migrator"
   REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 SET ROLE "$migrator";
