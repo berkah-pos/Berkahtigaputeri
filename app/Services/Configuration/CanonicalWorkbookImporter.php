@@ -10,6 +10,7 @@ use stdClass;
 final class CanonicalWorkbookImporter
 {
     public const EXPECTED_KEYSET_MD5 = '1fd3d64219ecc7c333453c20da80e295';
+    public const EXPECTED_SOURCE_SHA256 = '2df1a708480e039fef0111f49da015beeb18de7d3896e16fd3debf74cdd602cd';
 
     private const EXPECTED_COUNTS = [
         'global' => 1,
@@ -35,6 +36,11 @@ final class CanonicalWorkbookImporter
 
         if (($manifest->source_workbook ?? null) !== 'FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx') {
             throw new InvalidArgumentException('Manifest source_workbook does not identify the canonical workbook.');
+        }
+
+        $sourceSha256 = $manifest->source_sha256 ?? null;
+        if (! is_string($sourceSha256) || ! hash_equals(self::EXPECTED_SOURCE_SHA256, $sourceSha256)) {
+            throw new InvalidArgumentException('Manifest source SHA-256 does not identify the canonical workbook bytes.');
         }
 
         if (($manifest->keyset_md5 ?? null) !== self::EXPECTED_KEYSET_MD5) {

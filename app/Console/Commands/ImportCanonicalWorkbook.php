@@ -35,6 +35,22 @@ class ImportCanonicalWorkbook extends Command
             if ($contents === false) {
                 throw new \RuntimeException("Unable to read manifest: {$path}");
             }
+
+            $checksumPath = $path.'.sha256';
+            $checksumContents = is_file($checksumPath) && is_readable($checksumPath)
+                ? file_get_contents($checksumPath)
+                : false;
+            if ($checksumContents === false) {
+                throw new \InvalidArgumentException("Manifest SHA-256 sidecar is missing or unreadable: {$checksumPath}");
+            }
+            $checksumPattern = '/\A([a-f0-9]{64})  '.preg_quote(basename($path), '/').'\n?\z/';
+            if (preg_match($checksumPattern, $checksumContents, $checksumMatch) !== 1) {
+                throw new \InvalidArgumentException('Manifest SHA-256 sidecar has an invalid format.');
+            }
+            if (! hash_equals($checksumMatch[1], hash('sha256', $contents))) {
+                throw new \InvalidArgumentException('Manifest SHA-256 checksum does not match its sidecar.');
+            }
+
             $manifest = json_decode($contents, false, 512, JSON_THROW_ON_ERROR);
             if (! $manifest instanceof stdClass) {
                 throw new \InvalidArgumentException('Manifest root must be a JSON object.');

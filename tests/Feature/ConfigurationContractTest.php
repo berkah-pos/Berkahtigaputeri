@@ -231,6 +231,48 @@ final class ConfigurationContractTest extends TestCase
         $this->assertSame(1, DB::connection('central')->table('audit_events')->count());
     }
 
+    public function test_manifest_source_sha256_must_match_the_canonical_workbook(): void
+    {
+        $manifestPath = getenv('CANONICAL_CONFIG_MANIFEST');
+        if (! is_string($manifestPath) || ! is_file($manifestPath)) {
+            $this->markTestSkipped('Set CANONICAL_CONFIG_MANIFEST to the manifest generated from the canonical XLSX.');
+        }
+
+        $contents = file_get_contents($manifestPath);
+        $this->assertIsString($contents);
+        $manifest = json_decode($contents, false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(CanonicalWorkbookImporter::EXPECTED_SOURCE_SHA256, $manifest->source_sha256);
+
+        $manifest->source_sha256 = str_repeat('0', 64);
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Manifest source SHA-256 does not identify the canonical workbook bytes.');
+        app(CanonicalWorkbookImporter::class)->validateManifest($manifest);
+    }
+
+    public function test_import_command_rejects_tampered_manifest_before_database_access(): void
+    {
+        $manifestPath = getenv('CANONICAL_CONFIG_MANIFEST');
+        if (! is_string($manifestPath) || ! is_file($manifestPath)) {
+            $this->markTestSkipped('Set CANONICAL_CONFIG_MANIFEST to the manifest generated from the canonical XLSX.');
+        }
+
+        $contents = file_get_contents($manifestPath);
+        $this->assertIsString($contents);
+        $temporaryPath = sys_get_temp_dir().'/berkah-pos-manifest-'.bin2hex(random_bytes(8)).'.json';
+        $checksumPath = $temporaryPath.'.sha256';
+        file_put_contents($temporaryPath, $contents);
+        file_put_contents($checksumPath, str_repeat('0', 64).'  '.basename($temporaryPath)."\n");
+        $this->beforeApplicationDestroyed(static function () use ($temporaryPath, $checksumPath): void {
+            @unlink($temporaryPath);
+            @unlink($checksumPath);
+        });
+
+        DB::shouldReceive('connection')->never();
+        $this->artisan('config:import-workbook', ['file' => $temporaryPath])
+            ->expectsOutputToContain('Manifest SHA-256 checksum does not match its sidecar.')
+            ->assertFailed();
+    }
+
     public function test_default_import_command_is_a_database_free_dry_run(): void
     {
         $manifestPath = getenv('CANONICAL_CONFIG_MANIFEST');
