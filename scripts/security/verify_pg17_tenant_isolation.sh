@@ -240,10 +240,21 @@ runtime_query "$RUNTIME_A" "$PASS_A" "$DB_A" "UPDATE tenant_a.isolation_probe SE
 assert_value "Tenant A UPDATE persisted" "$DB_A" "SELECT count(*) FROM tenant_a.isolation_probe WHERE tenant_label='tenant-A-inserted' AND note='updated'" "1"
 runtime_query "$RUNTIME_A" "$PASS_A" "$DB_A" "DELETE FROM tenant_a.isolation_probe WHERE tenant_label='tenant-A-inserted' RETURNING id" >/dev/null
 assert_value "Tenant A DELETE persisted" "$DB_A" "SELECT count(*) FROM tenant_a.isolation_probe WHERE tenant_label='tenant-A-inserted'" "0"
+own_select_b="$(runtime_query "$RUNTIME_B" "$PASS_B" "$DB_B" "SELECT count(*) FROM tenant_b.isolation_probe WHERE tenant_label='tenant-B-synthetic'")"
+[[ "$own_select_b" == "1" ]] || fail "Tenant B runtime SELECT of its own row failed"
+log "PASS: Tenant B runtime SELECT own row"
+inserted_b="$(runtime_query "$RUNTIME_B" "$PASS_B" "$DB_B" "INSERT INTO tenant_b.isolation_probe (tenant_label,note) VALUES ('tenant-B-inserted','before') RETURNING id")"
+[[ "$inserted_b" =~ ^[0-9]+$ ]] || fail "Tenant B INSERT/sequence use did not return a generated ID"
+log "PASS: Tenant B INSERT and sequence USAGE (generated ID returned)"
+runtime_query "$RUNTIME_B" "$PASS_B" "$DB_B" "UPDATE tenant_b.isolation_probe SET note='updated' WHERE tenant_label='tenant-B-inserted' RETURNING note" >/dev/null
+assert_value "Tenant B UPDATE persisted" "$DB_B" "SELECT count(*) FROM tenant_b.isolation_probe WHERE tenant_label='tenant-B-inserted' AND note='updated'" "1"
+runtime_query "$RUNTIME_B" "$PASS_B" "$DB_B" "DELETE FROM tenant_b.isolation_probe WHERE tenant_label='tenant-B-inserted' RETURNING id" >/dev/null
+assert_value "Tenant B DELETE persisted" "$DB_B" "SELECT count(*) FROM tenant_b.isolation_probe WHERE tenant_label='tenant-B-inserted'" "0"
 assert_value "Tenant A receives default DML on future tables" "$DB_A" "SELECT has_table_privilege('$RUNTIME_A','tenant_a.future_probe','SELECT') AND has_table_privilege('$RUNTIME_A','tenant_a.future_probe','INSERT') AND has_table_privilege('$RUNTIME_A','tenant_a.future_probe','UPDATE') AND has_table_privilege('$RUNTIME_A','tenant_a.future_probe','DELETE')" "t"
 assert_value "Tenant A receives sequence privilege on future tables" "$DB_A" "SELECT has_sequence_privilege('$RUNTIME_A','tenant_a.future_probe_id_seq','USAGE') AND has_sequence_privilege('$RUNTIME_A','tenant_a.future_probe_id_seq','SELECT')" "t"
 assert_value "Tenant A cannot CREATE in its schema" "$DB_A" "SELECT NOT has_schema_privilege('$RUNTIME_A','tenant_a','CREATE')" "t"
 assert_value "Tenant A lacks global database/role DDL flags" "$PGDATABASE" "SELECT NOT rolcreatedb AND NOT rolcreaterole AND NOT rolsuper AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit FROM pg_roles WHERE rolname='$RUNTIME_A' AND rolcanlogin" "t"
+assert_value "Tenant B lacks global database/role DDL flags" "$PGDATABASE" "SELECT NOT rolcreatedb AND NOT rolcreaterole AND NOT rolsuper AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit FROM pg_roles WHERE rolname='$RUNTIME_B' AND rolcanlogin" "t"
 assert_value "Tenant A has neither DATABASE CREATE nor TEMP privilege" "$DB_A" "SELECT NOT has_database_privilege('$RUNTIME_A','$DB_A','CREATE') AND NOT has_database_privilege('$RUNTIME_A','$DB_A','TEMP')" "t"
 assert_value "Tenant A cannot execute its private function by default" "$DB_A" "SELECT NOT has_function_privilege('$RUNTIME_A','tenant_a.private_marker()','EXECUTE')" "t"
 assert_value "Tenant A is not a member of owner/migrator/tenant B roles" "$PGDATABASE" "SELECT NOT pg_has_role('$RUNTIME_A','$OWNER_A','MEMBER') AND NOT pg_has_role('$RUNTIME_A','$MIGRATOR_A','MEMBER') AND NOT pg_has_role('$RUNTIME_A','$RUNTIME_B','MEMBER')" "t"
@@ -267,8 +278,13 @@ expect_denied "Tenant A CONNECT to tenant B database" "permission denied for dat
 expect_denied "Tenant A CONNECT to central database" "permission denied for database" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT 1"
 
+expect_denied "Tenant B CONNECT to tenant A database" "permission denied for database" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT 1"
+expect_denied "Tenant B CONNECT to central database" "permission denied for database" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT 1"
+
 admin_sql "GRANT CONNECT ON DATABASE \\"$DB_B\\" TO \\"$RUNTIME_A\\""
 admin_sql "GRANT CONNECT ON DATABASE \\"$CENTRAL_DB\\" TO \\"$RUNTIME_A\\""
+admin_sql "GRANT CONNECT ON DATABASE \"$DB_A\" TO \"$RUNTIME_B\""
+admin_sql "GRANT CONNECT ON DATABASE \"$CENTRAL_DB\" TO \"$RUNTIME_B\""
 assert_value "Tenant A has no B schema USAGE" "$DB_B" "SELECT NOT has_schema_privilege('$RUNTIME_A','tenant_b','USAGE')" "t"
 assert_value "Tenant A has no B SELECT/INSERT/UPDATE/DELETE" "$DB_B" "SELECT NOT has_table_privilege('$RUNTIME_A','tenant_b.isolation_probe','SELECT') AND NOT has_table_privilege('$RUNTIME_A','tenant_b.isolation_probe','INSERT') AND NOT has_table_privilege('$RUNTIME_A','tenant_b.isolation_probe','UPDATE') AND NOT has_table_privilege('$RUNTIME_A','tenant_b.isolation_probe','DELETE')" "t"
 assert_value "Tenant A has no B sequence access" "$DB_B" "SELECT NOT has_sequence_privilege('$RUNTIME_A','tenant_b.isolation_probe_id_seq','USAGE') AND NOT has_sequence_privilege('$RUNTIME_A','tenant_b.isolation_probe_id_seq','SELECT') AND NOT has_sequence_privilege('$RUNTIME_A','tenant_b.isolation_probe_id_seq','UPDATE')" "t"
@@ -288,8 +304,20 @@ expect_denied "Tenant A execute B function after accidental CONNECT grant" "perm
 assert_value "Tenant A has no central schema/table rights after accidental CONNECT" "$CENTRAL_DB" "SELECT NOT has_schema_privilege('$RUNTIME_A','central_data','USAGE') AND NOT has_table_privilege('$RUNTIME_A','central_data.central_marker','SELECT') AND NOT has_table_privilege('$RUNTIME_A','central_data.central_marker','INSERT') AND NOT has_table_privilege('$RUNTIME_A','central_data.central_marker','UPDATE') AND NOT has_table_privilege('$RUNTIME_A','central_data.central_marker','DELETE')" "t"
 expect_denied "Tenant A SELECT central data after accidental CONNECT" "permission denied for schema" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT * FROM central_data.central_marker"
+assert_value "Tenant B has no A schema USAGE" "$DB_A" "SELECT NOT has_schema_privilege('$RUNTIME_B','tenant_a','USAGE')" "t"
+assert_value "Tenant B has no A SELECT/INSERT/UPDATE/DELETE" "$DB_A" "SELECT NOT has_table_privilege('$RUNTIME_B','tenant_a.isolation_probe','SELECT') AND NOT has_table_privilege('$RUNTIME_B','tenant_a.isolation_probe','INSERT') AND NOT has_table_privilege('$RUNTIME_B','tenant_a.isolation_probe','UPDATE') AND NOT has_table_privilege('$RUNTIME_B','tenant_a.isolation_probe','DELETE')" "t"
+assert_value "Tenant B has no A sequence access" "$DB_A" "SELECT NOT has_sequence_privilege('$RUNTIME_B','tenant_a.isolation_probe_id_seq','USAGE') AND NOT has_sequence_privilege('$RUNTIME_B','tenant_a.isolation_probe_id_seq','SELECT') AND NOT has_sequence_privilege('$RUNTIME_B','tenant_a.isolation_probe_id_seq','UPDATE')" "t"
+expect_denied "Tenant B SELECT from A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT * FROM tenant_a.isolation_probe"
+expect_denied "Tenant B INSERT into A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "INSERT INTO tenant_a.isolation_probe (tenant_label,note) VALUES ('cross-tenant-b','forbidden')"
+expect_denied "Tenant B UPDATE A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "UPDATE tenant_a.isolation_probe SET note='forbidden'"
+expect_denied "Tenant B DELETE A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "DELETE FROM tenant_a.isolation_probe"
+expect_denied "Tenant B sequence use in A after accidental CONNECT grant" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT nextval('tenant_a.isolation_probe_id_seq')"
+expect_denied "Tenant B SELECT central data after accidental CONNECT" "permission denied for schema" env PGUSER="$RUNTIME_B" PGPASSWORD="$PASS_B" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$CENTRAL_DB" -c "SELECT * FROM central_data.central_marker"
+
 admin_sql "REVOKE CONNECT ON DATABASE \\"$DB_B\\" FROM \\"$RUNTIME_A\\""
 admin_sql "REVOKE CONNECT ON DATABASE \\"$CENTRAL_DB\\" FROM \\"$RUNTIME_A\\""
+admin_sql "REVOKE CONNECT ON DATABASE \"$DB_A\" FROM \"$RUNTIME_B\""
+admin_sql "REVOKE CONNECT ON DATABASE \"$CENTRAL_DB\" FROM \"$RUNTIME_B\""
 
 # PUBLIC grants and database ownership are asserted from catalog ACLs, not documentation.
 for database in "${DATABASES[@]}"; do
@@ -300,6 +328,8 @@ assert_value "Tenant A DB owner is its NOLOGIN owner role" "$PGDATABASE" "SELECT
 assert_value "Tenant B DB owner is its NOLOGIN owner role" "$PGDATABASE" "SELECT r.rolname='$OWNER_B' AND NOT r.rolcanlogin FROM pg_database d JOIN pg_roles r ON r.oid=d.datdba WHERE d.datname='$DB_B'" "t"
 assert_value "PUBLIC has no CREATE/USAGE on tenant A public schema" "$DB_A" "SELECT NOT EXISTS (SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) a WHERE n.nspname='public' AND a.grantee=0 AND a.privilege_type IN ('CREATE','USAGE'))" "t"
 assert_value "Default function ACL does not give PUBLIC EXECUTE in tenant A" "$DB_A" "SELECT NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a WHERE n.nspname='tenant_a' AND p.proname='private_marker' AND a.grantee=0 AND a.privilege_type='EXECUTE')" "t"
+assert_value "PUBLIC has no CREATE/USAGE on tenant B public schema" "$DB_B" "SELECT NOT EXISTS (SELECT 1 FROM pg_namespace n CROSS JOIN LATERAL aclexplode(COALESCE(n.nspacl, acldefault('n', n.nspowner))) a WHERE n.nspname='public' AND a.grantee=0 AND a.privilege_type IN ('CREATE','USAGE'))" "t"
+assert_value "Default function ACL does not give PUBLIC EXECUTE in tenant B" "$DB_B" "SELECT NOT EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) a WHERE n.nspname='tenant_b' AND p.proname='private_marker' AND a.grantee=0 AND a.privilege_type='EXECUTE')" "t"
 
 log "MATRIX: Tenant A/B direct database boundary; central DB; CRUD; sequence; future-object defaults; schema CREATE; role/database tampering; role membership; search_path; PUBLIC ACL; function EXECUTE."
 log "LIMITATION: This fixture validates PostgreSQL grant behavior using synthetic roles. It does not certify an application provisioner/broker, Laravel tenant resolver, Host/X-Forwarded-Host validation, forged API IDs, inactive state, replay, or long-lived worker reset."
