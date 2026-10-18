@@ -156,9 +156,6 @@ return new class extends Migration
             $table->unsignedInteger('line_no')->default(0);
         });
 
-        Schema::connection('tenant')->table('journal_lines', function (Blueprint $table): void {
-            $table->dropColumn('line_no');
-        });
         Schema::connection('tenant')->table('journal_entries', function (Blueprint $table): void {
             $table->string('status', 12)->default('draft');
             $table->string('entry_type', 16)->default('manual');
@@ -808,6 +805,9 @@ return new class extends Migration
         $db->unprepared('ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_currency_idr, DROP CONSTRAINT IF EXISTS sales_total_matches, DROP CONSTRAINT IF EXISTS sales_money_nonnegative');
         $db->unprepared('ALTER TABLE products DROP CONSTRAINT IF EXISTS products_shelf_life_nonnegative, DROP CONSTRAINT IF EXISTS products_currency_idr, DROP CONSTRAINT IF EXISTS products_price_nonnegative');
 
+        Schema::connection('tenant')->table('journal_lines', function (Blueprint $table): void {
+            $table->dropColumn('line_no');
+        });
         Schema::connection('tenant')->table('journal_entries', function (Blueprint $table): void {
             $table->dropColumn(['status', 'entry_type', 'currency_code', 'posted_at', 'actor_reference', 'device_id', 'app_version', 'transaction_reference', 'idempotency_key', 'payload_sha256', 'reversal_of_entry_id']);
         });
