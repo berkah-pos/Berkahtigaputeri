@@ -270,7 +270,7 @@ expect_denied "Tenant A CREATE ROLE" "permission denied to create role" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "CREATE ROLE btp_iso_runtime_tamper_ci"
 expect_denied "Tenant A CREATE DATABASE" "permission denied to create database" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "CREATE DATABASE btp_iso_tamper_ci"
-expect_denied "Tenant A ALTER ROLE to SUPERUSER" "must be superuser to alter superuser roles" \
+expect_denied "Tenant A ALTER ROLE to SUPERUSER" "permission denied to alter role" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "ALTER ROLE $RUNTIME_A SUPERUSER"
 expect_denied "Tenant A SET ROLE to migrator" "permission denied to set role" \
   env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SET ROLE $MIGRATOR_A"
