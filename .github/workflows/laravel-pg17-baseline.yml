@@ -210,6 +210,9 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation"
           docker run --rm --network host --user "$(id -u):$(id -g)" \
             --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
+            --env CI=true --env GITHUB_ACTIONS=true --env GITHUB_RUN_ID="${{ github.run_id }}" \
+            --env PG17_ISOLATION_APPROVED_SERVICE=github-actions-postgres-17-disposable \
+            --env PG17_ISOLATION_CHECKOUT_SHA="${{ github.sha }}" \
             --env PGHOST=127.0.0.1 --env PGPORT=5432 --env PGUSER=postgres \
             --env PGDATABASE=postgres --env PGPASSWORD=postgres \
             --env PG17_ISOLATION_ARTIFACT=/artifacts/pg17-tenant-isolation.log \
