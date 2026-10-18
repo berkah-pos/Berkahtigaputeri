@@ -37,22 +37,23 @@ Repository clone was attempted with:
 
 ## 3. Authority and reading record
 
-Read in the required order from the canonical repository:
+Read in the required order from the canonical repository, including the current no-Supabase authority:
 
 1. AGENTS.md
 2. docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md
-3. docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md
-4. docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
-5. docs/permanent/DOC_00_MASTER_ROADMAP.md
-6. docs/permanent/README.md
-7. docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md
-8. docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md
-9. docs/permanent/DOC_01_3_LAYER_CONFIG.md
-10. .cursor/rules/berkah-pos.mdc
-11. .github/muse-instructions.md
-12. docs/HARDENING/README.md
-13. root README.md
-14. Scoped sources and acceptance evidence: scripts/export_workbook_for_laravel.py, scripts/sync_excel_to_supabase.py (static inspection only), scripts/sync_excel_to_supabase_legacy.py (static inspection only), app/Console/Commands/ImportCanonicalWorkbook.php, config/ci/required-check-matrix.json, .github/workflows/canonical-workbook-validate.yml, and related CI evidence reports.
+3. docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md
+4. docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md
+5. docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md
+6. docs/permanent/DOC_00_MASTER_ROADMAP.md
+7. docs/permanent/README.md
+8. docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md
+9. docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md
+10. docs/permanent/DOC_01_3_LAYER_CONFIG.md
+11. .cursor/rules/berkah-pos.mdc
+12. .github/muse-instructions.md
+13. docs/HARDENING/README.md
+14. root README.md
+15. Scoped sources and acceptance evidence: scripts/export_workbook_for_laravel.py, scripts/sync_excel_to_supabase.py (static inspection only), scripts/sync_excel_to_supabase_legacy.py (static inspection only), app/Console/Commands/ImportCanonicalWorkbook.php, config/ci/required-check-matrix.json, .github/workflows/canonical-workbook-validate.yml, and related CI evidence reports.
 
 **Authority rule applied:** the 2026-10-17 owner ADR's no-Supabase decision overrides older Supabase instructions and historical reports. DOC_00 remains authority for the workbook contract and five-layer configuration semantics. No authority document was edited.
 
