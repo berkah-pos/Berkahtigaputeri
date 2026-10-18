@@ -23,6 +23,9 @@ on:
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/runbooks/**"
+      - "docs/evidence/templates/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
   push:
     branches: ["**"]
     paths:
@@ -46,6 +49,9 @@ on:
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/runbooks/**"
+      - "docs/evidence/templates/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
   workflow_dispatch:
 
 permissions:
