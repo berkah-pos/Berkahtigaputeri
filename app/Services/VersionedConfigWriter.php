@@ -70,6 +70,7 @@ class VersionedConfigWriter
                 }
                 throw $exception;
             }
+
             return 1;
         }
         if ($existing === null || (int) $existing->version !== $expectedVersion) {
@@ -106,27 +107,42 @@ class VersionedConfigWriter
                 ));
             }
         }
+
         return $newVersion;
     }
 
     private function decodeConfig(mixed $raw): array
     {
-        if (is_array($raw)) return $raw;
-        if (! is_string($raw)) throw new RuntimeException('Stored configuration is missing or malformed.');
+        if (is_array($raw)) {
+            return $raw;
+        }
+        if (! is_string($raw)) {
+            throw new RuntimeException('Stored configuration is missing or malformed.');
+        }
         $decoded = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($decoded)) throw new RuntimeException('Stored configuration must decode to an object.');
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Stored configuration must decode to an object.');
+        }
+
         return $decoded;
     }
 
     private function canonicalJson(array $value): string
     {
         $normalize = function (&$item) use (&$normalize): void {
-            if (! is_array($item)) return;
-            if (! array_is_list($item)) ksort($item, SORT_STRING);
-            foreach ($item as &$child) $normalize($child);
+            if (! is_array($item)) {
+                return;
+            }
+            if (! array_is_list($item)) {
+                ksort($item, SORT_STRING);
+            }
+            foreach ($item as &$child) {
+                $normalize($child);
+            }
             unset($child);
         };
         $normalize($value);
+
         return json_encode($value, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }

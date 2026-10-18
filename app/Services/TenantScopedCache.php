@@ -33,6 +33,6 @@ class TenantScopedCache
             throw new LogicException('Tenant cache key is invalid.');
         }
 
-        return 'tenant:' . hash('sha256', (string) $tenant->getTenantKey()) . ':' . $key;
+        return 'tenant:'.hash('sha256', (string) $tenant->getTenantKey()).':'.$key;
     }
 }

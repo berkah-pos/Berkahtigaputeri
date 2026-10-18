@@ -7,9 +7,9 @@ use App\Models\Central\Tenant;
 use App\Services\TenantHostResolver;
 use App\Services\TenantScopedCache;
 use App\Services\TenantScopedStorage;
-use Illuminate\Testing\TestResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\TestResponse;
 use Stancl\Tenancy\Facades\Tenancy;
 use Tests\Support\ProvisionedTenantPair;
 use Tests\TestCase;
@@ -73,15 +73,15 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
     public function test_forged_tenant_device_and_host_selectors_cannot_read_or_mutate_tenant_b_products(): void
     {
         $pair = $this->attachTenantPrincipals($this->createProvisionedTenantPair('phase4-http'));
-        $productA = 'product-a-' . $pair['suffix'];
-        $productB = 'product-b-' . $pair['suffix'];
+        $productA = 'product-a-'.$pair['suffix'];
+        $productB = 'product-b-'.$pair['suffix'];
         $this->seedProduct($pair['tenantA'], $productA, '10.00');
         $this->seedProduct($pair['tenantB'], $productB, '37.25');
 
         $readBFromAHost = $this->requestOnHost(
             'GET',
             $pair['hostA'],
-            '/tenant/products/' . $productB,
+            '/tenant/products/'.$productB,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']]
         );
@@ -90,7 +90,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $forgedDeviceSelector = $this->requestOnHost(
             'GET',
             $pair['hostA'],
-            '/tenant/products/' . $productA . '?device_id=' . urlencode($pair['deviceBId']),
+            '/tenant/products/'.$productA.'?device_id='.urlencode($pair['deviceBId']),
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']]
         );
@@ -99,7 +99,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $forgedTenantRead = $this->requestOnHost(
             'GET',
             $pair['hostA'],
-            '/tenant/products/' . $productA . '?tenant_id=' . urlencode($pair['tenantBId']),
+            '/tenant/products/'.$productA.'?tenant_id='.urlencode($pair['tenantBId']),
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId'], 'X-Tenant-ID' => $pair['tenantBId']]
         );
@@ -108,7 +108,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $forgedTenantMutation = $this->requestOnHost(
             'PATCH',
             $pair['hostA'],
-            '/tenant/products/' . $productA,
+            '/tenant/products/'.$productA,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']],
             ['tenant_id' => $pair['tenantBId'], 'price' => '0.01']
@@ -118,7 +118,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $forgedDeviceMutation = $this->requestOnHost(
             'PATCH',
             $pair['hostA'],
-            '/tenant/products/' . $productA,
+            '/tenant/products/'.$productA,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceBId']],
             ['price' => '0.01']
@@ -128,7 +128,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $crossDomainRead = $this->requestOnHost(
             'GET',
             $pair['hostB'],
-            '/tenant/products/' . $productB,
+            '/tenant/products/'.$productB,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']]
         );
@@ -137,7 +137,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $crossDomainMutation = $this->requestOnHost(
             'PATCH',
             $pair['hostB'],
-            '/tenant/products/' . $productB,
+            '/tenant/products/'.$productB,
             $pair['tokenA'],
             ['X-Device-ID' => $pair['deviceAId']],
             ['price' => '0.01']
@@ -212,7 +212,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $this->assertTrue(Cache::has($cacheKey));
 
         $domain->delete();
-        $renamedHost = 'renamed-' . $pair['suffix'] . '.tenant.test';
+        $renamedHost = 'renamed-'.$pair['suffix'].'.tenant.test';
         Domain::on('central')->create([
             'domain' => $renamedHost,
             'tenant_id' => $pair['tenantAId'],
@@ -281,7 +281,7 @@ class HostDomainTenantIsolationMariaDbTest extends TestCase
         $this->flushHeaders();
         $requestHeaders = array_merge(['Host' => $host, 'Accept' => 'application/json'], $headers);
         if ($token !== null) {
-            $requestHeaders['Authorization'] = 'Bearer ' . $token;
+            $requestHeaders['Authorization'] = 'Bearer '.$token;
         }
 
         try {

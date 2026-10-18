@@ -48,7 +48,7 @@ class EffectiveConfigResolverTest extends TestCase
 
     public function test_deep_merge_preserves_nested_defaults_and_replaces_scalar_overrides(): void
     {
-        $resolver = new EffectiveConfigResolver();
+        $resolver = new EffectiveConfigResolver;
 
         $result = $this->invokePrivate($resolver, 'deepMerge', [
             [
@@ -99,7 +99,7 @@ class EffectiveConfigResolverTest extends TestCase
                 'version' => 1, 'updated_at' => now(),
             ],
         ]);
-        $resolver = new EffectiveConfigResolver();
+        $resolver = new EffectiveConfigResolver;
         $posRow = $this->invokePrivate($resolver, 'loadRequestedServiceRow', ['tenant-a', 'pos']);
         $accountingRow = $this->invokePrivate($resolver, 'loadRequestedServiceRow', ['tenant-a', 'akuntansi']);
         $pos = json_decode($posRow->config, true, 512, JSON_THROW_ON_ERROR);
@@ -130,7 +130,7 @@ class EffectiveConfigResolverTest extends TestCase
         ]);
 
         $subscription = $this->invokePrivate(
-            new EffectiveConfigResolver(),
+            new EffectiveConfigResolver,
             'selectAuthoritativeSubscription',
             ['tenant-a'],
         );
@@ -158,7 +158,7 @@ class EffectiveConfigResolverTest extends TestCase
         ]);
 
         $subscription = $this->invokePrivate(
-            new EffectiveConfigResolver(),
+            new EffectiveConfigResolver,
             'selectAuthoritativeSubscription',
             ['tenant-a'],
         );
@@ -168,7 +168,7 @@ class EffectiveConfigResolverTest extends TestCase
 
     public function test_scoped_hash_differs_between_tenants_with_identical_configuration(): void
     {
-        $resolver = new EffectiveConfigResolver();
+        $resolver = new EffectiveConfigResolver;
         $config = ['receipt' => ['enabled' => true, 'paper_width' => 58]];
         $versions = ['global' => 1, 'template' => 2, 'tenant' => 5, 'service' => 3, 'device' => 0];
 
@@ -196,13 +196,13 @@ class EffectiveConfigResolverTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('contains malformed JSON');
 
-        $this->invokePrivate(new EffectiveConfigResolver(), 'normalizeConfig', ['{"receipt":', 'global']);
+        $this->invokePrivate(new EffectiveConfigResolver, 'normalizeConfig', ['{"receipt":', 'global']);
     }
 
     public function test_tenant_context_is_ended_purged_and_previous_tenant_reinitialized(): void
     {
-        $previous = new Tenant();
-        $target = new Tenant();
+        $previous = new Tenant;
+        $target = new Tenant;
 
         $tenancyManager = Mockery::mock();
         $tenancyManager->tenant = $previous;
@@ -224,7 +224,7 @@ class EffectiveConfigResolverTest extends TestCase
         Tenancy::shouldReceive('initialize')->once()->with($previous)->ordered();
 
         $result = $this->invokePrivate(
-            new EffectiveConfigResolver(),
+            new EffectiveConfigResolver,
             'resolveDeviceLayer',
             [$target, 'device-1'],
         );

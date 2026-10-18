@@ -194,6 +194,7 @@ class EffectiveConfigResolver
         if (! in_array($service, self::SERVICES, true)) {
             throw new AuthorizationException('Requested service is not supported.');
         }
+
         return DB::connection('central')->table('tenant_configs')
             ->where('tenant_id', $tenantId)
             ->where('service_scope', $service)
@@ -371,6 +372,7 @@ class EffectiveConfigResolver
 
             if (! $this->isAssoc($merged) || ! $this->isAssoc($layer)) {
                 $merged = $layer;
+
                 continue;
             }
 

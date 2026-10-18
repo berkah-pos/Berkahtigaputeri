@@ -33,12 +33,14 @@ class TenantHostResolver
             (string) $domain->tenant_id !== (string) $cachedTenantId
         ) {
             $this->forgetHosts([$host]);
+
             return null;
         }
 
         $tenant = Tenant::on('central')->find((string) $domain->tenant_id);
         if ($tenant === null || ! (bool) ($tenant->is_active ?? true)) {
             $this->forgetHosts([$host]);
+
             return null;
         }
 
@@ -47,7 +49,7 @@ class TenantHostResolver
 
     public function cacheKey(string $host): string
     {
-        return 'tenant-host-domain:' . strtolower(rtrim(trim($host), '.'));
+        return 'tenant-host-domain:'.strtolower(rtrim(trim($host), '.'));
     }
 
     public function forgetHosts(iterable $hosts): void
@@ -77,7 +79,7 @@ class TenantHostResolver
             return null;
         }
 
-        $host = parse_url('http://' . $value, PHP_URL_HOST);
+        $host = parse_url('http://'.$value, PHP_URL_HOST);
         if (! is_string($host) || $host === '') {
             return null;
         }
