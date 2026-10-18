@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 class TenantsCheckExpired extends Command
 {
     protected $signature = 'tenants:check-expired';
+
     protected $description = 'Suspend subscriptions that have passed their expiry time.';
 
     public function handle(): int
@@ -22,6 +23,7 @@ class TenantsCheckExpired extends Command
             }
         });
         $this->info("Suspended {$count} expired tenant subscription(s).");
+
         return self::SUCCESS;
     }
 }

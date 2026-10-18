@@ -40,12 +40,12 @@ class EffectiveConfigAuthorizationTest extends TestCase
 
     public function test_client_tenant_selector_is_not_a_substitute_for_active_membership(): void
     {
-        $user = new User();
+        $user = new User;
         $user->setAttribute('id', 42);
         $user->setAttribute('is_super_admin', false);
         $this->expectException(AuthorizationException::class);
         $this->expectExceptionMessage('active tenant membership');
-        $this->invokePrivate(new EffectiveConfigResolver(), 'assertTenantMembership', [$user, 'tenant-a']);
+        $this->invokePrivate(new EffectiveConfigResolver, 'assertTenantMembership', [$user, 'tenant-a']);
     }
 
     public function test_inactive_membership_fails_and_active_membership_passes(): void
@@ -54,8 +54,8 @@ class EffectiveConfigAuthorizationTest extends TestCase
             ['tenant_id' => 'tenant-a', 'user_id' => 42, 'is_active' => false],
             ['tenant_id' => 'tenant-b', 'user_id' => 42, 'is_active' => true],
         ]);
-        $resolver = new EffectiveConfigResolver();
-        $user = new User();
+        $resolver = new EffectiveConfigResolver;
+        $user = new User;
         $user->setAttribute('id', 42);
         $user->setAttribute('is_super_admin', false);
         try {
@@ -73,7 +73,7 @@ class EffectiveConfigAuthorizationTest extends TestCase
         DB::connection('central')->table('domains')->insert([
             'domain' => 'shop-a.berkahtigaputeri.co.id', 'tenant_id' => 'tenant-a',
         ]);
-        $resolver = new EffectiveConfigResolver();
+        $resolver = new EffectiveConfigResolver;
         $this->invokePrivate($resolver, 'assertDomainBelongsToTenant', ['tenant-a', 'SHOP-A.berkahtigaputeri.co.id']);
         $this->expectException(AuthorizationException::class);
         $this->invokePrivate($resolver, 'assertDomainBelongsToTenant', ['tenant-b', 'shop-a.berkahtigaputeri.co.id']);
@@ -81,8 +81,8 @@ class EffectiveConfigAuthorizationTest extends TestCase
 
     public function test_non_admin_must_be_the_explicit_registered_device_owner(): void
     {
-        $resolver = new EffectiveConfigResolver();
-        $user = new User();
+        $resolver = new EffectiveConfigResolver;
+        $user = new User;
         $user->setAttribute('id', 42);
         $user->setAttribute('is_super_admin', false);
 
@@ -109,7 +109,7 @@ class EffectiveConfigAuthorizationTest extends TestCase
         DB::connection('central')->table('device_registry')->insert([
             'device_id' => 'device-a', 'tenant_id' => 'tenant-a', 'status' => 'active', 'owner_user_id' => 42,
         ]);
-        $resolver = new EffectiveConfigResolver();
+        $resolver = new EffectiveConfigResolver;
         $device = $this->invokePrivate($resolver, 'loadActiveDeviceForTenant', ['tenant-a', 'device-a']);
         $foreign = $this->invokePrivate($resolver, 'loadActiveDeviceForTenant', ['tenant-b', 'device-a']);
         $this->assertNotNull($device);
