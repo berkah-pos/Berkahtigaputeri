@@ -41,6 +41,13 @@ function literal(PDO $pdo, string $value): string
     return $quoted;
 }
 
+function pgBool(mixed $value): bool
+{
+    // PDO_PGSQL can return booleans as PHP bools or PostgreSQL text literals.
+    return $value === true || $value === 1 || $value === '1'
+        || $value === 't' || $value === 'true';
+}
+
 function query(PDO $pdo, string $sql, array $params = []): PDOStatement
 {
     $statement = $pdo->prepare($sql);
@@ -159,14 +166,25 @@ function connectBroker(): PDO
                 rolsuper, rolcreatedb, rolcreaterole, rolreplication, rolbypassrls, rolinherit
            FROM pg_roles WHERE rolname = current_user'
     );
-    if (
-        $principal === null || $principal['role_name'] !== BROKER_ROLE
-        || $principal['database_name'] !== 'postgres'
-        || $principal['rolsuper'] !== 'f' || $principal['rolcreatedb'] !== 't'
-        || $principal['rolcreaterole'] !== 'f' || $principal['rolreplication'] !== 'f'
-        || $principal['rolbypassrls'] !== 'f' || $principal['rolinherit'] !== 'f'
-    ) {
-        throw new RuntimeException('Broker role catalog attributes violate the contract.');
+    if ($principal === null || $principal['role_name'] !== BROKER_ROLE
+        || $principal['database_name'] !== 'postgres') {
+        throw new RuntimeException('Broker PostgreSQL identity does not match the maintenance-database contract.');
+    }
+    $identityViolations = [];
+    foreach ([
+        'rolsuper' => false,
+        'rolcreatedb' => true,
+        'rolcreaterole' => false,
+        'rolreplication' => false,
+        'rolbypassrls' => false,
+        'rolinherit' => false,
+    ] as $attribute => $expected) {
+        if (pgBool($principal[$attribute]) !== $expected) {
+            $identityViolations[] = $attribute;
+        }
+    }
+    if ($identityViolations !== []) {
+        throw new RuntimeException('Broker role catalog attributes violate the contract: ' . implode(',', $identityViolations));
     }
 
     $forbiddenMembership = row(
@@ -248,12 +266,10 @@ function verifyRole(PDO $pdo, string $name, string $tenantId, string $kind, bool
         throw new RuntimeException('Tenant role is absent or its provenance comment is invalid.');
     }
 
-    if (
-        $role['rolcanlogin'] !== ($login ? 't' : 'f')
-        || $role['rolsuper'] !== 'f' || $role['rolcreatedb'] !== 'f'
-        || $role['rolcreaterole'] !== 'f' || $role['rolreplication'] !== 'f'
-        || $role['rolbypassrls'] !== 'f' || $role['rolinherit'] !== 'f'
-    ) {
+    if (pgBool($role['rolcanlogin']) !== $login
+        || pgBool($role['rolsuper']) || pgBool($role['rolcreatedb'])
+        || pgBool($role['rolcreaterole']) || pgBool($role['rolreplication'])
+        || pgBool($role['rolbypassrls']) || pgBool($role['rolinherit'])) {
         throw new RuntimeException('Tenant role has unexpected PostgreSQL attributes.');
     }
 
@@ -320,7 +336,7 @@ function assertProvisioningState(PDO $pdo, string $tenantId, array $names): void
     if (
         $database === null || $database['owner_name'] !== $names['owner']
         || $database['database_comment'] !== databaseComment($tenantId, 'provisioning')
-        || $database['datallowconn'] !== 't'
+        || !pgBool($database['datallowconn'])
     ) {
         throw new RuntimeException('Tenant database is not in a verified provisioning state.');
     }
@@ -331,9 +347,9 @@ function assertProvisioningState(PDO $pdo, string $tenantId, array $names): void
 
     $acl = databaseAcl($pdo, $names);
     if (
-        $acl['public_connect'] !== 'f' || $acl['public_temp'] !== 'f'
-        || $acl['broker_connect'] !== 'f' || $acl['runtime_connect'] !== 'f'
-        || $acl['migrator_connect'] !== 't'
+        pgBool($acl['public_connect']) || pgBool($acl['public_temp'])
+        || pgBool($acl['broker_connect']) || pgBool($acl['runtime_connect'])
+        || !pgBool($acl['migrator_connect'])
     ) {
         throw new RuntimeException('Database ACL does not match the closed provisioning contract.');
     }
@@ -345,8 +361,8 @@ function assertProvisioningState(PDO $pdo, string $tenantId, array $names): void
     foreach (['owner', 'migrator'] as $kind) {
         $m = membership($pdo, BROKER_ROLE, $names[$kind]);
         if (
-            $m === null || $m['admin_option'] !== 'f'
-            || $m['inherit_option'] !== 'f' || $m['set_option'] !== 't'
+            $m === null || pgBool($m['admin_option'])
+            || pgBool($m['inherit_option']) || !pgBool($m['set_option'])
         ) {
             throw new RuntimeException('Temporary broker membership is absent or broader than SET TRUE / ADMIN FALSE.');
         }
@@ -359,7 +375,7 @@ function assertReadyState(PDO $pdo, string $tenantId, array $names): void
     if (
         $database === null || $database['owner_name'] !== $names['owner']
         || $database['database_comment'] !== databaseComment($tenantId, 'ready')
-        || $database['datallowconn'] !== 't'
+        || !pgBool($database['datallowconn'])
     ) {
         throw new RuntimeException('Tenant database is not in a verified ready state.');
     }
@@ -370,9 +386,9 @@ function assertReadyState(PDO $pdo, string $tenantId, array $names): void
 
     $acl = databaseAcl($pdo, $names);
     if (
-        $acl['public_connect'] !== 'f' || $acl['public_temp'] !== 'f'
-        || $acl['broker_connect'] !== 'f' || $acl['runtime_connect'] !== 't'
-        || $acl['migrator_connect'] !== 'f'
+        pgBool($acl['public_connect']) || pgBool($acl['public_temp'])
+        || pgBool($acl['broker_connect']) || !pgBool($acl['runtime_connect'])
+        || pgBool($acl['migrator_connect'])
     ) {
         throw new RuntimeException('Ready database ACL does not match the tenant boundary contract.');
     }
@@ -403,7 +419,7 @@ function prepareDatabase(PDO $pdo, string $tenantId, array $names): void
         $existing['owner_name'] !== $names['owner']
         || !(
             $existing['database_comment'] === databaseComment($tenantId, 'provisioning')
-            || ($existing['database_comment'] === null && $existing['datallowconn'] === 'f')
+            || ($existing['database_comment'] === null && !pgBool($existing['datallowconn']))
         )
     ) {
         audit($pdo, $tenantId, 'collision_rejected', $names['database']);

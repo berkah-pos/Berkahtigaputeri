@@ -545,6 +545,7 @@ BEGIN
         SELECT 1 FROM pg_roles
          WHERE rolname = v_migrator
            AND shobj_description(oid, 'pg_authid') = 'berkah-pos:tenant-role:v1;tenant=' || p_tenant_id || ';kind=migrator'
+           AND rolcanlogin
            AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole
            AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit
     ) THEN

@@ -264,17 +264,32 @@ expect_denied "central runtime cannot connect to tenant A" 'permission denied fo
   psql_as berkah_central_runtime "$CENTRAL_PASS" "$A_DB" -Atc 'SELECT 1'
 
 expect_denied "tenant A cannot connect to tenant B" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -Atc 'SELECT 1'
-expect_denied "tenant A cannot SELECT from tenant B" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -Atc 'SELECT * FROM products'
-expect_denied "tenant A cannot INSERT into tenant B" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "INSERT INTO products(sku,quantity) VALUES ('attack',1)"
-expect_denied "tenant A cannot UPDATE tenant B" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "UPDATE products SET quantity=0"
-expect_denied "tenant A cannot DELETE from tenant B" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "DELETE FROM products"
-expect_denied "tenant A cannot use tenant B sequence" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "SELECT nextval('products_id_seq')"
+
+# Defence-in-depth ACL probe: temporarily grant A only CONNECT and schema USAGE in
+# disposable tenant B, without any table/sequence ACL. This deliberately bypasses
+# the outer database-connect barrier so DML negatives exercise object privileges.
+psql_super postgres -c "GRANT CONNECT ON DATABASE \"$B_DB\" TO \"$A_RUNTIME\"" >/dev/null
+psql_super "$B_DB" -c "GRANT USAGE ON SCHEMA public TO \"$A_RUNTIME\"" >/dev/null
+expect_denied "tenant A cannot SELECT tenant B table even when CONNECT/schema USAGE are temporarily granted" 'permission denied for table|permission denied for relation' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -Atc 'SELECT * FROM products'
+expect_denied "tenant A cannot INSERT tenant B table" 'permission denied for table|permission denied for relation' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "INSERT INTO products(sku,quantity) VALUES ('attack',1)"
+expect_denied "tenant A cannot UPDATE tenant B table" 'permission denied for table|permission denied for relation' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "UPDATE products SET quantity=0"
+expect_denied "tenant A cannot DELETE tenant B table" 'permission denied for table|permission denied for relation' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "DELETE FROM products"
+expect_denied "tenant A cannot use tenant B sequence" 'permission denied for sequence' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$B_DB" -c "SELECT nextval('products_id_seq')"
+psql_super "$B_DB" -c "REVOKE USAGE ON SCHEMA public FROM \"$A_RUNTIME\"" >/dev/null
+psql_super postgres -c "REVOKE CONNECT ON DATABASE \"$B_DB\" FROM \"$A_RUNTIME\"" >/dev/null
 expect_denied "tenant A cannot connect to central DB" 'permission denied for database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" berkahpos_central_boundary -Atc 'SELECT * FROM central_private'
 expect_denied "broker cannot connect to central DB" 'permission denied for database' psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" berkahpos_central_boundary -Atc 'SELECT * FROM central_private'
 expect_denied "runtime cannot create tables" 'permission denied for schema' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -c 'CREATE TABLE forbidden_table(id integer)'
 expect_denied "runtime cannot create roles" 'permission denied to create role' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -c 'CREATE ROLE forbidden_role'
 expect_denied "runtime cannot create databases" 'permission denied to create database' psql_as "$A_RUNTIME" "$A_RUNTIME_PASS" "$A_DB" -c 'CREATE DATABASE forbidden_database'
 expect_denied "broker cannot create roles directly" 'permission denied to create role' psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" postgres -c 'CREATE ROLE forbidden_role'
+
+# CREATEDB is an intentional, cluster-wide PostgreSQL privilege; demonstrate its
+# actual blast radius in this disposable cluster rather than misreporting it denied.
+psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" postgres -c 'CREATE DATABASE broker_scope_probe' >/dev/null
+assert_eq "broker can create a database (documented residual privilege)" "1" "$(psql_super postgres -Atc "SELECT count(*) FROM pg_database WHERE datname='broker_scope_probe'")"
+echo "FINDING CONFIRMED: broker CREATEDB is cluster-wide; private credential isolation is mandatory"
+psql_super postgres -c 'DROP DATABASE broker_scope_probe' >/dev/null
 
 expect_denied "malformed tenant identifier rejected" 'FAIL CLOSED' run_broker provision '../postgres' \
   --runtime-password-file=/run/secrets/runtime-a --migrator-password-file=/run/secrets/migrator-a
