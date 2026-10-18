@@ -11,6 +11,7 @@ on:
       - "routes/**"
       - "public/**"
       - "tests/**"
+      - "scripts/security/**"
       - "composer.json"
       - "composer.lock"
       - "Dockerfile"
@@ -33,6 +34,7 @@ on:
       - "routes/**"
       - "public/**"
       - "tests/**"
+      - "scripts/security/**"
       - "composer.json"
       - "composer.lock"
       - "Dockerfile"
@@ -118,6 +120,11 @@ jobs:
           db_config = Path("config/database.php").read_text()
           assert "'default' => env('DB_CONNECTION', 'central')" in db_config
           assert "'driver' => 'pgsql'" in db_config
+          tenant_config = db_config.split("'tenant' => [", 1)[1].split("        ],", 1)[0]
+          assert "'username' => env('TENANT_DB_USERNAME', 'tenant_runtime_unconfigured')" in tenant_config
+          assert "'password' => env('TENANT_DB_PASSWORD', '')" in tenant_config
+          assert "CENTRAL_DB_USERNAME" not in tenant_config
+          assert "CENTRAL_DB_PASSWORD" not in tenant_config
           for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
               active = Path(active_path).read_text().lower()
               assert "mariadb" not in active, active_path
@@ -194,6 +201,30 @@ jobs:
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
+
+      - name: Run disposable PostgreSQL 17 tenant role/grant isolation probes
+        id: tenant-isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation"
+          docker run --rm --network host --user "$(id -u):$(id -g)" \
+            --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
+            --env PGHOST=127.0.0.1 --env PGPORT=5432 --env PGUSER=postgres \
+            --env PGDATABASE=postgres --env PGPASSWORD=postgres \
+            --env PG17_ISOLATION_ARTIFACT=/artifacts/pg17-tenant-isolation.log \
+            --volume "$GITHUB_WORKSPACE/scripts/security:/security:ro" \
+            --volume "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation:/artifacts" \
+            postgres:17 bash /security/verify_pg17_tenant_isolation.sh
+
+      - name: Upload sanitized PostgreSQL tenant-isolation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pg17-tenant-isolation-${{ github.sha }}
+          path: artifacts/pg17-tenant-isolation/pg17-tenant-isolation.log
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Build production image from the committed lock
         run: docker build --pull --target production --tag "$PROD_IMAGE" .
