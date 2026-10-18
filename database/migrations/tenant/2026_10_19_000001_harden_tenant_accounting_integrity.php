@@ -152,6 +152,13 @@ return new class extends Migration
             $table->string('lot_id', 100)->nullable();
         });
 
+        Schema::connection('tenant')->table('journal_lines', function (Blueprint $table): void {
+            $table->unsignedInteger('line_no')->default(0);
+        });
+
+        Schema::connection('tenant')->table('journal_lines', function (Blueprint $table): void {
+            $table->dropColumn('line_no');
+        });
         Schema::connection('tenant')->table('journal_entries', function (Blueprint $table): void {
             $table->string('status', 12)->default('draft');
             $table->string('entry_type', 16)->default('manual');
@@ -259,7 +266,8 @@ return new class extends Migration
               ADD CONSTRAINT journal_reversal_fk FOREIGN KEY (reversal_of_entry_id) REFERENCES journal_entries(id);
             ALTER TABLE journal_lines
               ADD CONSTRAINT journal_lines_entry_fk FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id),
-              ADD CONSTRAINT journal_lines_account_fk FOREIGN KEY (account_code) REFERENCES chart_of_accounts(account_code);
+              ADD CONSTRAINT journal_lines_account_fk FOREIGN KEY (account_code) REFERENCES chart_of_accounts(account_code),
+              ADD CONSTRAINT journal_lines_entry_line_unique UNIQUE (journal_entry_id, line_no);
             ALTER TABLE inventory_lots
               ADD CONSTRAINT inventory_lot_product_fk FOREIGN KEY (product_id) REFERENCES products(id);
             ALTER TABLE sale_items
@@ -715,12 +723,21 @@ return new class extends Migration
         $db = DB::connection('tenant');
         if ($db->table('journal_entries')->where('status', 'posted')->exists()
             || $db->table('sales')->exists()
+            || $db->table('sale_items')->exists()
             || $db->table('inventory_movements')->exists()
-            || $db->table('accounting_events')->exists()) {
+            || $db->table('inventory_cost_layers')->exists()
+            || $db->table('accounting_events')->exists()
+            || $db->table('accounting_periods')->where('status', 'closed')->exists()) {
             throw new RuntimeException('Refusing rollback after transactional/accounting records exist; use a reviewed forward migration and compensating entries.');
         }
 
         foreach ([
+            'btp_sale_integrity_receipts',
+            'btp_sale_integrity_consumptions',
+            'btp_sale_integrity_allocations',
+            'btp_sale_integrity_movements',
+            'btp_sale_integrity_items',
+            'btp_sale_integrity_sales',
             'btp_posted_journal_integrity_lines',
             'btp_posted_journal_integrity_header',
             'btp_sync_receipts_immutable',
@@ -738,6 +755,12 @@ return new class extends Migration
             'btp_locked_coa_guard',
         ] as $trigger) {
             $db->unprepared("DROP TRIGGER IF EXISTS {$trigger} ON ".match ($trigger) {
+                'btp_sale_integrity_receipts' => 'sync_receipts',
+                'btp_sale_integrity_consumptions' => 'cost_layer_consumptions',
+                'btp_sale_integrity_allocations' => 'sale_lot_allocations',
+                'btp_sale_integrity_movements' => 'inventory_movements',
+                'btp_sale_integrity_items' => 'sale_items',
+                'btp_sale_integrity_sales' => 'sales',
                 'btp_posted_journal_integrity_lines' => 'journal_lines',
                 'btp_posted_journal_integrity_header' => 'journal_entries',
                 'btp_sync_receipts_immutable' => 'sync_receipts',
@@ -756,6 +779,7 @@ return new class extends Migration
             });
         }
         foreach ([
+            'btp_assert_sale_event_integrity',
             'btp_assert_posted_journal_integrity',
             'btp_prevent_posted_mutation',
             'btp_guard_cost_layer_quantity',
@@ -779,7 +803,7 @@ return new class extends Migration
         $db->unprepared('ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS inventory_movement_key_unique, DROP CONSTRAINT IF EXISTS inventory_movement_lot_fk, DROP CONSTRAINT IF EXISTS inventory_movement_product_fk');
         $db->unprepared('ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_item_sale_fk, DROP CONSTRAINT IF EXISTS sale_item_product_fk, DROP CONSTRAINT IF EXISTS sale_item_money_nonnegative');
         $db->unprepared('ALTER TABLE inventory_lots DROP CONSTRAINT IF EXISTS inventory_lot_product_fk, DROP CONSTRAINT IF EXISTS inventory_lot_quantities_valid, DROP CONSTRAINT IF EXISTS inventory_lot_cost_nonnegative');
-        $db->unprepared('ALTER TABLE journal_lines DROP CONSTRAINT IF EXISTS journal_lines_entry_fk, DROP CONSTRAINT IF EXISTS journal_lines_account_fk, DROP CONSTRAINT IF EXISTS journal_line_amounts_valid');
+        $db->unprepared('ALTER TABLE journal_lines DROP CONSTRAINT IF EXISTS journal_lines_entry_fk, DROP CONSTRAINT IF EXISTS journal_lines_account_fk, DROP CONSTRAINT IF EXISTS journal_lines_entry_line_unique, DROP CONSTRAINT IF EXISTS journal_line_amounts_valid');
         $db->unprepared('ALTER TABLE journal_entries DROP CONSTRAINT IF EXISTS journal_reversal_fk, DROP CONSTRAINT IF EXISTS journal_reversal_not_self, DROP CONSTRAINT IF EXISTS journal_currency_idr, DROP CONSTRAINT IF EXISTS journal_type_valid, DROP CONSTRAINT IF EXISTS journal_status_valid');
         $db->unprepared('ALTER TABLE sales DROP CONSTRAINT IF EXISTS sales_currency_idr, DROP CONSTRAINT IF EXISTS sales_total_matches, DROP CONSTRAINT IF EXISTS sales_money_nonnegative');
         $db->unprepared('ALTER TABLE products DROP CONSTRAINT IF EXISTS products_shelf_life_nonnegative, DROP CONSTRAINT IF EXISTS products_currency_idr, DROP CONSTRAINT IF EXISTS products_price_nonnegative');
