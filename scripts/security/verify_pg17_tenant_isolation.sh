@@ -11,6 +11,16 @@ if [[ "$ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION" != "YES" ]]; then
   exit 64
 fi
 
+# Do not run this destructive fixture harness on a developer machine, a forwarded
+# database port, staging, or production. The workflow must explicitly attest the
+# disposable GitHub Actions service and bind output to this workflow run/checkout.
+if [[ "${CI:-}" != "true" || "${GITHUB_ACTIONS:-}" != "true" ||
+      "${PG17_ISOLATION_APPROVED_SERVICE:-}" != "github-actions-postgres-17-disposable" ||
+      ! "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ || ! "${PG17_ISOLATION_CHECKOUT_SHA:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "BLOCKED: harness only runs in the declared GitHub Actions disposable PostgreSQL 17 service." >&2
+  exit 64
+fi
+
 PGHOST="${PGHOST:-127.0.0.1}"
 PGPORT="${PGPORT:-5432}"
 PGUSER="${PGUSER:-postgres}"
@@ -132,7 +142,10 @@ cleanup() {
 trap cleanup EXIT
 
 log "RUN: PostgreSQL 17 disposable tenant-isolation role/grant harness"
+log "CI_RUN_ID: $GITHUB_RUN_ID"
+log "CHECKOUT_SHA: $PG17_ISOLATION_CHECKOUT_SHA"
 log "TARGET: host=loopback port=$PGPORT admin_database=$PGDATABASE"
+
 server_version="$(query "$PGDATABASE" "SELECT current_setting('server_version')")"
 server_version_num="$(query "$PGDATABASE" "SHOW server_version_num" | tr -d '[:space:]')"
 [[ "$server_version_num" == 17* ]] || fail "target engine is not PostgreSQL 17 (observed server_version=$server_version)"
