@@ -10,7 +10,6 @@ import 'package:berkahtigaputeri_pos/features/pos/checkout/sqlite_sale_repositor
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
 import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -521,7 +520,7 @@ void main() {
       try {
         final dbPath = p.join(temporaryDirectory.path, 'offline-checkout.db');
         activeDatabase = await PosDatabase.openAt(dbPath, factory: databaseFactoryFfi);
-        final products = SqliteProductRepository(activeDatabase!);
+        final products = SqliteProductRepository(activeDatabase);
         await _seedProduct(
           products,
           id: 'P-DURABLE',
@@ -547,28 +546,28 @@ void main() {
           ],
         );
         final first = await PaymentService(
-          repository: SqliteSaleRepository(activeDatabase!),
+          repository: SqliteSaleRepository(activeDatabase),
         ).process(request);
         expect(first.alreadyProcessed, isFalse);
-        final pendingBeforeClose = (await activeDatabase!.database.query('outbox_events')).single;
+        final pendingBeforeClose = (await activeDatabase.database.query('outbox_events')).single;
         expect(pendingBeforeClose['id'], 'outbox:sale:TRX-DURABLE-001');
         expect(pendingBeforeClose['status'], 'pending');
-        await activeDatabase!.close();
+        await activeDatabase.close();
         activeDatabase = null;
 
         activeDatabase = await PosDatabase.openAt(dbPath, factory: databaseFactoryFfi);
         final replay = await PaymentService(
-          repository: SqliteSaleRepository(activeDatabase!),
+          repository: SqliteSaleRepository(activeDatabase),
         ).process(request);
         expect(replay.alreadyProcessed, isTrue);
         expect(replay.saleId, first.saleId);
-        expect(await _count(activeDatabase!, 'sales'), 1);
-        expect(await _count(activeDatabase!, 'sale_items'), 1);
-        expect(await _count(activeDatabase!, 'journals'), 1);
-        expect(await _count(activeDatabase!, 'outbox_events'), 1);
-        final pendingAfterReopen = (await activeDatabase!.database.query('outbox_events')).single;
+        expect(await _count(activeDatabase, 'sales'), 1);
+        expect(await _count(activeDatabase, 'sale_items'), 1);
+        expect(await _count(activeDatabase, 'journals'), 1);
+        expect(await _count(activeDatabase, 'outbox_events'), 1);
+        final pendingAfterReopen = (await activeDatabase.database.query('outbox_events')).single;
         expect(pendingAfterReopen['status'], 'pending');
-        expect((await activeDatabase!.database.query('products')).single['stock_qty'], 1);
+        expect((await activeDatabase.database.query('products')).single['stock_qty'], 1);
       } finally {
         await activeDatabase?.close();
         await temporaryDirectory.delete(recursive: true);
