@@ -156,6 +156,13 @@ psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" postgres -c \
   "CREATE DATABASE \"$C_DB\" OWNER \"$C_OWNER\" ALLOW_CONNECTIONS FALSE;" >/dev/null
 assert_eq "interrupted database remains closed before recovery" "t" \
   "$(psql_super postgres -Atc "SELECT shobj_description(oid,'pg_database') IS NULL AND NOT datallowconn FROM pg_database WHERE datname='$C_DB'")"
+psql_super postgres -c 'CREATE ROLE berkah_unapproved_access NOLOGIN NOINHERIT CREATEROLE' >/dev/null
+psql_super postgres -c "GRANT berkah_unapproved_access TO \"$C_OWNER\" WITH SET TRUE, INHERIT FALSE, ADMIN FALSE" >/dev/null
+psql_super postgres -c "GRANT berkah_unapproved_access TO \"$C_RUNTIME\" WITH SET TRUE, INHERIT FALSE, ADMIN FALSE" >/dev/null
+expect_denied "broker refuses nested tenant-role membership" 'FAIL CLOSED' \
+  run_broker provision "$C_ID" --runtime-password-file=/run/secrets/runtime-c --migrator-password-file=/run/secrets/migrator-c
+psql_super postgres -c "REVOKE berkah_unapproved_access FROM \"$C_OWNER\", \"$C_RUNTIME\"" >/dev/null
+psql_super postgres -c 'DROP ROLE berkah_unapproved_access' >/dev/null
 run_broker provision "$C_ID" --runtime-password-file=/run/secrets/runtime-c --migrator-password-file=/run/secrets/migrator-c
 echo "PASS: unmarked database recovered only from matching durable intent"
 

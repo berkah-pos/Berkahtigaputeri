@@ -348,6 +348,19 @@ function assertBrokerMemberships(PDO $pdo): void
         $tenantId = $matches[1];
         $kind = $matches[2];
         $names = namesFor($tenantId);
+        $nestedMembership = row(
+            $pdo,
+            'SELECT 1 FROM pg_auth_members m JOIN pg_roles member ON member.oid = m.member
+              WHERE member.rolname IN (:owner_role, :runtime_role, :migrator_role) LIMIT 1',
+            [
+                'owner_role' => $names['owner'],
+                'runtime_role' => $names['runtime'],
+                'migrator_role' => $names['migrator'],
+            ],
+        );
+        if ($nestedMembership !== null) {
+            throw new RuntimeException('Tenant role has an unapproved role membership.');
+        }
         if ($member['role_name'] !== $names[$kind]
             || $member['grantor_name'] !== 'berkah_role_admin'
             || pgBool($member['admin_option'])

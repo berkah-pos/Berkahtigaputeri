@@ -61,9 +61,17 @@ jobs:
         run: |
           set -euo pipefail
           bash -n scripts/security/test-pg17-tenant-boundary.sh
-          if grep -En 'BROKER_DATABASE_(HOST|PORT|NAME|USERNAME|PASSWORD)' \
-              docker-compose.yml .env.example Dockerfile docker app routes config; then
-            echo "FAIL: broker connection credentials must not be passed to public app/queue configuration"
+          set +e
+          grep -RInE --exclude-dir=.git --exclude-dir=vendor --exclude-dir=node_modules \
+            '(BROKER_DATABASE_(HOST|PORT|NAME|USERNAME|PASSWORD)|PROVISIONER_[A-Z0-9_]*|MIGRATOR_[A-Z0-9_]*)' \
+            docker-compose.yml .env.example Dockerfile docker app routes config
+          scan_status=$?
+          set -e
+          if [[ "$scan_status" -eq 0 ]]; then
+            echo "FAIL: broker/provisioner/migrator credentials must not be present in public app/queue configuration"
+            exit 1
+          elif [[ "$scan_status" -ne 1 ]]; then
+            echo "FAIL: credential-boundary scan failed with grep exit code $scan_status"
             exit 1
           fi
           if ! grep -q "'rolcreaterole' => false" bin/tenant-db-broker.php; then
