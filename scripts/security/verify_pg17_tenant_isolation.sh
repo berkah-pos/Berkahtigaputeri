@@ -205,7 +205,6 @@ INSERT INTO "$schema".isolation_probe (tenant_label, note)
 VALUES ('tenant-$label-synthetic', 'initial');
 CREATE FUNCTION "$schema".private_marker() RETURNS text
 LANGUAGE sql AS \$fn\$ SELECT 'private-$label-synthetic'::text \$fn\$;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA "$schema" FROM PUBLIC;
 RESET ROLE;
 GRANT USAGE ON SCHEMA "$schema" TO "$runtime";
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "$schema" TO "$runtime";
@@ -261,7 +260,10 @@ assert_value "Tenant A lacks global database/role DDL flags" "$PGDATABASE" "SELE
 assert_value "Tenant B lacks global database/role DDL flags" "$PGDATABASE" "SELECT NOT rolcreatedb AND NOT rolcreaterole AND NOT rolsuper AND NOT rolreplication AND NOT rolbypassrls AND NOT rolinherit FROM pg_roles WHERE rolname='$RUNTIME_B' AND rolcanlogin" "t"
 assert_value "Tenant A has neither DATABASE CREATE nor TEMP privilege" "$DB_A" "SELECT NOT has_database_privilege('$RUNTIME_A','$DB_A','CREATE') AND NOT has_database_privilege('$RUNTIME_A','$DB_A','TEMP')" "t"
 assert_value "Tenant A cannot execute its private function by default" "$DB_A" "SELECT NOT has_function_privilege('$RUNTIME_A','tenant_a.private_marker()','EXECUTE')" "t"
+expect_denied "Tenant A cannot EXECUTE private function created under default ACL" "permission denied for function" env PGUSER="$RUNTIME_A" PGPASSWORD="$PASS_A" psql -X -v ON_ERROR_STOP=1 -h "$PGHOST" -p "$PGPORT" -d "$DB_A" -c "SELECT tenant_a.private_marker()"
+assert_value "Tenant B cannot execute its private function by default" "$DB_B" "SELECT NOT has_function_privilege('$RUNTIME_B','tenant_b.private_marker()','EXECUTE')" "t"
 assert_value "Tenant A is not a member of owner/migrator/tenant B roles" "$PGDATABASE" "SELECT NOT pg_has_role('$RUNTIME_A','$OWNER_A','MEMBER') AND NOT pg_has_role('$RUNTIME_A','$MIGRATOR_A','MEMBER') AND NOT pg_has_role('$RUNTIME_A','$RUNTIME_B','MEMBER')" "t"
+assert_value "Tenant B is not a member of owner/migrator/tenant A roles" "$PGDATABASE" "SELECT NOT pg_has_role('$RUNTIME_B','$OWNER_B','MEMBER') AND NOT pg_has_role('$RUNTIME_B','$MIGRATOR_B','MEMBER') AND NOT pg_has_role('$RUNTIME_B','$RUNTIME_A','MEMBER')" "t"
 
 # Runtime must be unable to create/alter roles, databases, schema objects, or assume migrator.
 expect_denied "Tenant A CREATE TABLE" "permission denied for schema" \
