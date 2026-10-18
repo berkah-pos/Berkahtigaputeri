@@ -44,7 +44,7 @@ services:
       APP_NAME: "Berkah POS"
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_KEY: ${APP_KEY:?Set a unique local APP_KEY in .env before starting the app}
       APP_URL: http://localhost:8000
       LOG_CHANNEL: stderr
       DB_CONNECTION: central
