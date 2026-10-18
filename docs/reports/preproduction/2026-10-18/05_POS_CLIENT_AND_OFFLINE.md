@@ -2,7 +2,7 @@
 
 **Tanggal pemeriksaan:** 19 Oktober 2026 (Asia/Jakarta)  
 **Status workstream:** **BLOCKED**  
-**Rekomendasi rilis:** **BLOCKED — bukan PASS.** Perubahan klien dan regresi test telah ditambahkan. Exact-SHA CI awal gagal pada analisis; setelah perbaikan analyzer, CI untuk commit koreksi masih queued pada saat laporan dibuat. Sinkronisasi cloud, durable server acknowledgement, dan penggantian runtime Supabase tetap blocker.
+**Rekomendasi rilis:** **BLOCKED — bukan PASS.** Run exact-SHA awal gagal di analyzer. Setelah lint diperbaiki, analyzer lulus tetapi full test run menemukan dua assertion gagal; kedua penyebab sudah dikoreksi pada test. Run terbaru untuk source/test hasil koreksi masih IN PROGRESS pada saat snapshot ini. Sinkronisasi cloud, durable server acknowledgement, dan penggantian runtime Supabase tetap blocker.
 
 ## 1. Ringkasan eksekutif
 
@@ -62,7 +62,7 @@ Kontrak konfigurasi tetap GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE;
 |---|---|---|---|---|
 | POS-01 | Sale, items, stok/lots/movements, jurnal dan outbox atomik dalam satu SQLite transaction | **VERIFIED source; runtime pending** | pos_database.dart sekitar baris 54–66; sqlite_sale_repository.dart sekitar baris 31–80 dan 230–325 | Perlu test run sukses pada CI setelah lint fix |
 | POS-02 | Stok tidak cukup tidak memutasi sale, jurnal, stok atau outbox | **SOURCE VERIFIED; existing test; runtime pending** | payment_service_test.dart sekitar baris 358; exception stock dan rollback assertions | Exit code test belum tersedia |
-| POS-03 | Outbox insert failure me-rollback semua perubahan checkout sebelumnya | **TEST ADDED; runtime not verified** | Test baru sekitar baris 412 menggunakan duplicate outbox primary key sebagai fault injection | Lint run pertama berhenti sebelum test |
+| POS-03 | Outbox insert failure me-rollback semua perubahan checkout sebelumnya | **TEST ADDED; first runtime assertion FAILED; corrected; rerun pending** | Pada SHA 07f4d588…, test fail karena menghitung inventory_movements sebagai 0, sedangkan seed lot telah menciptakan satu movement pembukaan sebelum checkout. Test kini membandingkan ke baseline pra-checkout | Hasil rerun latest SHA masih dibutuhkan untuk membuktikan rollback |
 | POS-04 | Retry request identik pakai transaction ID/timestamp stabil; request berubah memulai intent baru | **IMPLEMENTED; TEST ADDED; runtime pending** | StableCheckoutRequestFactory dan test unit baru | In-memory only; tidak pulih setelah process death |
 | POS-05 | Dua checkout lokal bersamaan tidak dapat menjual dua kali unit terakhir | **TEST ADDED; runtime pending** | Test baru sekitar baris 472 pada satu DB SQLite | Bukan bukti concurrency server multi-device |
 | POS-06 | Outbox pending bertahan saat database file ditutup/dibuka kembali; replay tidak menggandakan sale | **TEST ADDED; runtime pending** | Test file-backed baru sekitar baris 517 | Handle reopen bukan simulasi force-stop Android penuh |
@@ -71,7 +71,7 @@ Kontrak konfigurasi tetap GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE;
 | POS-09 | Offline retry/backoff, acknowledgement, dead-letter, konflik, ordering, reconnect | **BLOCKED / NOT IMPLEMENTED** | Schema outbox sederhana; tak ada dispatcher yang terbukti | Perlu kontrak dan endpoint Laravel |
 | POS-10 | Flutter runtime bebas Supabase sesuai ADR 17 Oktober | **FAILED — P1** | pubspec.yaml baris 16; main.dart baris 35–39; config_service.dart dan login_screen.dart memakai Supabase SDK/API | Penggantian auth/config perlu implementasi backend teruji |
 | POS-11 | Android permissions sesuai ruang lingkup | **VERIFIED source** | AndroidManifest.xml baris 3–8: INTERNET, ACCESS_NETWORK_STATE, CAMERA, BLUETOOTH, BLUETOOTH_CONNECT, BLUETOOTH_SCAN | Merged manifest dari artifact APK belum diperiksa |
-| POS-12 | Flutter analyze, full tests dan Android compile-check pada exact SHA | **FAILED pada commit pertama; pending pada koreksi** | Run 39171703111, attempt 1, SHA 16352e9c… gagal analyze; run 39171950636 pada SHA 07f4d588… queued ketika dicatat | Tidak ada hasil final run koreksi pada waktu pembuatan laporan |
+| POS-12 | Flutter analyze, full tests dan Android compile-check pada exact SHA | **FAILED pada full tests di SHA sebelumnya; rerun pending** | Run 39171703111 gagal analyze; run 39171950636 pada SHA 07f4d588…: analyze PASS, 48 tests PASS, 2 tests FAIL, exit 1. Fix assertions ada pada SHA terbaru e406f96…; run 39172167952 sedang berjalan | Full suite dan Android compile-check harus lulus pada run terbaru |
 | POS-13 | Token/session/storage/logging aman dan tanpa data sensitif bocor | **PARTIAL / BLOCKED** | AppIdentityStore menyimpan tenant/device identifiers di SharedPreferences; ConfigService menyimpan effective config; Supabase SDK masih aktif | Perlu audit migrasi ke Laravel auth dan secure token storage; tidak ada nilai secret dicatat |
 
 ## 5. Temuan, severity dan confidence
@@ -128,12 +128,12 @@ Tidak ada P0 yang ditetapkan tanpa reproduksi atau bukti dampak yang memenuhi am
 
 ## 6. Test matrix checkout/offline/retry/conflict
 
-Status CI-FAILED berarti run awal mencapai test gate tidak—analyze gagal lebih dahulu. CI-PENDING berarti test ditambahkan/ada dalam source, tetapi belum ada hasil akhir yang dapat diverifikasi.
+Status untuk SHA 07f4d588…: analyzer lulus, tetapi full tests menghasilkan 48 pass dan 2 fail (exit 1). Dua penyebab sudah dikoreksi pada source/test SHA e406f96…; rerun exact SHA e406f96… sedang berlangsung pada snapshot terakhir dan belum PASS.
 
 | Kasus | Bukti | Status runtime | Hasil/batasan |
 |---|---|---|---|
-| Stok cukup | Existing PaymentService + SQLite transaction test | CI-FAILED sebelum tests | Source test ada; belum ada runtime result |
-| Stok tidak cukup | Existing rollback test sekitar baris 358 | CI-FAILED sebelum tests | Ekspektasi tidak ada sale/journal/movements/outbox, stok tetap |
+| Stok cukup | Existing PaymentService + SQLite transaction test | PASSED pada run SHA 07f4d588…; rerun latest pending | Test ini lewat di run sebelumnya; run terbaru mengulang suite sesudah dua assertion diperbaiki |
+| Stok tidak cukup | Existing rollback test sekitar baris 358 | PASSED pada run SHA 07f4d588…; rerun latest pending | Ekspektasi tidak ada sale/journal/movements/outbox, stok tetap |
 | Input invalid | PaymentRequest.validate menolak ID/cart/product kosong, quantity <= 0, discount negatif, timezone salah | PARTIAL / NOT RUN | Matriks eksplisit setiap field belum tersedia |
 | Cancel cart | Confirmed cancel action | NOT RUN | Action hanya menghapus cart sebelum penjualan disimpan; widget test belum ada |
 | Retry same request | Stable factory + 2 unit tests | CI-PENDING | Stabil dalam satu instance; setelah proses mati belum stabil |
@@ -172,11 +172,13 @@ Status CI-FAILED berarti run awal mencapai test gate tidak—analyze gagal lebih
 - pub get berhasil. Analyze gagal dengan exit code 1 karena 12 issue: 1 unnecessary import sqflite dan 11 unnecessary non-null assertions di test baru. Test step dan Android compile/build/artifact steps SKIPPED, bukan PASS.
 - Sanitized log: job 117805936567; output menyatakan “12 issues found” dan “Process completed with exit code 1”. Tidak ada secret/customer payload dikopi.
 
-**Run koreksi lint:**
-- Run ID 39171950636, attempt 1, [URL](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39171950636).
-- Tested SHA: 07f4d58817f83390f4f16821922e424f0fd1d94d (commit yang menghapus import tak perlu dan 11 assertion).
-- Status pada snapshot audit terakhir: IN PROGRESS. Run 39171950636 menjalankan exact SHA ini; Java dan install Flutter sudah success, sedangkan package resolution, analyze, tests dan Android build masih pending. Belum ada conclusion/test output/artifact yang dapat diklaim. Run duplikat 39171965890 dibatalkan sebelum analyze dan tidak menjadi bukti uji.
-- Workflow commands yang ditetapkan: flutter pub get, flutter analyze --no-pub, flutter test --no-pub, bash tool/prepare_android_host.sh, Android SDK install/accept-license step dan flutter build appbundle --debug --no-pub. Exit code tiap langkah untuk run koreksi belum tersedia.
+**Run koreksi lint dan test:**
+- Run ID 39171950636, attempt 1, [URL](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39171950636), tested SHA 07f4d58817f83390f4f16821922e424f0fd1d94d.
+- Flutter 3.47.7 / Dart 3.13.5; package resolution exit 0 dan flutter analyze --no-pub exit 0. flutter test --no-pub exit 1: 48 tests passed, 2 failed.
+- Failure 1: pos-app/test/home/cashier_screen_checkout_test.dart:91 mengharapkan teks lama “Transaksi tersimpan” dan case-sensitive “Sinkronisasi cloud belum aktif”; UI kini memakai “Transaksi tersimpan lokal” dan kalimat lower-case “sinkronisasi cloud belum aktif”. Test expectation diperbarui pada commit adfa8e64094c158c7aeb14d7e0af553e19ae76ff.
+- Failure 2: payment_service_test.dart sekitar baris 463 mengharapkan inventory_movements kosong walau seed inventory lot sudah menambahkan opening movement. Assertion sekarang memeriksa count baseline sebelum checkout pada commit e406f96ecafcd40b3ae5607acab3dc24ec446d00.
+- Run terbaru ID 39172167952, attempt 1, [URL](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39172167952), menguji exact SHA e406f96ecafcd40b3ae5607acab3dc24ec446d00. Status terakhir IN PROGRESS; setup Java berjalan, belum tersedia hasil final tests/build/artifact. Run lainnya yang superseded/cancelled tidak dijadikan bukti PASS.
+- Workflow commands yang ditetapkan: flutter pub get, flutter analyze --no-pub, flutter test --no-pub, bash tool/prepare_android_host.sh, SDK install/accept-license step, flutter build appbundle --debug --no-pub.
 
 Tidak ada operasi database remote, secret rotation, deployment, perubahan DNS, produksi, atau Supabase yang dilakukan.
 
