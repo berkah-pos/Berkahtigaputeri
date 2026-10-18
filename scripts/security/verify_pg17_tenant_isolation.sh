@@ -365,7 +365,7 @@ log "DEFAULT_PRIVILEGE_ACL_MATRIX (database|creator_role|schema|object_type|gran
 for item in "$DB_A:$MIGRATOR_A" "$DB_B:$MIGRATOR_B"; do
   database="${item%%:*}"
   role="${item#*:}"
-  query "$database" "SELECT '$database' || '|' || creator.rolname || '|' || COALESCE(n.nspname,'<global>') || '|' || d.defaclobjtype || '|' || COALESCE(string_agg(COALESCE(grantee.rolname,'PUBLIC') || ':' || a.privilege_type || ':' || a.is_grantable::text, ',' ORDER BY COALESCE(grantee.rolname,'PUBLIC'),a.privilege_type),'') FROM pg_default_acl d JOIN pg_roles creator ON creator.oid=d.defaclrole LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) a LEFT JOIN pg_roles grantee ON grantee.oid=a.grantee WHERE creator.rolname='$role' GROUP BY creator.rolname,n.nspname,d.defaclobjtype" | tee -a "$ARTIFACT"
+  query "$database" "SELECT '$database' || '|' || creator.rolname || '|' || COALESCE(n.nspname,'<global>') || '|' || d.defaclobjtype::text || '|' || COALESCE(string_agg(COALESCE(grantee.rolname,'PUBLIC') || ':' || a.privilege_type || ':' || a.is_grantable::text, ',' ORDER BY COALESCE(grantee.rolname,'PUBLIC'),a.privilege_type),'') FROM pg_default_acl d JOIN pg_roles creator ON creator.oid=d.defaclrole LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace CROSS JOIN LATERAL aclexplode(d.defaclacl) a LEFT JOIN pg_roles grantee ON grantee.oid=a.grantee WHERE creator.rolname='$role' GROUP BY creator.rolname,n.nspname,d.defaclobjtype" | tee -a "$ARTIFACT"
 done
 
 log "MATRIX: Tenant A/B direct database boundary; central DB; CRUD; sequence; future-object defaults; schema CREATE; role/database tampering; role membership; search_path; PUBLIC ACL; function EXECUTE."
