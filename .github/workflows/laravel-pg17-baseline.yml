@@ -134,6 +134,33 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
+      - name: Run disposable PostgreSQL 17 tenant role/grant isolation probes
+        id: tenant-isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation"
+          docker run --rm --network host --user "$(id -u):$(id -g)" \
+            --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
+            --env CI=true --env GITHUB_ACTIONS=true --env GITHUB_RUN_ID="${{ github.run_id }}" \
+            --env PG17_ISOLATION_APPROVED_SERVICE=github-actions-postgres-17-disposable \
+            --env PG17_ISOLATION_CHECKOUT_SHA="${{ github.sha }}" \
+            --env PGHOST=127.0.0.1 --env PGPORT=5432 --env PGUSER=postgres \
+            --env PGDATABASE=postgres --env PGPASSWORD=postgres \
+            --env PG17_ISOLATION_ARTIFACT=/artifacts/pg17-tenant-isolation.log \
+            --volume "$GITHUB_WORKSPACE/scripts/security:/security:ro" \
+            --volume "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation:/artifacts" \
+            postgres:17 bash /security/verify_pg17_tenant_isolation.sh
+
+      - name: Upload sanitized PostgreSQL tenant-isolation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pg17-tenant-isolation-${{ github.sha }}
+          path: artifacts/pg17-tenant-isolation/pg17-tenant-isolation.log
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
 
@@ -201,33 +228,6 @@ jobs:
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
-
-      - name: Run disposable PostgreSQL 17 tenant role/grant isolation probes
-        id: tenant-isolation
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation"
-          docker run --rm --network host --user "$(id -u):$(id -g)" \
-            --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
-            --env CI=true --env GITHUB_ACTIONS=true --env GITHUB_RUN_ID="${{ github.run_id }}" \
-            --env PG17_ISOLATION_APPROVED_SERVICE=github-actions-postgres-17-disposable \
-            --env PG17_ISOLATION_CHECKOUT_SHA="${{ github.sha }}" \
-            --env PGHOST=127.0.0.1 --env PGPORT=5432 --env PGUSER=postgres \
-            --env PGDATABASE=postgres --env PGPASSWORD=postgres \
-            --env PG17_ISOLATION_ARTIFACT=/artifacts/pg17-tenant-isolation.log \
-            --volume "$GITHUB_WORKSPACE/scripts/security:/security:ro" \
-            --volume "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation:/artifacts" \
-            postgres:17 bash /security/verify_pg17_tenant_isolation.sh
-
-      - name: Upload sanitized PostgreSQL tenant-isolation evidence
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: pg17-tenant-isolation-${{ github.sha }}
-          path: artifacts/pg17-tenant-isolation/pg17-tenant-isolation.log
-          if-no-files-found: warn
-          retention-days: 14
 
       - name: Build production image from the committed lock
         run: docker build --pull --target production --tag "$PROD_IMAGE" .
