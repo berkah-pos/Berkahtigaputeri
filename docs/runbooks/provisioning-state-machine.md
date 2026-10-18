@@ -12,7 +12,7 @@ Safe, idempotent, auditable tenant DB/user creation without root, without duplic
 ## Roles
 
 - `berkah_provisioner` — dedicated least-privilege identity that can create `berkahpos_t_%` DBs/users and grant on that pattern. No access to `berkahpos_central` data. Creds only in `provisioner` Coolify service (no public domain, private network).
-- `u_t_<id>_runtime` — per-tenant DML only: SELECT, INSERT, UPDATE, DELETE. Used by web + normal queue workers.
+- `u_t_<id>_runtime` — least-privilege, per-tenant runtime identity used by web + ordinary queue workers. Grant SELECT/INSERT by default only; add UPDATE/DELETE solely to reviewed mutable tables where required. Posted journals, posted journal lines, immutable accounting events and closed-period records must not be updateable/deletable; correction is via reversing entries. Enforce this with database privileges/constraints or reviewed database triggers and negative tests, not only a UI rule.
 - `m_t_<id>_migrator` — per-tenant short-lived DDL: CREATE, ALTER, INDEX, DROP, REFERENCES + DML. Created during migrating stage, password rotated after success or dropped on failure.
 
 Web containers must NOT receive provisioner or migrator credentials.
@@ -72,9 +72,9 @@ In addition, persist an append-only provisioning audit record for each privilege
 
 ## Concurrency Controls
 
-- `CACHE_DRIVER=redis` mandatory for atomic locks. File/array cache will cause duplicate DBs.
-- Shared Redis across all queue workers.
-- Unique job: `ShouldBeUnique` with `uniqueId = tenant_id`
+- Correctness requires a cluster-shared atomic lock/uniqueness mechanism; file/array cache must not be trusted to serialize concurrent provisioning.
+- On the initial single PostgreSQL service, prefer a transaction-scoped PostgreSQL advisory lock or central-row lock if its semantics, timeout, crash-release, and concurrency behavior are implemented and tested. Redis is optional, not a default architecture requirement; add it only if the selected lock/queue implementation requires it and the service/operations cost is accepted. If Redis is used, keep it private, shared by every relevant worker, bound memory, and test TTL/eviction/failover effects on locks.
+- Unique job: `ShouldBeUnique` with `uniqueId = tenant_id` only if the configured cache/queue backend supplies the documented cross-worker shared semantics; test duplicate dispatch after worker restart and contention.
 
 ## Security Checks
 
@@ -85,5 +85,6 @@ In addition, persist an append-only provisioning audit record for each privilege
 ## Tests Required
 
 - `test_provisioning_is_idempotent` — dispatch twice, only one DB.
-- `test_runtime_cannot_create_table`
-- `test_runtime_cannot_access_other_tenant`
+- `test_runtime_cannot_create_table`, create database, create/alter roles, or perform unrestricted DDL
+- `test_runtime_cannot_update_delete_posted_journals_or_closed_period_records` (database-level enforcement, not UI-only)
+- `test_runtime_cannot_access_other_tenant` (CONNECT, SELECT, INSERT, UPDATE and DELETE denial using real disposable PostgreSQL roles/grants)
