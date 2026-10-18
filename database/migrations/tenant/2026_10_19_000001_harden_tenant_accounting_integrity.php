@@ -367,7 +367,7 @@ return new class extends Migration
               END IF;
               RETURN NEW;
             END;
-            $ LANGUAGE plpgsql
+            $$ LANGUAGE plpgsql
             SQL,
             "CREATE TRIGGER btp_period_close_guard BEFORE INSERT OR UPDATE OR DELETE ON accounting_periods FOR EACH ROW EXECUTE FUNCTION btp_guard_period_close()",
             <<<'SQL'
@@ -471,7 +471,7 @@ return new class extends Migration
               END IF;
               RETURN NEW;
             END;
-            $ LANGUAGE plpgsql
+            $$ LANGUAGE plpgsql
             SQL,
             "CREATE TRIGGER btp_cost_layer_quantity_guard BEFORE INSERT OR UPDATE ON inventory_cost_layers FOR EACH ROW EXECUTE FUNCTION btp_guard_cost_layer_quantity()",
 
