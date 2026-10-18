@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS provisioning.tenant_provisioning_intents (
 );
 ALTER TABLE provisioning.tenant_provisioning_intents OWNER TO berkah_role_admin;
 REVOKE ALL ON TABLE provisioning.tenant_provisioning_intents FROM PUBLIC, berkah_provisioner;
+-- The broker may inspect durable state for fail-closed recovery, but cannot mutate it directly.
+GRANT SELECT ON TABLE provisioning.tenant_provisioning_intents TO berkah_provisioner;
 
 CREATE OR REPLACE FUNCTION provisioning.record_event(
     p_tenant_id text,

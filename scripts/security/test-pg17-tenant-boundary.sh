@@ -111,6 +111,8 @@ docker run --rm --network host -e PGPASSWORD=postgres \
 printf '%s\n' 'PASS: narrow SECURITY DEFINER functions installed on disposable PostgreSQL 17'
 assert_eq "central PUBLIC CONNECT is revoked" "f" "$(psql_super postgres -Atc "SELECT COALESCE(bool_or(a.grantee=0 AND a.privilege_type='CONNECT'),FALSE) FROM pg_database d LEFT JOIN LATERAL aclexplode(COALESCE(d.datacl,acldefault('d',d.datdba))) a ON TRUE WHERE d.datname='berkahpos_central' GROUP BY d.oid")"
 assert_eq "broker cannot CONNECT to central database" "f" "$(psql_super postgres -Atc "SELECT has_database_privilege('berkah_provisioner','berkahpos_central','CONNECT')")"
+assert_eq "broker can read durable intent metadata" "0" "$(psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" postgres -Atc "SELECT count(*) FROM provisioning.tenant_provisioning_intents")"
+expect_denied "broker cannot mutate durable intents directly" 'permission denied for table' psql_as berkah_provisioner "$BROKER_DATABASE_PASSWORD" postgres -c "UPDATE provisioning.tenant_provisioning_intents SET state='ready'"
 
 export BROKER_DATABASE_PASSWORD
 BROKER_DATABASE_PASSWORD="$(cat "$SECRETS/broker")"
