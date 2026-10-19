@@ -7,14 +7,6 @@ on:
       - "docs/reports/preproduction/2026-10-18/**"
       - "scripts/backup_restore/**"
       - ".github/workflows/backup-restore-disposable.yml"
-  push:
-    branches:
-      - "audit/preprod-backup-restore-2026-10-18"
-    paths:
-      - "docs/runbooks/backup-restore.md"
-      - "docs/reports/preproduction/2026-10-18/**"
-      - "scripts/backup_restore/**"
-      - ".github/workflows/backup-restore-disposable.yml"
   workflow_dispatch:
 
 permissions:
