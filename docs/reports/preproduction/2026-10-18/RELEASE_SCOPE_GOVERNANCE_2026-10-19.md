@@ -32,7 +32,7 @@ Temuan utama:
 | Database/runtime produksi | Tidak diakses |
 | Supabase | Tidak diakses, bahkan read-only; legacy sync script tidak dijalankan |
 | Merge/tag/deployment/DNS | Tidak dilakukan |
-| Final commit/PR | Dicatat melalui head branch/PR laporan; tidak ada commit langsung ke main |
+| Commit pertama yang menambahkan laporan | 62aae89475f9f37334d65fb1a0583cfeacbb1664 (sebelum metadata PR ditambahkan) |\n| Draft PR dokumentasi | [#91 — release scope and governance recommendation](https://github.com/berkah-pos/Berkahtigaputeri/pull/91); final branch head tertera pada metadata PR |
 
 HEAD **371b7fdf...** terverifikasi identik dengan main saat baseline dicatat. Run baseline **39005405149** memakai SHA **aab154f87342f2a02a1319e1d370ce831dbef522**; keberhasilan tersebut **tidak diwariskan** sebagai acceptance untuk HEAD audit atau calon RC baru.
 
