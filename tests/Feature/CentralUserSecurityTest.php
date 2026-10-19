@@ -1,10 +1,10 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use App\\Models\\Central\\User;
-use Illuminate\\Support\\Facades\\Hash;
-use Tests\\TestCase;
+use App\Models\Central\User;
+use Illuminate\Support\Facades\Hash;
+use Tests\TestCase;
 
 class CentralUserSecurityTest extends TestCase
 {
