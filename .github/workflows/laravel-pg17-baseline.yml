@@ -17,11 +17,12 @@ on:
       - ".dockerignore"
       - ".gitignore"
       - ".env.example"
+      - ".gitleaksignore"
       - "docker-compose.yml"
       - "docker/**"
-      - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/reports/preproduction/**"
   push:
     branches: ["**"]
     paths:
@@ -39,11 +40,12 @@ on:
       - ".dockerignore"
       - ".gitignore"
       - ".env.example"
+      - ".gitleaksignore"
       - "docker-compose.yml"
       - "docker/**"
-      - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/reports/preproduction/**"
   workflow_dispatch:
 
 permissions:
@@ -92,8 +94,29 @@ jobs:
       CACHE_STORE: array
       SESSION_DRIVER: array
     steps:
-      - name: Checkout
+      - name: Checkout full history for secret scanning
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+
+      - name: Scan Git history for secrets (redacted output)
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo" \
+            -w /repo \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git --no-banner --redact --exit-code 1
+
+      - name: Build PHP 8.4 CI image and install locked dependencies cleanly
+        run: docker build --pull --target development --tag "$CI_IMAGE" .
+
+      - name: Exercise production startup secret/config fail-closed guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint bash "$CI_IMAGE" tests/security/production-env-guard.sh
 
       - name: Assert manifest, lock, runtime and DB target
         shell: bash
@@ -127,9 +150,6 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
-      - name: Build PHP 8.4 CI image and install locked dependencies cleanly
-        run: docker build --pull --target development --tag "$CI_IMAGE" .
-
       - name: Validate dependencies and keep security audit enabled
         shell: bash
         run: |
@@ -154,7 +174,9 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
