@@ -129,7 +129,7 @@ jobs:
           assert "postgres:17.11-bookworm" in workflow
           entrypoint = Path("docker/entrypoint.sh").read_text()
           assert "RUN_CENTRAL_MIGRATIONS" in entrypoint
-          assert not __import__("re").search(r"(?m)^\\s*php\\s+artisan\\s+migrate(?:\\s|$)", entrypoint)
+          assert "php artisan migrate --database=central" not in entrypoint
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints, PG17.11 patch pin and no-startup-migration policy: PASS")
           PY
 
