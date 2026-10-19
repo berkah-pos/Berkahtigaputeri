@@ -1,92 +1,72 @@
-# Runbook — Backup and Restore
-Location: `docs/runbooks/backup-restore.md`
-**Status:** runbook template; it has not been executed. The owner ADR selects PostgreSQL 17; Option B is the target path. Option A is a rejected MariaDB alternative retained for comparison only, not an operational instruction. Configure and test object-storage remotes, encryption, key custody, access policies and credentials before enabling scheduled jobs. Never paste production secrets into shell history or committed files.
+# Runbook: PostgreSQL 17 Backup, Restore, DR and Application Rollback
 
-## Scope
+**Status: PROPOSED — NOT EXECUTED.** This runbook is not authorization to touch production. Use only a named disposable target unless the owner separately authorizes a production operation. Supabase is prohibited, including read-only access. Never put plaintext secrets, customer data, private keys, or complete connection strings in this repository, shell history, or artifacts.
 
-Must cover:
-- Central DB `berkahpos_central`
-- Every tenant DB matching the validated `berkahpos_t_<ulid_lower>` registry, currently expected to be empty until provisioning starts and potentially up to 100
-- Coolify instance backup (Coolify's own database, project/resource definitions, settings, deployment history)
-- Private S3-compatible business files (receipts, exports) and relevant object metadata
-- Coolify `APP_KEY` + database encryption/restore keys held off-host in a vault
+## 1. Recovery inventory and ownership
 
-Do not assume Coolify's selected backup feature supports PostgreSQL WAL/PITR or includes every tenant database. Verify the exact engine/version and feature support, then reconcile each backup result against the central tenant registry and PostgreSQL database catalog. A job configured or marked successful is not proof of complete backup coverage.
+| State | Required recovery treatment | Evidence required |
+|---|---|---|
+| Central PostgreSQL DB | Independent logical dump plus cluster-level physical/PITR chain | DB identifier, backup ID/time, pg_dump/pgBackRest version, checksum and remote read-back |
+| Every tenant PostgreSQL DB | Dump every mapped tenant DB; reconcile approved tenant registry, pg_database catalog, completed uploads exactly | Reviewed tenant-ID→database map; exact-set coverage manifest; checksum per encrypted dump |
+| PostgreSQL cluster/WAL | pgBackRest (or reviewed WAL-G) base/full + differential/incremental backups and continuous WAL archive | Stanza check, archive health/lag, complete restore chain, tested timestamp recovery |
+| Uploaded files/object bytes | Private persistent disk or selected private S3-compatible storage; independent off-host copy/versioning | Tenant-aware object manifest, key, byte size, SHA-256, version, read-back and DB/file consistency |
+| Deployment configuration | Versioned non-secret templates plus encrypted environment/config export held off-host | Git/image digest, configuration version, decryption/restore test |
+| Key/certificate recovery | Vault/KMS recovery procedure; re-issue/restore TLS certificates; sealed APP_KEY/database-encryption/object-wrapping key material | Authorized retrieval audit and synthetic decrypt test; never export secret values |
+| Migration/version metadata | Central and each tenant's migrations table, app image digest, Composer lockfile/schema version | After restore, inspect actual migration table and run non-mutating migration status |
+| Coolify control plane | Coolify-managed database and resource/project configuration backup; separate recovery-host procedure | Separate-host restore and re-deploy rehearsal; never assume /data archive is enough |
+| Operational evidence | Inventory manifest, backup logs, checksums, alerts, RPO/RTO measurements, DR decisions | Sanitized evidence with source/target identity but no customer rows/secrets |
 
-## Engine-specific strategy — PostgreSQL 17 selected by owner ADR
+Current source shows a local PostgreSQL 17 Compose volume and Laravel local filesystems only. Actual production resource IDs, storage backend, tenant DB mapping, Coolify state and vault are NOT VERIFIED. The accepted central schema must not be treated as a database mapping authority merely because a tenant row exists.
 
-### Rejected alternative — MariaDB 11.4 (comparison only; not the target)
+## 2. Recovery objectives — PROPOSED, not owner-approved
 
-**Physical full backup + point-in-time recovery (PITR)**
+- Database RPO: ≤15 minutes, only after continuous off-host WAL archive lag is measured and stays within target.
+- File/object RPO: ≤1 hour, only after scheduled copy/version state and checksum read-back are measured.
+- Full platform/host-loss RTO: ≤8 hours.
+- Single-tenant database RTO: ≤4 hours.
 
-1. Use a dedicated backup service/identity with only the backup privileges required by the selected `mariabackup` build (review `RELOAD`, `PROCESS`, `LOCK TABLES`, and `REPLICATION CLIENT` requirements). Do not reuse the tenant provisioner credential.
-2. Store backup credentials in a protected client option file or approved secret-injection mechanism with strict file permissions. Never include passwords in shell command arguments, CI logs, or this repository.
-3. Run the tested procedure equivalent to:
+These are planning values, not SLAs. Nightly logical dumps alone cannot meet a 15-minute database RPO. Owner approval is required before these are treated as service objectives. Measure restore duration and data-loss window during repeated drills; revise values from evidence, not assumption.
 
-```bash
-mariabackup --backup --target-dir="/backup/full/$(date +%F)" --user=berkah_backup
-mariabackup --prepare --target-dir="/backup/full/$(date +%F)"
-```
+## 3. Cadence and retention — PROPOSED
 
-4. Enable and configure binary logging before relying on PITR. Archive the original binary-log segments off-host with checksums and defined retention. Do not use decoded SQL output as the only retained PITR artifact.
-5. Encrypt and upload full backups and original binlogs to the selected S3-compatible remote. Confirm the uploaded objects can be read and their checksums match.
+- PostgreSQL pgBackRest: weekly full, daily differential, continuous WAL archive, target archive_timeout 300 seconds; retain a complete WAL chain for 35 days. Validate support/space before enabling.
+- Central and every tenant: nightly custom-format pg_dump as an independently restorable convenience copy; compress/encrypt before remote upload.
+- Private files/objects: copy hourly to a separate off-host account/region or separately administered storage; daily object manifest and read-back checksums.
+- Coolify control-plane state and deployment metadata: daily off-host backup; before upgrades, capture a tested control-plane backup and a record of restore keys.
+- Restore drills: disposable central + two tenants weekly; PITR monthly; Coolify/key recovery quarterly and before major upgrades.
 
-PITR restore requires the full backup plus the required original binary logs replayed from the backup's recorded position/GTID. Restoring the full backup alone does not include later binlog changes. Test restoration to a specific timestamp in an isolated environment.
+Suggested retention: daily 14 days, weekly 8 weeks, monthly 12 months, PITR WAL window 35 days. These are cost-sensitive defaults awaiting owner approval. A remote copy in the same host or sole storage account is not disaster recovery. Enable object lock/versioning only after delete/restore behavior is tested. Alert on missing/failed backup, inventory mismatch, bad checksum, failed decryption/read-back, WAL archive lag >10 minutes, newest DB backup age >26 hours, file backup age >2 hours, remote quota failure, and missing drill evidence. Route alerting to an actively monitored channel.
 
-**Logical per-tenant dumps for single-tenant recovery**
+## 4. Least privilege, encryption and completeness
 
-- Enumerate expected tenant databases from the central registry and reconcile that list against the actual MariaDB database catalog.
-- Do not rely only on a wildcard `LIKE 'berkahpos_t_%'` filter because underscores are pattern characters. Validate every candidate against the generated-name contract before backup.
-- Use a dedicated backup identity and a bounded worker pool with at most three tenant databases in parallel. For each database, run the selected version's tested `mysqldump --single-transaction --databases "$db"` equivalent, encrypt/compress, upload off-host, and record checksum, size, and result.
-- Treat any missing/unexpected database or failed dump as an incomplete backup run and alert.
+Use a dedicated backup role/service identity, not the provisioning or application runtime credentials. Grant only permissions required by the selected pgBackRest/pg_dump design; review table/sequence access and PostgreSQL version behaviour against actual roles. Separate remote writer and recovery-reader capabilities; day-to-day writers must not be able to delete all retained copies. Restrict the backup network path to private PostgreSQL and the remote endpoint. Require MFA/break-glass audit for vault and destructive retention actions.
 
-### Selected target — PostgreSQL 17
+Encrypt in transit and at rest using a provider-managed or approved envelope-encryption method. Store wrapping keys in a separate vault/KMS with documented custodians, recovery quorum, rotation, revoke/reissue, and compromise procedure. Key material is not part of the same backup set as ciphertext. Do not commit plaintext .env files, APP_KEY, PEM/PFX/JKS, database passwords, access tokens, signed URLs or customer payloads. Record only key IDs/version references and retrieval procedure.
 
-**Physical backup + WAL**
+For each run: capture an allowlisted registry manifest, query pg_database, validate all names against the provisioning team's approved generated-name contract, run dump, encrypt, upload, read back to a separate worker, verify SHA-256 and decrypt test. Fail the run if expected, catalog and checksum-verified remote backup sets differ. The validator in scripts/backup_restore/validate_database_coverage.py compares exact sets and hashes mismatching names in output; it cannot create the authoritative registry itself. Never silently skip a tenant.
 
-- Use a tested `pg_basebackup` strategy plus WAL archiving, or WAL-G, with encrypted off-host storage and verified retention.
-- PostgreSQL physical backup/WAL recovery is cluster-wide. To restore one tenant to a point in time, restore a cluster copy to the desired timestamp in an isolated environment, then logically export/restore the selected tenant database. Test that exact single-tenant recovery path.
-- Never assume a physical cluster backup alone proves each tenant database can be restored independently.
+## 5. Restore drill — separate disposable target only
 
-**Logical per-tenant dumps**
+The synthetic CI harness at scripts/backup_restore/disposable_pg17_drill.sh is a test of mechanics, not a production backup. It starts fresh PG17 source and target containers with no published DB ports, creates synthetic central + tenant A/B markers, dumps and restores to a distinct target, validates migration metadata and file/key test material, writes a sanitized artifact and destroys the disposable environment. It must not accept production endpoints or credentials. The harness being present is not proof it executed.
 
-- Enumerate tenant databases from the central registry and reconcile against `pg_database`; validate every database name against the generated-name contract.
-- Use a dedicated backup identity and a bounded worker pool. For each tenant, run a tested `pg_dump -Fc --dbname="$db"` equivalent with credentials supplied by a protected service configuration. Encrypt, upload, and record checksum/size/result. Dump `berkahpos_central` separately.
-- Grant only the permissions needed by the backup strategy. Never put database passwords in command-line arguments.
+For an authorized real staging drill, record source backup ID/time/LSN, PG major/minor and pgBackRest/pg_dump versions; isolate network and credentials; restore central first; validate tenant map; restore at least two tenants and all required object versions; validate row/count/balance invariants without logging business rows; compare SHA-256 and migration state; time each step and end-to-end restore; verify application/API health on a separate app instance; and retain sanitized logs. A failed check means do not route traffic to the target.
 
-## Coolify Instance Recovery
+Single-tenant restore: restore the cluster to an isolated scratch service if using physical PITR, logically export only the selected tenant DB into a fresh database, verify the reviewed tenant→DB mapping and schema/image compatibility, then prove other tenant DBs and central data were not modified. Never restore over the original tenant DB and never infer mapping from a caller-provided ID.
 
-- Configure Coolify's own instance backup (database/configuration/resources) daily to encrypted off-host storage.
-- Back up `APP_KEY` separately in a secure vault. Coolify's instance database backup does not contain that key; without it, restored encrypted secrets cannot be decrypted.
-- Test restoration to a separate recovery host at least quarterly and before risky control-plane upgrades. A tar of `/data/coolify` alone is not considered proof of recoverability.
+PITR: choose an explicit timestamp between two synthetic writes; restore the complete base + required WAL chain into a disposable cluster, prove writes before the target timestamp exist and writes after it do not, and measure RPO/RTO. If no tested WAL chain exists, mark PITR unavailable; do not present a logical dump as PITR.
 
-## Retention and protection
+## 6. Incident playbooks
 
-- Proposed starting retention: daily 7 days, weekly 4 weeks, monthly 6 months; tune based on verified policy and storage capacity.
-- Keep binary logs/WAL long enough to cover the promised recovery point objective plus operational margin.
-- Encrypt at rest and in transit, restrict delete permissions, and consider bucket versioning/object lock only after validating retention and recovery operations.
-- Use off-host storage; snapshots in the same data centre are supplementary and are not the only recovery copy.
+- Latest backup absent/corrupt: alert owner, pin last known checksum-verified recoverable point, check off-host history/WAL chain, estimate actual data-loss window, restore to scratch and report measured RPO. Never overwrite the only copy during investigation.
+- Database corruption: stop writes or isolate affected service according to incident command, preserve logs/forensics, restore a verified point into a new private cluster, run catalog/migration/business invariants, replay accepted events/forward repairs only under reviewed plan, then cut traffic over.
+- Credential compromise: revoke affected identities, stop attacker write access, preserve audit evidence, rotate credentials/keys via vault workflow, assess copied backup exposure, verify restore/decryption with new credentials. Never log compromised values.
+- Host failure: rebuild clean host, restrict network exposure, recover Coolify/control-plane config and key references from off-host vault, restore PostgreSQL/WAL and object versions into private resources, deploy immutable reviewed image by digest, validate TLS and health before traffic.
+- Missing or lost key/certificate: use the tested vault recovery/re-issue process and DNS/domain control; if encryption key loss makes ciphertext unreadable, declare affected backup set unrecoverable instead of fabricating a recovery claim.
 
-## Restore Test — Mandatory
+## 7. Application rollback is separate from database recovery
 
-Schedule a weekly automated restore exercise (the proposed slot is Sunday 02:00 UTC, subject to operations approval):
+Rollback application code/image to the prior approved immutable digest only when that image is compatible with the current database schema. Do not run a destructive schema down/rollback as an application rollback. Use additive/expand-contract migrations; preserve data-bearing structures. If the previous image is schema-incompatible, use a reviewed forward-fix or restore database into a separate recovery target and reconcile accepted writes before traffic switching. Preserve transaction logs, idempotency receipts and accounting audit trails. Any point-in-time database restore may discard accepted writes after the target time; require business reconciliation before opening the service.
 
-1. Start an isolated Docker test environment that cannot connect to production.
-2. Restore `berkahpos_central` from the selected tested backup path.
-3. Select two tenant DBs from the current inventory using a recorded reproducible random seed.
-4. Restore both tenant DBs and their required file/object references.
-5. Validate migration state using the command supported by the selected Laravel/tenancy versions; no pending migrations is necessary but not sufficient.
-6. Verify checksums/row-count invariants on key tables, configuration resolution, tenant-domain mapping, and an application smoke test.
-7. Record DB names/IDs tested, backup timestamps, integrity checksums, PITR result if tested, restore duration, and recovery-time result in `docs/evidence/restore-YYYY-MM-DD.md`. Alert on failure.
+## 8. Closure gates
 
-**Definition of done:** the restore log exists and is green. No log means the backup/restore gate is **NOT VERIFIED**.
-
-## Checklist Before Marking DG-4 Pass
-
-- [ ] Scope includes central DB and every tenant DB—verified by reconciling the registry, catalog and per-database backup results.
-- [ ] Off-host encrypted copies exist and checksums match.
-- [ ] Coolify instance backup and `APP_KEY` recovery material verified.
-- [ ] One full restore exercised and documented.
-- [ ] Single-tenant restore exercised without overwriting another tenant.
-- [ ] PITR tested once for the selected engine (MariaDB: full + original binlogs to a timestamp; PostgreSQL: cluster base + WAL to a timestamp, then tenant export).
-- [ ] RPO/RTO measurements recorded; no SLA claimed until reviewed.
+Require exact coverage for central + every approved tenant database, checksum-verified encrypted off-host objects, key/vault recovery, Coolify recovery, central + two-tenant restore, independently verified single-tenant restore, a timestamped PITR exercise, migration/image compatibility, and measured owner-approved RPO/RTO. An empty artifact directory, static test, or successful dump does not meet a restore gate. Status remains BLOCKED / NOT VERIFIED until dated direct evidence exists.

@@ -1,0 +1,53 @@
+name: Backup Restore - Disposable PostgreSQL 17 Drill
+
+on:
+  pull_request:
+    paths:
+      - "docs/runbooks/backup-restore.md"
+      - "docs/reports/preproduction/2026-10-18/**"
+      - "scripts/backup_restore/**"
+      - ".github/workflows/backup-restore-disposable.yml"
+  push:
+    branches:
+      - "audit/preprod-backup-restore-2026-10-18"
+    paths:
+      - "docs/runbooks/backup-restore.md"
+      - "docs/reports/preproduction/2026-10-18/**"
+      - "scripts/backup_restore/**"
+      - ".github/workflows/backup-restore-disposable.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-restore-disposable
+  cancel-in-progress: true
+
+jobs:
+  disposable-pg17-restore:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      BACKUP_DRILL_ARTIFACT_DIR: /tmp/backup-restore-drill-artifact
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Syntax and coverage tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/backup_restore/disposable_pg17_drill.sh
+          python3 -m py_compile scripts/backup_restore/validate_database_coverage.py scripts/backup_restore/test_validate_database_coverage.py
+          python3 -m unittest discover -s scripts/backup_restore -p 'test_*.py' -v
+      - name: Execute isolated synthetic PostgreSQL 17 backup/restore
+        shell: bash
+        run: bash scripts/backup_restore/disposable_pg17_drill.sh
+      - name: Upload sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: backup-restore-drill
+          path: /tmp/backup-restore-drill-artifact/
+          if-no-files-found: warn
+          retention-days: 30
