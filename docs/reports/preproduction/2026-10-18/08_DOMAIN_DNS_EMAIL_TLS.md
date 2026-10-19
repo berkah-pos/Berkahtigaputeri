@@ -226,7 +226,7 @@ Email deliverability acceptance requires a **separate explicit test authorizatio
 
 - Architecture authority is the 2026-10-17 owner ADR: KVM2/Coolify, Laravel and private PostgreSQL 17; no Supabase usage or access, including read-only. No Supabase service or script was called.
 - The DOC_00 five-layer contract remains `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE` with 352 canonical workbook entries. Domain/email work neither changed nor validated the workbook, so detailed workbook execution is **NOT APPLICABLE** to this workstream; the overall release still inherits the global configuration gate.
-- No GitHub Actions workflow was manually dispatched or rerun. CI status for this documentation-only change is **NOT RUN / NOT CHECKED** in this audit. Do not run the legacy `scripts/sync_excel_to_supabase.py` workflow path even with a dry-run flag; a repository note indicates an existing docs-triggered workflow may call it.
+- No GitHub Actions workflow was manually dispatched or rerun. CI execution for this documentation-only change is **NOT RUN**; a read-only metadata query found no workflow run or combined status for the inspected report commit. Do not run the legacy `scripts/sync_excel_to_supabase.py` workflow path even with a dry-run flag; a repository note indicates an existing docs-triggered workflow may call it.
 - No DNS record, MX/TXT value, IP address, certificate, mail credential, message, mailbox, public endpoint, database or production resource was modified.
 
 
@@ -335,3 +335,15 @@ The following source facts were rechecked at base SHA 371b7fdf0bf672b37ceb1023e6
 **Updated disposition: BLOCKED / NO CUTOVER.** The present network failures are explicitly **not** a FAILED DNS verdict. DNS state, private/public target correctness, TLS validity and effective security headers all remain unknown. The only new direct operational observation is the managed mailbox list showing admin@...; it is insufficient for an application sender or deliverability claim. The code-origin absence of header directives is verified, but a reverse proxy may implement them; do not modify either layer until infrastructure/API owners choose the authoritative enforcement point.
 
 No workbook/validator, database, application test suite, CI job, staging endpoint, production resource, DNS record, certificate, mailbox or email-delivery test was changed or executed in this refresh. The canonical GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE / 352-entry workbook gate is inherited and **NOT APPLICABLE to this workstream's edits**, but remains a separate required release gate; this report does not claim it was tested.
+
+
+### 12.6. Exact-head CI metadata check
+
+After the report refresh commit **ffe7b7b85febb96f758c08212c936da5dc0860dd** was created, the following read-only GitHub metadata operations were queried for that exact commit SHA:
+
+| Operation | Result | Conclusion |
+|---|---|---|
+| Fetch commit workflow runs filtered to pull-request events | Empty list; no run ID, attempt, conclusion, or URL returned | **NOT RUN / NO CI EVIDENCE** for that SHA |
+| Fetch combined commit status | Empty list; no status context/state/target URL returned | **NOT RUN / NO CHECK STATUS** for that SHA |
+
+These metadata lookups do not dispatch or execute CI. No workflow was manually dispatched or rerun. The new report-only commit is not treated as tested just because the pre-existing pull request has a green or historic result; CI evidence must be tied to the exact final candidate SHA.
