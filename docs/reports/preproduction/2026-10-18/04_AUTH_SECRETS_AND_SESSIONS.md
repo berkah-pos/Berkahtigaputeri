@@ -89,7 +89,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-01 — No production auth API/lifecycle — P1 / High confidence / BLOCKED
 
-**Evidence:** routes/api.php contains only the health route. bootstrap/app.php has no project-specific authentication middleware additions. Current Laravel source did not expose login throttling or auth:sanctum-protected business endpoints. A Sanctum dependency/model/token table does not prove an auth service.
+**Evidence:** routes/api.php:1–10 contains only the GET platform-health route; bootstrap/app.php:9–21 adds routing and JSON exception behavior but no project-specific authentication middleware. Current Laravel source did not expose login throttling or auth:sanctum-protected business endpoints. A Sanctum dependency/model/token table does not prove an auth service.
 
 **Impact:** No end-to-end login/logout identity contract can be tested; account authentication, user enumeration, role/tenant tampering and token revocation acceptance cannot pass. A health response is not an authenticated product API.
 
@@ -99,7 +99,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-02 — Primary admin MFA absent — P1 / High confidence / BLOCKED
 
-**Evidence:** no MFA package, authenticator/enrollment/recovery flow, enforcement middleware or staging observation found in scoped Laravel auth files.
+**Evidence:** composer.json:11–25 includes Laravel Sanctum but no dedicated MFA dependency; scoped routes/config/model files do not provide authenticator enrollment, recovery, enforcement middleware or staging observation.
 
 **Impact:** A compromised central super-admin credential may provide privileged access without a second factor.
 
@@ -109,7 +109,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-03 — Password reset and verification are configuration-only/incomplete — P1 / High confidence / BLOCKED
 
-**Evidence:** config/auth.php sets the reset broker table name to password_reset_tokens and expiry 60 minutes/throttle 60 seconds. The baseline central migration lacked the table; this branch adds an additive central migration for it. Reset/verify routes, notification transport, replay tests and reset-triggered session invalidation were not found.
+**Evidence:** config/auth.php:10–17 sets password broker table/expiry/throttle; database/migrations/central/2026_10_17_000001_create_central_platform_tables.php creates users and personal_access_tokens but not the reset table. This branch adds database/migrations/central/2026_10_19_000001_create_password_reset_tokens_table.php:11–20. Reset/verify routes, notification transport, replay tests and reset-triggered session invalidation were not found.
 
 **Impact:** The reset path cannot be certified and may fail because its backing table and controller flow are absent. A verification timestamp can exist in schema without being enforced.
 
@@ -119,7 +119,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-04 — Token revocation and disabled-user enforcement not implemented — P1 / High confidence / BLOCKED
 
-**Evidence:** User model exposes is_active and Filament checks it, but no custom Sanctum middleware checks active state for every protected API request. No revoke/logout route exists. personal_access_tokens includes expiry but does not itself invalidate inactive accounts.
+**Evidence:** app/Models/Central/User.php:23–26 checks is_active/is_super_admin only in canAccessPanel; config/sanctum.php:7–12 sets token expiry but no active-user middleware. No revoke/logout route exists. The personal_access_tokens table in database/migrations/central/2026_10_17_000001_create_central_platform_tables.php includes expires_at, but the table alone does not invalidate inactive accounts.
 
 **Impact:** If bearer-token routes are added without a common active-account check, an already-issued token could remain usable after account deactivation. This is a release-gap, not a demonstrated exploit against a deployed API route.
 
@@ -127,7 +127,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-05 — No login or reset abuse throttling — P1 / High confidence / BLOCKED
 
-**Evidence:** no auth endpoint or named auth rate limiter exists in the inspected tree. Password-reset config alone does not create a route or enforce real request limits.
+**Evidence:** routes/api.php:1–10 has no auth endpoints, and search of the scoped Laravel source found no RateLimiter::for declaration or auth route throttle. config/auth.php:10–17 does not create a request limiter by itself.
 
 **Impact:** Future credential endpoints may be susceptible to brute force, credential stuffing and reset-mail abuse if shipped without server-side throttling.
 
@@ -135,7 +135,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-06 — Deterministic APP_KEY fallback in Compose — P2 / High confidence / CHANGE MADE; test pending
 
-**Evidence:** base Compose included a fixed, predictable APP_KEY fallback. This branch removes it and requires a caller-supplied key. Production entrypoint now validates app key, debug mode, HTTPS, secure session cookie, session lifetime, central DB account/password placeholder and mail transport before startup/migration.
+**Evidence:** base docker-compose.yml:23–27 supplied a deterministic APP_KEY fallback. This branch replaces it with a required local setting. docker/entrypoint.sh:4 calls docker/validate-production-env.sh before migrations/service start; that script checks app key, debug mode, HTTPS, secure cookie, session lifetime, central DB account/password placeholder and mail transport without printing secret values.
 
 **Impact:** If the fixed key were reused outside isolated development, signed/encrypted Laravel state could become predictable across installations.
 
@@ -143,7 +143,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-07 — Sanctum token expiry was unlimited by default — P2 / High confidence / CHANGE MADE; tests pending
 
-**Evidence:** baseline config/sanctum.php set expiration to null. Branch changes it to SANCTUM_EXPIRATION_MINUTES, default 60, and adds a config regression test.
+**Evidence:** baseline config/sanctum.php:7–12 set expiration to null. The branch now sets it from SANCTUM_EXPIRATION_MINUTES, default 60, and adds a config regression test.
 
 **Impact:** Bearer tokens might otherwise remain valid indefinitely unless individually revoked. An expiry default does not implement token issuance, logout, revoke-all or active-user enforcement.
 
@@ -151,7 +151,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-08 — Privilege-field mass assignment — P2 / Medium confidence / CHANGE MADE; tests pending
 
-**Evidence:** the baseline model listed tenant_id, is_super_admin and is_active in $fillable. This branch removes those fields; no current public user-update route was found, and no externally reachable mass-assignment exploit was demonstrated.
+**Evidence:** baseline app/Models/Central/User.php:18–20 listed tenant_id, is_super_admin and is_active in $fillable. The branch removes them from the fillable list; no current public user-update route was found, and no externally reachable mass-assignment exploit was demonstrated.
 
 **Impact:** removing them from fillable prevents accidental mass assignment through ordinary fill/create/update payloads. It does not implement authorization for routes that do not exist yet.
 
