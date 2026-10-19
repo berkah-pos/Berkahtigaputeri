@@ -26,7 +26,7 @@ umask 077
 started=$(date +%s)
 started_iso=$(date -u +%FT%TZ)
 work=$(mktemp -d)
-suffix="$(date -u +%Y%m%d%H%M%S)-$"
+suffix="$(date -u +%Y%m%d%H%M%S%N)"
 source_backup_id="synthetic-pg17-$suffix"
 network="backup-drill-net-$suffix"
 source_db="backup-drill-src-$suffix"
