@@ -253,3 +253,70 @@ Residual risks include cross-tenant access while tenant credentials may fall bac
 No candidate SHA is selected, no all-gates status set exists, and multiple P0 findings remain open. Successful component runs for workbook/config, isolated PG17 tests, Flutter debug build and synthetic backup restore are preserved as scoped proof; they cannot certify a product revision that has not been integrated and tested. The owner/release authority retains the final GO/NO-GO decision.
 
 **Assessment safety boundary:** no merge, tag, release, deployment, production database access/mutation, DNS mutation, secret rotation, Supabase connection or legacy sync command execution was performed.
+
+
+## 11. Final live-state refresh and evidence corrections — 2026-10-19
+
+This addendum records the final read-only refresh after reviewing the report branch. It does not change the release verdict.
+
+### 11.1 Exact live identity and latest checks
+
+- Live `main` remains `371b7fdf0bf672b37ceb1023e647f114221bf797` at the final metadata refresh. The existing PR #90 is still **open/draft**, base `main` at that SHA, source head `d2a60ee5ae4560b201644762f17286ce88b25cae`: [PR #90](https://github.com/berkah-pos/Berkahtigaputeri/pull/90).
+- The Actions API query for `head_sha=371b7fdf0bf672b37ceb1023e647f114221bf797` returned 2 runs and the commit check-runs API returned 2 checks only. Both were Dependabot dynamic workflows, not product acceptance:
+  - [39186055413, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39186055413) — `dynamic/dependabot/dependabot-updates`, event `dynamic`, conclusion `success`, tested SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`.
+  - [39184121515, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39184121515) — `dynamic/dependabot/dependabot-updates`, event `dynamic`, conclusion `success`, tested SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`.
+- Commit status API result for the current SHA: `total_count=0`. No product workflow run was found for this SHA. Do not present the two Dependabot successes as a green release gate.
+- Conventional branch metadata returned `protected=false` and status checks disabled/empty. The separate GitHub branch-protection read returned HTTP 403 `FORBIDDEN / Resource not accessible by integration`; the specific rule details therefore remain **BLOCKED for independent inspection**, not inferred absent beyond the accessible metadata.
+- The last passing product CI runs on main were against an earlier commit, not this SHA:
+  - [39029945653, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39029945653), workflow `.github/workflows/canonical-workbook-validate.yml`, event `push`, tested SHA `ef167189fa7fcde9e761e50128c0fcf7c44c2285`, success.
+  - [39029945646, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39029945646), workflow `.github/workflows/laravel-pg17-baseline.yml`, event `push`, tested SHA `ef167189fa7fcde9e761e50128c0fcf7c44c2285`, success.
+  These are **stale for current main**. The older baseline [39005405149, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) tested `aab154f87342f2a02a1319e1d370ce831dbef522`, which is older still.
+
+### 11.2 Current source anchors and corrected import path
+
+Source findings are directly bound to blobs fetched at main SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`:
+
+| Finding | Source anchor at main | Meaning / limit |
+|---|---|---|
+| F-001 prohibited CI invocation | `.github/workflows/canonical-workbook-validate.yml:64-68`; `scripts/sync_excel_to_supabase.py:277-299, 360-370` | The workflow calls the legacy mutation-capable script with `--dry-run`. This statically reproduces a policy conflict; it does not prove a remote write occurred. The command was not executed by this assessment. |
+| F-002 credential fallback | `config/database.php:26-27` | Tenant username/password fall back to central/global values if tenant-specific values are missing. No live connection was attempted. |
+| F-003 Supabase Flutter path | `pos-app/pubspec.yaml:16`; `pos-app/lib/main.dart:35-39`; `pos-app/lib/core/config/config_service.dart:60, 85-86` | Active SDK, initialization and effective-config RPC references remain on current main; this conflicts with the no-Supabase ADR. No Supabase call was made. |
+| F-004 implicit trial grant | `app/Console/Commands/ImportCanonicalWorkbook.php:64-98` (blob `b992dd992b3e7425bb9220b99f195f13b09d05be`) | Central import creates a trial subscription with `expires_at = now()->addDays(14)`. This is the exact source path (the class is a Console Command, not `app/Services`). The owner must settle the v1 entitlement/trial policy. |
+
+### 11.3 P0 closure table — none closed on an integrated candidate
+
+| Finding | Initial reproducible evidence | Candidate correction/tests seen | Closure verdict for release |
+|---|---|---|---|
+| F-001 legacy Supabase writer in workbook CI | Source comparison at workflow lines 64-68 and prohibited script lines 277-299, 360-370 | PR #75 head `b4412b2b0498e43723b7c911ddcc0bb854e4edd5`; [run 39072409362 / attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39072409362) passed the local-validator branch | **OPEN** — PR not integrated; no current candidate SHA lacks the prohibited invocation with exact-SHA run evidence. |
+| F-002 tenant runtime identity falls back to central/global | Direct source at `config/database.php:26-27` | PR #79 head `6062df7b9a0fd94db17107d654f9b3e16622531b`; [run 39131351376 / attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376) passed scoped disposable PG17 probes; artifact 12138445929 | **OPEN** — unmerged; low-level role/grant probes do not establish application provisioning, tenant request, membership, host routing or worker reset on one integrated candidate. |
+| F-003 active Flutter Supabase runtime dependency | `pubspec.yaml`, `main.dart` and `ConfigService` source above | No merged correction and no exact-candidate Laravel-auth/config parity run | **OPEN** — runtime policy conflict and API/client integration gap remain. |
+| F-004 implicit 14-day subscription trial | `app/Console/Commands/ImportCanonicalWorkbook.php:96-98` | PR #82 head `42c966b9596014e1ac0cc97073f19bb898b4fc02`; [run 39181047719 / attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39181047719) failed at PHPUnit startup/execution with a PHP syntax error, exit code 255 | **OPEN** — cannot accept the proposed correction until owner-approved scope and exact-head regression pass; do not treat the CI failure as a passed fix. |
+
+### 11.4 Local reproduction limitations and exact commands
+
+The following exact command was attempted in `/tmp/berkah-audit`:
+
+```sh
+git clone --filter=blob:none --no-checkout https://github.com/berkah-pos/Berkahtigaputeri.git
+```
+
+Result: **FAILED before checkout**, exit code **128**, stderr `Could not resolve host: github.com`. Therefore a local working tree was not established and local commands below remain **NOT RUN**, with no fabricated output or local log artifact:
+
+```sh
+python -m unittest discover -s scripts/tests -p 'test_*.py'
+python scripts/export_workbook_for_laravel.py --validate-only
+php artisan test
+flutter analyze --no-pub
+flutter test --no-pub --reporter expanded
+```
+
+The legacy command `python scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352` was **intentionally NOT RUN**, because the current owner ADR prohibits execution of the mutation-capable legacy writer in any mode. No Supabase connection, database mutation, DNS mutation, secret rotation, deployment or production operation was performed.
+
+The file `scripts/export_workbook_for_laravel.py` is the proposed local-only validation route, but its current source still exposes only `keyset_md5` (source blob `af759fe3b736047de077f68e907e3e2eb9031e8e`, lines 22, 112-114, 187, 206). It does not itself provide the required workbook SHA-256, canonical manifest SHA-256 and two-clean-run byte-equality artifacts specified in AC-02. Since this assessment could not run it against the exact checkout, the **352-entry inventory remains the canonical contract but is NOT RUN / NOT VERIFIED on current main in this assessment**.
+
+### 11.5 Live dependency snapshot and next handoff
+
+The latest read-only GitHub API query returned **37 open pull requests** in the canonical repository. Workstream heads remain split across unmerged PRs: #75 local workbook CI replacement; #76 PostgreSQL broker; #77 deterministic workbook/API contract on a stacked base; #78 config validator report; #79 tenant credential fallback fix; #80 release scope/governance; #81 POS/offline; #82 trial/billing; #86 DNS/TLS/email; #87 KVM2/Coolify; #88 synthetic backup/restore; #89 UAT; and this report #90. PR #69/#67 also provide stacked workbook/security dependencies. Their successful jobs cannot be combined as if they tested one SHA. PR #82's exact-head failure remains a failure; #86/#87/#89 have no qualifying CI-backed runtime acceptance in the evidence reviewed.
+
+The next release coordinator action is to select (not construct by this assessment) an owner-approved integration order, review overlap between importer/config files in #77/#82, integrate the local-only workbook CI and the PostgreSQL least-privilege corrections through normal PR review, remove the prohibited Flutter runtime dependency by implementing the authenticated Laravel API, and only then choose an exact candidate SHA and rerun the complete required matrix. At that time, attach the candidate-specific source head, base SHA, tested merge/checkout SHA, workflow file/revision, run ID/attempt, required job IDs, exit codes and artifacts. Until then the recommendation remains **BLOCKED — NO-GO**.
+
