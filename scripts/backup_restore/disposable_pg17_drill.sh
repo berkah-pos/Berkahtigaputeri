@@ -106,12 +106,16 @@ sha256sum -c "$work/key-checksum.txt" >/dev/null
 cmp "$work/synthetic-key.txt" "$work/synthetic-key.restored"
 
 for db in berkahpos_central berkahpos_tenant_a berkahpos_tenant_b; do
-  docker run --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
-    pg_dump -h "$source_db" -U postgres -d "$db" -Fc > "$work/$db.dump"
+  # Stream the custom-format archive directly from the disposable source container.
+  docker exec -e PGPASSWORD="$db_password" "$source_db" \
+    pg_dump -h 127.0.0.1 -U postgres -d "$db" -Fc > "$work/$db.dump"
+  if [ ! -s "$work/$db.dump" ]; then echo "FAIL: generated backup archive is empty" >&2; exit 1; fi
+  docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.dump" >/dev/null
   sha256sum "$work/$db.dump" > "$work/$db.sha256"
   openssl enc -aes-256-cbc -pbkdf2 -salt -in "$work/$db.dump" -out "$work/$db.dump.enc" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
   openssl enc -d -aes-256-cbc -pbkdf2 -in "$work/$db.dump.enc" -out "$work/$db.restore.dump" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
   sha256sum -c "$work/$db.sha256" >/dev/null
+  docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.restore.dump" >/dev/null
   docker exec "$target_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $db"
   docker run --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
     pg_restore --exit-on-error --no-owner -h "$target_db" -U postgres -d "$db" < "$work/$db.restore.dump"
