@@ -1,28 +1,28 @@
 # 09 — KVM2 / Coolify Deployment Operations Audit
 
 **Status workstream:** **BLOCKED — NOT DEPLOYED / NOT ACCEPTED**  
-**Audit date:** 2026-10-19 (Asia/Jakarta)  
+**Audit date:** 2026-10-20 (Asia/Jakarta)  
 **Requested report location:** `docs/reports/preproduction/2026-10-18/09_KVM2_COOLIFY_DEPLOYMENT.md`  
 **Repository:** [`berkah-pos/Berkahtigaputeri`](https://github.com/berkah-pos/Berkahtigaputeri)  
 **Base branch / exact base SHA:** `main` / `371b7fdf0bf672b37ceb1023e647f114221bf797`  
 **Work branch:** `audit/preprod-kvm2-coolify-2026-10-18`  
-**PR:** [#87 — KVM2 / Coolify pre-production operations assessment](https://github.com/berkah-pos/Berkahtigaputeri/pull/87) (draft, not merged). **Initial report commit SHA:** `ab9a041bd8235ef2fad285f6d2bb57bed6413f91`. The exact final PR-head SHA is the value shown by PR #87 metadata after this report update; do not substitute the base or historical CI SHA.  
-**Deployment scope:** Repository/CI/source audit and operational runbook only. No KVM2 SSH session, Coolify service change, DNS/TLS change, database operation, image publish, or deployment was performed.
+**PR:** [#87 — KVM2 / Coolify pre-production operations assessment](https://github.com/berkah-pos/Berkahtigaputeri/pull/87) (draft, not merged). **Initial report commit SHA:** `ab9a041bd8235ef2fad285f6d2bb57bed6413f91`. Source/config candidate SHA before this report-only revision: `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed`. The final report-only commit and current PR head are shown by PR #87 metadata; do not substitute the base or older CI SHA.  
+**Deployment scope:** Source, Docker/build/startup/readiness configuration, CI regression coverage, and operational runbook. No KVM2 SSH session, Coolify service change, DNS/TLS change, database operation, image publish, or deployment was performed.
 
 ## 1. Executive summary
 
-The selected architecture is clear: **Hostinger KVM2 + Ubuntu 24.04 LTS + Docker/Coolify + PHP 8.4 + Laravel 13 + Filament 5 + Sanctum + private PostgreSQL 17**. Central metadata belongs in a central database; each tenant receives its own database and restricted runtime role on the private PostgreSQL service. One shared Laravel image serves standard tenants. Redis and object storage are conditional additions, not assumptions.
+The accepted architecture is **Hostinger KVM2 + Ubuntu 24.04 LTS + Docker/Coolify + PHP 8.4 + Laravel 13 + Filament 5 + Sanctum + private PostgreSQL 17**. Tenant database/runtime-role isolation is mandatory. Supabase is prohibited; Redis and object storage are conditional additions, not assumptions.
 
-The source tree contains a Docker multi-stage build and a starter local Compose setup, and a historical CI run demonstrates that the initial image could build and answer smoke requests on an earlier exact SHA. That is **not** current-head, staging, or production deployment evidence. The current `main` SHA is `371b7fdf0bf672b37ceb1023e647f114221bf797`; the available Laravel/PostgreSQL baseline run is against `aab154f87342f2a02a1319e1d370ce831dbef522`, an earlier SHA. API run inspection found no Laravel baseline run or required check result on the current SHA.
+The base SHA contained three key deployment gaps. Source-level remediations have now been authored on this dedicated branch:
 
-Two immediate operational blockers are directly visible in source:
+1. [docker/entrypoint.sh](https://github.com/berkah-pos/Berkahtigaputeri/blob/audit/preprod-kvm2-coolify-2026-10-18/docker/entrypoint.sh) now fails closed with exit code 64 if `RUN_CENTRAL_MIGRATIONS=true` is supplied; it has no startup migration command. A separately reviewed one-shot release task remains the only acceptable migration path.
+2. [routes/api.php](https://github.com/berkah-pos/Berkahtigaputeri/blob/audit/preprod-kvm2-coolify-2026-10-18/routes/api.php) separates liveness (`/up`), informational `/api/v1/platform-health`, and database-aware `/api/v1/ready`. Readiness runs `SELECT 1` within a transaction with PostgreSQL `statement_timeout` of 2 seconds, catches dependency errors, returns HTTP 503, and logs only the exception class. `config/database.php` and `.env.example` specify a 3-second PDO timeout for central and tenant connections.
+3. [Dockerfile](https://github.com/berkah-pos/Berkahtigaputeri/blob/audit/preprod-kvm2-coolify-2026-10-18/Dockerfile) now requires a non-empty `VCS_REF`; CI passes `GITHUB_SHA` and checks the OCI revision label. [docker/supervisord.conf](https://github.com/berkah-pos/Berkahtigaputeri/blob/audit/preprod-kvm2-coolify-2026-10-18/docker/supervisord.conf) configures QUIT signals and a 30-second stop wait for PHP-FPM/Nginx.
+4. Local Compose and the PostgreSQL baseline CI now pin `postgres:17.11-bookworm` rather than floating `postgres:17`. PostgreSQL 17.11 was announced by the PostgreSQL Global Development Group on 2026-08-13 ([official release](https://www.postgresql.org/about/news/postgresql-186-1711-1615-1519-and-1423-released-3365/)); the actual staging host image digest still must be recorded and verified.
 
-1. [`docker/entrypoint.sh`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docker/entrypoint.sh#L7-L9) contains an environment switch that runs central database migrations during container startup when `RUN_CENTRAL_MIGRATIONS=true`. Production web/worker startup must not run schema mutations; migrate only through a separately reviewed, one-shot release task.
-2. [`routes/api.php`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/routes/api.php#L5-L11) returns a hard-coded `status: ok` and `database_target: PostgreSQL 17`; it does not test database connectivity. Docker's `/up` probe is therefore process/liveness evidence, not proof that the app is ready to use PostgreSQL.
+Feature regression tests and image-startup/readiness/stop checks have been added. However, source candidate SHA `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed` had two workflow runs observed as pending: [PR run 39342164612](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39342164612) and [push run 39342159006](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39342159006), each attempt 1. They are not passes. Docker is unavailable in the local audit environment, and `git clone` failed due DNS resolution; no local build or deployment was run.
 
-The base-image references in the Dockerfile are digest-pinned, but the CI workflow does not publish a deployable image by digest/SBOM and builds without an explicit `VCS_REF`; the image label therefore defaults to `unknown` unless overridden outside the checked workflow. Docker, local checkout of this repository, actual host observations and any disposable runtime are unavailable in this execution environment. Build, HTTP health, SSH/firewall, backup/restore, and rollout/rollback are explicitly **NOT RUN / BLOCKED**, not passed.
-
-**Recommendation: BLOCKED. Do not deploy production or claim release readiness.** Resolve the source-level blockers through the responsible code owners, then re-run exact-SHA CI and prove the full deployment path on a clearly disposable/staging KVM2/Coolify environment.
+**Recommendation: BLOCKED / NO-GO for production.** A green exact-SHA workflow, a scanned immutable registry image and disposable/staging KVM2/Coolify evidence are still required.
 
 ## 2. Revision, branch, authority, and evidence boundary
 
@@ -34,7 +34,7 @@ The base-image references in the Dockerfile are digest-pinned, but the CI workfl
 | Default branch observed | `main` |
 | Base SHA recorded before changes | `371b7fdf0bf672b37ceb1023e647f114221bf797` |
 | Report branch | `audit/preprod-kvm2-coolify-2026-10-18` |
-| Scope of changes | This report only; no application, Docker, workflow, secret, database, DNS, or server change |
+| Scope of changes | Report plus scoped updates to Dockerfile, entrypoint, Supervisor shutdown, API readiness, feature tests, PostgreSQL CI workflow, local Compose, DB timeout config and environment example; no secrets, database, DNS, host or production changes |
 | Current PR / resulting head SHA | Refer to this branch's GitHub metadata; report is submitted for review and is not merged |
 
 Base SHA was obtained from GitHub's `refs/heads/main` and the recursive tree for that commit. The tree reported 332 entries and was not truncated. The requested report directory did not exist at the inspected base.
@@ -59,7 +59,7 @@ Base SHA was obtained from GitHub's `refs/heads/main` and the recursive tree for
 
 Reviewed source includes `Dockerfile` (lines 1–52), `docker/entrypoint.sh` (lines 1–17), `docker/nginx.conf` (lines 1–31), `docker/supervisord.conf` (lines 1–26), `docker-compose.yml` (lines 1–52), `.dockerignore`, `.env.example`, `composer.json`, `config/database.php`, `routes/api.php`, `bootstrap/app.php`, `.github/workflows/laravel-pg17-baseline.yml`, `.github/workflows/canonical-workbook-validate.yml`, `docs/KVM2_RESOURCE_BUDGET.md`, `docs/runbooks/backup-restore.md`, and `docs/runbooks/provisioning-state-machine.md`.
 
-The ownership map in [`docs/reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docs/reports/ARCHITECTURE_CONFLICT_REGISTER_2026-10-17.md) assigns the Dockerfile/backend image inputs to the Laravel Platform Lead and resource-budget/backup-restore artifacts to the SRE/Recovery Lead. This workstream therefore documents required changes and their owners instead of silently editing those shared paths.
+The current task explicitly owns Docker/build/startup/readiness, deploy configuration, host operations and Coolify topology, so scoped source/test changes are included on this audit branch. The shared `docs/KVM2_RESOURCE_BUDGET.md` and `docs/runbooks/backup-restore.md` remain untouched because measuring capacity and proving restore requires the SRE/Recovery owner and an isolated host. The prohibited legacy workbook workflow is also left untouched and is recorded as a cross-workstream dependency.
 
 ## 3. Source findings
 
@@ -75,7 +75,7 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Closure test:** Static regression asserts that web/worker entrypoint contains no migration command or environment switch; a container started with arbitrary `RUN_CENTRAL_MIGRATIONS` values performs no DDL; migration step is a distinct, reviewed release task on disposable PostgreSQL 17.
 
-**Status:** FAILED at source-policy level; fix NOT DONE in this report because the path belongs to the platform implementation owner.
+**Current branch state:** The source-level fix is present. The entrypoint now exits 64 with a sanitized message when `RUN_CENTRAL_MIGRATIONS=true`, without executing DDL; the CI workflow contains a static guard and an image-startup negative test. **Status:** SOURCE-VERIFIED on the branch; negative runtime test **PENDING / NOT VERIFIED** until CI completes. Production setting remains NOT VERIFIED.
 
 ### KVM2-OPS-02 — P1 / High confidence — “platform-health” is not a readiness probe
 
@@ -87,7 +87,7 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Closure test:** Start the candidate against disposable PG17, verify ready returns success with DB available and failure when DB connection/query fails; prove liveness can be distinguished from readiness; test request timeout and sanitized error logs.
 
-**Status:** FAILED for database-readiness acceptance; liveness route is SOURCE-VERIFIED only; HTTP execution on this candidate is NOT RUN.
+**Current branch state:** `/api/v1/platform-health` is explicitly informational and `/api/v1/ready` checks the central PostgreSQL connection using a read-only `SELECT 1`, a 2-second statement timeout and sanitized 503 failure. Positive/negative feature tests and CI HTTP smoke are authored but remain **PENDING / NOT VERIFIED** until CI completes.
 
 ### KVM2-OPS-03 — P1 / High confidence — no deployable immutable image evidence for current SHA
 
@@ -99,11 +99,11 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Closure test:** Exact candidate SHA, workflow run/attempt, registry image digest, revision label, scan/SBOM artifacts and staging deployment all reconcile; image digest deployed is identical to the verified published digest.
 
-**Status:** BLOCKED; current SHA has no Laravel baseline CI result and no published image/digest evidence in the inspected tree.
+**Current branch state:** Dockerfile and CI enforce the exact source revision label. Candidate source SHA had pending CI but no completed pass at report time. Publication to an approved registry, immutable digest, SBOM, provenance and image/secret scan remain **BLOCKED**.
 
 ### KVM2-OPS-04 — P1 / High confidence — runtime database credential pattern must not be copied from local Compose
 
-**Evidence:** [`docker-compose.yml:3–9,35–43`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docker-compose.yml#L3-L9) uses `postgres:17`, defaults the database owner username to `postgres`, and binds PostgreSQL to loopback for **local development**. The app's central and tenant connections reference the same central credential in local Compose; [.env.example](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/.env.example) also provides development-only fallback patterns. This is not a production Coolify compose.
+**Evidence:** [`docker-compose.yml`](https://github.com/berkah-pos/Berkahtigaputeri/blob/audit/preprod-kvm2-coolify-2026-10-18/docker-compose.yml) uses `postgres:17.11-bookworm`, defaults the database owner username to `postgres`, and binds PostgreSQL to loopback for **local development only**. The app's central and tenant connections reference the same central credential in local Compose; [.env.example](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/.env.example) also provides development-only fallback patterns. This is not a production Coolify compose.
 
 **Impact:** Reusing the local convenience pattern in production would give an ordinary web/worker process broader access than the accepted tenant isolation architecture permits. A loopback-only local port is not evidence that production PostgreSQL is private.
 
@@ -127,7 +127,7 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 ### KVM2-OPS-06 — P2 / High confidence — local Compose and resource budget are planning/dev artifacts, not a production service topology
 
-**Evidence:** [`docker-compose.yml`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docker-compose.yml) uses `APP_ENV=local`, `APP_DEBUG=true`, `QUEUE_CONNECTION=sync`, loopback-published `8000/5432`, mutable `postgres:17`, local TLS disabled and no restart/memory/CPU caps. [`docs/KVM2_RESOURCE_BUDGET.md:3,14,19`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docs/KVM2_RESOURCE_BUDGET.md#L3-L19) calls the budget planning-only and unmeasured, and still contains a PostgreSQL/MariaDB choice that conflicts with the current PG17-only owner decision. The current owner ADR says Redis is optional; older provisioning guidance that mandates Redis must not be treated as authority.
+**Evidence:** [`docker-compose.yml`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docker-compose.yml) uses `APP_ENV=local`, `APP_DEBUG=true`, `QUEUE_CONNECTION=sync`, loopback-published `8000/5432`, pinned `postgres:17.11-bookworm`, local TLS disabled and no restart/memory/CPU caps. [`docs/KVM2_RESOURCE_BUDGET.md:3,14,19`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/docs/KVM2_RESOURCE_BUDGET.md#L3-L19) calls the budget planning-only and unmeasured, and still contains a PostgreSQL/MariaDB choice that conflicts with the current PG17-only owner decision. The current owner ADR says Redis is optional; older provisioning guidance that mandates Redis must not be treated as authority.
 
 **Impact:** The Compose file is suitable only for local development. It does not encode measured production capacity, restart behavior, private Coolify networks or deployment environment separation. Proposed RAM figures and tenant limits cannot be treated as validated limits.
 
@@ -319,15 +319,15 @@ Legend: **VERIFIED** = directly observed for that scope; **CLAIMED** = document 
 | ID | Criterion | Status | Evidence | Blocker / closure requirement |
 |---|---|---|---|---|
 | OPS-01 | Target stack matches current ADR | VERIFIED (source) | Composer target, PHP 8.4 Docker base, PGSQL-only active DB connection, Ubuntu 24.04 CI runner | Does not prove deployed runtime or tenant isolation |
-| OPS-02 | Production dependency install/image build | CLAIMED for an older SHA only | Run 39005405149 succeeded on `aab154f87342f2a02a1319e1d370ce831dbef522` | Rerun required checks on candidate SHA and publish immutable image evidence |
-| OPS-03 | No DB migration at web/worker startup | FAILED | `docker/entrypoint.sh:7–9` conditional migrate hook | Platform owner removes hook; negative startup test |
-| OPS-04 | Liveness and true dependency readiness | FAILED for readiness | Docker probes `/up`; API platform-health is static | Implement and test separate DB-aware readiness endpoint |
-| OPS-05 | Immutable image linked to commit/digest/SBOM | BLOCKED | CI creates local tag only; `VCS_REF` defaults to `unknown` | Exact SHA build arg, scan/SBOM/provenance and registry digest |
+| OPS-02 | Production dependency install/image build | PENDING exact-SHA CI | Candidate SHA `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed`; runs 39342164612 / 39342159006 pending at report time | Obtain successful exact-SHA run; publication/digest remains separate |
+| OPS-03 | No DB migration at web/worker startup | SOURCE-VERIFIED; runtime test PENDING | Entry point rejects `RUN_CENTRAL_MIGRATIONS=true`; workflow checks static source and expected exit 64 in container | Await exact-SHA CI negative test; migrations remain a separate release task |
+| OPS-04 | Liveness and true dependency readiness | SOURCE-VERIFIED; CI PENDING | `/up` liveness, `/api/v1/platform-health` informational, `/api/v1/ready` DB-aware | Await positive/negative tests and CI HTTP smoke; configure Coolify traffic readiness probe to `/api/v1/ready` |
+| OPS-05 | Immutable image linked to commit/digest/SBOM | PARTIAL SOURCE FIX / BLOCKED RELEASE | Dockerfile requires `VCS_REF`; CI passes and checks `GITHUB_SHA`; registry digest/SBOM not published | Publish to approved registry, scan/sign/provenance and deploy by `image@sha256:...` |
 | OPS-06 | PostgreSQL, Redis and Coolify admin private | BLOCKED | Local Compose binds PG only to loopback; target host not observed | Verify Coolify network, firewall, listeners and published ports on disposable/staging host |
 | OPS-07 | Restricted central/tenant runtime roles and separate migrator/provisioner | BLOCKED / NOT RUN | Local Compose reuses development credential; no real PG privilege test on this audit | PG owner-role/grant tests and actual tenant A/B negatives |
 | OPS-08 | SSH key-only/root disabled/firewall policy | BLOCKED / NOT RUN | No host access evidence | Execute host runbook on identified VPS; attach sanitized command output |
 | OPS-09 | Coolify admin restriction/MFA/role separation | BLOCKED / NOT RUN | No Coolify session or configuration snapshot | Verify management-plane restrictions without changing public DNS |
-| OPS-10 | Resource caps/restarts/graceful shutdown | BLOCKED / NOT RUN | Budget is planning-only; no container stats or stop test | Measure host; configure limits and execute restart/SIGTERM tests |
+| OPS-10 | Resource caps/restarts/graceful shutdown | PARTIAL SOURCE FIX / BLOCKED HOST | Supervisor QUIT/30-second stop policy; CI attempts `docker stop --time 35`; budget remains planning-only | Pass CI stop test; observe host and configure Coolify CPU/RAM/PID/restart/backoff/stop timeout |
 | OPS-11 | Secrets injected at runtime; not in image/log | BLOCKED / NOT RUN | `.dockerignore` excludes env files; no image scan or Coolify env verification performed here | Secret scan/SBOM and redacted env-name/credential boundary check |
 | OPS-12 | Off-host backup / central + tenant restore | BLOCKED / NOT RUN | Backup runbook says not executed | Complete isolated restore with checksums, file/key recovery and measured RTO/RPO |
 | OPS-13 | Staging deploy exact SHA/digest and health | BLOCKED / NOT RUN | No staging environment or deploy evidence supplied | Execute the staging runbook and attach sanitized deployment artifact |
@@ -352,9 +352,11 @@ No command below is represented as a successful build/deploy if it was not execu
 | `curl -i http://127.0.0.1:8080/up` | Local audit container | NOT RUN | No locally running target container |
 | `curl -fsS http://127.0.0.1:8080/api/v1/platform-health` | Local audit container | NOT RUN | No locally running target container; source route inspected only |
 | `python scripts/export_workbook_for_laravel.py --validate-only` and `python -m unittest discover -s scripts/tests -p 'test_*.py'` | Local audit container | NOT RUN | Workbook/config owner scope; no local checkout. The prohibited Supabase script was not executed |
-| `RUN_CENTRAL_MIGRATIONS` negative startup test | Isolated Docker + disposable PG17 | NOT RUN | Docker runtime unavailable; source-policy failure remains open |
+| `RUN_CENTRAL_MIGRATIONS=true` image-startup negative test | GitHub Actions production-image smoke, disposable build environment | Added to candidate workflow; pending run 39342164612 / 39342159006 | NOT RUN to completion locally; do not claim pass until exact-SHA CI reports success |
 | GitHub `GET /repos/berkah-pos/Berkahtigaputeri/actions/runs?head_sha=371b7fdf0bf672b37ceb1023e647f114221bf797&per_page=20` | GitHub API, current `main` SHA | 2 unrelated dynamic Dependabot workflow runs, no Laravel baseline run | VERIFIED observation; runs #39184121515 and #39186055413 are not deploy/build evidence |
 | GitHub combined commit status / check-runs for `371b7fdf...` | GitHub API | Combined statuses empty; two Dependabot checks only | VERIFIED observation; does not equal a required Laravel CI pass |
+| Candidate PR run [#39342164612](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39342164612) | GitHub-hosted `ubuntu-24.04`, disposable PostgreSQL 17.11 service | `pending`, attempt 1; tested SHA `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed` | CI-OBSERVED as pending only; not a pass/fail result |
+| Candidate push run [#39342159006](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39342159006) | GitHub-hosted `ubuntu-24.04`, disposable PostgreSQL 17.11 service | `pending`, attempt 1; tested SHA `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed` | Duplicate push/PR job execution; not a test outcome |
 | [Laravel PostgreSQL 17 Baseline run #39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) | GitHub-hosted `ubuntu-24.04`, disposable PG17 service | `success`, attempt 1, job 117316738107 succeeded; tested SHA `aab154f87342f2a02a1319e1d370ce831dbef522` | CI-OBSERVED, scope limited to that older SHA: locked Composer checks, boot/routes, starter central/tenant migrations, production image HTTP/route smoke. NOT exact-current-SHA evidence |
 | Read `docs/runbooks/backup-restore.md` status | Repository source | It says runbook has not been executed | SOURCE-VERIFIED; backup/restore test remains NOT RUN |
 
@@ -362,7 +364,7 @@ No command below is represented as a successful build/deploy if it was not execu
 
 ## 12. Dependencies, residual risks, and required next steps
 
-1. **Laravel Platform Lead:** remove startup migrations from the image entrypoint; fix the image revision-label/immutable-publish path; implement DB-aware readiness and verify graceful shutdown/config-cache handling. Re-run build, startup-negative, readiness-positive/negative tests on the exact SHA.
+1. **Laravel Platform / release owner:** wait for candidate exact-SHA CI to finish and fix failures; then publish a scanned image with SBOM/provenance to an approved registry, record immutable digest and deploy that digest on disposable staging. Verify graceful stop and runtime config cache there.
 2. **PostgreSQL DBA / Security Lead:** complete the broker, separate runtime/migrator/provisioner/backup identities, inspect real role attributes/grants, prove no public PG access and cross-tenant/central denial using disposable PostgreSQL 17.
 3. **SRE / Recovery Lead:** measure the actual Hostinger KVM2 host (do not infer from the Lubuntu/KVM simulation), harden SSH/firewall/Coolify admin plane, make production Coolify service definitions with private networks, limits and restart/graceful-shutdown policies, test encrypted off-host backup and restore.
 4. **QA/workflow owner (out of scope for this agent):** resolve the legacy `canonical-workbook-validate.yml:68` prohibited invocation; no audit agent should execute the old script to make CI green.
@@ -370,10 +372,10 @@ No command below is represented as a successful build/deploy if it was not execu
 6. **Release owner:** select exact candidate SHA, ensure all required checks passed at that exact head, then approve a disposable/staging deployment and rollback rehearsal. Production go/no-go remains an explicit owner decision.
 7. **Application/Security Lead:** implement and test trusted Host/forwarded-header boundaries, service/domain-specific routing, and readiness before public ingress is considered safe.
 
-Residual risks include the single-node/no-HA nature of the target, no measured KVM2 resource envelope, no verified tenant privilege boundary, no authenticated end-to-end API acceptance on this report's SHA, no successful restore, no published deployable image digest, and unresolved legacy workflow policy conflict. This workstream intentionally does not edit other owners' source paths to hide these dependencies.
+Residual risks include the single-node/no-HA nature of the target, no measured KVM2 resource envelope, no verified tenant privilege boundary, no completed exact-SHA CI result for the new code, no live staging readiness evidence, no successful restore/rollback, no published image digest, and unresolved legacy workflow policy conflict. This workstream changed the source paths assigned by the current task, but did not change production infrastructure, secrets, public DNS or database data.
 
 ## 13. Final disposition
 
 **Recommendation: BLOCKED / NO-GO for production.**
 
-This report is a source-backed operational assessment and a proposed runbook. It is not evidence that Coolify was configured, a container was built in this environment, an app was deployed, a health check passed, a database was migrated, a backup restored, or a production system was tested. The target may proceed only to an isolated, synthetic-data staging setup after the P1 blockers and exact-SHA release-artifact gap are remediated. No merge, release tag, DNS update, database mutation or production approval is performed by this workstream.
+This report contains source-level remediation and a staging operations runbook, but it is not evidence that CI passed, Coolify was configured, an image was published, an app was deployed, live readiness succeeded, a backup was restored, or rollback was rehearsed. The target remains **BLOCKED / NO-GO for production** until exact-SHA CI is green, tenant role/network gates pass on disposable staging, a scanned immutable image is deployed by digest, and backup/restore plus rollback are rehearsed. No merge, release tag, DNS update, database mutation or production approval is performed by this workstream.
