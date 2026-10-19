@@ -128,16 +128,6 @@ jobs:
           printf 'Sanitized Gitleaks finding metadata (secret/match/raw fields omitted):\n'
           cat "$sanitized"
 
-      - name: Enforce Gitleaks result
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          status="${GITLEAKS_EXIT_CODE:-2}"
-          if [ "$status" -ne 0 ]; then
-            printf '::error::Gitleaks returned exit code %s; review sanitized finding metadata in this job log.\n' "$status"
-            exit 1
-          fi
 
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
@@ -270,3 +260,14 @@ jobs:
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked laravel/framework
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked filament/filament
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked stancl/tenancy
+
+      - name: Enforce Gitleaks result
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="${GITLEAKS_EXIT_CODE:-2}"
+          if [ "$status" -ne 0 ]; then
+            printf '::error::Gitleaks returned exit code %s; review sanitized finding metadata in this job log.\n' "$status"
+            exit 1
+          fi
