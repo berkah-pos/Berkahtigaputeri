@@ -204,6 +204,17 @@ Current configuration/source references for APP_KEY, database credentials, reset
 
 CI results from an earlier SHA (including the historic Laravel baseline at aab154f87342f2a02a1319e1d370ce831dbef522) do not prove this branch head or the final report revision passed.
 
+### Supplemental local smoke test (2026-10-19)
+
+The production-env guard logic was also smoke-tested locally using synthetic credentials. Since this execution container is not a checkout of the GitHub branch, the temporary harness and validator were reconstructed from the exact fetched source content; therefore this is **supplemental logic evidence, not an exact-SHA checkout test**.
+
+| Command | Environment | Exit code/result | Sanitized artifact |
+|---|---|---|---|
+| `bash /tmp/berkah-auth-secrets-audit/tests/security/production-env-guard.sh` | Local container, PHP 8.4.24, Bash, no database/network | **0**; 12 positive/negative assertions printed PASS, covering valid production fixture, missing/weak APP_KEY, APP_DEBUG, HTTP URL, insecure cookie, excessive session lifetime, admin DB user, placeholder DB password, log mailer, missing SMTP value, and local-mode bypass | Temporary script at `/tmp/berkah-auth-secrets-audit/tests/security/production-env-guard.sh`; output was sanitized PASS lines only. It is ephemeral, not a committed test artifact. |
+| Gitleaks full-history scan | GitHub-hosted CI | **Still QUEUED** at the last inspection; no exit code or finding count | [Run 39279830161](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39279830161) targets report-containing head `5c98544fad3a230d67a770c101b58ce3d2aaab82`; scan outcome remains NOT RUN/NOT VERIFIED. |
+
+This supplemental local test does not exercise Laravel boot, PostgreSQL, real token issuance/expiry, logging, reset/replay, or MFA.
+
 ## 7. Rotation and incident-response runbook
 
 **Safety boundary:** This is a procedure only. No real secret rotation, mailbox/domain change, token mass-revocation or production resource modification was performed. Each real rotation requires owner approval, a named environment, change window, backup/rollback steps and sanitized evidence. Never paste secret values into GitHub, logs, PR text or reports.
