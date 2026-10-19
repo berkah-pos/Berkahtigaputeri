@@ -6,7 +6,7 @@
 **Workstream branch:** `audit/preprod-billing-boundary-2026-10-18`  
 **Base SHA captured before edits:** `371b7fdf0bf672b37ceb1023e647f114221bf797`  
 **Implementation/test SHA immediately before report publication:** `db52f44706ec744bbd55aae90cbfd55c3eb7aadc`  
-**PR:** to be linked after publication; no merge or release approval performed.  
+**PR:** [#82](https://github.com/berkah-pos/Berkahtigaputeri/pull/82), open/unmerged; no merge or release approval performed.  
 **Scope ownership:** subscription/payment/webhook implementation and server-side entitlement. Product scope is a recommendation only; the owner and release-scope owner retain the final decision.
 
 ## 1. Executive summary
@@ -201,3 +201,13 @@ The original central schema migration was restored byte-for-byte and left unchan
 
 **Overall recommendation: BLOCKED (not PASS).**  
 **RC1 billing scope recommendation: OUT**, pending written owner approval. Payment gateway/webhooks/subscription activation should not be represented as available in RC1. Do not approve release based on route/source inspection or schema presence alone.
+
+
+## 13. CI observation after first report publication
+
+- **Workflow:** `Laravel PostgreSQL 17 Baseline`
+- **Run ID / URL:** `39180994439` — https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39180994439
+- **Attempt:** NOT RETURNED by the available GitHub run wrapper; do not infer an attempt number.
+- **Tested SHA:** `81b6b9107ee84ede2bf5689ebd50d0f11e8983ff` (first report head / PR #82 head at the time of observation).
+- **Observed status:** `in_progress`; job `Locked PHP 8.4 / Laravel 13 / PostgreSQL 17 baseline` was in progress. The step `Assert manifest, lock, runtime and DB target` completed successfully; `Build PHP 8.4 CI image and install locked dependencies cleanly` was still in progress. No workflow conclusion or later test results had been observed at this snapshot.
+- **Exact-head caveat:** this snapshot belongs only to SHA `81b6b9107ee84ede2bf5689ebd50d0f11e8983ff`. The report update itself creates a later commit; re-check the workflow against the latest PR head before accepting any gate.
