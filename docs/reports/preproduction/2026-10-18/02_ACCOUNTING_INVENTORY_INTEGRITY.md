@@ -105,7 +105,7 @@ Each injected exception occurs inside the same DB transaction. After exception, 
 - after audit event;
 - after sync receipt.
 
-These are test cases written into the repository, not yet a passing result.
+These rollback assertions passed in run 39178727994 on code SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. They are branch-only evidence; exact branch-tip CI and production/runtime integration are not certified.
 
 ### Idempotency
 
