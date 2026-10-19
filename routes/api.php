@@ -19,7 +19,11 @@ Route::get('/v1/platform-health', function () {
 // Never return exception messages or connection details to the caller.
 Route::get('/v1/ready', function () {
     try {
-        DB::connection('central')->select('SELECT 1');
+        DB::connection('central')->transaction(function ($connection): void {
+            // Avoid an unbounded readiness query on an otherwise reachable database.
+            $connection->statement("SET LOCAL statement_timeout = '2s'");
+            $connection->select('SELECT 1');
+        }, 1);
     } catch (Throwable $exception) {
         Log::warning('Central database readiness probe failed', [
             'exception_type' => $exception::class,
