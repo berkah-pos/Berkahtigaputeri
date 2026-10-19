@@ -179,5 +179,5 @@ printf '{"status":"PASS","scope":"synthetic disposable data only","workflow_sha"
   "$GITHUB_SHA" "$source_backup_id" "$started_iso" "$finish_iso" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
 cp "$work/file-checksums.txt" "$ARTIFACT_DIR/synthetic-file-checksums.txt"
 cp "$work/synthetic-database-backup-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt"
-sha256sum "$ARTIFACT_DIR/result.json" "$ARTIFACT_DIR/synthetic-file-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt" > "$ARTIFACT_DIR/artifact-checksums.txt"
+(cd "$ARTIFACT_DIR" && sha256sum result.json synthetic-file-checksums.txt synthetic-database-backup-checksums.txt > artifact-checksums.txt)
 echo "PASS: synthetic PostgreSQL 17 central + two-tenant dump/encrypt/restore and synthetic file/key integrity checks completed; no production or off-host provider was used."
