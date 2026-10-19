@@ -20,6 +20,15 @@ class CentralUserSecurityTest extends TestCase
         $this->assertContains('password', $user->getHidden());
     }
 
+    public function test_tenant_and_privilege_fields_are_not_mass_assignable(): void
+    {
+        $fillable = (new User())->getFillable();
+
+        $this->assertNotContains('tenant_id', $fillable);
+        $this->assertNotContains('is_super_admin', $fillable);
+        $this->assertNotContains('is_active', $fillable);
+    }
+
     public function test_sanctum_bearer_token_lifetime_is_bounded_by_default(): void
     {
         $this->assertSame(60, config('sanctum.expiration'));
