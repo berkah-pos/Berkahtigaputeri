@@ -4,7 +4,7 @@
 - **Repository:** berkah-pos/Berkahtigaputeri
 - **Base SHA:** 371b7fdf0bf672b37ceb1023e647f114221bf797 (main ref observed before edits)
 - **Branch:** audit/preprod-backup-restore-2026-10-18
-- **Candidate head SHA (latest):** 5af40b4c57858110cbb96338bbe7df0c8dfc0967. **PR:** [#88 — Preproduction hardening: PostgreSQL backup, restore and DR](https://github.com/berkah-pos/Berkahtigaputeri/pull/88), still open/draft. **CI run:** [39226145671, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39226145671), conclusion SUCCESS. Its pull-request merge checkout SHA is 0ee245656e13c217968cde6cbc99db5c1be78b75 (base 371b7fdf0bf672b37ceb1023e647f114221bf797 plus candidate head above). No merge or release was performed.
+- **Restore-harness implementation SHA executed by CI:** 5af40b4c57858110cbb96338bbe7df0c8dfc0967. Subsequent report/evidence commit  cca3764990dc6105c0d09ccc36a67a583ecd2f32 changed documentation/evidence only; no drill source changed after the tested implementation commit. **PR:** [#88 — Preproduction hardening: PostgreSQL backup, restore and DR](https://github.com/berkah-pos/Berkahtigaputeri/pull/88), still open/draft. **CI run:** [39226145671, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39226145671), conclusion SUCCESS. Its pull-request merge checkout SHA is 0ee245656e13c217968cde6cbc99db5c1be78b75 (base 371b7fdf0bf672b37ceb1023e647f114221bf797 plus implementation SHA above). No merge or release was performed.
 - **Ownership:** PostgreSQL backup inventory, encrypted/off-host retention, uploaded files/config/key recovery, restore drills, RPO/RTO, and separation of application rollback from database recovery.
 
 ## 1. Executive summary
