@@ -81,7 +81,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 | AUTH-10 | Primary administrator MFA | **BLOCKED** | Implementation/configuration/enforcement and staging evidence are absent. Implemented **NO**, configured **NO**, enforced **NO**, staging **NOT RUN**. |
 | AUTH-11 | Startup fails closed on missing/invalid production secrets | **SOURCE VERIFIED; TEST NOT RUN at authoring** | New docker/validate-production-env.sh is invoked before migrations/server start. Regression script covers invalid/missing keys, debug, HTTP URL, insecure cookie, excessive session lifetime, privileged DB login, placeholders and missing mail. CI run queued. |
 | AUTH-12 | No real secret in .env.example / Compose defaults | **PARTIAL** | .env.example uses blank APP_KEY and explicitly labelled local DB placeholders. Deterministic Compose key fallback removed. Full repository-history scan pending. |
-| AUTH-13 | Secret scanner and redacted output | **NOT RUN** | Gitleaks v8.30.1 CLI scan added with full Git history and --redact; exact-head workflow was queued. No finding count or clean result claimed. |
+| AUTH-13 | Secret scanner and redacted output | **FAILED — 31 findings; triage pending** | Run 39281009902 scanned 1,598 commits / ~12.88 MB; Gitleaks reported 31 findings and returned exit code 1. That older scan step did not emit finding metadata. The branch now adds allowlisted metadata-only JSON reporting plus a regression test; the follow-up scan result is NOT RUN / NOT VERIFIED. |
 | AUTH-14 | No sensitive auth values in logs | **NOT RUN** | config/logging.php configures stderr/single channels, but runtime tests have not proved reset/token/password/SMTP/payload redaction. |
 | AUTH-15 | Rotation runbook exists | **VERIFIED (document)** | §7 documents procedures only. No actual rotation was authorized or executed. |
 
@@ -175,6 +175,16 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 **Action:** Route the migration to mobile/static-admin/API owners. Replace these paths with tested Laravel endpoints, then scan active app bundles. Do not connect to an existing Supabase project to validate them.
 
+### F-11 — Full-history scanner reports 31 candidate findings — P1 / Medium confidence / FAILED-TRIAGE
+
+**Evidence:** GitHub Actions run 39281009902, job 118154946586, checked out PR merge-ref SHA 803646741cacad5b183a2d6acbc8ba66d5252db3 and ran Gitleaks 8.30.1 against the full history. The job log states 1,598 commits scanned, approximately 12.88 MB scanned, 31 findings, and exit code 1. The job-status API still reported QUEUED at a later check, so treat the workflow's overall conclusion metadata as inconsistent; the Gitleaks step output itself is direct failure evidence. The older step printed only aggregate scanner output, not per-finding path/rule/line metadata.
+
+**Impact:** the scan cannot currently prove absence of secrets, and the reported matches could be a mix of genuine credential candidates, deterministic config hashes, test fixtures, or historical/public client artifacts. No individual match is classified as a real secret or a false positive because the necessary metadata is not yet available. No matched value is reproduced here.
+
+**Action made:** the branch adds scripts/security/sanitize_gitleaks_report.py, which copies only an explicit metadata allowlist (rule, description, file path, line/column, commit, entropy, tags and fingerprint) and drops Secret/Match/Raw/author/email fields. tests/security/test_sanitize_gitleaks_report.py exercises this exclusion. The workflow now writes a Gitleaks JSON report to temporary runner storage, emits only sanitized metadata, continues through remaining tests, and enforces a nonzero scanner exit at the end. Local sanitizer tests passed 2/2, but the updated CI workflow must run before this fix is considered verified.
+
+**Closure / response:** obtain the follow-up run's sanitized metadata and classify every match by rule/path/line/history context. Check whether any confirmed credential is still valid through its authorized owner/provider process; production rotation or revocation is a separate owner-authorized operation and must never be performed by this audit. Update scoped ignores only for evidenced false positives with path/commit/rule/line specificity. Re-run full-history scanning and require a clean result or a narrowly reviewed, documented allowlist; do not silence the scan wholesale.
+
 ## 6. Secret scan and classification — sanitized
 
 ### Inspected sources
@@ -191,7 +201,7 @@ Current configuration/source references for APP_KEY, database credentials, reset
 | PHPUnit/CI APP_KEY and PG fixture credentials | **TEST FIXTURES / expected false-positive candidates** | Explicit APP_ENV=testing and disposable PostgreSQL CI configuration. Never reuse outside CI. Scanner still must determine/report whether it flags them. |
 | Gitleaks ignores for deterministic keyset MD5 hashes | **EXPECTED FALSE POSITIVES, historical fingerprints** | Configuration digests are not credential material; current ignore entries are scoped by commit/path/rule/line. |
 | Legacy public client-side Supabase key/path | **PUBLIC-BY-DESIGN BUT ARCHITECTURALLY STALE** | Not a secret credential, but the client path is prohibited by the current owner ADR and needs separate migration/removal. |
-| Full Gitleaks result | **NOT RUN / QUEUED** | The latest observed run for the source head before this report-only amendment is 39280386505, targeting 7799f453e6e106c73243a86de02fdc2014d5eb81; it was queued and had no scan result. No finding count, clean result or zero-secret claim is made. |
+| Full Gitleaks result | **FAILED — 31 matches, classification incomplete** | [Run 39281009902](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39281009902), workflow run #224, job log for job 118154946586 shows the checkout used PR merge-ref SHA `803646741cacad5b183a2d6acbc8ba66d5252db3`, scanned 1,598 commits (~12.88 MB), reported 31 findings and exited 1. The Jobs API still showed QUEUED when checked later, so overall run-status metadata was inconsistent; the Gitleaks step failure and count are directly present in the log. This was not the current branch head. That older step did not output path/rule metadata, so the 31 entries cannot yet be classified as false positives or actual credential leaks. The branch subsequently adds sanitized metadata-only reporting and a regression test; a new scan is required to obtain classification metadata. |
 
 ### Exact commands/results
 
@@ -220,8 +230,10 @@ The production-env guard was tested locally after fetching its tracked source, u
 | `php -l /tmp/berkah-auth-audit/config-sanctum.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked config |
 | `php -l /tmp/berkah-auth-audit/CentralUserSecurityTest.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked test |
 | `php -l /tmp/berkah-auth-audit/password-reset-migration.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked migration |
+| `python3 /tmp/berkah-auth-audit/tests/security/test_sanitize_gitleaks_report.py` | Local container / Python | **0 — 2/2 unit tests passed**; synthetic report input confirms Secret/Match/Raw/author/email fields are not emitted, while rule/path/line metadata remain | Temporary reconstructed test; not an exact GitHub checkout. |
+| `python3 -m py_compile /tmp/berkah-auth-audit/scripts/security/sanitize_gitleaks_report.py /tmp/berkah-auth-audit/tests/security/test_sanitize_gitleaks_report.py` | Local container / Python | **0 — PASS** | Temporary reconstructed copies of the branch files. |
 | Laravel/PHPUnit integration suite | This local harness has no repository checkout or installed Laravel vendor tree | **NOT RUN** | No local PHPUnit artifact |
-| Gitleaks full-history scan | GitHub-hosted CI | **QUEUED / NOT VERIFIED** on last observation; no exit code or finding count | [Run 39281009902](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39281009902) was the latest run returned by the CI connector at this status check, targeting pre-amendment branch head `367320f313524912554892518e5e09ae98ca5490`; it was QUEUED. It is not exact-SHA proof for the final report amendment and no success may be inferred. |
+| Gitleaks full-history scan | GitHub-hosted CI | **FAILED on prior merge-ref scan; follow-up NOT VERIFIED** | Run 39281009902 tested PR merge-ref SHA `803646741cacad5b183a2d6acbc8ba66d5252db3`; Gitleaks step reports 31 findings / exit code 1. The sanitized metadata workflow was added afterward and has not yet produced a completed result. |
 
 These supplemental tests do not exercise a built production image, Laravel boot, PostgreSQL, actual token issuance/expiry, auth endpoints, logs, reset/replay, or MFA. `shellcheck` was **NOT RUN** because it is not installed locally.
 
@@ -297,9 +309,10 @@ Residual risk remains significant: no production/staging auth runtime was availa
 
 ## 9. Current evidence snapshot (continuation)
 
-- Most recent branch comparison before this report amendment: **19 commits ahead of main, 0 behind**; base SHA remains `371b7fdf0bf672b37ceb1023e647f114221bf797`.
-- Latest source/report head observed before this small report update: `367320f313524912554892518e5e09ae98ca5490`; exact-head CI run `39281009902` was still **QUEUED**, with no job conclusion or test log available. That run is not exact-SHA evidence for the subsequent report-only amendment. Treat CI and full-history Gitleaks as **NOT RUN / NOT VERIFIED** until a completed run reports its tested SHA, attempt, job conclusion and logs.
-- Local harness results are direct process evidence: shell syntax checks exited 0; three `php -l` commands exited 0; production-env guard exited 0 with 12/12 synthetic positive/negative assertions. Harness paths and sanitized outputs are recorded in §6. These checks do not execute Laravel/Composer/DB or a GitHub full-history scan.
+- Base SHA: `371b7fdf0bf672b37ceb1023e647f114221bf797`; branch remains a work-in-progress PR and is ahead of main without diverging behind.
+- Run 39281009902, job 118154946586, produced a Gitleaks finding summary on PR merge-ref SHA `803646741cacad5b183a2d6acbc8ba66d5252db3`: 1,598 commits scanned, ~12.88 MB, 31 findings, exit code 1. The run/job status endpoint was inconsistent (reported queued after logs showed the scan step had completed); no other CI gates were reached because the scanner step failed immediately in that older workflow version.
+- The branch now contains a safer Gitleaks report path: `scripts/security/sanitize_gitleaks_report.py` filters an allowlist of metadata fields, and `tests/security/test_sanitize_gitleaks_report.py` tests that secret/match/raw and author/email fields are not emitted. Local reconstructed tests passed 2/2, but the new CI path has not yet reported a completed scan result. No claim that any of the 31 findings is a real credential or a false positive is justified until sanitized file/rule/line metadata is available.
+- Local harness evidence: shell syntax checks exited 0; three PHP lint checks exited 0; production-env guard exited 0 with 12/12 synthetic assertions; sanitizer unit tests exited 0 with 2/2 passing; py_compile exited 0. These checks do not execute Laravel/Composer/DB, issue tokens, test MFA, or validate a built production image.
 
 ## 10. Final recommendation
 
