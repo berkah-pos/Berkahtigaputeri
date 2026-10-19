@@ -9,6 +9,8 @@
 **Code head submitted for initial CI:** 0f0631fb71a4df341a612fe5d6284be7efd532ab  
 **Initial exact-SHA workflow:** [run 39279237267](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39279237267), workflow “Laravel PostgreSQL 17 Baseline”, run number 209, attempt 1, tested SHA 0f0631fb71a4df341a612fe5d6284be7efd532ab, status **QUEUED** at report drafting. Its conclusion and job logs were not yet available. This report does not claim that run passed. If added in a later commit, that run is explicitly not exact-SHA evidence for the newer report commit.
 
+**Source follow-up after initial report draft:** a later source commit removed tenant/privilege fields from User mass-assignment and added the missing central password_reset_tokens table migration. Current source head before this report-only amendment: 7799f453e6e106c73243a86de02fdc2014d5eb81. Exact-head workflow [run 39280386505](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39280386505), attempt 1, was still QUEUED at the last inspection. This is source-head evidence metadata only; do not infer test success. Subsequent changes to this report are documentation-only and trigger their own CI run.
+
 ## 1. Executive summary
 
 The canonical application target is Laravel 13 / PHP 8.4 / Sanctum / private PostgreSQL 17. The backend remains a starter scaffold, not a delivered authentication service. Source inspection found that routes/api.php exposes only GET /api/v1/platform-health; there are no login/logout/token issuance/revocation/password-reset/email-verification routes, no route-level login throttle, and no MFA implementation visible in the Laravel tree inspected. The reset broker configuration names password_reset_tokens, but the inspected central migration does not create that table.
@@ -35,7 +37,9 @@ Laravel auth model/config, API routes/bootstrap middleware, central user/token/r
 | config/sanctum.php | Changes bearer-token expiry default from unlimited (null) to 60 minutes via SANCTUM_EXPIRATION_MINUTES. |
 | .env.example | Labels DB passwords as local-only placeholders, documents key generation, token/session defaults and intentionally empty SMTP settings. |
 | tests/security/production-env-guard.sh | New negative/positive regression test for startup configuration validation. |
-| tests/Feature/CentralUserSecurityTest.php | New tests for password hashing/hidden field and bounded Sanctum expiry config. |
+| app/Models/Central/User.php | Removes tenant_id, is_super_admin and is_active from mass-assignable fields; privileged changes now require explicit server-side assignment. |
+| database/migrations/central/2026_10_19_000001_create_password_reset_tokens_table.php | Adds central password-reset token storage; route/delivery/replay behavior is still not implemented or tested. |
+| tests/Feature/CentralUserSecurityTest.php | Tests password hashing/hidden field, non-mass-assignable tenant/privilege fields and bounded Sanctum expiry config. |
 | .github/workflows/laravel-pg17-baseline.yml | Adds Gitleaks full-history scan with redacted output and production-env-guard test; includes report paths in triggers. |
 | docs/reports/preproduction/2026-10-18/04_AUTH_SECRETS_AND_SESSIONS.md | This report. |
 
@@ -68,9 +72,9 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 | AUTH-01 | Passwords are not persisted in plaintext | **VERIFIED (source)** / test **NOT RUN at authoring** | app/Models/Central/User.php uses the hashed cast and hides password; regression test added. No DB persistence path was exercised. |
 | AUTH-02 | Login response avoids user enumeration; credential failures are uniform | **BLOCKED** | No Laravel login endpoint/controller or integration test found. |
 | AUTH-03 | Login throttling / abuse limits enforced server-side | **BLOCKED** | No RateLimiter::for or auth route throttle found. |
-| AUTH-04 | Role, active state, tenant and device claims derived/verified server-side | **BLOCKED** | No authenticated business API routes exist to test. User model fillable includes tenant_id, is_super_admin and is_active; no current public mutation endpoint was found, so this is a forward-risk, not a demonstrated active exploit. |
+| AUTH-04 | Role, active state, tenant and device claims derived/verified server-side | **BLOCKED** | No authenticated business API routes exist to test. This branch removes tenant_id, is_super_admin and is_active from User mass-assignment; authorization/policy enforcement and account/device/tenant checks remain absent. |
 | AUTH-05 | Email verification is enforced for relevant accounts | **BLOCKED** | User schema has email_verified_at, but delivery/verification route and enforcement middleware were not found. |
-| AUTH-06 | Password reset is short-lived, non-replayable and rate-limited | **BLOCKED** | config/auth.php names password_reset_tokens, expiry 60 minutes and throttle 60 seconds, but central migration does not create that table; routes/controller/mail flow and replay tests are absent. |
+| AUTH-06 | Password reset is short-lived, non-replayable and rate-limited | **BLOCKED** | config/auth.php names password_reset_tokens, expiry 60 minutes and throttle 60 seconds. This branch adds the missing central table migration; reset/verification routes, notifications, enforced throttling, one-time consumption, session invalidation and replay tests are still absent. |
 | AUTH-07 | Session/token expiry and cookie protections | **PARTIAL** | Sanctum expiry changed to 60 minutes; startup validator requires secure session cookie and a 1–60 minute session lifetime in production. Regression/CI status was not available at authoring. No staging test. |
 | AUTH-08 | Logout/revocation across device/session | **BLOCKED** | Token issuance/logout/revocation routes are absent. Token schema includes expires_at, but no revoke path was found. |
 | AUTH-09 | Disabled account invalidates existing credentials | **BLOCKED** | is_active is checked for Filament panel access only. No API auth middleware or disabled-user token-rejection test found. |
@@ -105,7 +109,7 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 ### F-03 — Password reset and verification are configuration-only/incomplete — P1 / High confidence / BLOCKED
 
-**Evidence:** config/auth.php sets the reset broker table name to password_reset_tokens and expiry 60 minutes/throttle 60 seconds. The reviewed central migration creates users and personal_access_tokens but not password_reset_tokens. Reset/verify routes, notification transport, replay tests and reset-triggered session invalidation were not found.
+**Evidence:** config/auth.php sets the reset broker table name to password_reset_tokens and expiry 60 minutes/throttle 60 seconds. The baseline central migration lacked the table; this branch adds an additive central migration for it. Reset/verify routes, notification transport, replay tests and reset-triggered session invalidation were not found.
 
 **Impact:** The reset path cannot be certified and may fail because its backing table and controller flow are absent. A verification timestamp can exist in schema without being enforced.
 
@@ -145,15 +149,15 @@ Status meanings: **VERIFIED** = directly evidenced; **CLAIMED** = source/configu
 
 **Action made:** Bound expiry to 60 minutes by default. Actual token expiry was NOT RUN / NOT VERIFIED because the API flow is absent.
 
-### F-08 — Privilege fields are mass assignable on User — P2 / Medium confidence / BLOCKED FOR REVIEW
+### F-08 — Privilege-field mass assignment — P2 / Medium confidence / CHANGE MADE; tests pending
 
-**Evidence:** app/Models/Central/User.php lists tenant_id, is_super_admin and is_active in $fillable. No current public user-update route was found, so no externally reachable mass-assignment exploit is demonstrated on the inspected route set.
+**Evidence:** the baseline model listed tenant_id, is_super_admin and is_active in $fillable. This branch removes those fields; no current public user-update route was found, and no externally reachable mass-assignment exploit was demonstrated.
 
-**Impact:** A future registration/profile endpoint that blindly mass-assigns request payload could let a caller choose a tenant or promote/deactivate an account.
+**Impact:** removing them from fillable prevents accidental mass assignment through ordinary fill/create/update payloads. It does not implement authorization for routes that do not exist yet.
 
-**Required fix:** Remove privileged/ownership columns from mass-assignable user fields or use explicit privileged provisioning/admin services and dedicated allowlists. Add policies/gates to privileged operations.
+**Action made:** tenant and privilege fields are no longer mass assignable; a regression test asserts they are excluded from getFillable(). CI has not yet provided a result for that test.
 
-**Closure tests:** attempt those fields in registration/profile payload and assert DB state does not change; verify only audited admin actions can update them.
+**Closure tests:** attempt these fields through every future registration/profile payload and assert DB state is unchanged; verify only audited admin actions can update them.
 
 ### F-09 — Runtime DB role separation needs DBA/security validation — P2 / High confidence / DEPENDENCY
 
@@ -187,7 +191,7 @@ Current configuration/source references for APP_KEY, database credentials, reset
 | PHPUnit/CI APP_KEY and PG fixture credentials | **TEST FIXTURES / expected false-positive candidates** | Explicit APP_ENV=testing and disposable PostgreSQL CI configuration. Never reuse outside CI. Scanner still must determine/report whether it flags them. |
 | Gitleaks ignores for deterministic keyset MD5 hashes | **EXPECTED FALSE POSITIVES, historical fingerprints** | Configuration digests are not credential material; current ignore entries are scoped by commit/path/rule/line. |
 | Legacy public client-side Supabase key/path | **PUBLIC-BY-DESIGN BUT ARCHITECTURALLY STALE** | Not a secret credential, but the client path is prohibited by the current owner ADR and needs separate migration/removal. |
-| Full Gitleaks result | **NOT RUN / QUEUED** | Run 39279237267 was queued at report drafting. No finding count, clean result or zero-secret claim is made. |
+| Full Gitleaks result | **NOT RUN / QUEUED** | The latest observed run for the source head before this report-only amendment is 39280386505, targeting 7799f453e6e106c73243a86de02fdc2014d5eb81; it was queued and had no scan result. No finding count, clean result or zero-secret claim is made. |
 
 ### Exact commands/results
 
