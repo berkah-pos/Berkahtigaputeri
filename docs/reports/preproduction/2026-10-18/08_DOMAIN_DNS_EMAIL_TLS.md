@@ -84,10 +84,10 @@ File `config/mail.php` tidak ditemukan pada base SHA (GitHub API 404). Pencarian
 
 | Probe / perintah tepat | Target | Exit code | Output tersanitasi / hasil |
 |---|---|---:|---|
-| `getent ahosts berkahtigaputeri.co.id` *(lihat koreksi nama di bawah)* | A/AAAA apex | 2 | Tidak ada hasil address. |
-| `getent ahosts berkahtigaputeri.co.id` *(lihat koreksi nama di bawah)* | A/AAAA `www` | 2 | Tidak ada hasil address. |
-| `getent ahosts berkahtigaputeri.co.id` *(lihat koreksi nama di bawah)* | A/AAAA `app` | 2 | Tidak ada hasil address. |
-| `getent ahosts berkahtigaputeri.co.id` *(lihat koreksi nama di bawah)* | A/AAAA `api` | 2 | Tidak ada hasil address. |
+| `getent ahosts berkahtigaputeri.co.id` | A/AAAA apex | 2 | Tidak ada hasil address. |
+| `getent ahosts www.berkahtigaputeri.co.id` | A/AAAA `www` | 2 | Tidak ada hasil address. |
+| `getent ahosts app.berkahtigaputeri.co.id` | A/AAAA `app` | 2 | Tidak ada hasil address. |
+| `getent ahosts api.berkahtigaputeri.co.id` | A/AAAA `api` | 2 | Tidak ada hasil address. |
 | `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\n' http://berkahtigaputeri.co.id/` | HTTP apex | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
 | Same `curl` probe for `https://berkahtigaputeri.co.id/` | HTTPS apex | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
 | Same `curl` probe for `https://www.berkahtigaputeri.co.id/` | HTTPS `www` | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
@@ -97,7 +97,7 @@ File `config/mail.php` tidak ditemukan pada base SHA (GitHub API 404). Pencarian
 | `timeout 8 openssl s_client -connect www.berkahtigaputeri.co.id:443 -servername www.berkahtigaputeri.co.id -brief -verify_return_error </dev/null` | TLS `www` | 1 | Tidak ada handshake terverifikasi. |
 | `timeout 8 openssl s_client -connect api.berkahtigaputeri.co.id:443 -servername api.berkahtigaputeri.co.id -brief -verify_return_error </dev/null` | TLS API | 1 | Tidak ada handshake terverifikasi. |
 
-**Koreksi pelaporan nama host:** nilai dalam empat sel `getent` di atas harus dibaca sebagai pola perintah yang dieksekusi untuk masing-masing host berikut: `berkahtigaputeri.co.id`, `www.berkahtigaputeri.co.id`, `app.berkahtigaputeri.co.id`, dan `api.berkahtigaputeri.co.id`. Exit code adalah 2 pada keempat host. Tabel disanitasi karena command output penuh tidak disimpan ke artefak terpisah; bukti yang disimpan adalah excerpt ini, bukan raw log berisi metadata lingkungan.
+Perintah `getent` dijalankan terpisah untuk apex, `www`, `app`, dan `api`; masing-masing exit code 2. Tabel berisi excerpt output yang disanitasi; raw output tidak disimpan sebagai artefak terpisah.
 
 Percobaan baca langsung HTTP(S) lewat web fetch juga tidak memberi salinan halaman yang bisa dianalisis. Ini konsisten dengan kurangnya akses jaringan/resolusi di lingkungan audit, bukan bukti bahwa website tidak beroperasi. Resolver publik `1.1.1.1`/`8.8.8.8` tidak berhasil diuji dari runner ini; belum ada authoritative DNS output untuk dipublikasikan.
 
