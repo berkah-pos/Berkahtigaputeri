@@ -12,10 +12,18 @@ class PlatformReadinessTest extends TestCase
     public function test_readiness_is_ready_when_central_database_query_succeeds(): void
     {
         $connection = Mockery::mock();
+        $connection->shouldReceive('statement')
+            ->once()
+            ->with("SET LOCAL statement_timeout = '2s'")
+            ->andReturn(true);
         $connection->shouldReceive('select')
             ->once()
             ->with('SELECT 1')
             ->andReturn([['?column?' => 1]]);
+        $connection->shouldReceive('transaction')
+            ->once()
+            ->with(Mockery::type(\Closure::class), 1)
+            ->andReturnUsing(fn ($callback, $attempts) => $callback($connection));
 
         DB::shouldReceive('connection')
             ->once()
@@ -31,10 +39,18 @@ class PlatformReadinessTest extends TestCase
     public function test_readiness_fails_closed_and_does_not_expose_database_errors(): void
     {
         $connection = Mockery::mock();
+        $connection->shouldReceive('statement')
+            ->once()
+            ->with("SET LOCAL statement_timeout = '2s'")
+            ->andReturn(true);
         $connection->shouldReceive('select')
             ->once()
             ->with('SELECT 1')
             ->andThrow(new RuntimeException('sensitive database detail'));
+        $connection->shouldReceive('transaction')
+            ->once()
+            ->with(Mockery::type(\Closure::class), 1)
+            ->andReturnUsing(fn ($callback, $attempts) => $callback($connection));
 
         DB::shouldReceive('connection')
             ->once()
