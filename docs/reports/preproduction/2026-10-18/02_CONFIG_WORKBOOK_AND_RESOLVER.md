@@ -108,6 +108,15 @@ Read in the required order from the canonical repository, including the current 
 - **Impact:** Historical same-workbook evidence is useful but cannot substitute for executing the current exporter/new checks. No source data mismatch is confirmed; current output is unverified.
 - **Required next action:** In an environment with a local checkout, run the offline validator, export to two clean local directories, compare bytes and SHA-256, and attach the sanitized manifest and command logs. Never run the old sync script.
 
+
+### F-05 — Importer trusts manifest metadata instead of validating its contents
+
+- **Severity / confidence:** P1 / High.
+- **Status:** Open dependency; importer was not changed because this workstream is limited to workbook validation/export and resolver contract tests.
+- **Evidence:** `app/Console/Commands/ImportCanonicalWorkbook.php:44-60` (`validateManifest`) checks the schema version, compares the *provided* `keyset_md5` field to a constant, checks top-level counts/list lengths, and verifies only that `global_config` is an array. It does not recompute the digest from the manifest's actual keys, verify `manifest_sha256` / `keyset_sha256`, or validate each item’s identifier, parent, and tenant/service/device scope before import. The `handle()` path calls `validateManifest()` and then starts central and device imports (`ImportCanonicalWorkbook.php:27-35`).
+- **Impact:** An edited or malformed manifest can retain the expected count fields and supplied MD5 string while carrying altered config or mismatched record relationships. The static review does not prove a live bad import occurred; no import command was run.
+- **Required next action:** The configuration importer owner should independently validate the complete manifest *before any database write*: recompute canonical keyset and manifest hashes, validate exact key grammar and actual record counts, validate every tenant/template/service/device mapping and scope, and fail without writes on any mismatch. Add negative tests that alter a config value, identifiers, parent references, service/device scope, and supplied digest while preserving top-level counts. A plain hash detects accidental corruption, not an adversary able to rewrite both content and digest; authenticity must be handled separately if the threat model requires it.
+
 ## 6. Test commands and execution evidence
 
 | Command / check | Environment | Exit / status | Result / artifact |
