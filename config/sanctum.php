@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\\Cookie\\Middleware\\EncryptCookies;
-use Illuminate\\Foundation\\Http\\Middleware\\ValidateCsrfToken;
-use Illuminate\\Session\\Middleware\\AuthenticateSession;
+use Illuminate\Cookie\Middleware\EncryptCookies;
+use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Session\Middleware\AuthenticateSession;
 
 return [
     'stateful' => [],
