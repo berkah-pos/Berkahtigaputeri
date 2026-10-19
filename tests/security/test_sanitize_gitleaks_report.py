@@ -15,7 +15,7 @@ spec.loader.exec_module(module)
 
 class SanitizeGitleaksReportTest(unittest.TestCase):
     def test_drops_secret_match_raw_and_author_fields(self):
-        synthetic_secret = "SYNTHETIC_NEVER_PRINT_THIS_VALUE"
+        synthetic_secret = "synthetic-test"
         result = module.sanitize_findings([{
             "RuleID": "generic-api-key",
             "Description": "Generic API Key",
@@ -41,7 +41,7 @@ class SanitizeGitleaksReportTest(unittest.TestCase):
 
     def test_non_list_report_is_rejected(self):
         with self.assertRaises(ValueError):
-            module.sanitize_findings({"Secret": "SYNTHETIC_NEVER_PRINT_THIS_VALUE"})
+            module.sanitize_findings({"Secret": "synthetic-test"})
 
 
 if __name__ == "__main__":
