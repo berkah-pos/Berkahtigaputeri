@@ -24,8 +24,10 @@ fi
 unset DATABASE_URL CENTRAL_DB_URL TENANT_DB_URL PGPASSWORD || true
 umask 077
 started=$(date +%s)
+started_iso=$(date -u +%FT%TZ)
 work=$(mktemp -d)
-suffix="$(date -u +%Y%m%d%H%M%S)-$$"
+suffix="$(date -u +%Y%m%d%H%M%S)-$"
+source_backup_id="synthetic-pg17-$suffix"
 network="backup-drill-net-$suffix"
 source_db="backup-drill-src-$suffix"
 target_db="backup-drill-dst-$suffix"
@@ -105,6 +107,7 @@ openssl enc -d -aes-256-cbc -pbkdf2 -in "$work/synthetic-key.enc" -out "$work/sy
 sha256sum -c "$work/key-checksum.txt" >/dev/null
 cmp "$work/synthetic-key.txt" "$work/synthetic-key.restored"
 
+: > "$work/synthetic-database-backup-checksums.txt"
 for db in berkahpos_central berkahpos_tenant_a berkahpos_tenant_b; do
   # Write the archive inside the disposable source, then copy the binary file without a streamed stdout.
   source_dump_path="/tmp/backup-drill-$db.dump"
@@ -115,6 +118,7 @@ for db in berkahpos_central berkahpos_tenant_a berkahpos_tenant_b; do
   if [ ! -s "$work/$db.dump" ]; then echo "FAIL: generated backup archive is empty" >&2; exit 1; fi
   docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.dump" >/dev/null
   sha256sum "$work/$db.dump" > "$work/$db.sha256"
+  awk -v name="$db.dump" '{print $1 "  " name}' "$work/$db.sha256" >> "$work/synthetic-database-backup-checksums.txt"
   openssl enc -aes-256-cbc -pbkdf2 -salt -in "$work/$db.dump" -out "$work/$db.dump.enc" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
   openssl enc -d -aes-256-cbc -pbkdf2 -in "$work/$db.dump.enc" -out "$work/$db.restore.dump" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
   if [ ! -s "$work/$db.restore.dump" ]; then echo "FAIL: decrypted backup archive is empty" >&2; exit 1; fi
@@ -164,14 +168,16 @@ cmp "$work/files/tenant-b.txt" "$work/restore-files/tenant-b.txt"
 cmp "$work/synthetic-key.txt" "$work/restore-files/synthetic-key.txt"
 
 finish=$(date +%s)
+finish_iso=$(date -u +%FT%TZ)
 duration=$((finish-started))
 pg_version=$(docker exec "$target_db" psql -U postgres -d postgres -Atc 'SHOW server_version')
 pg_image_id=$(docker image inspect --format '{{.Id}}' postgres:17)
 file_a_sha=$(sha256sum "$work/restore-files/tenant-a.txt" | awk '{print $1}')
 file_b_sha=$(sha256sum "$work/restore-files/tenant-b.txt" | awk '{print $1}')
 key_sha=$(sha256sum "$work/restore-files/synthetic-key.txt" | awk '{print $1}')
-printf '{"status":"PASS","scope":"synthetic disposable data only","sha":"%s","postgres_version":"%s","postgres_image_id":"%s","duration_seconds":%s,"central_synthetic_tenants":%s,"tenant_a_marker_rows":%s,"tenant_b_marker_rows":%s,"cross_tenant_a_to_b_marker_rows":%s,"cross_tenant_b_to_a_marker_rows":%s,"file_a_sha256":"%s","file_b_sha256":"%s","synthetic_key_sha256":"%s","production_backup_used":false,"off_host_provider_tested":false,"pitr_tested":false,"real_vault_tested":false}\n' \
-  "$GITHUB_SHA" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
+printf '{"status":"PASS","scope":"synthetic disposable data only","workflow_sha":"%s","source_backup_id":"%s","started_at_utc":"%s","completed_at_utc":"%s","postgres_version":"%s","postgres_image_id":"%s","duration_seconds":%s,"central_synthetic_tenants":%s,"tenant_a_marker_rows":%s,"tenant_b_marker_rows":%s,"cross_tenant_a_to_b_marker_rows":%s,"cross_tenant_b_to_a_marker_rows":%s,"file_a_sha256":"%s","file_b_sha256":"%s","synthetic_key_sha256":"%s","production_backup_used":false,"off_host_provider_tested":false,"pitr_tested":false,"real_vault_tested":false}\n' \
+  "$GITHUB_SHA" "$source_backup_id" "$started_iso" "$finish_iso" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
 cp "$work/file-checksums.txt" "$ARTIFACT_DIR/synthetic-file-checksums.txt"
-sha256sum "$ARTIFACT_DIR/result.json" "$ARTIFACT_DIR/synthetic-file-checksums.txt" > "$ARTIFACT_DIR/artifact-checksums.txt"
+cp "$work/synthetic-database-backup-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt"
+sha256sum "$ARTIFACT_DIR/result.json" "$ARTIFACT_DIR/synthetic-file-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt" > "$ARTIFACT_DIR/artifact-checksums.txt"
 echo "PASS: synthetic PostgreSQL 17 central + two-tenant dump/encrypt/restore and synthetic file/key integrity checks completed; no production or off-host provider was used."
