@@ -25,7 +25,7 @@ services:
       APP_NAME: "Berkah POS"
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_KEY: ${APP_KEY:?Set a unique local APP_KEY in .env before starting Compose}
       APP_URL: http://localhost:8000
       LOG_CHANNEL: stderr
       DB_CONNECTION: central
@@ -43,7 +43,10 @@ services:
       TENANT_DB_SSLMODE: disable
       CACHE_STORE: file
       SESSION_DRIVER: file
+      SESSION_LIFETIME: "30"
+      SESSION_SECURE_COOKIE: "false"
       QUEUE_CONNECTION: sync
+      MAIL_MAILER: log
     ports:
       - "127.0.0.1:8000:8000"
     command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
