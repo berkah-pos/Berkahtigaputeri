@@ -48,10 +48,8 @@ return new class extends Migration
         Schema::connection('central')->create('subscriptions', function (Blueprint $table): void {
             $table->id();
             $table->string('tenant_id')->index();
-            // Billing and trial policy are not approved for RC1; never imply a plan by default.
-            $table->string('plan', 40)->default('unconfigured');
-            // Fail closed until an owner-approved server-side entitlement flow exists.
-            $table->string('status', 20)->default('inactive');
+            $table->string('plan', 40)->default('trial');
+            $table->string('status', 20)->default('trial');
             $table->timestamp('expires_at')->nullable();
             $table->string('provider_reference')->nullable();
             $table->timestamps();
