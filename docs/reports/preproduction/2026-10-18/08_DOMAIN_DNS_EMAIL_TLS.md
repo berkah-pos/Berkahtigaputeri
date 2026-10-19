@@ -16,8 +16,8 @@ Probe publik tidak berhasil karena DNS resolver/network dari lingkungan audit ti
 - **Base branch/SHA:** `main` / `371b7fdf0bf672b37ceb1023e647f114221bf797`.
 - **Branch audit:** `audit/preprod-domain-email-2026-10-18` (dibuat dari base SHA tersebut).
 - **Laporan:** `docs/reports/preproduction/2026-10-18/08_DOMAIN_DNS_EMAIL_TLS.md`.
-- **Commit laporan:** SHA hasil commit tercatat dalam metadata branch/PR; file ini tidak mengarang SHA self-referensial. Exact head dan commit SHA dilaporkan kembali pada metadata PR/ringkasan penyelesaian.
-- **PR:** akan tercantum setelah draft PR dibuat; belum ada persetujuan merge atau go-live.
+- **Commit laporan pada saat draft PR dibuka:** `8e4565d0e2c391af39bd1f3eb6bbf24befb4389d`. SHA final setiap pembaruan berikutnya disimpan dalam metadata head PR; sebuah commit tidak dapat memuat SHA-nya sendiri tanpa menghasilkan commit baru.
+- **Draft PR:** [#86 — audit: domain DNS email and TLS edge preproduction evidence](https://github.com/berkah-pos/Berkahtigaputeri/pull/86). PR masih draft/open; tidak ada persetujuan merge atau go-live.
 - **Scope:** bukti domain/DNS, email delivery posture, HTTP→HTTPS/TLS/canonical host, konfigurasi header di source/edge, runbook cutover dan rollback. Tidak ada perubahan aplikasi/infra di luar file laporan ini.
 - **Akses produksi:** tidak digunakan. Semua tes DNS/TLS adalah pemeriksaan read-only; tidak ada database yang disentuh (N/A).
 
@@ -89,10 +89,10 @@ File `config/mail.php` tidak ditemukan pada base SHA (GitHub API 404). Pencarian
 | `getent ahosts app.berkahtigaputeri.co.id` | A/AAAA `app` | 2 | Tidak ada hasil address. |
 | `getent ahosts api.berkahtigaputeri.co.id` | A/AAAA `api` | 2 | Tidak ada hasil address. |
 | `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\n' http://berkahtigaputeri.co.id/` | HTTP apex | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
-| Same `curl` probe for `https://berkahtigaputeri.co.id/` | HTTPS apex | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
-| Same `curl` probe for `https://www.berkahtigaputeri.co.id/` | HTTPS `www` | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
-| Same `curl` probe for `https://app.berkahtigaputeri.co.id/` | HTTPS `app` | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
-| Same `curl` probe for `https://api.berkahtigaputeri.co.id/check-status` | HTTPS API | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
+| `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\\n' https://berkahtigaputeri.co.id/` | HTTPS apex | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
+| `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\\n' https://www.berkahtigaputeri.co.id/` | HTTPS `www` | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
+| `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\\n' https://app.berkahtigaputeri.co.id/` | HTTPS `app` | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
+| `curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\\n' https://api.berkahtigaputeri.co.id/check-status` | HTTPS API | 6 | `Could not resolve host`; HTTP 000; redirects 0. |
 | `timeout 8 openssl s_client -connect berkahtigaputeri.co.id:443 -servername berkahtigaputeri.co.id -brief -verify_return_error </dev/null` | TLS apex | 1 | Tidak ada handshake terverifikasi; output koneksi tidak menunjukkan bukti sertifikat. |
 | `timeout 8 openssl s_client -connect www.berkahtigaputeri.co.id:443 -servername www.berkahtigaputeri.co.id -brief -verify_return_error </dev/null` | TLS `www` | 1 | Tidak ada handshake terverifikasi. |
 | `timeout 8 openssl s_client -connect api.berkahtigaputeri.co.id:443 -servername api.berkahtigaputeri.co.id -brief -verify_return_error </dev/null` | TLS API | 1 | Tidak ada handshake terverifikasi. |
