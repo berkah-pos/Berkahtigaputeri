@@ -1,15 +1,15 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use App\\Models\\Central\\DeviceRegistry;
-use App\\Models\\Central\\GlobalConfig;
-use App\\Models\\Central\\Tenant;
-use App\\Models\\Central\\TenantConfig;
-use App\\Models\\Central\\Template;
-use Illuminate\\Console\\Command;
-use Illuminate\\Support\\Facades\\DB;
-use Stancl\\Tenancy\\Facades\\Tenancy;
+use App\Models\Central\DeviceRegistry;
+use App\Models\Central\GlobalConfig;
+use App\Models\Central\Tenant;
+use App\Models\Central\TenantConfig;
+use App\Models\Central\Template;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Stancl\Tenancy\Facades\Tenancy;
 
 class ImportCanonicalWorkbook extends Command
 {
@@ -33,7 +33,7 @@ class ImportCanonicalWorkbook extends Command
             $this->importDevices($manifest);
             $this->info('Imported central configuration, tenant records, device mappings, and per-tenant device config.');
             return self::SUCCESS;
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             report($exception);
             $this->error($exception->getMessage());
             $this->warn('Import may be partially complete. Re-run the same command after correcting the cause; writes are idempotent.');
@@ -45,7 +45,7 @@ class ImportCanonicalWorkbook extends Command
     {
         if (($manifest['schema_version'] ?? null) !== 1 ||
             ($manifest['keyset_md5'] ?? null) !== '1fd3d64219ecc7c333453c20da80e295') {
-            throw new \\InvalidArgumentException('Manifest schema version or canonical keyset hash is invalid.');
+            throw new \InvalidArgumentException('Manifest schema version or canonical keyset hash is invalid.');
         }
         $expected = ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108];
         if (($manifest['counts'] ?? null) !== $expected ||
@@ -53,10 +53,10 @@ class ImportCanonicalWorkbook extends Command
             count($manifest['tenants'] ?? []) !== 100 ||
             count($manifest['services'] ?? []) !== 140 ||
             count($manifest['devices'] ?? []) !== 108) {
-            throw new \\InvalidArgumentException('Manifest must contain exactly the validated 352-key inventory.');
+            throw new \InvalidArgumentException('Manifest must contain exactly the validated 352-key inventory.');
         }
         if (! is_array($manifest['global_config'] ?? null)) {
-            throw new \\InvalidArgumentException('Global configuration is not an object.');
+            throw new \InvalidArgumentException('Global configuration is not an object.');
         }
     }
 
