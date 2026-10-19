@@ -16,3 +16,37 @@ d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_02_SUPABASE_SCHEMA_V
 d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql:generic-api-key:90
 d8cd93f3a307fdde730d265c739d664ffd7c8574:docs/permanent/DOC_11_P0_SECURITY_VERIFICATION_20261008.md:generic-api-key:32
 0916ed8a3eeb8648adde77ab9d7d58ae76248dea:scripts/all-green-loop.sh:generic-api-key:6
+# Historical scanner false positives reviewed 2026-10-19.
+# These findings are deterministic workbook keyset MD5/SHA-256 digests, source
+# commit identifiers/URLs, CI output digests, or low-entropy descriptive slugs.
+# Each exception is narrowly scoped to the commit/path/rule/line evidence below.
+f56c5b9cb6669406e9f3ec5f210a4f42738e107b:app/Services/Configuration/CanonicalWorkbookImporter.php:generic-api-key:12
+7f0c9f58b8ccec5598c43a2c27c8544ca740c21a:docs/reports/PHASE_5_MOBILE_CENTRAL_API_REVIEW_2026-10-16.md:generic-api-key:45
+c7b61af3fb054f77eaa0cbdea3affcd5030df716:docs/reports/PHASE_5_MOBILE_CENTRAL_API_REVIEW_2026-10-16.md:generic-api-key:42
+45d7c42a35893f9d9cd428410a19e48126eef9d9:docs/runbooks/operational-readiness.md:generic-api-key:101
+513eed2f0b68693b555c355116332cfe9a49401b:docs/reports/PHASE_5_FLUTTER_CONFIG_PARITY_OFFLINE_SQLITE_2026-10-15.md:generic-api-key:43
+041fef91b67b70bc1e8af00ad019f13b55e2ef5b:docs/reports/PHASE_3_CANONICAL_CONFIG_FINANCIAL_PRECISION_2026-10-15.md:generic-api-key:24
+143962120adfbe82fefbee38cfd41d6b81bfb230:docs/archive/supabase-historical/docs/permanent/DOC_08_RPC_EFFECTIVE_CONFIG.sql:generic-api-key:90
+a582d712da44de433bbe0af5653ea26130f3394b:docs/archive/supabase-historical/docs/permanent/DOC_02_SUPABASE_SCHEMA_V1.sql:generic-api-key:29
+6713b02c22ccd9ce2b19cbbe49c8ce9841dfc53f:docs/permanent/DOC_07_FINAL_VERIFICATION.md:generic-api-key:12
+a2581357056babd9576441ae5715d27556187987:scripts/export_workbook_for_laravel.py:generic-api-key:22
+d9e3488ca1b87027cd763b5c5132052b42c33388:docs/permanent/DOC_01_3_LAYER_CONFIG.md:generic-api-key:25
+12966f647f185b94b9b15bd7ab4f73652f4c8c83:README.md:generic-api-key:25
+3323c5a32bdf503e53a2443eef34bd8aac4ea21c:docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md:generic-api-key:48
+e6aaee14be62f84848bb64ef64d2a7aeb27042f6:docs/permanent/README.md:generic-api-key:31
+4734ac0baaee885b7c2ef401c932836225c3feda:AGENTS.md:generic-api-key:56
+09f787b93da741f697531f02ff0946ef8553bb86:scripts/export_workbook_for_laravel.py:generic-api-key:22
+29c6f041406b4074a82bc386bd17e939cc9d607a:docs/reports/FASE_4_SUPABASE_SYNC.md:generic-api-key:10
+7b2e0daaa20c3e974a0dafa6e4606d3dc2917e66:docs/permanent/DOC_07_FINAL_VERIFICATION.md:generic-api-key:22
+49399bd36703c122241feb34e68517d491e92234:docs/reports/FASE_4_FAIL_CLOSED_SYNC_CI.md:generic-api-key:13
+2d9f74c035bbea745458d3a3a26dd6d95407b413:scripts/sync_excel_to_supabase_legacy.py:generic-api-key:43
+dcf35f9e829932d4a6fe9c446f9c9a809c1e0f70:supabase/reconciliation/staging-clone-drift-2026-10-14.json:generic-api-key:181
+a58b0ef52b71773901400f7073dd9e903b99cee2:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:983
+a58b0ef52b71773901400f7073dd9e903b99cee2:scripts/prepare_supabase_historical_replay_fixtures.py:generic-api-key:23
+a58b0ef52b71773901400f7073dd9e903b99cee2:supabase/reconciliation/source-recovery-manifest-2026-10-14.json:generic-api-key:1878
+ed2f85517c28274524027708f5835dff506a82c5:supabase/reconciliation/reconstructed/staging-baseline/030_plpgsql_08.sql:generic-api-key:368
+52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:614
+52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:615
+52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:741
+52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:742
+208e0e5caa864426cde8fa0f88bd053e89dd70cd:docs/permanent/DOC_07_FINAL_VERIFICATION.md:generic-api-key:15
