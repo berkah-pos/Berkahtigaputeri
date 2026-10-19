@@ -221,7 +221,7 @@ The production-env guard was tested locally after fetching its tracked source, u
 | `php -l /tmp/berkah-auth-audit/CentralUserSecurityTest.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked test |
 | `php -l /tmp/berkah-auth-audit/password-reset-migration.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked migration |
 | Laravel/PHPUnit integration suite | This local harness has no repository checkout or installed Laravel vendor tree | **NOT RUN** | No local PHPUnit artifact |
-| Gitleaks full-history scan | GitHub-hosted CI | **QUEUED / NOT VERIFIED** on last observation; no exit code or finding count | [Run 39280672087](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39280672087) targets the source/report head known at the time of the last workflow lookup; do not infer success. |
+| Gitleaks full-history scan | GitHub-hosted CI | **QUEUED / NOT VERIFIED** on last observation; no exit code or finding count | [Run 39281009902](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39281009902) was the latest run returned by the CI connector at this status check, targeting pre-amendment branch head `367320f313524912554892518e5e09ae98ca5490`; it was QUEUED. It is not exact-SHA proof for the final report amendment and no success may be inferred. |
 
 These supplemental tests do not exercise a built production image, Laravel boot, PostgreSQL, actual token issuance/expiry, auth endpoints, logs, reset/replay, or MFA. `shellcheck` was **NOT RUN** because it is not installed locally.
 
@@ -295,6 +295,12 @@ These supplemental tests do not exercise a built production image, Laravel boot,
 
 Residual risk remains significant: no production/staging auth runtime was available; login/reset/verification/MFA/revocation endpoints are absent; full-history scan and regression test result were queued at authoring; log redaction was not exercised; no secret rotation occurred.
 
-## 9. Final recommendation
+## 9. Current evidence snapshot (continuation)
+
+- Most recent branch comparison before this report amendment: **19 commits ahead of main, 0 behind**; base SHA remains `371b7fdf0bf672b37ceb1023e647f114221bf797`.
+- Latest source/report head observed before this small report update: `367320f313524912554892518e5e09ae98ca5490`; exact-head CI run `39281009902` was still **QUEUED**, with no job conclusion or test log available. That run is not exact-SHA evidence for the subsequent report-only amendment. Treat CI and full-history Gitleaks as **NOT RUN / NOT VERIFIED** until a completed run reports its tested SHA, attempt, job conclusion and logs.
+- Local harness results are direct process evidence: shell syntax checks exited 0; three `php -l` commands exited 0; production-env guard exited 0 with 12/12 synthetic positive/negative assertions. Harness paths and sanitized outputs are recorded in §6. These checks do not execute Laravel/Composer/DB or a GitHub full-history scan.
+
+## 10. Final recommendation
 
 **BLOCKED — not PASS.** This branch contains scoped startup/secrets/token-expiry hardening and a draft PR, but it does not close the missing authentication lifecycle, MFA, revocation, reset/verification and abuse-protection gates. Do not deploy as production auth, do not rotate secrets based only on this audit, do not merge without review, and do not claim a test or scan passed until exact-SHA CI logs confirm it.
