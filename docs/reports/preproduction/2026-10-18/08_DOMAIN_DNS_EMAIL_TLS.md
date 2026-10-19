@@ -1,6 +1,6 @@
 # 08 — Audit Domain, DNS, Email, TLS, dan Security Headers
 
-**Tanggal pemeriksaan:** 2026-10-19 (Asia/Jakarta; probe jaringan sekitar 11:24 WIB).  
+**Tanggal pemeriksaan:** initial read-only audit 2026-10-19; retest 2026-10-20 04:10–04:12 WIB (Asia/Jakarta).  
 **Status workstream:** **BLOCKED** — bukti DNS/TLS publik, konfigurasi DNS/mail aktual, dan edge runtime tidak dapat diverifikasi dari lingkungan ini.  
 **Rekomendasi:** **BLOCKED / NO CUTOVER**. Status ini bukan kesimpulan bahwa domain sedang down atau DNS salah; lookup terhalang dan tidak menghasilkan jawaban DNS yang dapat dipercaya.
 
@@ -228,3 +228,110 @@ Email deliverability acceptance requires a **separate explicit test authorizatio
 - The DOC_00 five-layer contract remains `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE` with 352 canonical workbook entries. Domain/email work neither changed nor validated the workbook, so detailed workbook execution is **NOT APPLICABLE** to this workstream; the overall release still inherits the global configuration gate.
 - No GitHub Actions workflow was manually dispatched or rerun. CI status for this documentation-only change is **NOT RUN / NOT CHECKED** in this audit. Do not run the legacy `scripts/sync_excel_to_supabase.py` workflow path even with a dry-run flag; a repository note indicates an existing docs-triggered workflow may call it.
 - No DNS record, MX/TXT value, IP address, certificate, mail credential, message, mailbox, public endpoint, database or production resource was modified.
+
+
+## 12. Read-only retest — 2026-10-20
+
+Retest performed at **2026-10-20 04:10:38–04:12:13 WIB** (2026-10-19T21:10:38Z–2026-10-19T21:12:13Z) on the audit execution environment. The branch and PR metadata were checked before this report update. All probing was read-only; no DNS, mailbox, certificate, application, database, or production state was changed.
+
+### 12.1 Execution environment and control probes
+
+| Command / target | Exit code | Sanitized result | Interpretation |
+|---|---:|---|---|
+| date -u '+%Y-%m-%dT%H:%M:%SZ' | 0 | 2026-10-19T21:10:38Z | UTC timestamp for DNS/HTTP batch |
+| TZ=Asia/Jakarta date '+%Y-%m-%dT%H:%M:%S%:z' | 0 | 2026-10-20T04:10:38+07:00 | Jakarta local timestamp |
+| command -v dig | unavailable | dig not installed | No direct DNS CLI |
+| command -v nslookup | unavailable | nslookup not installed | No direct DNS CLI |
+| command -v host | unavailable | host not installed | No direct DNS CLI |
+| getent ahosts example.com | 2 | no address output | General resolver control failed |
+| getent ahosts api.github.com | 2 | no address output | General resolver control failed |
+| getent ahosts dns.google | 2 | no address output | General resolver control failed |
+
+Failure of unrelated control hostnames supports an **environment/network blocker**, rather than a justified conclusion that the requested domain records are absent or misconfigured.
+
+### 12.2 Current host lookups and HTTP/TLS attempts
+
+Each command below returned exit code 2 with no address output:
+- getent ahosts berkahtigaputeri.co.id
+- getent ahosts www.berkahtigaputeri.co.id
+- getent ahosts app.berkahtigaputeri.co.id
+- getent ahosts api.berkahtigaputeri.co.id
+
+The following curl command was run separately for each listed URL and returned exit code **6** (Could not resolve host), HTTP status 000 and zero redirects:
+
+    curl -sS -I -L --connect-timeout 4 --max-time 8 -o /dev/null -w 'http_code=%{http_code} final_url=%{url_effective} redirects=%{num_redirects} tls_verify=%{ssl_verify_result}\n' URL
+
+Targets:
+- http://berkahtigaputeri.co.id/
+- https://berkahtigaputeri.co.id/
+- https://www.berkahtigaputeri.co.id/
+- https://app.berkahtigaputeri.co.id/
+- https://api.berkahtigaputeri.co.id/check-status
+
+The printed tls_verify=0 field in failed curl output is **not** evidence of successful TLS validation: no hostname resolution or TLS handshake completed.
+
+For each of berkahtigaputeri.co.id, www.berkahtigaputeri.co.id, and api.berkahtigaputeri.co.id, this TLS probe returned exit code **1** with a name-resolution error and no certificate/handshake information:
+
+    timeout 8 openssl s_client -connect HOST:443 -servername HOST -brief -verify_return_error </dev/null
+
+A second read-only path attempted to bypass the system resolver by pinning DoH hostnames to public resolver IPs. Both attempts returned exit code **7**, HTTP 000, and Could not connect to server:
+
+    curl -sS --connect-timeout 3 --max-time 8 --resolve 'dns.google:443:8.8.8.8' -H 'accept: application/dns-json' 'https://dns.google/resolve?name=example.com&type=A'
+
+    curl -sS --connect-timeout 3 --max-time 8 --resolve 'cloudflare-dns.com:443:1.1.1.1' -H 'accept: application/dns-json' 'https://cloudflare-dns.com/dns-query?name=example.com&type=A'
+
+Consequently, this environment did not successfully reach public recursive DNS-over-HTTPS either. No current A/AAAA/CNAME/NS/MX/TXT/CAA/DNSSEC answer was obtained. Raw network error logs were not retained as separate artifacts; the sanitized command results above are the audit artifact.
+
+### 12.3 Mailbox-list recheck
+
+A read-only current managed-mailbox list lookup was executed for both connected account scopes at approximately 04:10 WIB. Both requests succeeded. Both returned a managed-mailbox list containing admin@berkahtigaputeri.co.id; the report deliberately omits account/resource IDs.
+
+This verifies only that admin@... is shown in those connector-managed mailbox lists at this time. It does **not** verify that the mailbox is usable, that an alias is absent from another provider, that MX records point correctly, or that an address has Send As/SMTP/API permissions. It does not verify MFA, access ownership, inbox placement, SMTP delivery, SPF/DKIM/DMARC alignment, bounces, or complaints. No email was sent and no message was read, moved, or changed.
+
+Current mailbox roles remain:
+
+| Address / identity | Current status | Required control |
+|---|---|---|
+| admin@berkahtigaputeri.co.id | **VERIFIED** in the current managed-mailbox list only | Human administration; MFA and named primary/backup owner still require independent verification |
+| noreply@berkahtigaputeri.co.id | **NOT VERIFIED** | Do not use admin@ as an application sender by default; provision a dedicated sender/alias only after owner approval and provider capability review |
+| support@berkahtigaputeri.co.id | **NOT VERIFIED** | Decide whether needed; designate support owner, backup, response SLA and access control |
+| security@berkahtigaputeri.co.id | **NOT VERIFIED** | Decide whether needed; designate security incident owner and restricted access |
+| privacy@berkahtigaputeri.co.id | **NOT VERIFIED** | Decide whether needed; designate privacy request owner and retention/response procedure |
+| Sender envelope / Return-Path and bounce channel | **NOT VERIFIED** | Select provider-supported return path; test bounce/complaint processing before production mail |
+
+These are role recommendations, not authorization to create an address, alias, SMTP/API credential, or mailbox. No mailbox or credential was created or modified.
+
+### 12.4 Source-search refresh and exact code evidence
+
+On the repository default-branch snapshot, repository search returned no matches for Content-Security-Policy, Strict-Transport-Security, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, MAIL_FROM_ADDRESS, MAIL_MAILER, or SPF DKIM DMARC. These search results are source-search evidence only; edge configuration outside Git can still add headers or mail settings.
+
+The following source facts were rechecked at base SHA 371b7fdf0bf672b37ceb1023e647f114221bf797:
+
+| Path and line | VERIFIED source fact | Boundary |
+|---|---|---|
+| docker/nginx.conf:1-3,16-18,27-29 | Container Nginx declares listen 80 default_server, server_name _, normal try_files, and dotfile denial; no listen 443, explicit HTTP-to-HTTPS redirect, or security-header directives in this 31-line file | Does not prove how Coolify/edge terminates TLS or injects headers |
+| Dockerfile:47-50 | Production image copies this Nginx config, exposes port 80, and health-checks http://127.0.0.1/up | Does not establish public origin reachability or current ingress policy |
+| bootstrap/app.php:14-15 | Laravel custom middleware registration closure is empty | Does not rule out global/provider middleware or ingress-added headers |
+| .env.example:1-31; config/mail.php | Example uses APP_URL=http://localhost:8000, has no MAIL_* settings, and config/mail.php is not present at this base SHA (file fetch returned NOT_FOUND) | Local example/source tree only; does not reveal protected production environment variables or external SMTP settings |
+| routes/api.php:5-11 | Visible Laravel API route is /v1/platform-health | Does not prove any separate legacy API is absent outside this deployment; /check-status is not present in this file |
+| berkah-pos-trial/lib/main.dart:10-12,91-102 | Trial app references https://api.berkahtigaputeri.co.id/check-status; checkStatus sends supplied email as a GET query parameter at lines 93-94 | Static app source only; endpoint availability/authentication/log treatment not verified |
+| berkah-pos-trial/README.md:13 | Documents the desired GET status endpoint and response contract | **CLAIMED/DESIRED**, not endpoint runtime evidence |
+| berkah-pos-trial/tool/verify_project.py:52-69 | Local validator checks URL strings and feature markers | Does not test DNS, TLS, HTTP redirects, edge headers, or email delivery |
+| pos-app/pubspec.yaml:9-17 | Still declares supabase_flutter at line 16 | Separate platform/runtime conflict; not modified by this DNS/email workstream and no Supabase service was contacted |
+
+### 12.5 Refreshed acceptance and risk decision
+
+| Gate | Current result after retest | Evidence still required |
+|---|---|---|
+| Apex/www/app/api DNS and public-vs-private target | **BLOCKED / NOT VERIFIED** | Query authoritative NS and at least two independent public resolvers from a working network; verify actual Hostinger public VPS IP and ensure A/AAAA do not resolve to private, loopback, link-local, ULA or CGNAT space |
+| MX/SPF/DKIM/DMARC/CAA/DNSSEC | **BLOCKED / NOT VERIFIED** | Authoritative record output plus provider's complete sender/selector inventory; preserve sanitized records and timestamp |
+| Sender noreply, Reply-To, envelope-from / Return-Path, bounce | **BLOCKED / NOT VERIFIED** | Approved sender provider/config, least-privilege identity, test inbox and actual message headers |
+| SPF/DKIM/DMARC alignment and deliverability | **NOT RUN** | Send a uniquely tagged message only from an approved isolated staging sender to a controlled inbox; verify SPF and DKIM pass, DMARC alignment, Reply-To, bounce/complaint handling, and sanitized logs |
+| HTTP-to-HTTPS, canonical www, TLS chain/SAN/expiry/renewal | **BLOCKED / NOT VERIFIED** | Reachable DNS, staging ingress evidence, successful curl redirect checks and openssl verify output, certificate renewal/alert owner |
+| HSTS/CSP/X-Content-Type-Options/Referrer-Policy/Permissions-Policy | Origin-source gap **VERIFIED**; effective edge response **BLOCKED** | Infra/API owners decide one enforcement layer; validate actual response headers on the exact staging candidate |
+| Hostname allowlist and webhook boundaries | **NOT RUN / NOT VERIFIED** | Coordinate with host/domain isolation and API/security workstreams; exercise hostile Host, central-vs-tenant routing and webhook endpoints in isolated staging |
+| Cutover and rollback | **PARTIAL — procedure proposed; execution NOT RUN** | Approved window, current sanitized DNS-zone snapshot, actual public IP, old TTL/record values, staging gates and named approver |
+
+**Updated disposition: BLOCKED / NO CUTOVER.** The present network failures are explicitly **not** a FAILED DNS verdict. DNS state, private/public target correctness, TLS validity and effective security headers all remain unknown. The only new direct operational observation is the managed mailbox list showing admin@...; it is insufficient for an application sender or deliverability claim. The code-origin absence of header directives is verified, but a reverse proxy may implement them; do not modify either layer until infrastructure/API owners choose the authoritative enforcement point.
+
+No workbook/validator, database, application test suite, CI job, staging endpoint, production resource, DNS record, certificate, mailbox or email-delivery test was changed or executed in this refresh. The canonical GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE / 352-entry workbook gate is inherited and **NOT APPLICABLE to this workstream's edits**, but remains a separate required release gate; this report does not claim it was tested.
