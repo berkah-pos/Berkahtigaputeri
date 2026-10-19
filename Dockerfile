@@ -25,7 +25,8 @@ RUN set -eux; \
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 
 FROM php-base AS production
-ARG VCS_REF=unknown
+ARG VCS_REF
+RUN test -n "${VCS_REF}" && test "${VCS_REF}" != "unknown"
 LABEL org.opencontainers.image.source="https://github.com/berkah-pos/Berkahtigaputeri" \
       org.opencontainers.image.revision="${VCS_REF}"
 
