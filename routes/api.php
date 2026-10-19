@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
-use Throwable;
 
 // Informational route only; it deliberately does not claim dependency readiness.
 Route::get('/v1/platform-health', function () {
@@ -24,7 +23,7 @@ Route::get('/v1/ready', function () {
             $connection->statement("SET LOCAL statement_timeout = '2s'");
             $connection->select('SELECT 1');
         }, 1);
-    } catch (Throwable $exception) {
+    } catch (\Throwable $exception) {
         Log::warning('Central database readiness probe failed', [
             'exception_type' => $exception::class,
         ]);
