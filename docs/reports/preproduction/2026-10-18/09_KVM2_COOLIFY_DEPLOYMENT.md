@@ -83,7 +83,7 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Impact:** Both endpoints can be green while the database is unavailable, credentials are invalid, migrations are missing, or the required runtime service cannot query its dependencies. A deployment orchestrator could route traffic to a process that is alive but not ready. The baseline CI only confirms the HTTP response; it does not currently establish PG readiness.
 
-**Required fix / owner:** Application/API owner should retain `/up` as liveness and add a separate readiness endpoint that performs a bounded, read-only check of required dependencies (at least a connection/query against the selected central PG connection), reports no credentials or connection strings, fails closed on dependency failure, and has a documented timeout. Coolify must probe the agreed endpoint after migrations have been separately completed. Do not use a database health query as an excuse to expose privileged diagnostics.
+**Remaining verification / owner:** The branch now has a bounded, read-only central-connection readiness endpoint with sanitized failure output. The API/Coolify owner must prove positive and negative readiness against disposable PostgreSQL, configure a short HTTP probe timeout, and point the Coolify readiness check at `/api/v1/ready` only after the separate release migration task. Do not expose privileged diagnostics.
 
 **Closure test:** Start the candidate against disposable PG17, verify ready returns success with DB available and failure when DB connection/query fails; prove liveness can be distinguished from readiness; test request timeout and sanitized error logs.
 
@@ -99,7 +99,7 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Closure test:** Exact candidate SHA, successful workflow run/attempt, registry image digest, revision label, scan/SBOM artifacts and staging deployment all reconcile; the deployed digest is identical to the verified published digest.
 
-**Current branch state:** Dockerfile and CI enforce the exact source revision label. Candidate source SHA had pending CI but no completed pass at report time. Publication to an approved registry, immutable digest, SBOM, provenance and image/secret scan remain **BLOCKED**.
+**Current branch state:** Dockerfile and CI enforce the exact source revision label. The first candidate SHA `d3c4e23a6c0aac127c4fd441a6f7e163149cf7ed` failed during development-image build because Laravel rejected the ineffective global `use Throwable;` statement. That was corrected on `2ae4c400a7030eec0bfd679ce912e4741562e665`; new CI runs 39342460872 / 39342455546 are pending/in progress, not passing. Publication to an approved registry, immutable digest, SBOM, provenance and image/secret scan remain **BLOCKED**.
 
 ### KVM2-OPS-04 — P1 / High confidence — runtime database credential pattern must not be copied from local Compose
 
@@ -153,11 +153,11 @@ Severity indicates production risk if the path is configured/deployed as describ
 
 **Evidence:** [`.github/workflows/canonical-workbook-validate.yml:51–68`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/.github/workflows/canonical-workbook-validate.yml#L51-L68) installs `openpyxl requests`, runs tests, then invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352`. The current [`AGENTS.md`](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/AGENTS.md) and owner ADR explicitly prohibit running that legacy script, even though its dry-run path is designed not to write. This audit did **not** execute the script or workflow.
 
-**Impact:** Documentation/workbook changes can trigger CI that is expressly outside the current no-Supabase operating policy. This is a repository policy/CI conflict, not a claim that this audit observed a live remote write.
+**Reproduction:** Direct source inspection confirms the workflow step invokes `python scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352`; the trigger/run was intentionally not executed because repository policy prohibits invoking this script. This proves the policy conflict, not a remote write. **Impact:** Documentation/workbook changes can trigger CI that is expressly outside the current no-Supabase operating policy. This is a repository policy/CI conflict, not a claim that this audit observed a live remote write.
 
 **Required fix / owner:** Route to the QA/workflow owner, not this deployment workstream. Review/merge the separately scoped safe local validator remediation (historically described as PR #75 only if its current head and checks are re-verified), or replace the invocation with a pure local exporter/validator that has no HTTP client/network/write path. Do not trigger or manually rerun the current workflow until the prohibited invocation is removed on the checked branch.
 
-**Closure test:** Inspect exact PR head/workflow diff; run the offline-only validator and its tests on a branch that no longer invokes the legacy writer; confirm no workflow step passes Supabase credentials or calls networked Supabase paths. Keep evidence bound to that exact SHA.
+**Closure test / negative regression:** On the exact owner-reviewed SHA, assert the workflow contains no call or import of `sync_excel_to_supabase.py`, that workbook validation can run with outbound network blocked and without Supabase environment values, and that source/test paths pass. Do not use the prohibited legacy invocation as a test. Keep evidence bound to the exact SHA.
 
 **Status:** FAILED policy control on inspected `main`; remediation NOT VERIFIED here and intentionally not taken over.
 
@@ -366,7 +366,7 @@ No command below is represented as a successful build/deploy if it was not execu
 
 ## 12. Dependencies, residual risks, and required next steps
 
-1. **Laravel Platform / release owner:** wait for candidate exact-SHA CI to finish and fix failures; then publish a scanned image with SBOM/provenance to an approved registry, record immutable digest and deploy that digest on disposable staging. Verify graceful stop and runtime config cache there.
+1. **Laravel Platform / release owner:** wait for exact-SHA rerun on `2ae4c400a7030eec0bfd679ce912e4741562e665`; fix further failures before treating tests as complete. Then publish a scanned image with SBOM/provenance to an approved registry, record immutable digest and deploy that digest on disposable staging. Verify graceful stop and runtime config cache there.
 2. **PostgreSQL DBA / Security Lead:** complete the broker, separate runtime/migrator/provisioner/backup identities, inspect real role attributes/grants, prove no public PG access and cross-tenant/central denial using disposable PostgreSQL 17.
 3. **SRE / Recovery Lead:** measure the actual Hostinger KVM2 host (do not infer from the Lubuntu/KVM simulation), harden SSH/firewall/Coolify admin plane, make production Coolify service definitions with private networks, limits and restart/graceful-shutdown policies, test encrypted off-host backup and restore.
 4. **QA/workflow owner (out of scope for this agent):** resolve the legacy `canonical-workbook-validate.yml:68` prohibited invocation; no audit agent should execute the old script to make CI green.
