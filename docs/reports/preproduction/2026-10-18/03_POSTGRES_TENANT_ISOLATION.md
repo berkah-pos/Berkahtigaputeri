@@ -25,6 +25,9 @@ The larger release blocker remains open: a reviewed PostgreSQL provisioning brok
 | Workflow status | SUCCESS; disposable tenant-isolation step and artifact upload succeeded; remaining build and HTTP/image smoke steps also succeeded |
 | Workflow attempt | NOT RETURNED by the available workflow-run metadata; not inferred |
 | Test artifact | [pg17-tenant-isolation artifact #12137702221](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641/artifacts/12137702221); ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4 |
+| Latest re-verification at PR head | Source head `6062df7b9a0fd94db17107d654f9b3e16622531b`; [run #167 / ID 39131351376](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376); merge checkout `7de42ef09e53200ed8e0e57036d3956c6d59a82e`; job `117687064878` | All 15 workflow steps completed successfully, including the tenant-isolation harness and artifact upload. Attempt metadata was not exposed. |
+| Latest test artifact | [pg17-tenant-isolation artifact #12138445929](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376/artifacts/12138445929); ZIP SHA-256 `37ff566fefff3cf92494372b149af881d493bdae7aca52486ab35b53fc34e322`; extracted log SHA-256 `58c0acee063dc97565a1af242efcf581d345889d223b21185b22a913ae381db1` | Downloaded and checksum-verified; log 10,009 bytes; PostgreSQL 17.11; 84 `PASS:` assertion lines, including 27 explicit expected-denial probes; final result PASS. |
+| Current branch/report checkpoint before this documentation-only update | `6062df7b9a0fd94db17107d654f9b3e16622531b` | Follow-up only updates report evidence; no provisioning source, role broker, test harness, database workflow or configuration behavior changes are added in this update. |
 | PR | [Draft PR #79](https://github.com/berkah-pos/Berkahtigaputeri/pull/79); open, unmerged |
 | Production changes | None |
 | Supabase | Not accessed or used |
@@ -47,6 +50,24 @@ Out of scope: changing accepted architecture, application authentication/API imp
 | php artisan test | Local container | NOT RUN | PHP/vendor install and a disposable PostgreSQL target are not available in this environment. |
 
 TEST-EXECUTED: bash /security/verify_pg17_tenant_isolation.sh ran inside the workflow's loopback-only disposable PostgreSQL 17 service, with ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES, approved service marker, workflow run ID 39130938641, and merge checkout SHA a84337de54edc58ceebccc257571c35e9feea506. Target reported PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2). The script emitted RESULT: PASS and exited 0; workflow run #165 completed SUCCESS. Artifact: #12137702221, ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4. This is positive evidence for the synthetic PG privilege contract only, not acceptance of an application provisioning broker or tenant HTTP/worker boundaries. The exact run attempt number was not exposed by the connector and remains unverified.
+
+**Latest current-head re-verification (TEST-EXECUTED):** run #167 / ID 39131351376, source head `6062df7b9a0fd94db17107d654f9b3e16622531b`, tested PR merge checkout `7de42ef09e53200ed8e0e57036d3956c6d59a82e`, job ID `117687064878`, [workflow run](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376). All workflow steps 1–15 completed successfully. The tenant-isolation step executed the following guarded disposable-only container command (environment is the ephemeral GitHub Actions PostgreSQL 17 service; synthetic identities only):
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" \
+  --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
+  --env CI=true --env GITHUB_ACTIONS=true --env GITHUB_RUN_ID=39131351376 \
+  --env PG17_ISOLATION_APPROVED_SERVICE=github-actions-postgres-17-disposable \
+  --env PG17_ISOLATION_CHECKOUT_SHA=7de42ef09e53200ed8e0e57036d3956c6d59a82e \
+  --env PGHOST=127.0.0.1 --env PGPORT=5432 --env PGUSER=postgres \
+  --env PGDATABASE=postgres --env PGPASSWORD=postgres \
+  --env PG17_ISOLATION_ARTIFACT=/artifacts/pg17-tenant-isolation.log \
+  --volume "$GITHUB_WORKSPACE/scripts/security:/security:ro" \
+  --volume "$GITHUB_WORKSPACE/artifacts/pg17-tenant-isolation:/artifacts" \
+  postgres:17 bash /security/verify_pg17_tenant_isolation.sh
+```
+The isolated service reported PostgreSQL `17.11 (Debian 17.11-1.pgdg13+2)`; expected command exit code was `0`. Artifact #12138445929 downloaded, its ZIP checksum matched GitHub's SHA-256 digest, and the extracted 10,009-byte log had SHA-256 `58c0acee063dc97565a1af242efcf581d345889d223b21185b22a913ae381db1`. It contains generated synthetic role/database names, no customer rows, 84 logged passing assertions including 27 explicit expected-denial probes, and the final `RESULT: PASS` line. A limited signature scan found no credentialed PostgreSQL URL, bearer token, private-key header, GitHub PAT or AWS key patterns; this is not a substitute for a full independent secret scanner. The run attempt was not returned by available metadata and is **NOT VERIFIED**.
+
+This successful exact-head workflow remains limited to the synthetic PostgreSQL privilege fixture and baseline smoke. It does **not** close the absent application broker, tenant HTTP boundary, DB-name provisioning idempotency, or worker-reset gates. The subsequent report-only refresh does not alter executable sources; current source changes remain the ones tested at the merge checkout above.
 
 ## 4. Authoritative documents read
 
