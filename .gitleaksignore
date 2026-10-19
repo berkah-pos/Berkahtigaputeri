@@ -50,3 +50,6 @@ ed2f85517c28274524027708f5835dff506a82c5:supabase/reconciliation/reconstructed/s
 52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:741
 52b8130b306699009ca3017ec84e17001fc18b74:supabase/reconciliation/remote-migration-ledger-2026-10-14.json:generic-api-key:742
 208e0e5caa864426cde8fa0f88bd053e89dd70cd:docs/permanent/DOC_07_FINAL_VERIFICATION.md:generic-api-key:15
+# Reviewed archived SQL keyset-integrity guard: the match is a deterministic MD5
+# digest used to verify the 352-key inventory, not an authentication credential.
+28f7040fcb29b85e69fe3f4fe8d9e4ac4bf650fc:supabase/reconciliation/recovered-remote-migration-statements-2026-10-14.json:generic-api-key:663
