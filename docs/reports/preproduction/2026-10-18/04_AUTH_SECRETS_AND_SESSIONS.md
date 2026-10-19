@@ -210,14 +210,20 @@ CI results from an earlier SHA (including the historic Laravel baseline at aab15
 
 ### Supplemental local smoke test (2026-10-19)
 
-The production-env guard logic was also smoke-tested locally using synthetic credentials. Since this execution container is not a checkout of the GitHub branch, the temporary harness and validator were reconstructed from the exact fetched source content; therefore this is **supplemental logic evidence, not an exact-SHA checkout test**.
+The production-env guard was tested locally after fetching its tracked source, using synthetic-only credentials. This execution container is not a Git checkout of the repo, so the validator/test were reconstructed into a temporary harness from the exact fetched branch contents. This is **supplemental logic evidence, not an exact-SHA repository test**.
 
-| Command | Environment | Exit code/result | Sanitized artifact |
+| Exact command | Environment | Exit code/result | Sanitized artifact |
 |---|---|---|---|
-| `bash /tmp/berkah-auth-secrets-audit/tests/security/production-env-guard.sh` | Local container, PHP 8.4.24, Bash, no database/network | **0**; 12 positive/negative assertions printed PASS, covering valid production fixture, missing/weak APP_KEY, APP_DEBUG, HTTP URL, insecure cookie, excessive session lifetime, admin DB user, placeholder DB password, log mailer, missing SMTP value, and local-mode bypass | Temporary script at `/tmp/berkah-auth-secrets-audit/tests/security/production-env-guard.sh`; output was sanitized PASS lines only. It is ephemeral, not a committed test artifact. |
-| Gitleaks full-history scan | GitHub-hosted CI | **Still QUEUED** at the last inspection; no exit code or finding count | [Run 39279830161](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39279830161) targets report-containing head `5c98544fad3a230d67a770c101b58ce3d2aaab82`; scan outcome remains NOT RUN/NOT VERIFIED. |
+| `sh -n /tmp/berkah-auth-audit/docker/validate-production-env.sh` | Local container, POSIX shell syntax check | **0 — PASS** | Temporary script in `/tmp/berkah-auth-audit/docker/validate-production-env.sh` |
+| `bash -n /tmp/berkah-auth-audit/tests/security/production-env-guard.sh` | Local container, Bash syntax check | **0 — PASS** | Temporary script in `/tmp/berkah-auth-audit/tests/security/production-env-guard.sh` |
+| `bash /tmp/berkah-auth-audit/tests/security/production-env-guard.sh` | Local container, PHP 8.4.24 / Bash 5.2.37; no DB or network used | **0 — PASS, 12/12 assertions**: valid synthetic production configuration accepted; missing/weak APP_KEY, debug mode, HTTP APP_URL, insecure cookie, excessive session lifetime, cluster-admin DB username, DB-password placeholder, log mailer, missing SMTP credential rejected; local-mode bypass accepted | `/tmp/berkah-auth-audit/production-env-guard-output.sanitized.txt` contains PASS lines only. Harness is ephemeral, not a committed artifact. |
+| `php -l /tmp/berkah-auth-audit/config-sanctum.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked config |
+| `php -l /tmp/berkah-auth-audit/CentralUserSecurityTest.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked test |
+| `php -l /tmp/berkah-auth-audit/password-reset-migration.php` | PHP 8.4.24 | **0 — no syntax errors** | Temporary file reconstructed from tracked migration |
+| Laravel/PHPUnit integration suite | This local harness has no repository checkout or installed Laravel vendor tree | **NOT RUN** | No local PHPUnit artifact |
+| Gitleaks full-history scan | GitHub-hosted CI | **QUEUED / NOT VERIFIED** on last observation; no exit code or finding count | [Run 39280672087](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39280672087) targets the source/report head known at the time of the last workflow lookup; do not infer success. |
 
-This supplemental local test does not exercise Laravel boot, PostgreSQL, real token issuance/expiry, logging, reset/replay, or MFA.
+These supplemental tests do not exercise a built production image, Laravel boot, PostgreSQL, actual token issuance/expiry, auth endpoints, logs, reset/replay, or MFA. `shellcheck` was **NOT RUN** because it is not installed locally.
 
 ## 7. Rotation and incident-response runbook
 
