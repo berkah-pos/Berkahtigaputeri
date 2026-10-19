@@ -121,7 +121,7 @@ for db in berkahpos_central berkahpos_tenant_a berkahpos_tenant_b; do
   sha256sum -c "$work/$db.sha256" >/dev/null
   docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.restore.dump" >/dev/null
   docker exec "$target_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $db"
-  docker run --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
+  docker run -i --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
     pg_restore --exit-on-error --no-owner -h "$target_db" -U postgres -d "$db" < "$work/$db.restore.dump"
 done
 
