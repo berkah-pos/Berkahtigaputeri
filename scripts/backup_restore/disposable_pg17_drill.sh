@@ -159,6 +159,33 @@ for spec in "central:berkahpos_central" "tenant:berkahpos_tenant_a" "tenant:berk
   fi
 done
 
+
+# Recover only tenant A into a fresh database from A's own verified/decrypted archive.
+# This must not alter central metadata or tenant B, and the target must not contain B's marker.
+docker exec "$target_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  -c "CREATE DATABASE berkahpos_tenant_a_recovery"
+docker run -i --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
+  pg_restore --exit-on-error --no-owner -h "$target_db" -U postgres \
+  -d berkahpos_tenant_a_recovery < "$work/berkahpos_tenant_a.restore.dump"
+single_a_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a_recovery -Atc "SELECT count(*) FROM products WHERE id='DRILL-A'")
+single_a_cross_b=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a_recovery -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+single_central_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_central -Atc "SELECT count(*) FROM tenants WHERE id IN ('tenant_a_synthetic','tenant_b_synthetic')")
+single_b_count_after=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_b -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+[ "$single_a_count" = "1" ] && [ "$single_a_cross_b" = "0" ] && \
+  [ "$single_central_count" = "2" ] && [ "$single_b_count_after" = "1" ] || {
+  echo "FAIL: isolated single-tenant restore leaked or changed central/tenant B data" >&2; exit 1;
+}
+docker run --rm --network "$network" -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+  -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$target_db" -e CENTRAL_DB_PORT=5432 \
+  -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres -e CENTRAL_DB_PASSWORD="$db_password" \
+  -e CENTRAL_DB_SSLMODE=disable -e TENANT_DB_HOST="$target_db" -e TENANT_DB_PORT=5432 \
+  -e TENANT_DB_DATABASE=berkahpos_tenant_a_recovery -e TENANT_DB_USERNAME=postgres \
+  -e TENANT_DB_PASSWORD="$db_password" -e TENANT_DB_SSLMODE=disable \
+  "$app_image" php artisan migrate:status --database=tenant --path=database/migrations/tenant > "$work/migration-single-tenant-recovery.txt"
+if grep -Eq '\| No[[:space:]]+\|' "$work/migration-single-tenant-recovery.txt"; then
+  echo "FAIL: pending migration detected in isolated single-tenant restore" >&2; exit 1;
+fi
+
 mkdir -p "$work/restore-files"
 cp "$work/files/tenant-a.txt" "$work/restore-files/tenant-a.txt"
 cp "$work/files/tenant-b.txt" "$work/restore-files/tenant-b.txt"
@@ -175,8 +202,8 @@ pg_image_id=$(docker image inspect --format '{{.Id}}' postgres:17)
 file_a_sha=$(sha256sum "$work/restore-files/tenant-a.txt" | awk '{print $1}')
 file_b_sha=$(sha256sum "$work/restore-files/tenant-b.txt" | awk '{print $1}')
 key_sha=$(sha256sum "$work/restore-files/synthetic-key.txt" | awk '{print $1}')
-printf '{"status":"PASS","scope":"synthetic disposable data only","workflow_sha":"%s","source_backup_id":"%s","started_at_utc":"%s","completed_at_utc":"%s","postgres_version":"%s","postgres_image_id":"%s","duration_seconds":%s,"central_synthetic_tenants":%s,"tenant_a_marker_rows":%s,"tenant_b_marker_rows":%s,"cross_tenant_a_to_b_marker_rows":%s,"cross_tenant_b_to_a_marker_rows":%s,"file_a_sha256":"%s","file_b_sha256":"%s","synthetic_key_sha256":"%s","production_backup_used":false,"off_host_provider_tested":false,"pitr_tested":false,"real_vault_tested":false}\n' \
-  "$GITHUB_SHA" "$source_backup_id" "$started_iso" "$finish_iso" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
+printf '{"status":"PASS","scope":"synthetic disposable data only","workflow_sha":"%s","source_backup_id":"%s","started_at_utc":"%s","completed_at_utc":"%s","postgres_version":"%s","postgres_image_id":"%s","duration_seconds":%s,"central_synthetic_tenants":%s,"tenant_a_marker_rows":%s,"tenant_b_marker_rows":%s,"cross_tenant_a_to_b_marker_rows":%s,"cross_tenant_b_to_a_marker_rows":%s,"single_tenant_restore_target":"berkahpos_tenant_a_recovery","single_tenant_a_restored_rows":%s,"single_tenant_b_cross_rows":%s,"central_tenants_unchanged":true,"tenant_b_unchanged":true,"file_a_sha256":"%s","file_b_sha256":"%s","synthetic_key_sha256":"%s","production_backup_used":false,"off_host_provider_tested":false,"pitr_tested":false,"real_vault_tested":false}\n' \
+  "$GITHUB_SHA" "$source_backup_id" "$started_iso" "$finish_iso" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$single_a_count" "$single_a_cross_b" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
 cp "$work/file-checksums.txt" "$ARTIFACT_DIR/synthetic-file-checksums.txt"
 cp "$work/synthetic-database-backup-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt"
 (cd "$ARTIFACT_DIR" && sha256sum result.json synthetic-file-checksums.txt synthetic-database-backup-checksums.txt > artifact-checksums.txt)
