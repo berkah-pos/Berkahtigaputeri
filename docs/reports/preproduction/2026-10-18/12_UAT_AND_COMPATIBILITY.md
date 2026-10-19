@@ -6,7 +6,7 @@
 **Base SHA sebelum perubahan:** 371b7fdf0bf672b37ceb1023e647f114221bf797  
 **Branch:** audit/preprod-uat-matrix-2026-10-18  
 **Laporan:** docs/reports/preproduction/2026-10-18/12_UAT_AND_COMPATIBILITY.md  
-**PR:** belum dibuat saat konten ditulis; akan dipublikasikan sebagai draft.  
+**PR:** [#89 — draft, belum di-merge](https://github.com/berkah-pos/Berkahtigaputeri/pull/89).  
 **Perubahan source produk:** tidak ada. Hanya laporan UAT ini yang ditambahkan.  
 **Keputusan rilis:** tidak ada PASS atau persetujuan go-live yang dikeluarkan.
 
@@ -71,7 +71,7 @@ Tidak ada akses live ke Supabase, mutasi data, maupun tes dengan customer nyata.
 | Branch | audit/preprod-uat-matrix-2026-10-18 |
 | File yang ditambahkan | docs/reports/preproduction/2026-10-18/12_UAT_AND_COMPATIBILITY.md |
 | Source/ADR/workflow lain | Tidak disentuh |
-| Commit hasil laporan / PR | Akan ditautkan saat publikasi |
+| Initial report commit SHA | 3ab7ce7ac0f1f2e0a6b042e6f1a2b807cbcba5eb; current PR head dipastikan lewat PR #89 |
 | Local clone dirty state | Tidak dapat ditentukan karena clone lokal tidak tersedia |
 | Local test runtime/browser automation | Tidak tersedia |
 
