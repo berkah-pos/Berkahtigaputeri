@@ -1,15 +1,15 @@
 <?php
 
-namespace Tests\Feature;
+namespace Tests\\Feature;
 
-use Illuminate\Support\Facades\Route;
-use Tests\TestCase;
+use Illuminate\\Support\\Facades\\Route;
+use Tests\\TestCase;
 
 class BillingOutOfScopeTest extends TestCase
 {
-    public function test_billing_and_entitlement_mutation_routes_are_absent_for_rc1(): void
+    public function test_no_payment_webhook_subscription_or_entitlement_routes_are_registered(): void
     {
-        $blockedTerms = '/(?:^|[\/._-])(payment|payments|billing|subscription|subscriptions|webhook|midtrans|xendit|entitlement|entitlements)(?:$|[\/._-])/i';
+        $blockedTerms = '/(?:^|[\\/._-])(payment|payments|billing|subscription|subscriptions|webhook|midtrans|xendit|entitlement|entitlements)(?:$|[\\/._-])/i';
         $matches = [];
 
         foreach (Route::getRoutes() as $route) {
@@ -24,7 +24,31 @@ class BillingOutOfScopeTest extends TestCase
         $this->assertSame(
             [],
             $matches,
-            'RC1 billing is out of scope: no payment, webhook, subscription or entitlement mutation route may be registered.'
+            'RC1 billing is out of scope: payment, webhook, subscription and entitlement routes must remain absent.'
         );
+    }
+
+    public function test_rc1_subscription_schema_defaults_are_inactive_and_unconfigured(): void
+    {
+        $migration = file_get_contents(base_path(
+            'database/migrations/central/2026_10_19_000001_fail_closed_subscription_defaults.php'
+        ));
+
+        $this->assertIsString($migration);
+        $this->assertStringContainsString("default('unconfigured')", $migration);
+        $this->assertStringContainsString("default('inactive')", $migration);
+        $this->assertStringNotContainsString("default('trial')", $migration);
+        $this->assertStringContainsString('rollback must not restore the legacy trial-by-default behavior', $migration);
+    }
+
+    public function test_workbook_import_does_not_create_a_trial_or_subscription_entitlement(): void
+    {
+        $importer = file_get_contents(base_path('app/Console/Commands/ImportCanonicalWorkbook.php'));
+
+        $this->assertIsString($importer);
+        $this->assertStringNotContainsString('use App\\Models\\Central\\Subscription;', $importer);
+        $this->assertStringNotContainsString('Subscription::query()->firstOrCreate', $importer);
+        $this->assertStringNotContainsString("'status' => 'trial'", $importer);
+        $this->assertStringContainsString('Workbook imports must not grant a trial or subscription entitlement.', $importer);
     }
 }
