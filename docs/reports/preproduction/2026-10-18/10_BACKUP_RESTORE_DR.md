@@ -4,14 +4,14 @@
 - **Repository:** berkah-pos/Berkahtigaputeri
 - **Base SHA:** 371b7fdf0bf672b37ceb1023e647f114221bf797 (main ref observed before edits)
 - **Branch:** audit/preprod-backup-restore-2026-10-18
-- **Final commit SHA / PR / CI run:** pending branch update and direct GitHub observation; do not infer these identifiers.
+- **Candidate head SHA (latest):** 5af40b4c57858110cbb96338bbe7df0c8dfc0967. **PR:** [#88 — Preproduction hardening: PostgreSQL backup, restore and DR](https://github.com/berkah-pos/Berkahtigaputeri/pull/88), still open/draft. **CI run:** [39226145671, attempt 1](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39226145671), conclusion SUCCESS. Its pull-request merge checkout SHA is 0ee245656e13c217968cde6cbc99db5c1be78b75 (base 371b7fdf0bf672b37ceb1023e647f114221bf797 plus candidate head above). No merge or release was performed.
 - **Ownership:** PostgreSQL backup inventory, encrypted/off-host retention, uploaded files/config/key recovery, restore drills, RPO/RTO, and separation of application rollback from database recovery.
 
 ## 1. Executive summary
 
 The current owner decision selects private PostgreSQL 17 with one central database and a separate database plus restricted runtime role per tenant. At the inspected base SHA, the existing backup/restore runbook identified itself as an unexecuted template and retained a rejected MariaDB alternative. Current source directly verifies only a local Compose PostgreSQL volume and Laravel local filesystem disks. Source does not prove off-host backups, PITR/WAL, production storage, key-vault recovery, Coolify recovery or an authoritative tenant-to-database map.
 
-This branch adds a PostgreSQL-only operational runbook, a synthetic-only disposable PG17 restore harness, an exact-set backup coverage validator and six positive/negative tests, plus an isolated GitHub Actions workflow. A prototype was syntax-checked and the validator tests passed in a temporary staging directory; this environment lacks Docker/PostgreSQL executables, so no local database restore occurred. Candidate-SHA CI must be observed before claiming the harness passes. Even successful synthetic CI does not prove production backups, remote retention, PITR, tenant privileges or live vault/Coolify recovery.
+This branch adds a PostgreSQL-only operational runbook, a synthetic-only disposable PG17 restore harness, an exact-set backup coverage validator and six positive/negative tests, plus an isolated GitHub Actions workflow. A prototype was syntax-checked and the validator tests passed in a temporary staging directory; this environment lacks Docker/PostgreSQL executables, so no local database restore occurred. CI is now observed for candidate head 5af40b4c57858110cbb96338bbe7df0c8dfc0967 via run 39226145671 (attempt 1, SUCCESS), using merge checkout SHA 0ee245656e13c217968cde6cbc99db5c1be78b75. The CI harness restored synthetic central + two tenant DBs and then tenant A into a new recovery DB. Even this success does not prove production backups, remote retention, PITR, tenant privileges or live vault/Coolify recovery.
 
 ## 2. Scope, authority and files
 
@@ -102,3 +102,42 @@ The proposed harness uses fresh PostgreSQL 17 source and target containers, inte
 Residual risk is **HIGH**. Do not mark DG-4 or production readiness PASS. A passed synthetic CI drill would prove only the scripted disposable path. Off-host encrypted backup, PITR, real tenant grants and single-tenant restore, real vault/certificate recovery, Coolify recovery, storage consistency and owner-approved RPO/RTO remain independent blockers.
 
 **Recommended status: BLOCKED / NOT VERIFIED.**
+
+
+
+## 9. Execution addendum — 2026-10-19 (supersedes earlier pending CI statements)
+
+### Exact CI evidence
+
+- Workflow: Backup Restore - Disposable PostgreSQL 17 Drill.
+- Run ID / attempt: 39226145671 / 1.
+- Run URL: https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39226145671
+- Job ID: 117972803120; conclusion SUCCESS. Syntax/coverage tests, disposable restore, and artifact upload all completed successfully.
+- PR candidate head SHA: 5af40b4c57858110cbb96338bbe7df0c8dfc0967.
+- Actual pull-request merge checkout SHA recorded in the drill result: 0ee245656e13c217968cde6cbc99db5c1be78b75, whose parents are base 371b7fdf0bf672b37ceb1023e647f114221bf797 and candidate head 5af40b4c57858110cbb96338bbe7df0c8dfc0967. Do not describe the merge SHA as the PR branch head.
+- Artifact: [backup-restore-drill artifact 12172824741](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39226145671/artifacts/12172824741), expires 2026-11-18 08:56:43 UTC. GitHub-reported and independently computed ZIP digest: sha256:5e2dac1bac89f9c439e8b51186036bcbff5e35095cceb65268c3a821397e62c5.
+- Artifact integrity: sha256sum -c artifact-checksums.txt returned exit 0 for result.json and the two synthetic checksum manifests. ZIP contains sanitized summaries and hashes, not database dump files.
+- Synthetic backup identifier: synthetic-pg17-20261019085450891215732. Started 2026-10-19T08:54:50Z; finished 2026-10-19T08:56:42Z; elapsed 112 seconds. These are mechanics-test timings, not production RTO measurements.
+- Database: PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2); image ID sha256:327daa8fae7178d61f93142f146b098467b345e10997b9eb79f63bd58e5c8f3c3. No ports were published for the source/target containers; the drill used a dedicated internal-only disposable Docker network. No production endpoint or data was used.
+- Six coverage tests passed: exact set independent of ordering; missing tenant backup fails; unexpected DB fails without revealing its name; duplicate identifier rejected; malformed identifier rejected; central DB required.
+- Restore assertions passed: central has two synthetic tenant registry rows; Tenant A and Tenant B each contain their own marker; cross-tenant marker counts are zero. Tenant A was restored from its own dump into new DB berkahpos_tenant_a_recovery: A marker count 1, B marker count 0, central row count remains 2, original Tenant B marker remains 1. Migration-status checks reported no pending migrations for restored central/tenant targets and the isolated tenant-A recovery target.
+- Synthetic file/object archive and content checksums validated after copy/restore. Synthetic non-production key material passed encrypt/decrypt checksum comparison. These do not validate an actual object-store provider, KMS or vault.
+
+### Updated gate status from this run
+
+| Gate | Current status | Scope proved / not proved |
+|---|---|---|
+| Script syntax + six coverage regression tests | PASS — TEST-EXECUTED | Run 39226145671 on merge checkout SHA above. |
+| Central + two-tenant logical dump/restore | PASS — TEST-EXECUTED (synthetic only) | Disposable PG17 source to separate target; markers, migration metadata and checksums validated. |
+| Independent single-tenant restore | PASS — TEST-EXECUTED (synthetic only) | Tenant A restored to a new DB; Tenant B and central stayed unchanged in test. |
+| Local file/key integrity mechanics | PASS — TEST-EXECUTED (synthetic only) | No actual provider, production key, vault or certificate was used. |
+| Encrypted off-host remote, retention and read-back | BLOCKED / NOT VERIFIED | CI did not configure or test an external backup provider. |
+| Live tenant registry ↔ pg_database ↔ remote backup reconciliation | BLOCKED / NOT VERIFIED | Authoritative tenant-to-database map and live catalog unavailable. CI uses synthetic identifiers and rows. |
+| Physical backup/WAL and timestamped PITR | NOT RUN / NOT VERIFIED | No actual WAL chain accessed or recovered. |
+| Real storage, Coolify, APP_KEY/KMS/vault and TLS recovery | NOT RUN / NOT VERIFIED | Synthetic local file/key tests do not close real provider/control-plane recovery. |
+| Approved and measured RPO/RTO | PROPOSED only / BLOCKED | 112-second synthetic duration is not a service objective or representative recovery benchmark. |
+| Workbook 352-entry verification | NOT RUN in this workstream | Binary XLSX was not readable by UTF-8-only repository fetch. The prohibited legacy Supabase sync script was not executed. Do not infer the count from documentation alone. |
+
+### Precise disposition
+
+The direct CI evidence upgrades the central/two-tenant and single-tenant synthetic restore mechanics from NOT RUN to PASS for this workflow run. It does not upgrade real DR readiness: BR-F01 through BR-F04 remain open, and the workstream recommendation remains BLOCKED / NOT VERIFIED until the owner-approved database map, encrypted off-host backups, PITR, actual file/key/Coolify recovery, owner-approved RPO/RTO and a separately authorized staging drill have evidence. PR #88 remains open/draft; no merge, deployment, or release approval occurred.
