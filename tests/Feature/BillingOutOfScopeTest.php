@@ -1,15 +1,15 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use Illuminate\\Support\\Facades\\Route;
-use Tests\\TestCase;
+use Illuminate\Support\Facades\Route;
+use Tests\TestCase;
 
 class BillingOutOfScopeTest extends TestCase
 {
     public function test_billing_and_entitlement_mutation_routes_are_absent_for_rc1(): void
     {
-        $blockedTerms = '/(?:^|[\\/._-])(payment|payments|billing|subscription|subscriptions|webhook|midtrans|xendit|entitlement|entitlements)(?:$|[\\/._-])/i';
+        $blockedTerms = '/(?:^|[\/._-])(payment|payments|billing|subscription|subscriptions|webhook|midtrans|xendit|entitlement|entitlements)(?:$|[\/._-])/i';
         $matches = [];
 
         foreach (Route::getRoutes() as $route) {
