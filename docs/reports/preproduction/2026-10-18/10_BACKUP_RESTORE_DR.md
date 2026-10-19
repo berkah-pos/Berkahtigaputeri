@@ -141,3 +141,40 @@ Residual risk is **HIGH**. Do not mark DG-4 or production readiness PASS. A pass
 ### Precise disposition
 
 The direct CI evidence upgrades the central/two-tenant and single-tenant synthetic restore mechanics from NOT RUN to PASS for this workflow run. It does not upgrade real DR readiness: BR-F01 through BR-F04 remain open, and the workstream recommendation remains BLOCKED / NOT VERIFIED until the owner-approved database map, encrypted off-host backups, PITR, actual file/key/Coolify recovery, owner-approved RPO/RTO and a separately authorized staging drill have evidence. PR #88 remains open/draft; no merge, deployment, or release approval occurred.
+
+
+## 10. Latest exact-head verification — 2026-10-19
+
+This section supersedes the earlier run/attempt/artifact references in §9 for the newest available candidate, and confirms the previous successful run as historical exact-SHA evidence.
+
+- **Current branch head under review:** \`4b75f8b88b4b5a3648ca14f8fb04fad9257af7f6\`.
+- **Workflow:** Backup Restore - Disposable PostgreSQL 17 Drill.
+- **Run ID / attempt:** \`39227102530\` / \`1\`; **conclusion SUCCESS**.
+- **Run URL:** https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39227102530
+- **Job ID:** \`117975939700\`; syntax/coverage tests, isolated PG17 drill and artifact upload all concluded SUCCESS.
+- **PR head SHA:** \`4b75f8b88b4b5a3648ca14f8fb04fad9257af7f6\`.
+- **Actual merge checkout SHA tested by Actions:** \`a1e14add2f79a02823a220ba34a2d8bafe978bc7\`; its parents are base \`371b7fdf0bf672b37ceb1023e647f114221bf797\` and PR head above. The checkout SHA and PR head are distinct; this report does not mislabel one as the other.
+- **Artifact:** [backup-restore-drill, artifact ID 12174327830](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39227102530/artifacts/12174327830); expires 2026-11-18 09:04:30 UTC. GitHub-reported SHA-256 digest and locally recomputed ZIP SHA-256 both equal \`96981a71eb09a4ae3b3a0a7eb343d65b0f0e1ab671c4fcdb787f59c16170cfb6\`.
+- **Artifact checksum verification:** downloaded ZIP to temporary analysis storage; \`sha256sum -c artifact-checksums.txt\` returned exit code 0 for \`result.json\`, \`synthetic-file-checksums.txt\` and \`synthetic-database-backup-checksums.txt\`. The ZIP contains summaries/checksum manifests only, not database dumps.
+- **Synthetic backup identifier:** \`synthetic-pg17-20261019090242460754911\`; UTC start \`2026-10-19T09:02:42Z\`, end \`2026-10-19T09:04:29Z\`; duration **107 seconds**, for mechanics only (not production RTO).
+- **Engine:** PostgreSQL \`17.11 (Debian 17.11-1.pgdg13+2)\`; image ID \`sha256:327daa8fae7178d61f93142f146b098467b345e10997b9eb79f63bd58e5c8f3c3\`. Image was referenced by the mutable major tag \`postgres:17\`; immutable digest pinning remains a reproducibility improvement.
+- **Coverage tests:** all six passed: exact set/order independence; missing tenant backup rejected; unexpected database rejected without disclosing name; duplicate identifier rejected; malformed identifier rejected; central database required.
+- **Restore result assertions:** central contained two synthetic tenant metadata rows; Tenant A and Tenant B each had one distinct marker; both cross-tenant marker counts were zero. Tenant A's own dump was restored into new database \`berkahpos_tenant_a_recovery\`: Tenant A marker count 1, Tenant B marker count 0, central metadata still 2 rows, original Tenant B still 1 marker. Restored migration status had no pending migration for central, Tenant A, Tenant B and the new single-tenant recovery database.
+- **Files/key mechanics:** synthetic file/archive checksum copy and restore succeeded; synthetic non-production key material passed local encrypt/decrypt/checksum. This did **not** use or prove an actual object-storage provider, KMS/vault, production APP_KEY, TLS certificate, or off-host retention.
+- **Commands recorded in workflow:** \`bash -n scripts/backup_restore/disposable_pg17_drill.sh\` — exit 0; \`python3 -m py_compile scripts/backup_restore/validate_database_coverage.py scripts/backup_restore/test_validate_database_coverage.py\` — exit 0; \`python3 -m unittest discover -s scripts/backup_restore -p 'test_*.py' -v\` — exit 0 / 6 tests; \`bash scripts/backup_restore/disposable_pg17_drill.sh\` — exit 0 in GitHub-hosted Ubuntu 24.04 with disposable Docker/PostgreSQL containers.
+- **Safety boundary in artifact:** \`production_backup_used=false\`, \`off_host_provider_tested=false\`, \`pitr_tested=false\`, \`real_vault_tested=false\`. No production/Supabase endpoint or customer data was used.
+
+### Updated gate disposition
+
+| Gate | Latest status | Evidence boundary |
+|---|---|---|
+| Syntax + six DB coverage tests | **PASS — TEST-EXECUTED** | Run \`39227102530\`, attempt 1, merge checkout SHA \`a1e14add2f79a02823a220ba34a2d8bafe978bc7\` |
+| Synthetic central + two-tenant PG17 dump/restore | **PASS — TEST-EXECUTED** | Disposable PG17 only; exact artifact above |
+| Synthetic single-tenant restore to new DB without tenant B/central change | **PASS — TEST-EXECUTED** | Independent Tenant A dump restored into \`berkahpos_tenant_a_recovery\`; marker assertions passed |
+| Synthetic migration status, file/key checksum mechanics | **PASS — TEST-EXECUTED** | No pending migrations in synthetic targets; synthetic file/key only |
+| Actual off-host encrypted backup, retention/read-back and coverage reconciliation | **BLOCKED / NOT VERIFIED** | No actual remote provider, live catalog or approved tenant DB map |
+| Actual file/object provider and Coolify/vault/key/certificate recovery | **NOT RUN / NOT VERIFIED** | Synthetic material is not real recovery evidence |
+| PITR/WAL at explicit timestamp | **NOT RUN / NOT VERIFIED** | No actual configured/retained WAL chain exercised |
+| Owner-approved and measured RPO/RTO | **PROPOSED only / BLOCKED** | 107-second mechanics run is not representative production RTO or SLA |
+
+**Final status remains BLOCKED / NOT VERIFIED.** The CI result is positive direct evidence for this disposable synthetic workflow only. BR-F01 through BR-F04 remain open until the approved tenant database map, external encrypted backup/read-back, PITR, actual files/key/Coolify recovery, owner-approved RPO/RTO and separately authorized staging recovery have evidence. PR #88 remains open/draft; no merge, release, deployment or final go-live approval occurred.
