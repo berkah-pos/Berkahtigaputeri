@@ -6,7 +6,7 @@
 **Repository:** [`berkah-pos/Berkahtigaputeri`](https://github.com/berkah-pos/Berkahtigaputeri)  
 **Base branch / exact base SHA:** `main` / `371b7fdf0bf672b37ceb1023e647f114221bf797`  
 **Work branch:** `audit/preprod-kvm2-coolify-2026-10-18`  
-**Final report commit:** See the branch/PR head metadata; the file cannot self-reference the SHA of the commit containing its own final bytes. The exact resulting SHA must be taken from the GitHub commit/PR head, not inferred from an earlier baseline.  
+**PR:** [#87 — KVM2 / Coolify pre-production operations assessment](https://github.com/berkah-pos/Berkahtigaputeri/pull/87) (draft, not merged). **Initial report commit SHA:** `ab9a041bd8235ef2fad285f6d2bb57bed6413f91`. The exact final PR-head SHA is the value shown by PR #87 metadata after this report update; do not substitute the base or historical CI SHA.  
 **Deployment scope:** Repository/CI/source audit and operational runbook only. No KVM2 SSH session, Coolify service change, DNS/TLS change, database operation, image publish, or deployment was performed.
 
 ## 1. Executive summary
