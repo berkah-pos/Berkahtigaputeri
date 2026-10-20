@@ -134,6 +134,15 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
+      - name: Validate canonical 352-key workbook offline (no Supabase)
+        shell: bash
+        run: |
+          set -euo pipefail
+          WORKBOOK_VENV="$RUNNER_TEMP/workbook-validator-venv"
+          python3 -m venv "$WORKBOOK_VENV"
+          "$WORKBOOK_VENV/bin/python" -m pip install --disable-pip-version-check --no-input "openpyxl==3.1.5"
+          "$WORKBOOK_VENV/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+
       - name: Run disposable PostgreSQL 17 tenant role/grant isolation probes
         id: tenant-isolation
         shell: bash
