@@ -83,9 +83,17 @@ def create_fixture(path: Path) -> Path:
         export_rows.append([key, _config(key), "READY"])
 
     exported = wb.create_sheet("APP_CONFIG_EXPORT")
-    exported.append(["key", "value_jsonb", "sync_status"])
-    for row in export_rows:
-        exported.append(row)
+    exported.append(["key", "value_jsonb", "type", "source_sheet", "sync_status"])
+    source_sheets = {
+        "global": "GLOBAL",
+        "template": "TEMPLATES",
+        "tenant": "TENANTS_MASTER",
+        "service": "SERVICES",
+        "device": "DEVICES",
+    }
+    for key, value_jsonb, sync_status in export_rows:
+        kind, _, _ = exporter.classify_key(key)
+        exported.append([key, value_jsonb, kind, source_sheets[kind], sync_status])
 
     if len(export_rows) != 352:
         raise AssertionError(f"test fixture bug: expected 352 rows, got {len(export_rows)}")
@@ -187,7 +195,7 @@ class CanonicalWorkbookContractTests(unittest.TestCase):
     def test_duplicate_export_key_is_rejected(self) -> None:
         wb = load_workbook(self.path)
         ws = wb["APP_CONFIG_EXPORT"]
-        ws.append([ws.cell(row=2, column=1).value, _config("duplicate"), "READY"])
+        ws.append([ws.cell(row=2, column=1).value, _config("duplicate"), "global", "GLOBAL", "READY"])
         wb.save(self.path)
         wb.close()
         with self.assertRaisesRegex(ValueError, "duplicate key"):
@@ -249,6 +257,16 @@ class CanonicalWorkbookContractTests(unittest.TestCase):
         self.path = create_fixture(Path(self.tempdir.name) / "fresh-fixture.xlsx")
         self._mutate("SERVICES", "C2", "sometimes")
         with self.assertRaisesRegex(ValueError, "explicit boolean"):
+            self._manifest()
+
+    def test_export_type_must_match_canonical_key_scope(self) -> None:
+        self._mutate("APP_CONFIG_EXPORT", "C2", "device")
+        with self.assertRaisesRegex(ValueError, "type does not match canonical key scope"):
+            self._manifest()
+
+    def test_export_source_sheet_must_match_canonical_key_scope(self) -> None:
+        self._mutate("APP_CONFIG_EXPORT", "D2", "DEVICES")
+        with self.assertRaisesRegex(ValueError, "source_sheet does not match canonical key scope"):
             self._manifest()
 
     def test_unlinked_or_orphaned_export_key_is_rejected(self) -> None:
