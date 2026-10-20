@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:berkahtigaputeri_pos/core/api/laravel_api_client.dart';
+import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 
 import 'package:berkahtigaputeri_pos/features/auth/login_screen.dart';
 
 void main() {
   testWidgets('configured cloud mode asks for credentials and offers local mode',
       (tester) async {
-    final client = SupabaseClient(
-      'https://example.supabase.co',
-      'test-publishable-key',
-      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+    final identityStore = AppIdentityStore(preferences);
+    final client = LaravelApiClient(
+      baseUri: Uri.parse('https://api.example.test'),
+      sessions: ApiSessionStore(),
     );
 
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
-          client: client,
+          apiClient: client,
+          identityStore: identityStore,
           onAuthenticated: () {},
           onContinueLocal: () {},
         ),
@@ -39,7 +45,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
-          client: null,
+          apiClient: null,
+          identityStore: identityStore,
           configurationMessage: 'Cloud login belum dikonfigurasi.',
           onAuthenticated: () {},
           onContinueLocal: () {},
