@@ -80,8 +80,10 @@ jobs:
           with open(sys.argv[1], encoding="utf-8") as handle:
               manifest = json.load(handle)
           digest = manifest.get("manifest_sha256", "")
+          source_digest = manifest.get("source_workbook_sha256", "")
           assert digest == canonical_manifest_sha256(manifest), "manifest SHA-256 mismatch"
           assert len(digest) == 64, "manifest SHA-256 must be 64 hexadecimal characters"
+          assert len(source_digest) == 64, "source workbook SHA-256 must be 64 hexadecimal characters"
           assert sum(manifest["counts"].values()) == 352, manifest["counts"]
           print(f"PASS: canonical manifest SHA-256 verified: {digest}")
           PY
