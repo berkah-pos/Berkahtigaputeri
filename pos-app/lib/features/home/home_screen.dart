@@ -457,8 +457,8 @@ class _DashboardMetric extends StatelessWidget {
 class _ConfigurationScreen extends StatefulWidget {
   const _ConfigurationScreen({
     required this.configService,
-    required this.identityStore,
     required this.apiClient,
+    required this.identityStore,
     this.onSignOut,
   });
 
@@ -802,8 +802,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     final service = widget.configService;
     if (service == null) {
       setState(() {
-        _status = 'SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi. '
-            'Aplikasi tetap bisa bekerja lokal.';
+        _status = 'BERKAH_API_BASE_URL belum dikonfigurasi. Aplikasi tetap bisa bekerja lokal.';
       });
       return;
     }
@@ -842,8 +841,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _features = features;
         _status = config.fromCache
             ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Supabase memberikan respons; validitas sesi dan otorisasi '
-                'perangkat tetap harus diverifikasi.';
+            : 'Laravel API telah memverifikasi scope tenant, perangkat, layanan, dan entitlement.';
         _loading = false;
       });
     } catch (error) {
@@ -1069,8 +1067,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     final service = widget.configService;
     if (service == null) {
       setState(() {
-        _status = 'SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi. '
-            'Aplikasi tetap bisa bekerja lokal.';
+        _status = 'BERKAH_API_BASE_URL belum dikonfigurasi. Aplikasi tetap bisa bekerja lokal.';
       });
       return;
     }
@@ -1109,8 +1106,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _features = features;
         _status = config.fromCache
             ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Supabase memberikan respons; validitas sesi dan otorisasi '
-                'perangkat tetap harus diverifikasi.';
+            : 'Laravel API telah memverifikasi scope tenant, perangkat, layanan, dan entitlement.';
         _loading = false;
       });
     } catch (error) {
