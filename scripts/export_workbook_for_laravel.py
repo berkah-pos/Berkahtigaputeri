@@ -66,6 +66,18 @@ def parse_value(raw: Any, key: str) -> dict[str, Any]:
     return parsed
 
 
+def canonical_manifest_sha256(manifest: dict[str, Any]) -> str:
+    """Return a stable digest of the manifest payload, excluding its digest field."""
+    payload = {key: value for key, value in manifest.items() if key != "manifest_sha256"}
+    canonical = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def build_manifest(workbook: Path) -> dict[str, Any]:
     wb = load_workbook(workbook, data_only=True, read_only=True)
     try:
@@ -180,7 +192,7 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         if len(services) != counts["service"] or len(devices) != counts["device"]:
             raise ValueError("Relational projection counts differ from canonical key inventory")
 
-        return {
+        manifest = {
             "schema_version": 1,
             "source_workbook": workbook.name,
             "counts": counts,
@@ -191,6 +203,8 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             "services": services,
             "devices": devices,
         }
+        manifest["manifest_sha256"] = canonical_manifest_sha256(manifest)
+        return manifest
     finally:
         wb.close()
 
@@ -203,7 +217,11 @@ def main() -> int:
     args = parser.parse_args()
     try:
         manifest = build_manifest(args.workbook)
-        print(f"PASS: {sum(manifest['counts'].values())} keys; counts={manifest['counts']}; keyset_md5={manifest['keyset_md5']}")
+        print(
+            f"PASS: {sum(manifest['counts'].values())} keys; "
+            f"counts={manifest['counts']}; keyset_md5={manifest['keyset_md5']}; "
+            f"manifest_sha256={manifest['manifest_sha256']}"
+        )
         if args.validate_only:
             return 0
         args.output.parent.mkdir(parents=True, exist_ok=True)
