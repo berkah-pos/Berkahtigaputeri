@@ -389,6 +389,18 @@ class SyncController extends Controller
 
         $minimumExpiry = Carbon::parse($businessDate)
             ->addDays((int) ($product->min_shelf_life_days ?? 0))->toDateString();
+        $now = now();
+        $query->whereNotExists(function ($holds) use ($now): void {
+            $holds->selectRaw('1')->from('lot_holds')
+                ->whereColumn('lot_holds.lot_id', 'inventory_lots.id')
+                ->where('lot_holds.status', 'active')
+                ->where(function ($starts) use ($now): void {
+                    $starts->whereNull('lot_holds.starts_at')->orWhere('lot_holds.starts_at', '<=', $now);
+                })
+                ->where(function ($ends) use ($now): void {
+                    $ends->whereNull('lot_holds.ends_at')->orWhere('lot_holds.ends_at', '>=', $now);
+                });
+        });
         if ($this->databaseBoolean($product->track_expiry ?? false)) {
             $query->whereNotNull('expires_at')->whereDate('expires_at', '>=', $minimumExpiry)
                 ->orderBy('expires_at');
