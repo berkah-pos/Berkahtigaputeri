@@ -25,9 +25,9 @@ The larger release blocker remains open: a reviewed PostgreSQL provisioning brok
 | Workflow status | SUCCESS; disposable tenant-isolation step and artifact upload succeeded; remaining build and HTTP/image smoke steps also succeeded |
 | Workflow attempt | VERIFIED: run_attempt=1 from GitHub REST run and job metadata re-check on 2026-10-20 |
 | Test artifact | [pg17-tenant-isolation artifact #12137702221](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641/artifacts/12137702221); ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4 |
-| Latest re-verification at PR head | GitHub run/job head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`; [run #295 / ID 39404672132](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132); job `118567609555`; attempt `1` | Run and job metadata report conclusion `success`; steps 1–15 completed successfully, including disposable PG17 role/grant probes and sanitized artifact upload. A separate merge-checkout SHA was not independently surfaced by the run metadata. |
-| Latest test artifact | [PG17 artifact #12255628499](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132/artifacts/12255628499); GitHub artifact metadata SHA-256 `3e409257466c61e0f71d54bb957f7eebf1260dcb036158ea285ec35aac6c0ec2`; size 2,133 bytes | Artifact metadata reports uploaded to run #295 for source/head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`. The artifact archive/log were not downloaded or independently content-scanned during this re-check; the harness step itself completed successfully. Prior extracted-log evidence from run #167 remains recorded below. |
-| Current branch/report checkpoint before this documentation-only update | `6062df7b9a0fd94db17107d654f9b3e16622531b` | Follow-up only updates report evidence; no provisioning source, role broker, test harness, database workflow or configuration behavior changes are added in this update. |
+| Latest re-verification at tested code/workflow SHA | GitHub run/job head SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`; [run #298 / ID 39405757233](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233); job `118571154534`; attempt `1` | Run and job metadata report `completed` / `success`; offline workbook validation (step 5), PG17 isolation harness (step 6) and artifact upload (step 7) succeeded. Steps 1–16 plus cleanup succeeded. A later report-only commit may change the live PR HEAD; no exact-SHA claim is made for that later documentation update. |
+| Latest test artifact | [PG17 artifact #12256761102](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233/artifacts/12256761102); GitHub artifact metadata SHA-256 `3747e621dffd22771cc74b737c9390562741a54afcadad9da40aa5238ee18fff`; size 2,131 bytes | Uploaded to run #298 for source/head SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`. The full job log was retrieved and directly inspected; artifact ZIP bytes were not downloaded/rehashed in this session, so the digest above is GitHub artifact metadata, not an independent ZIP checksum. |
+| Tested code/workflow SHA | `7b12e5b2cbaeebc8170636ebb574b39f68890b94` | Adds only the offline validator CI step beyond the inherited source and previous report refresh. The later report revision is documentation-only and must not be mislabeled as an exact-SHA code test. |
 | PR | [Draft PR #79](https://github.com/berkah-pos/Berkahtigaputeri/pull/79); open, unmerged |
 | Production changes | None |
 | Supabase | Not accessed or used |
@@ -45,6 +45,7 @@ Out of scope: changing accepted architecture, application authentication/API imp
 | command -v psql | Available tool container | 1 | psql executable not installed |
 | command -v docker | Available tool container | 1 | Docker executable not installed |
 | git ls-remote https://github.com/berkah-pos/Berkahtigaputeri.git HEAD | Available tool container | 128 | DNS/network resolution failed; no local clone/repository commands available |
+| `python3 -m venv "$RUNNER_TEMP/workbook-validator-venv"; "$RUNNER_TEMP/workbook-validator-venv/bin/python" -m pip install --disable-pip-version-check --no-input openpyxl==3.1.5; "$RUNNER_TEMP/workbook-validator-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only` | GitHub-hosted Ubuntu 24.04, run #298, source SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`; offline check of `config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx`; no database/network write | exit 0, inferred from step `success` under `set -euo pipefail` | Job log line at `2026-10-20T10:08:34.8052939Z` prints `PASS: 352 keys`, exact counts `1/3/100/140/108`, keyset MD5 `1fd3d64219ecc7c333453c20da80e295`. See [run #298](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233). |
 | GitHub repository/file inspection through connector | Canonical GitHub repository | n/a | SOURCE-VERIFIED paths and revisions cited below |
 | bash scripts/security/verify_pg17_tenant_isolation.sh | Local container | NOT RUN | No local psql/service and Docker are unavailable. No local SQL result artifact exists. |
 | php artisan test | Local container | NOT RUN | PHP/vendor install and a disposable PostgreSQL target are not available in this environment. |
@@ -85,7 +86,7 @@ Mandatory order followed according to the canonical repository's root AGENTS.md:
 10. docs/HARDENING/README.md, root README.md, .cursor/rules/berkah-pos.mdc, and .github/muse-instructions.md.
 11. Scoped source/config/test/CI and runbook: config/database.php, docker-compose.yml, .env.example, app/Console/Commands/ImportCanonicalWorkbook.php, central/tenant migrations, tests/TestCase.php, phpunit.xml, .github/workflows/laravel-pg17-baseline.yml, config/ci/required-check-matrix.json, and docs/runbooks/provisioning-state-machine.md.
 
-The accepted configuration order remains GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE; the canonical workbook contract is 352 entries. Workbook/export validation is not this workstream and was NOT RUN here. No Supabase access, query, synchronization, or migration was performed.
+The accepted configuration order remains GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. Run #298 validated the actual checked-in workbook with the offline exporter and observed exactly 352 entries: global=1, template=3, tenant=100, service=140, device=108. The five-layer effective-configuration precedence, single-service resolver behavior and POS/Accounting cross-service negatives were not tested in this workstream. No Supabase access, query, synchronization, or migration was performed.
 
 ## 5. Threat model
 
@@ -174,7 +175,7 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 
 | ID | Acceptance criterion | Status | Evidence / blocker |
 |---|---|---|---|
-| PGISO-01 | Actual server is PostgreSQL 17 on isolated disposable target | VERIFIED — harness environment only | Run 39130938641 reported PostgreSQL 17.11; loopback disposable service; harness exited 0. Local container itself still lacks psql/Docker. |
+| PGISO-01 | Actual server is PostgreSQL 17 on isolated disposable target | VERIFIED — harness environment only | Run #298 job log reports `SERVER_VERSION: 17.11 (Debian 17.11-1.pgdg13+2)`; loopback disposable service; harness step success under `set -euo pipefail` implies exit 0. Local container itself still lacks psql/Docker. |
 | PGISO-02 | One central DB and different DB per tenant; correct database owners | VERIFIED — synthetic fixture only | Three distinct disposable databases were created; catalog output showed central/A/B databases owned by separate NOLOGIN roles. This does not verify app-side tenant provisioning. |
 | PGISO-03 | Runtime role attributes, LOGIN, SUPERUSER, CREATEDB, CREATEROLE, REPLICATION, BYPASSRLS, INHERIT and role memberships | VERIFIED — synthetic fixture only | Sanitized pg_roles output showed runtime roles LOGIN=true and SUPERUSER/CREATEDB/CREATEROLE/REPLICATION/BYPASSRLS/INHERIT=false; owner roles NOLOGIN; role-membership oracles passed both directions. |
 | PGISO-04 | PUBLIC CONNECT, database/schema/table/sequence grants, default privileges and function EXECUTE | VERIFIED — synthetic fixture only | PUBLIC DB CONNECT, schema/table/sequence rights and default ACL checks passed for central/A/B. Private function PUBLIC EXECUTE was denied; future table and sequence defaults match intended runtime DML/sequence access. |
@@ -187,7 +188,8 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 | PGISO-11 | Tenant context/connection/cache/path/guard reset on request failure and reused worker A→B | BLOCKED | Import command has a local try/finally Tenancy::end() around per-device work, but there is no verified worker integration suite or configured tenancy middleware. |
 | PGISO-12 | Tenant runtime never inherits central credentials | VERIFIED — source + CI guard | Fix is in config/database.php, .env.example and docker-compose.yml; static preflight passed on the tested source head. Runtime app DB switching still depends on a future broker/configuration implementation. |
 | PGISO-13 | Provisioner and runtime credentials are separated; only private provisioning service has elevated credentials | BLOCKED | No actual provisioner connection, service, environment separation proof or provisioning audit implementation was found. Synthetic roles are test fixtures only. |
-| PGISO-14 | CI run identity and sanitized output artifact | VERIFIED for code-test run #295 / attempt 1; report-only follow-up HEAD not claimed as exact same SHA | GitHub REST run/job metadata reports run #295 / ID `39404672132`, attempt `1`, head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`, job `118567609555`, conclusion `success`. The PG17 harness step and upload step succeeded; artifact #12255628499 has metadata digest recorded in §2/§14. Prior runs #165 and #167 are retained as historical evidence. |
+| PGISO-15 | Actual canonical workbook yields exactly 352 unique keys and expected per-layer counts | VERIFIED — offline CI validator only | Run #298 on SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94` ran `scripts/export_workbook_for_laravel.py --validate-only` against the checked-in `.xlsx`, and the job log printed the exact count/hash line. This does not establish five-layer runtime resolver correctness; that remains NOT RUN. |
+| PGISO-14 | CI run identity and sanitized output artifact | VERIFIED for run #298 / attempt 1 on tested source/workflow SHA | GitHub REST run/job metadata reports run #298 / ID `39405757233`, attempt `1`, tested source SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`, job `118571154534`, conclusion `success`. Workbook validator, PG17 isolation harness and artifact-upload steps all succeeded; artifact #12256761102 metadata digest recorded in §2/§15. A subsequent report-only commit is not claimed as the tested SHA. |
 
 ## 8. Findings
 
@@ -240,7 +242,7 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 - .env.example: changed the tenant runtime account to a separate placeholder and documented non-reuse of central credentials.
 - docker-compose.yml: stopped wiring tenant username/password from central username/password; supplied separate non-working defaults.
 - scripts/security/verify_pg17_tenant_isolation.sh: added an opt-in, loopback-only PostgreSQL 17 disposable harness. It refuses non-PG17/remote/non-maintenance targets, refuses pre-existing names, creates only synthetic roles/DBs, records sanitized role/database/ACL summaries, exercises actual runtime login identities, and cleans up only resources proven absent before this run.
-- .github/workflows/laravel-pg17-baseline.yml: added the script path filters, assertions against tenant credential fallback, a PostgreSQL 17 role/grant test step, and upload of the sanitized log artifact.
+- .github/workflows/laravel-pg17-baseline.yml: added assertions against tenant credential fallback, the loopback-only PostgreSQL 17 role/grant test step and sanitized artifact upload; later added a separate offline workbook validation step using `scripts/export_workbook_for_laravel.py --validate-only` so workbook checks do not use Supabase.
 - Permanent architecture documents, production DBs, production secrets, DNS and live tenant data were not changed.
 
 ## 10. Commands and CI evidence register
@@ -265,12 +267,12 @@ Historical test-harness failures on earlier PR heads were corrected before run 3
 3. Host/X-Forwarded-Host trust policy, active-domain/membership/device/subscription checks, direct API routes, replay and worker-context reset remain unimplemented or unverified at the current scaffold.
 4. Runtime, migrator, broker and backup identities must be separate. Web and normal queue services must not carry PROVISIONER_*, migrator or root credentials; no service-environment proof exists yet.
 5. Disposable harness role tests do not establish provisioning idempotency/concurrency, actual app DB connection switching, restore safety or production host isolation.
-6. The 352-entry workbook and five-layer resolver contract were read but not validated in this workstream.
+6. The 352-entry workbook counts were directly validated offline in run #298. Five-layer resolver behavior, single-service selection and POS/Accounting isolation were NOT RUN in this workstream.
 7. No PostgreSQL 17 database was available locally; no direct SQL/test output is claimed.
 
 ## 12. Next acceptance steps
 
-1. Review the branch and obtain the exact-head CI run/artifact for the newly added PG17 harness. Fix any real test or workflow failure and rerun against the exact resulting SHA.
+1. Preserve run #298 / artifact #12256761102 as the latest verified offline-workbook + disposable-PG17 evidence for tested workflow SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`; do not describe a subsequent report-only commit as exact-SHA tested.
 2. Implement a reviewed private PostgreSQL provisioning broker and its central state/audit model, after the coordinator confirms tenant ID/database-name mapping and the actual private worker boundary.
 3. Run provisioning idempotency/concurrency/interruption tests and actual runtime A/B/central denial tests.
 4. Implement and test tenant HTTP/domain/device/subscription authorization plus request/worker context reset on PostgreSQL 17.
@@ -316,7 +318,7 @@ No broker code was added in this report refresh. This is not a PASS: the missing
 The implementation gate remains **BLOCKED** until the broker and its integration tests are added on the approved boundary. No production DB, data, DNS, or secrets were changed, and no Supabase access occurred.
 
 
-## 14. Latest exact branch-head CI re-check — 2026-10-20
+## 14. Earlier CI re-check — run #295 on 2026-10-20
 
 **TEST-EXECUTED by GitHub Actions on a disposable service; no local SQL execution is claimed.**
 
@@ -337,3 +339,38 @@ The implementation gate remains **BLOCKED** until the broker and its integration
 
 This run is fresh positive evidence for the existing synthetic privilege contract and baseline build/migration/smoke. It does **not** close PGISO-08/09/11/13: no application provisioning broker, authoritative DB-name lifecycle, tenant HTTP authorization/replay tests, or production worker-context reset implementation was added by this report-only refresh.
 
+
+
+## 15. Latest disposable PostgreSQL and offline workbook validation — 2026-10-20
+
+**Overall workflow:** [Run #298 / ID 39405757233](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233), workflow `Laravel PostgreSQL 17 Baseline`; branch `audit/preprod-postgres-isolation-2026-10-18`; run attempt `1`; job `118571154534`; exact tested workflow/source SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`. Run and job metadata report `completed` / `success`; the final smoke step and cleanup completed successfully. No merge, production deployment, or Supabase access occurred.
+
+### Direct log observations
+
+| Check | Exact command / environment | Status / observed result | Evidence |
+|---|---|---|---|
+| Offline workbook validation | Workflow step 5 creates a venv, installs `openpyxl==3.1.5`, then runs `"$RUNNER_TEMP/workbook-validator-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only`; GitHub-hosted Ubuntu 24.04; reads the checked-in workbook; no database | **VERIFIED / PASS**, exit 0 inferred from successful step under `set -euo pipefail` | Retrieved job log contains: `PASS: 352 keys; counts={'global': 1, 'template': 3, 'tenant': 100, 'service': 140, 'device': 108}; keyset_md5=1fd3d64219ecc7c333453c20da80e295` at `2026-10-20T10:08:34.8052939Z`. |
+| PostgreSQL server version | Disposable GitHub Actions `postgres:17` service; loopback-only connection; synthetic fixture identities | **VERIFIED / PASS**, PostgreSQL `17.11 (Debian 17.11-1.pgdg13+2)`; harness step exit 0 inferred from workflow success and `set -euo pipefail` | Retrieved job log marker `SERVER_VERSION: 17.11 (Debian 17.11-1.pgdg13+2)`; run #298 step 6 success. |
+| Tenant A/B privilege harness | Step 6 calls `bash /security/verify_pg17_tenant_isolation.sh` inside the guarded disposable PostgreSQL container; synthetic role and database names | **VERIFIED / PASS**: 84 passing harness assertion lines excluding the separate workbook result, including 27 explicit expected-denial probes; final `RESULT: PASS — disposable PostgreSQL 17 role/grant contract probes all passed.` | Job log is available through [run #298](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233); job [#118571154534](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233/job/118571154534). It recorded role flags, owners, database/object/default-ACL matrices and negative attempts. |
+| Artifact upload | Step 7; same run | **VERIFIED / PASS** | [Artifact #12256761102](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39405757233/artifacts/12256761102), name `pg17-tenant-isolation-88cd3022585a070e2d76a08badeae9bcd767c614`, size 2,131 bytes, GitHub metadata digest `sha256:3747e621dffd22771cc74b737c9390562741a54afcadad9da40aa5238ee18fff`. This artifact digest was read from GitHub metadata; the ZIP was not independently downloaded/rehashed in this check. |
+| Workflow suite | GitHub-hosted Ubuntu 24.04; run #298, attempt 1 | **VERIFIED / SUCCESS** | Steps 1–16 all concluded successfully; tenant grant probe and artifact upload succeeded; clean dependency/security audit, Laravel route/feature smoke, fresh central/tenant PostgreSQL migrations, image build and HTTP smoke succeeded. |
+| Local direct execution | Available tool container | **NOT RUN** | `command -v psql` and `command -v docker` both exit 1. No local PostgreSQL 17 endpoint or direct SQL run is claimed. |
+
+The workflow log was retrieved and a limited signature scan for credentialed database URLs, bearer token shapes, private-key headers, GitHub token patterns and AWS-key patterns returned no match. This is **not** a full secret scanner. The uploaded artifact contains generated synthetic role/database evidence; it contains no customer rows by fixture design.
+
+### Stale legacy workbook control — architecture conflict
+
+**Severity: P1, Confidence: High.** Source inspection of `.github/workflows/canonical-workbook-validate.yml` shows its workflow still invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352` in the step named “Validate canonical workbook without network writes.” That flow is inconsistent with the 2026-10-17 owner ADR and DOC_14's no-Supabase rule, irrespective of its `--dry-run` label. This audit did **not** run or dispatch that workflow, and did not execute either legacy Supabase sync script or access a Supabase service.
+
+**Recommendation / ownership:** route this stale-workflow fix to the canonical workbook/CI owner; replace its validation command with the offline `scripts/export_workbook_for_laravel.py --validate-only` (plus Python unit tests as appropriate), then remove/retire Supabase-oriented runtime assumptions after their owners review the impact. The scoped PostgreSQL workflow now has an independent offline workbook validation step; this does not silently repair the legacy workflow. No change to the permanent ADR was made.
+
+### What this run does not close
+
+- **PGISO-08 — BLOCKED:** real PostgreSQL provisioning broker/state machine, database-name mapping/allowlisting, safe idempotency/concurrency/interruption and cleanup.
+- **PGISO-09 — BLOCKED:** API-side forged tenant/device/resource identifiers, Host and X-Forwarded-Host spoofing, inactive domain/membership/subscription/device checks, direct entrypoint and replay tests.
+- **PGISO-10 — PARTIAL/BLOCKED:** only selected central connection use is visible; missing central models and missing tenancy config prevent full-model verification.
+- **PGISO-11 — BLOCKED:** worker reuse/context reset and application connection-pool cleanup.
+- **PGISO-13 — BLOCKED:** real privileged broker identity/process isolation and evidence that web/ordinary queue containers do not receive privileged credentials.
+- **Five-layer resolver and POS/Accounting single-service isolation — NOT RUN:** workbook count validation does not prove `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE` execution semantics.
+
+The branch head after this report-only follow-up differs from tested workflow SHA `7b12e5b2cbaeebc8170636ebb574b39f68890b94`; the tested commit contains the workflow and source files used in run #298, and this report edit changes no executable code. Do not claim run #298 tested the eventual report-only successor SHA exactly.
