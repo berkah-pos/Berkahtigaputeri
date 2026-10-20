@@ -26,6 +26,7 @@ class OfflineWorkbookExporterTests(unittest.TestCase):
         self.assertEqual(EXPECTED_COUNTS, manifest["counts"])
         self.assertEqual(EXPECTED_TOTAL, sum(manifest["counts"].values()))
         self.assertEqual(EXPECTED_TOTAL, len(manifest["tenants"]) + len(manifest["templates"]) + len(manifest["services"]) + len(manifest["devices"]) + 1)
+        self.assertEqual(64, len(manifest["source_workbook_sha256"]))
         self.assertEqual(manifest["manifest_sha256"], canonical_manifest_sha256(manifest))
         self.assertEqual(64, len(manifest["manifest_sha256"]))
 
