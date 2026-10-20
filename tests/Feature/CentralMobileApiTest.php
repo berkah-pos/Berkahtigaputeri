@@ -207,6 +207,31 @@ class CentralMobileApiTest extends TestCase
         $this->assertSame('active', $device->status);
     }
 
+    public function test_sync_rejects_an_unregistered_device_before_opening_a_tenant_database(): void
+    {
+        $unknownDevice = 'unknown_device_'.str_replace('-', '', (string) Str::uuid());
+
+        $response = $this->actingAs($this->user, 'sanctum')
+            ->postJson('/api/v1/sync', [
+                'device_id' => $unknownDevice,
+                'app_version' => 'test',
+                'events' => [[
+                    'event_id' => 'outbox:sale:tx-test-1',
+                    'entity_type' => 'sale',
+                    'entity_id' => 'sale:tx-test-1',
+                    'payload' => [
+                        'payload_version' => 1,
+                        'event_id' => 'outbox:sale:tx-test-1',
+                        'event_type' => 'sale',
+                        'entity_id' => 'sale:tx-test-1',
+                        'transaction_id' => 'tx-test-1',
+                    ],
+                ]],
+            ]);
+
+        $response->assertForbidden()->assertJsonPath('error.code', 'device_not_authorized');
+    }
+
     public function test_device_enrollment_rejects_a_device_already_owned_by_another_tenant(): void
     {
         $otherTenant = 'other_tenant_'.str_replace('-', '', (string) Str::uuid());
