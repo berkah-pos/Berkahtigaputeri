@@ -1,23 +1,37 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use Illuminate\\Support\\Facades\\Route;
-use Tests\\TestCase;
+use Illuminate\Support\Facades\Route;
+use Tests\TestCase;
 
 class BillingOutOfScopeTest extends TestCase
 {
     public function test_no_payment_webhook_subscription_or_entitlement_routes_are_registered(): void
     {
-        $blockedTerms = '/(?:^|[\\/._-])(payment|payments|billing|subscription|subscriptions|webhook|midtrans|xendit|entitlement|entitlements)(?:$|[\\/._-])/i';
+        $blockedTerms = [
+            'payment',
+            'payments',
+            'billing',
+            'subscription',
+            'subscriptions',
+            'webhook',
+            'midtrans',
+            'xendit',
+            'entitlement',
+            'entitlements',
+        ];
         $matches = [];
 
         foreach (Route::getRoutes() as $route) {
             $name = $route->getName() ?? '';
             $identity = strtolower($route->uri().' '.$name.' '.$route->getActionName());
 
-            if (preg_match($blockedTerms, $identity) === 1) {
-                $matches[] = implode('|', $route->methods()).' '.$route->uri().' ['.$name.']';
+            foreach ($blockedTerms as $term) {
+                if (str_contains($identity, $term)) {
+                    $matches[] = implode('|', $route->methods()).' '.$route->uri().' ['.$name.']';
+                    break;
+                }
             }
         }
 
