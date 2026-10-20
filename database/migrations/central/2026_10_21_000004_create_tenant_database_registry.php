@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'central';
+    protected $connection = 'central_migrator';
 
     public function up(): void
     {
-        Schema::connection('central')->create('tenant_database_registry', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('tenant_database_registry', function (Blueprint $table): void {
             $table->string('tenant_id')->primary();
             $table->string('database_name', 63)->unique();
             $table->string('runtime_username', 63)->unique();
@@ -25,6 +25,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection('central')->dropIfExists('tenant_database_registry');
+        Schema::connection('central_migrator')->dropIfExists('tenant_database_registry');
     }
 };
