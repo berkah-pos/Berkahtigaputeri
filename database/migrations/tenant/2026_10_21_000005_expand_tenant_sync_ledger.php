@@ -37,6 +37,7 @@ return new class extends Migration
             ],
             'inventory_movements' => [
                 'source_event_id' => fn (Blueprint $table) => $table->string('source_event_id', 100)->nullable(),
+                'lot_id' => fn (Blueprint $table) => $table->string('lot_id', 100)->nullable(),
                 'occurred_at' => fn (Blueprint $table) => $table->timestamp('occurred_at')->nullable(),
             ],
             'sales' => [
@@ -48,6 +49,7 @@ return new class extends Migration
                 'item_discount_amount' => fn (Blueprint $table) => $table->decimal('item_discount_amount', 18, 2)->default(0),
                 'transaction_discount_amount' => fn (Blueprint $table) => $table->decimal('transaction_discount_amount', 18, 2)->default(0),
                 'discount_amount' => fn (Blueprint $table) => $table->decimal('discount_amount', 18, 2)->default(0),
+                'grand_total' => fn (Blueprint $table) => $table->decimal('grand_total', 18, 2)->default(0),
                 'taxable_dpp' => fn (Blueprint $table) => $table->decimal('taxable_dpp', 18, 2)->default(0),
                 'exempt_dpp' => fn (Blueprint $table) => $table->decimal('exempt_dpp', 18, 2)->default(0),
                 'dpp' => fn (Blueprint $table) => $table->decimal('dpp', 18, 2)->default(0),
@@ -108,6 +110,19 @@ return new class extends Migration
                     });
                 }
             }
+        }
+
+        if (! $schema->hasTable('lot_holds')) {
+            $schema->create('lot_holds', function (Blueprint $table): void {
+                $table->id();
+                $table->string('lot_id', 100)->index();
+                $table->string('reason', 150)->nullable();
+                $table->string('status', 24)->default('active');
+                $table->timestamp('starts_at')->nullable();
+                $table->timestamp('ends_at')->nullable();
+                $table->timestamps();
+                $table->index(['lot_id', 'status', 'starts_at', 'ends_at'], 'lot_holds_active_lookup');
+            });
         }
 
         if (! $schema->hasTable('inventory_cost_layers')) {
@@ -187,7 +202,7 @@ return new class extends Migration
         $schema = Schema::connection($connection);
 
         foreach (['accounting_events', 'stock_movements', 'cost_layer_consumptions',
-            'sale_lot_allocations', 'inventory_cost_layers'] as $table) {
+            'sale_lot_allocations', 'inventory_cost_layers', 'lot_holds'] as $table) {
             $schema->dropIfExists($table);
         }
 
