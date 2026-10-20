@@ -10,8 +10,7 @@ on:
       - ".github/muse-instructions.md"
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
-      - "scripts/sync_excel_to_supabase.py"
-      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "scripts/export_workbook_for_laravel.py"
       - "scripts/tests/**"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
@@ -25,8 +24,7 @@ on:
       - ".github/muse-instructions.md"
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
-      - "scripts/sync_excel_to_supabase.py"
-      - "scripts/sync_excel_to_supabase_legacy.py"
+      - "scripts/export_workbook_for_laravel.py"
       - "scripts/tests/**"
       - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
@@ -53,16 +51,37 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/final-pos-venv"
-          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
-      - name: Run workbook sync inventory regression tests
+      - name: Test offline workbook exporter and manifest integrity
         shell: bash
         run: |
           set -euo pipefail
-          PYTHONPATH=. "$RUNNER_TEMP/final-pos-venv/bin/python" -m unittest discover -s scripts/tests -p 'test_*.py'
+          PYTHONPATH=. "$RUNNER_TEMP/final-pos-venv/bin/python" -m unittest discover -s scripts/tests -p 'test_*.py' -v
 
-      - name: Validate canonical workbook without network writes
+      - name: Export canonical manifest twice with no network path
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352
+          python="$RUNNER_TEMP/final-pos-venv/bin/python"
+          first="$RUNNER_TEMP/canonical-manifest-first.json"
+          second="$RUNNER_TEMP/canonical-manifest-second.json"
+          "$python" scripts/export_workbook_for_laravel.py --output "$first"
+          "$python" scripts/export_workbook_for_laravel.py --output "$second"
+          cmp --silent "$first" "$second"
+          echo "PASS: repeated offline exports are byte-identical"
+          sha256sum "$first"
+          "$python" - "$first" <<'PY'
+          import json
+          import sys
+
+          from scripts.export_workbook_for_laravel import canonical_manifest_sha256
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              manifest = json.load(handle)
+          digest = manifest.get("manifest_sha256", "")
+          assert digest == canonical_manifest_sha256(manifest), "manifest SHA-256 mismatch"
+          assert len(digest) == 64, "manifest SHA-256 must be 64 hexadecimal characters"
+          assert sum(manifest["counts"].values()) == 352, manifest["counts"]
+          print(f"PASS: canonical manifest SHA-256 verified: {digest}")
+          PY
