@@ -362,3 +362,10 @@ For routing, use the existing defect IDs and owners; this workstream performed n
 ### 14.5 Acceptance status after refresh
 
 **BLOCKED (not PASS).** Current exact-SHA workflow queries do not provide product UAT evidence; product journey API routes, no-Supabase client compliance, actual workbook validation, real PostgreSQL tenant A/B negative tests, end-to-end accounting/report reconciliation, offline/reconnect recovery, browser/device coverage, restore evidence and business approval remain unresolved. See [the companion matrix](12_UAT_MATRIX.md) for test IDs, test preconditions, expected oracles, actual evidence status and sign-off dependencies.
+
+
+## 15. Workbook binary retrieval attempt — 2026-10-20
+
+The repository contents listing at base SHA `371b7fdf0bf672b37ceb1023e647f114221bf797` confirms the canonical workbook path exists and reports a byte size of **36,197**. An attempt to read the XLSX with the GitHub text-file connector failed with `UnicodeDecodeError: 'utf-8' codec can't decode byte 0x85 in position 10`; the tool tried to decode a binary XLSX as UTF-8. Attempts to download the raw file into the task container did not produce a file, and the local clone attempt remains failed with exit 128.
+
+Consequently, the workbook contents were not available to openpyxl or any validator execution in this task. The repository listing is **only file-existence/size evidence**; it does not verify sheet names, the actual entry inventory, key uniqueness, template/service/device mappings, keyset hash, or 352 total. Those criteria remain **NOT RUN / NOT VERIFIED**, not PASS. Use a working binary artifact in an approved local/disposable environment and run only `python3 scripts/export_workbook_for_laravel.py --validate-only` after the repository/workbook are available; never invoke the legacy Supabase workflow or writer.
