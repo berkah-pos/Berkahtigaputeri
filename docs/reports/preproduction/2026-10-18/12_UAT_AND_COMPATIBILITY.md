@@ -314,3 +314,51 @@ Langkah berikut:
 - [Flutter main initializer](https://github.com/berkah-pos/Berkahtigaputeri/blob/main/pos-app/lib/main.dart)
 - [Legacy workbook workflow to route to CI owner](https://github.com/berkah-pos/Berkahtigaputeri/blob/main/.github/workflows/canonical-workbook-validate.yml)
 - [Fail-closed check-matrix specification](https://github.com/berkah-pos/Berkahtigaputeri/blob/main/config/ci/required-check-matrix.json)
+
+
+## 14. Evidence refresh — 2026-10-20 (Asia/Jakarta)
+
+This section supersedes only time-sensitive run/branch observations above; the original 2026-10-19 audit remains preserved as a dated snapshot. No application or test was executed by this refresh.
+
+### 14.1 Exact SHA / current CI query
+
+| Item | Verified observation | Interpretation |
+|---|---|---|
+| Current canonical `main` | `371b7fdf0bf672b37ceb1023e647f114221bf797` | Confirmed by GitHub API `GET /repos/berkah-pos/Berkahtigaputeri/commits/main` during this refresh. This is a source-inspection baseline, not a selected release candidate. |
+| UAT PR | [#89](https://github.com/berkah-pos/Berkahtigaputeri/pull/89), branch `audit/preprod-uat-matrix-2026-10-18`, open/draft | PR base is `main`; reported branch head at refresh start was `4ce56c763710d457ba3740904b444e9a751076b5`. The PR contains the UAT report, not a product build. |
+| Check runs at the base SHA | [GitHub check-runs API](https://api.github.com/repos/berkah-pos/Berkahtigaputeri/commits/371b7fdf0bf672b37ceb1023e647f114221bf797/check-runs) returned `total_count: 0`. Combined status returned `pending` with an empty status list. | No ordinary check-run evidence was exposed by these API reads. This does not prove no workflow exists or all workflows failed. |
+| Actions runs filtered to exact base SHA | [Run 39186055413](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39186055413), name `github_actions in /. - Update #1635099402`; [run 39184121515](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39184121515), name `pub in /pos-app - Update #1635042244`. Both: event `dynamic`, attempt 1, completed/success, head SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`. | These are Dependabot/dynamic dependency-update jobs, not application UAT, route/API tests, Flutter test suite results or browser/device checks. They do not satisfy any UAT acceptance gate. |
+| Actions runs filtered to UAT branch | GitHub API returned no runs for `audit/preprod-uat-matrix-2026-10-18` at refresh time. | No CI/UAT run for the report branch was evidenced by this query. The report-only change also does not prove product test coverage. |
+
+**Exact-SHA boundary:** the older baseline report and run `39005405149` belong to SHA `aab154f87342f2a02a1319e1d370ce831dbef522`, not this baseline SHA and not the UAT PR's documentation-only head. Keep it as historical baseline smoke evidence only; do not inherit its results for this UAT matrix.
+
+### 14.2 Current source observations / stable defect references
+
+The following source observations were fetched at exact `main` SHA `371b7fdf0bf672b37ceb1023e647f114221bf797`:
+
+- `routes/api.php`, lines 5–11, blob `7fdffb2e56c3533435f93ed8137159445f3c1d83`: the file declares only `GET /v1/platform-health` (Laravel API prefix yields `/api/v1/platform-health`). This is direct source evidence for the **route-surface acceptance defect**; no HTTP journey was executed.
+- `pos-app/pubspec.yaml`, line 16, blob `42cfaa46b6a8067160b736b217100cb61ab6ee32`: dependency `supabase_flutter: ^2.6.3` remains present.
+- `pos-app/lib/main.dart`, lines 3, 11, 35, blob `4ae7ef0200c5a23ba536dca1140545d7cfb5bdf8`: imports Supabase, reads `SUPABASE_URL`, and calls `Supabase.initialize`. Latest owner ADR prohibits this product dependency; this is source/compliance evidence, not a live Supabase test. No Supabase endpoint was contacted.
+- `.github/workflows/canonical-workbook-validate.yml`, line 68, blob `cf6c5d276b3869f1291d78eae0caedadfd09d4b9`: workflow invokes `scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352`. It remains prohibited even when the flag says `--dry-run`; **this audit did not dispatch or execute that workflow/command**. Route to CI/workflow owner; no cross-scope fix was applied.
+- `scripts/export_workbook_for_laravel.py`, blob `af759fe3b736047de077f68e907e3e2eb9031e8e`, has source logic defining seven expected sheets, count targets `1/3/100/140/108`, total 352, uniqueness, keyset MD5 and identifier/mapping validation. The workbook itself and this validator were **not executed**, so the actual 352 count is **NOT RUN / NOT VERIFIED** in this workstream.
+- `config/ci/required-check-matrix.json`, line 3, blob `4d70b92fa2dfbbbfaae38f61e276ad52e298d697`, explicitly calls itself “Specification only; not yet wired into CI.” Line 143 refers to `scripts/test_canonical_workbook_contract.py`; the earlier source fetch/search found no such file. Do not present the JSON matrix as an active required gate.
+
+Stable source links: [API route file at base SHA](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/routes/api.php#L5-L11), [Flutter manifest](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/pos-app/pubspec.yaml#L16), [Flutter initializer](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/pos-app/lib/main.dart#L3-L35), [workbook workflow](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/.github/workflows/canonical-workbook-validate.yml#L58-L68), [workbook validator](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/scripts/export_workbook_for_laravel.py), [required-check matrix](https://github.com/berkah-pos/Berkahtigaputeri/blob/371b7fdf0bf672b37ceb1023e647f114221bf797/config/ci/required-check-matrix.json#L1-L20).
+
+### 14.3 Workstation/runtime availability — executed setup attempt
+
+| Exact command | Environment | Exit / result | Artifact |
+|---|---|---|---|
+| `git clone --depth 1 --branch main https://github.com/berkah-pos/Berkahtigaputeri.git /tmp/Berkahtigaputeri` | Task container | **Exit 128 / FAILED setup**: DNS/network resolution for `github.com` unavailable in the task container; no local checkout was created. | No repository checkout or test log file. The safe error summary is recorded here; no secret or customer data was involved. |
+
+Consequently, these product tests were **NOT RUN** in a local/disposable runtime: `python3 scripts/export_workbook_for_laravel.py --validate-only`; `PYTHONPATH=. python -m unittest discover -s scripts/tests -p 'test_*.py'`; `composer validate --strict --no-check-publish`; `composer check-platform-reqs`; `composer audit --locked --no-interaction`; `php artisan route:list --path=api/v1`; `php artisan test`; `php artisan test --filter=TenantProvisioningPostgresGrantsTest`; `flutter analyze --no-pub`; `flutter test --no-pub --reporter expanded`; `flutter build appbundle --debug --no-pub`. Exit code for each unlaunched command is **N/A — NOT RUN**, not 0. Exact target/acceptance and evidence requirements are in the companion [UAT matrix](12_UAT_MATRIX.md).
+
+No staging API calls, disposable-database queries, fixture creation, email sends, transaction posts, browser runs, physical-device installs, screenshot/HAR captures, restore tests or production operations took place. No Supabase sync, Supabase migration or Supabase read was attempted.
+
+### 14.4 Defect-priority note
+
+For routing, use the existing defect IDs and owners; this workstream performed no source fix. Given the explicit no-Supabase rule in the latest owner ADR, the workflow command in **UAT-DEF-04** is recommended for **P1 / High confidence** review before the workflow can trigger again: its source invokes a specifically prohibited mutation-capable legacy script, although this task did not run it. Existing report text rating it P2 should be read as the initial triage; this refresh raises it to P1 for owner triage. The fix belongs to the CI/workflow owner, not UAT.
+
+### 14.5 Acceptance status after refresh
+
+**BLOCKED (not PASS).** Current exact-SHA workflow queries do not provide product UAT evidence; product journey API routes, no-Supabase client compliance, actual workbook validation, real PostgreSQL tenant A/B negative tests, end-to-end accounting/report reconciliation, offline/reconnect recovery, browser/device coverage, restore evidence and business approval remain unresolved. See [the companion matrix](12_UAT_MATRIX.md) for test IDs, test preconditions, expected oracles, actual evidence status and sign-off dependencies.
