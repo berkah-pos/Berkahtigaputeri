@@ -7,21 +7,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    protected $connection = 'tenant_migrator';
+
     /**
      * Honour the connection selected by "artisan migrate --database=...".
      * Never silently route tenant schema changes to the default/central DB.
      */
     private function targetConnection(): string
     {
-        $connection = DB::getDefaultConnection();
-
-        if (! in_array($connection, ['tenant', 'tenant_migrator'], true)) {
-            throw new \RuntimeException(
-                'Tenant POS migrations require --database=tenant or --database=tenant_migrator.'
-            );
-        }
-
-        return $connection;
+        // Every tenant schema change must use the isolated migration identity.
+        // This avoids relying on Laravel's app default connection, which may be central.
+        return 'tenant_migrator';
     }
 
     public function up(): void
