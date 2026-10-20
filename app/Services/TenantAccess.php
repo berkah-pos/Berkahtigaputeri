@@ -2,15 +2,29 @@
 
 namespace App\Services;
 
+use App\Models\Central\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class TenantAccess
 {
     /**
-     * An active tenant must exist and have a current server-side entitlement.
-     * A client-supplied tenant/device identifier is never used as proof of access.
+     * Membership is a distinct authority record; users.tenant_id is only
+     * their default tenant selector and is not authorization by itself.
      */
+    public function hasActiveMembership(?User $user): bool
+    {
+        if ($user === null || ! $user->is_active || $user->tenant_id === null) {
+            return false;
+        }
+
+        return DB::connection('central')->table('tenant_memberships')
+            ->where('user_id', $user->id)
+            ->where('tenant_id', (string) $user->tenant_id)
+            ->where('status', 'active')
+            ->exists();
+    }
+
     public function hasActiveSubscription(?string $tenantId): bool
     {
         if ($tenantId === null || trim($tenantId) === '') {

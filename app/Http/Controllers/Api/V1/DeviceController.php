@@ -23,6 +23,9 @@ class DeviceController extends Controller
         }
 
         $tenantId = $user->tenant_id === null ? '' : (string) $user->tenant_id;
+        if (! $tenantAccess->hasActiveMembership($user)) {
+            return response()->json(['error' => ['code' => 'tenant_membership_required']], 403);
+        }
         if (! $tenantAccess->hasActiveSubscription($tenantId)) {
             return response()->json(['error' => ['code' => 'tenant_not_entitled']], 403);
         }

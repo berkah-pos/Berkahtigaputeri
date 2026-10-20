@@ -31,6 +31,15 @@ class AuthController extends Controller
             ], 401);
         }
 
+        if (! $tenantAccess->hasActiveMembership($user)) {
+            return response()->json([
+                'error' => [
+                    'code' => 'tenant_membership_required',
+                    'message' => 'The account has no active membership in its assigned tenant.',
+                ],
+            ], 403);
+        }
+
         if (! $tenantAccess->hasActiveSubscription($user->tenant_id === null ? null : (string) $user->tenant_id)) {
             return response()->json([
                 'error' => [

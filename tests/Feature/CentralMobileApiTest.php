@@ -107,6 +107,15 @@ class CentralMobileApiTest extends TestCase
             'is_active' => true,
         ]);
 
+        DB::connection('central')->table('tenant_memberships')->insert([
+            'tenant_id' => $this->tenantId,
+            'user_id' => $this->user->id,
+            'role' => 'owner',
+            'status' => 'active',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         $central->table('device_registry')->insert([
             'device_id' => $this->deviceId,
             'tenant_id' => $this->tenantId,
@@ -151,6 +160,22 @@ class CentralMobileApiTest extends TestCase
 
         $this->assertNotEmpty($response->json('access_token'));
         $this->assertTrue(now()->lessThanOrEqualTo(\Illuminate\Support\Carbon::parse($response->json('expires_at'))));
+    }
+
+    public function test_login_rejects_a_user_without_active_tenant_membership(): void
+    {
+        DB::connection('central')->table('tenant_memberships')
+            ->where('tenant_id', $this->tenantId)
+            ->where('user_id', $this->user->id)
+            ->update(['status' => 'revoked']);
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->email,
+            'password' => 'Test-Passphrase-2026!',
+        ]);
+
+        $response->assertForbidden()->assertJsonPath('error.code', 'tenant_membership_required');
+        $this->assertSame(0, DB::connection('central')->table('personal_access_tokens')->count());
     }
 
     public function test_invalid_password_is_rejected_without_issuing_a_token(): void
