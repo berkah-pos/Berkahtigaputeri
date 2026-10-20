@@ -6,15 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'central';
+    protected $connection = 'central_migrator';
 
     public function up(): void
     {
-        Schema::connection('central')->table('device_registry', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->table('device_registry', function (Blueprint $table): void {
             $table->unique(['device_id', 'tenant_id'], 'device_registry_device_tenant_unique');
         });
 
-        Schema::connection('central')->create('device_configs', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('device_configs', function (Blueprint $table): void {
             $table->string('device_id', 150)->primary();
             $table->string('tenant_id');
             $table->json('config');
@@ -31,8 +31,8 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection('central')->dropIfExists('device_configs');
-        Schema::connection('central')->table('device_registry', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->dropIfExists('device_configs');
+        Schema::connection('central_migrator')->table('device_registry', function (Blueprint $table): void {
             $table->dropUnique('device_registry_device_tenant_unique');
         });
     }
