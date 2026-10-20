@@ -209,6 +209,23 @@ jobs:
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
 
+      - name: Import canonical manifest atomically into disposable central PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/workbook-import-venv"
+          "$RUNNER_TEMP/workbook-import-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+          manifest="$RUNNER_TEMP/canonical-central-config.json"
+          "$RUNNER_TEMP/workbook-import-venv/bin/python" scripts/export_workbook_for_laravel.py --output "$manifest"
+          docker run --rm --network host -v "$manifest:/tmp/canonical-central-config.json:ro" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            php artisan config:import-workbook /tmp/canonical-central-config.json
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 -tA \
+            -c "SELECT CASE WHEN (SELECT count(*) FROM global_configs WHERE key='global')=1 AND (SELECT count(*) FROM templates)=3 AND (SELECT count(*) FROM tenants)=100 AND (SELECT count(*) FROM tenant_services)=140 AND (SELECT count(*) FROM device_registry)=108 AND (SELECT count(*) FROM tenant_configs)=240 AND (SELECT count(*) FROM device_configs)=108 THEN 'PASS canonical import counts' ELSE 'FAIL canonical import counts' END"
+
       - name: Migrate fresh tenant database with isolated migrator identity
         shell: bash
         run: |
