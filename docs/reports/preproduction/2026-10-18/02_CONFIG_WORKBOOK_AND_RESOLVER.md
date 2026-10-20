@@ -89,7 +89,7 @@ Read in the required order from the canonical repository, including the current 
 
 - **Severity / confidence:** P1 / High.
 - **Status:** Open dependency; workflow intentionally not edited.
-- **Evidence:** .github/workflows/canonical-workbook-validate.yml:58-68 runs a workbook test-discovery step and then invokes scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352. The legacy script contains mutation-capable REST/RPC calls. The current root instructions expressly prohibit running that script, including dry-run.
+- **Evidence:** .github/workflows/canonical-workbook-validate.yml:62-68 runs a workbook test-discovery step and then invokes scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352. The legacy script contains mutation-capable REST/RPC calls. The current root instructions expressly prohibit running that script, including dry-run.
 - **Impact:** Current CI is not a suitable safe validation path under the latest architecture authority, even though its checked-in invocation uses a dry-run argument. A future edit to triggering paths or manual dispatch could execute a forbidden legacy code path.
 - **Required next action:** Route to the workflow owner. Replace that invocation with the offline scripts/export_workbook_for_laravel.py --validate-only and standalone deterministic contract tests in a separately reviewed workflow change. Do not execute or manually dispatch the current workflow from this audit.
 
@@ -161,4 +161,4 @@ Read in the required order from the canonical repository, including the current 
 
 ## 9. Recommendation
 
-**BLOCKED** — corrective exporter/test source exists on the work branch, but workbook validation, deterministic export, tests, and Laravel resolver behavior have not been executed or proven on an exact integrated candidate SHA. BLOCKED is not PASS.
+**BLOCKED** — direct workbook structure and aggregate relationships are verified, but the Python exporter validation, deterministic export/hash checks and synthetic tests are NOT RUN; Laravel resolver behavior is absent/unverified; and the current workflow remains incompatible with the no-Supabase authority. BLOCKED is not PASS.
