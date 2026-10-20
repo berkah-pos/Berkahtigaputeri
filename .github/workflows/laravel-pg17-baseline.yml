@@ -175,7 +175,7 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1)"
           printf '%s\\n' "$routes"
-          for required_route in "api/v1/auth/login" "api/v1/auth/logout" "api/v1/devices/enroll" "api/v1/config/effective"; do
+          for required_route in "api/v1/auth/login" "api/v1/auth/logout" "api/v1/devices/enroll" "api/v1/config/effective" "api/v1/sync"; do
             if ! grep -Fq "$required_route" <<<"$routes"; then
               echo "::error::Required Laravel mobile route is not registered: $required_route" >&2
               exit 1
