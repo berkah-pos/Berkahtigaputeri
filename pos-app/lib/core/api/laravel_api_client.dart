@@ -241,6 +241,21 @@ class LaravelApiClient {
         },
       );
 
+  Future<Map<String, dynamic>> syncOutboxEvent({
+    required String deviceId,
+    required String appVersion,
+    required Map<String, dynamic> event,
+  }) =>
+      _send(
+        'POST',
+        '/api/v1/sync',
+        body: <String, dynamic>{
+          'device_id': deviceId.trim(),
+          'app_version': appVersion,
+          'events': <Map<String, dynamic>>[event],
+        },
+      );
+
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
