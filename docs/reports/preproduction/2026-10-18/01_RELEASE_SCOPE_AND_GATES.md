@@ -27,6 +27,7 @@ Temuan utama:
 | Repository | https://github.com/berkah-pos/Berkahtigaputeri |
 | Base SHA yang dicatat sebelum mengubah repo | 371b7fdf0bf672b37ceb1023e647f114221bf797 |
 | Branch laporan | audit/release-scope-governance-20261019 |
+| Commit SHA isi laporan (sebelum penghapusan salinan lama) | `c3fe5a5f3ccf99db87a2fc345a7e07de71d12d3b`; final branch HEAD is tracked in PR #91 metadata |
 | File laporan | `docs/reports/preproduction/2026-10-18/01_RELEASE_SCOPE_AND_GATES.md` |
 | Scope perubahan | Laporan audit saja; tidak ada implementasi produk |
 | Database/runtime produksi | Tidak diakses |
