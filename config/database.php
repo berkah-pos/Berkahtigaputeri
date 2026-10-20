@@ -19,7 +19,6 @@ return [
         ],
         'tenant' => [
             'driver' => 'pgsql',
-            'url' => env('TENANT_DB_URL'),
             'host' => env('TENANT_DB_HOST', '127.0.0.1'),
             'port' => env('TENANT_DB_PORT', '5432'),
             'database' => env('TENANT_DB_DATABASE', 'berkahpos_tenant'),
@@ -35,7 +34,6 @@ return [
         // Ordinary web/queue runtime environments must not receive these credentials.
         'tenant_migrator' => [
             'driver' => 'pgsql',
-            'url' => env('TENANT_MIGRATOR_DB_URL') ?: null,
             'host' => env('TENANT_MIGRATOR_DB_HOST', '127.0.0.1'),
             'port' => env('TENANT_MIGRATOR_DB_PORT', '5432'),
             'database' => env('TENANT_MIGRATOR_DB_DATABASE', 'berkahpos_tenant'),
