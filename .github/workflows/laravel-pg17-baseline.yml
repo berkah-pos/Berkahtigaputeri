@@ -83,8 +83,13 @@ jobs:
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
-      TENANT_DB_USERNAME: postgres
-      TENANT_DB_PASSWORD: postgres
+      TENANT_DB_USERNAME: tenant_runtime_ci
+      TENANT_DB_PASSWORD: tenant_runtime_ci_password
+      TENANT_MIGRATOR_DB_HOST: 127.0.0.1
+      TENANT_MIGRATOR_DB_PORT: "5432"
+      TENANT_MIGRATOR_DB_DATABASE: berkahpos_tenant_ci
+      TENANT_MIGRATOR_DB_USERNAME: tenant_migrator_ci
+      TENANT_MIGRATOR_DB_PASSWORD: tenant_migrator_ci_password
       APP_ENV: testing
       APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       DB_CONNECTION: central
@@ -118,6 +123,15 @@ jobs:
           db_config = Path("config/database.php").read_text()
           assert "'default' => env('DB_CONNECTION', 'central')" in db_config
           assert "'driver' => 'pgsql'" in db_config
+          tenant_config = db_config.split("'tenant' => [", 1)[1].split("        ],", 1)[0]
+          assert "'username' => env('TENANT_DB_USERNAME') ?: '__tenant_runtime_role_required__'" in tenant_config
+          assert "'password' => env('TENANT_DB_PASSWORD', '')" in tenant_config
+          assert "env('CENTRAL_DB_USERNAME'" not in tenant_config
+          assert "env('DB_USERNAME'" not in tenant_config
+          assert "env('CENTRAL_DB_PASSWORD'" not in tenant_config
+          assert "env('DB_PASSWORD'" not in tenant_config
+          assert "'tenant_migrator' => [" in db_config
+          assert "TENANT_MIGRATOR_DB_USERNAME" in db_config
           for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
               active = Path(active_path).read_text().lower()
               assert "mariadb" not in active, active_path
@@ -156,13 +170,30 @@ jobs:
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
           docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
-      - name: Create disposable tenant database on PostgreSQL 17
+      - name: Provision disposable tenant A/B roles and databases
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE DATABASE berkahpos_tenant_ci"
+            -c "CREATE ROLE tenant_migrator_ci LOGIN NOINHERIT PASSWORD '$TENANT_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_ci LOGIN NOINHERIT PASSWORD '$TENANT_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_migrator_b_ci LOGIN NOINHERIT PASSWORD 'tenant_migrator_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_b_ci LOGIN NOINHERIT PASSWORD 'tenant_runtime_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE DATABASE berkahpos_tenant_ci OWNER tenant_migrator_ci" \
+            -c "CREATE DATABASE berkahpos_tenant_b_ci OWNER tenant_migrator_b_ci" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_ci FROM PUBLIC" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_b_ci FROM PUBLIC" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO tenant_migrator_ci, tenant_runtime_ci" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_b_ci TO tenant_migrator_b_ci, tenant_runtime_b_ci"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "REVOKE CREATE ON SCHEMA public FROM PUBLIC" \
+            -c "REVOKE CREATE ON SCHEMA public FROM tenant_runtime_ci" \
+            -c "GRANT USAGE ON SCHEMA public TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO tenant_runtime_ci"
 
       - name: Migrate fresh central database on disposable PostgreSQL 17
         shell: bash
@@ -173,16 +204,58 @@ jobs:
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
 
-      - name: Migrate fresh tenant database on disposable PostgreSQL 17
+      - name: Migrate fresh tenant database with isolated migrator identity
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
-            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
-            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
-            php artisan migrate --database=tenant --path=database/migrations/tenant --force
+            --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
+            --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
+            --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" \
+            php artisan migrate --database=tenant_migrator --path=database/migrations/tenant --force
+
+      - name: Grant least-privilege tenant runtime DML
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO tenant_runtime_ci" \
+            -c "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tenant_runtime_ci"
+
+      - name: Prove tenant runtime cannot cross database boundaries or perform DDL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          docker run --rm --network host \
+            --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$TENANT_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.products')"
+
+          for denied_db in berkahpos_central_ci berkahpos_tenant_b_ci; do
+            if docker run --rm --network host --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+              psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$denied_db" \
+                -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null 2>&1; then
+              echo "ERROR: tenant_runtime_ci unexpectedly connected to $denied_db" >&2
+              exit 1
+            else
+              echo "PASS: tenant_runtime_ci cannot CONNECT to $denied_db"
+            fi
+          done
+
+          if docker run --rm --network host --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$TENANT_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -c "CREATE TABLE public.__runtime_ddl_probe(id integer)" >/dev/null 2>&1; then
+            echo "ERROR: tenant_runtime_ci unexpectedly created a table" >&2
+            exit 1
+          else
+            echo "PASS: tenant_runtime_ci cannot CREATE TABLE"
+          fi
+
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('tenant_runtime_ci','tenant_runtime_b_ci') AND (rolsuper OR rolcreatedb OR rolcreaterole)) THEN RAISE EXCEPTION 'tenant runtime role has cluster privileges'; END IF; END \$\$"
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
         shell: bash
