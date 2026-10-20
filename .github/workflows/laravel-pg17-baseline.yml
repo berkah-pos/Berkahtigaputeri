@@ -132,6 +132,8 @@ jobs:
           assert "env('DB_PASSWORD'" not in tenant_config
           assert "'tenant_migrator' => [" in db_config
           assert "TENANT_MIGRATOR_DB_USERNAME" in db_config
+          assert "TENANT_DB_URL" not in db_config
+          assert "TENANT_MIGRATOR_DB_URL" not in db_config
           tenant_migration = Path("database/migrations/tenant/2026_10_17_000001_create_tenant_pos_tables.php").read_text()
           assert "Schema::connection('tenant')" not in tenant_migration
           assert "Schema::connection($this->targetConnection())" in tenant_migration
