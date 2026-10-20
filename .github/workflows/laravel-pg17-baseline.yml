@@ -174,7 +174,6 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
       - name: Provision disposable tenant A/B roles and databases
         shell: bash
@@ -219,6 +218,20 @@ jobs:
             --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
             --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=tenant_migrator --path=database/migrations/tenant --force
+
+      - name: Run Laravel API and authorization tests against disposable PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
+            --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
+            --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
+            --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" php artisan test
 
       - name: Grant least-privilege tenant runtime DML
         shell: bash
