@@ -474,9 +474,10 @@ class _ConfigurationScreen extends StatefulWidget {
 class _ConfigurationScreenState extends State<_ConfigurationScreen> {
   bool _loading = false;
   String? _status;
-  late final TextEditingController _deviceIdController;
   Map<String, dynamic>? _configuration;
   TenantFeatures? _features;
+
+  late final TextEditingController _deviceIdController;
 
   @override
   void initState() {
@@ -492,7 +493,56 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
 
   Future<void> _saveDeviceId() async {
     final deviceId = _deviceIdController.text.trim();
-    if (!RegExp(r'^[A-Za-z0-9_.:-]{3,150}  Future<void> _openExternal(String url) async {
+    if (!RegExp(r'^[A-Za-z0-9_.:-]{3,150}$').hasMatch(deviceId)) {
+      setState(() => _status = 'ID perangkat tidak valid. Gunakan 3-150 huruf, angka, titik, garis bawah, titik dua, atau tanda hubung.');
+      return;
+    }
+    await widget.identityStore.setDeviceId(deviceId);
+    if (!mounted) return;
+    setState(() => _status = 'ID disimpan secara lokal. Pendaftaran server masih diperlukan.');
+  }
+
+  Future<void> _enrollDevice() async {
+    final api = widget.apiClient;
+    final deviceId = _deviceIdController.text.trim();
+    if (api == null || !api.hasAuthenticatedSession) {
+      setState(() => _status = 'Login cloud Laravel diperlukan sebelum enrollment.');
+      return;
+    }
+    if (!RegExp(r'^[A-Za-z0-9_.:-]{3,150}$').hasMatch(deviceId)) {
+      setState(() => _status = 'Masukkan ID perangkat yang valid.');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _status = null;
+    });
+    try {
+      final response = await api.enrollDevice(deviceId);
+      if (response['tenant_id']?.toString() != widget.identityStore.tenantId) {
+        throw const ApiException(403, 'tenant_scope_mismatch', 'Server menolak scope tenant perangkat.');
+      }
+      await widget.identityStore.setDeviceId(deviceId);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _status = 'Perangkat berhasil didaftarkan oleh server untuk tenant ' + widget.identityStore.tenantId + '.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _status = error is ApiException
+            ? 'Enrollment ditolak server: ' + error.message
+            : error is ApiTransportException
+                ? error.message
+                : 'Enrollment gagal. Periksa koneksi dan konfigurasi server.';
+      });
+    }
+  }
+
+  Future<void> _openExternal(String url) async {
     try {
       final opened = await launchUrl(
         Uri.parse(url),
@@ -616,7 +666,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                     enabled: !_loading,
                     decoration: const InputDecoration(
                       labelText: 'ID perangkat POS',
-                      helperText: 'ID lokal hanya menjadi permintaan enrollment; server tetap memeriksa tenant dan pemilik.',
+                      helperText: 'ID lokal bukan bukti otorisasi; server memeriksa tenant dan pemilik.',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -637,519 +687,6 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Konfigurasi cloud',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Konfigurasi efektif mengikuti GLOBAL → TEMPLATE → '
-                    'TENANT → SERVICE → DEVICE. Layanan cloud memerlukan '
-                    'session yang sah dan device yang telah terdaftar.',
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _loading ? null : _checkConfiguration,
-                      icon: _loading
-                          ? const SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.cloud_sync),
-                      label: Text(_loading
-                          ? 'Memeriksa...'
-                          : 'Periksa konfigurasi'),
-                    ),
-                  ),
-                  if (_status != null) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(_status!),
-                  ],
-                  if (_features != null) ...<Widget>[
-                    const Divider(height: 24),
-                    Text('POS aktif: ' + (_features!.pos ? 'Ya' : 'Tidak')),
-                    Text('Akuntansi aktif: ' +
-                        (_features!.akuntansi ? 'Ya' : 'Tidak')),
-                  ],
-                  if (_configuration != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text('MDR efektif POS: ' +
-                        (_configuration!['mdr'] ??
-                                _configuration!['qris_mdr'] ?? '-')
-                            .toString()),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: <Widget>[
-                ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const Text('Kebijakan Privasi'),
-                  subtitle: const Text('Buka kebijakan privasi Berkah POS'),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: () => _openExternal(_privacyUrl),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.person_remove_outlined),
-                  title: const Text('Permintaan Hapus Akun'),
-                  subtitle: const Text(
-                    'Buka halaman resmi dan ikuti proses yang disediakan. '
-                    'Permintaan ini tidak menghapus akun dari aplikasi secara langsung.',
-                  ),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: () => _openExternal(_deleteAccountUrl),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.support_agent_outlined),
-                  title: const Text('Hubungi Sales via WhatsApp'),
-                  subtitle: Text(
-                    _salesWhatsAppNumber.trim().isEmpty
-                        ? 'Nomor sales dapat dikonfigurasi saat build.'
-                        : 'Minta informasi aktivasi atau paket berlangganan.',
-                  ),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: _contactSales,
-                ),
-              ],
-            ),
-          ),
-          if (widget.onSignOut != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Keluar dari akun cloud'),
-                subtitle: const Text(
-                  'Akhiri sesi akun ini pada perangkat. Data lokal tetap '
-                  'tersimpan pada perangkat.',
-                ),
-                onTap: () async {
-                  final signOut = widget.onSignOut;
-                  Navigator.of(context).pop();
-                  if (signOut != null) await signOut();
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-).hasMatch(deviceId)) {
-      setState(() => _status = 'ID perangkat wajib 3-150 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, titik dua, atau tanda hubung.');
-      return;
-    }
-    await widget.identityStore.setDeviceId(deviceId);
-    if (!mounted) return;
-    setState(() => _status = 'ID perangkat disimpan lokal. Ini belum berarti perangkat sudah terdaftar di server.');
-  }
-
-  Future<void> _enrollDevice() async {
-    final api = widget.apiClient;
-    final deviceId = _deviceIdController.text.trim();
-    if (api == null || !api.hasAuthenticatedSession) {
-      setState(() => _status = 'Login cloud Laravel diperlukan sebelum enrollment perangkat.');
-      return;
-    }
-    if (!RegExp(r'^[A-Za-z0-9_.:-]{3,150}  Future<void> _openExternal(String url) async {
-    try {
-      final opened = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!opened && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
-      );
-    }
-  }
-
-  Future<void> _contactSales() async {
-    final phone = _salesWhatsAppNumber.replaceAll(RegExp('[^0-9]'), '');
-    final link = phone.isEmpty
-        ? Uri.https('wa.me', '/', <String, String>{
-            'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.',
-          })
-        : Uri.https('wa.me', '/$phone', <String, String>{
-            'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.',
-          });
-    await _openExternal(link.toString());
-  }
-
-  Future<void> _checkConfiguration() async {
-    final service = widget.configService;
-    if (service == null) {
-      setState(() {
-        _status = 'BERKAH_API_BASE_URL belum dikonfigurasi. Aplikasi tetap bisa bekerja lokal.';
-      });
-      return;
-    }
-    if (!service.hasAuthenticatedSession) {
-      setState(() {
-        _status = 'Akses cloud diblokir: belum ada sesi login yang '
-            'terautentikasi. ID tenant/perangkat lokal bukan kredensial dan '
-            'tidak menggantikan membership atau enrollment yang diverifikasi server.';
-      });
-      return;
-    }
-    final tenantId = widget.identityStore.tenantId.trim();
-    final deviceId = widget.identityStore.deviceId.trim();
-    if (tenantId.isEmpty || deviceId.isEmpty) {
-      setState(() {
-        _status = 'Tenant dan perangkat belum terdaftar oleh layanan '
-            'enrollment. Hubungkan akun melalui alur enrollment resmi sebelum '
-            'meminta konfigurasi cloud.';
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
-    try {
-      final config = await service.getEffectiveConfig(
-        tenantId: tenantId,
-        deviceId: deviceId,
-        service: 'pos',
-      );
-      final features = TenantFeatures.fromEffectiveConfig(config.value);
-      if (!mounted) return;
-      setState(() {
-        _configuration = config.value;
-        _features = features;
-        _status = config.fromCache
-            ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Laravel API telah memverifikasi scope tenant, perangkat, layanan, dan entitlement.';
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _status = 'Konfigurasi cloud tidak dapat diverifikasi. Periksa '
-            'session autentikasi, enrollment device, dan konfigurasi environment. '
-            'Detail: ' + error.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Pengaturan')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Identitas lokal',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'ID lokal bukan kredensial login atau bukti kepemilikan '
-                    'tenant. Jangan mengganti tenant/device untuk melewati '
-                    'otorisasi server.',
-                  ),
-                  const SizedBox(height: 12),
-                  SelectableText('Tenant: ' +
-                      (widget.identityStore.tenantId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.tenantId)),
-                  SelectableText('Device: ' +
-                      (widget.identityStore.deviceId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.deviceId)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Konfigurasi cloud',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Konfigurasi efektif mengikuti GLOBAL → TEMPLATE → '
-                    'TENANT → SERVICE → DEVICE. Layanan cloud memerlukan '
-                    'session yang sah dan device yang telah terdaftar.',
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _loading ? null : _checkConfiguration,
-                      icon: _loading
-                          ? const SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.cloud_sync),
-                      label: Text(_loading
-                          ? 'Memeriksa...'
-                          : 'Periksa konfigurasi'),
-                    ),
-                  ),
-                  if (_status != null) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(_status!),
-                  ],
-                  if (_features != null) ...<Widget>[
-                    const Divider(height: 24),
-                    Text('POS aktif: ' + (_features!.pos ? 'Ya' : 'Tidak')),
-                    Text('Akuntansi aktif: ' +
-                        (_features!.akuntansi ? 'Ya' : 'Tidak')),
-                  ],
-                  if (_configuration != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text('MDR efektif POS: ' +
-                        (_configuration!['mdr'] ??
-                                _configuration!['qris_mdr'] ?? '-')
-                            .toString()),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: <Widget>[
-                ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined),
-                  title: const Text('Kebijakan Privasi'),
-                  subtitle: const Text('Buka kebijakan privasi Berkah POS'),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: () => _openExternal(_privacyUrl),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.person_remove_outlined),
-                  title: const Text('Permintaan Hapus Akun'),
-                  subtitle: const Text(
-                    'Buka halaman resmi dan ikuti proses yang disediakan. '
-                    'Permintaan ini tidak menghapus akun dari aplikasi secara langsung.',
-                  ),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: () => _openExternal(_deleteAccountUrl),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.support_agent_outlined),
-                  title: const Text('Hubungi Sales via WhatsApp'),
-                  subtitle: Text(
-                    _salesWhatsAppNumber.trim().isEmpty
-                        ? 'Nomor sales dapat dikonfigurasi saat build.'
-                        : 'Minta informasi aktivasi atau paket berlangganan.',
-                  ),
-                  trailing: const Icon(Icons.open_in_new),
-                  onTap: _contactSales,
-                ),
-              ],
-            ),
-          ),
-          if (widget.onSignOut != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Keluar dari akun cloud'),
-                subtitle: const Text(
-                  'Akhiri sesi akun ini pada perangkat. Data lokal tetap '
-                  'tersimpan pada perangkat.',
-                ),
-                onTap: () async {
-                  final signOut = widget.onSignOut;
-                  Navigator.of(context).pop();
-                  if (signOut != null) await signOut();
-                },
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-).hasMatch(deviceId)) {
-      setState(() => _status = 'Masukkan ID perangkat yang valid terlebih dahulu.');
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
-    try {
-      await widget.identityStore.setDeviceId(deviceId);
-      final response = await api.enrollDevice(deviceId);
-      if (response['tenant_id']?.toString() != widget.identityStore.tenantId) {
-        throw const ApiException(403, 'tenant_scope_mismatch', 'Server menolak scope tenant perangkat.');
-      }
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _status = 'Perangkat berhasil diverifikasi dan didaftarkan server untuk tenant ' + widget.identityStore.tenantId + '.';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _status = error is ApiException
-            ? 'Enrollment ditolak server: ' + error.message
-            : error is ApiTransportException
-                ? error.message
-                : 'Enrollment gagal. Periksa konfigurasi server dan koneksi.';
-      });
-    }
-  }
-
-  Future<void> _openExternal(String url) async {
-    try {
-      final opened = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!opened && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
-      );
-    }
-  }
-
-  Future<void> _contactSales() async {
-    final phone = _salesWhatsAppNumber.replaceAll(RegExp('[^0-9]'), '');
-    final link = phone.isEmpty
-        ? Uri.https('wa.me', '/', <String, String>{
-            'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.',
-          })
-        : Uri.https('wa.me', '/$phone', <String, String>{
-            'text': 'Halo tim Berkah POS, saya ingin informasi aktivasi.',
-          });
-    await _openExternal(link.toString());
-  }
-
-  Future<void> _checkConfiguration() async {
-    final service = widget.configService;
-    if (service == null) {
-      setState(() {
-        _status = 'BERKAH_API_BASE_URL belum dikonfigurasi. Aplikasi tetap bisa bekerja lokal.';
-      });
-      return;
-    }
-    if (!service.hasAuthenticatedSession) {
-      setState(() {
-        _status = 'Akses cloud diblokir: belum ada sesi login yang '
-            'terautentikasi. ID tenant/perangkat lokal bukan kredensial dan '
-            'tidak menggantikan membership atau enrollment yang diverifikasi server.';
-      });
-      return;
-    }
-    final tenantId = widget.identityStore.tenantId.trim();
-    final deviceId = widget.identityStore.deviceId.trim();
-    if (tenantId.isEmpty || deviceId.isEmpty) {
-      setState(() {
-        _status = 'Tenant dan perangkat belum terdaftar oleh layanan '
-            'enrollment. Hubungkan akun melalui alur enrollment resmi sebelum '
-            'meminta konfigurasi cloud.';
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
-    try {
-      final config = await service.getEffectiveConfig(
-        tenantId: tenantId,
-        deviceId: deviceId,
-        service: 'pos',
-      );
-      final features = TenantFeatures.fromEffectiveConfig(config.value);
-      if (!mounted) return;
-      setState(() {
-        _configuration = config.value;
-        _features = features;
-        _status = config.fromCache
-            ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Laravel API telah memverifikasi scope tenant, perangkat, layanan, dan entitlement.';
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _status = 'Konfigurasi cloud tidak dapat diverifikasi. Periksa '
-            'session autentikasi, enrollment device, dan konfigurasi environment. '
-            'Detail: ' + error.toString();
-        _loading = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Pengaturan')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('Identitas lokal',
-                      style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'ID lokal bukan kredensial login atau bukti kepemilikan '
-                    'tenant. Jangan mengganti tenant/device untuk melewati '
-                    'otorisasi server.',
-                  ),
-                  const SizedBox(height: 12),
-                  SelectableText('Tenant: ' +
-                      (widget.identityStore.tenantId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.tenantId)),
-                  SelectableText('Device: ' +
-                      (widget.identityStore.deviceId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.deviceId)),
                 ],
               ),
             ),
