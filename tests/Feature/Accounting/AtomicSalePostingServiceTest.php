@@ -254,6 +254,23 @@ class AtomicSalePostingServiceTest extends TestCase
         } catch (QueryException $exception) {
             self::assertStringContainsString('Posted journal lines are immutable', $exception->getMessage());
         }
+
+        $now = CarbonImmutable::now('UTC')->format('Y-m-d H:i:s');
+        try {
+            $this->db->table('journal_lines')->insert([
+                'journal_entry_id' => $result['journal_entry_id'],
+                'line_no' => 99,
+                'account_code' => '1-1010',
+                'debit' => 1,
+                'credit' => 0,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+            self::fail('Posted journal must not accept an appended line');
+        } catch (QueryException $exception) {
+            self::assertStringContainsString('Posted journal lines are immutable', $exception->getMessage());
+        }
+
         self::assertSame('posted', $this->db->table('journal_entries')->where('id', $result['journal_entry_id'])->value('status'));
         self::assertSame(4, $this->db->table('journal_lines')->where('journal_entry_id', $result['journal_entry_id'])->count());
     }
