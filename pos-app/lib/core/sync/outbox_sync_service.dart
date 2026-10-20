@@ -1,7 +1,5 @@
 import 'dart:convert';
 
-import 'package:sqflite/sqflite.dart';
-
 import '../api/laravel_api_client.dart';
 import '../config/app_identity_store.dart';
 import '../database/pos_database.dart';
@@ -187,8 +185,8 @@ class OutboxSyncService {
       await _markAttention(eventId, 'Batas retry tercapai. ' + message);
       return;
     }
-    final exponent = attempt.clamp(1, 10);
-    final delaySeconds = (5 * (1 << (exponent - 1))).clamp(5, 3600);
+    final exponent = attempt.clamp(1, 10).toInt();
+    final delaySeconds = (5 * (1 << (exponent - 1))).clamp(5, 3600).toInt();
     final retryAt = _clock().toUtc().add(Duration(seconds: delaySeconds));
     await _database.database.update(
       'outbox_events',
