@@ -1,18 +1,20 @@
 # Pre-production workstream 02 — Config workbook and resolver
 
-**Evidence date:** 2026-10-18 (Asia/Jakarta)  
-**Workstream status:** **BLOCKED** — exporter/test changes are committed to the dedicated branch, but the workbook was not revalidated with this exporter, tests were not executed, and the Laravel runtime resolver is missing from the inspected base.  
+**Evidence date:** 2026-10-20 (Asia/Jakarta)  
+**Workstream status:** **BLOCKED** — the actual workbook structure and aggregate key/relationship inventory were independently inspected read-only, and exporter/tests received additional source changes; however, the Python exporter and tests remain NOT RUN, no exporter manifest hashes were generated, the Laravel effective-config resolver/tests are absent from the base, and the existing workbook workflow invokes a prohibited legacy sync script.  
 **Scope:** canonical workbook schema, validator/exporter determinism, relation/key checks, resolver presence, and related CI controls only.
 
 ## 1. Executive summary
 
-The canonical contract requires seven sheets in an exact order, 352 exported keys (1 global, 3 templates, 100 tenants, 140 services, 108 devices), and resolution in the order GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. One effective configuration must resolve one requested service only; POS and Akuntansi must not be merged.
+The canonical contract requires seven sheets in this exact order and 352 exported keys (1 global, 3 templates, 100 tenants, 140 services, 108 devices), with effective configuration resolved GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. A configuration request must resolve only its requested service; POS and Akuntansi are not merged.
 
-Static inspection found the base exporter too permissive for that contract: it skipped malformed or duplicate headers, counted entry types by prefix, did not fully reconcile source rows to exported keys, consumed workbook cells in data-only mode without rejecting formulas, used a fixed MD5 keyset digest as its only key-integrity check, and serialized row-derived lists without sorting them. The branch updates the exporter with strict key grammar, required tabular headers, literal-cell/formula/error rejection, duplicate JSON-property checks, relational key reconciliation, deterministic ordering, and SHA-256 digests. A missing standalone contract-test script was added with synthetic-only positive and negative cases.
+A read-only OOXML/ZIP inspection of the actual workbook object (Git blob cb8775f498487eece091c32b2774f45daa183afd) verified the sheet order, data-row counts, 352 unique canonical keys, expected category counts 1/3/100/140/108, zero duplicate/invalid keys, valid JSON-object values for all 352 entries, matching type and source-sheet labels, matching tenant/template assignments for all 140 service and 108 device rows, zero missing/extra source-linked keys, and zero formula cells. The sanitized aggregate output is 02_CONFIG_WORKBOOK_VALIDATION_SUMMARY.json; no configuration payloads or customer fields are included.
 
-This is **not a PASS**. The exporter changes and tests have not been executed in this environment. The current workbook Git blob is unchanged from a historical run that reported the 352 counts, but the exporter blob at that historical run differs from the exporter on the current base. That run therefore does not validate the current exporter. The Laravel resolver and its named test file were absent at the base SHA, so runtime layer order and single-service isolation remain unverified.
+Static inspection found the main-branch exporter too permissive for the contract: it filtered blank headers, counted by prefix, did not fully reconcile source rows to export keys, read cached formula values with data_only=True, used MD5 as its only keyset integrity check, and serialized projections without stable sorting. The branch hardens key grammar, headers, formula/error rejection, strict JSON and duplicate JSON-property checks, referential/scope checks, deterministic sorting, and SHA-256 output. During this pass, the exporter was additionally changed to require type, source_sheet, and sync_status headers and check that type and source_sheet match the key canonical scope; synthetic negative tests were added for these mismatches.
 
-No database synchronization, database query, migration, or production write was performed. The prohibited Supabase sync script was not executed, including in dry-run mode. No workflow YAML or permanent authority document was changed.
+This is **not a PASS**. The custom read-only workbook inspection is direct evidence for workbook structure and aggregate relationships, but it is not execution of scripts/export_workbook_for_laravel.py. Neither that Python exporter nor its synthetic tests ran here; no exporter-generated keyset_sha256 or manifest_sha256 and no two-run byte comparison were produced. The Laravel resolver and its named test file are absent at the inspected base SHA, so runtime five-layer behavior and service isolation remain unverified.
+
+No database synchronization, database query, migration, or production write was performed. The prohibited Supabase sync script was not executed, including in dry-run mode. No workflow YAML, workbook bytes, or permanent authority document was changed.
 
 ## 2. Git identity and change inventory
 
@@ -21,19 +23,19 @@ No database synchronization, database query, migration, or production write was 
 | Repository | berkah-pos/Berkahtigaputeri |
 | Base branch / exact base SHA | main / 371b7fdf0bf672b37ceb1023e647f114221bf797 |
 | Work branch | audit/preprod-config-contract-2026-10-18 |
-| Exporter commit | 2a7b1970a9bf129078afb875812f82532ef9f03b |
-| Contract-test commit | bb5dad3477619a286d918f73c53ec0fb22fc77c3 |
-| Final code/test commit SHA | bb5dad3477619a286d918f73c53ec0fb22fc77c3 (the report-only commit is subsequent) |
-| Workbook blob at base | cb8775f498487eece091c32b2774f45daa183afd |
-| Files changed in-scope | scripts/export_workbook_for_laravel.py; added scripts/test_canonical_workbook_contract.py; this report |
-| Files deliberately not changed | Workbook .xlsx, Laravel resolver/importer, workflow YAML, ADRs, DOC_00, Supabase scripts |
+| Exporter hardening commits | 2a7b1970a9bf129078afb875812f82532ef9f03b; scope-label validation added at 3627b7eb128c3190b8249d5d7e8a5257edf0e98b |
+| Contract-test commits | bb5dad3477619a286d918f73c53ec0fb22fc77c3; type/source negative tests added at a66c73b8e67e715d61d5b2bfe35cf2e6ec07f3c7 |
+| Code/test checkpoint SHA before metadata/report refresh | a66c73b8e67e715d61d5b2bfe35cf2e6ec07f3c7 |
+| Workbook Git blob at base | cb8775f498487eece091c32b2774f45daa183afd |
+| Files changed in-scope | scripts/export_workbook_for_laravel.py; scripts/test_canonical_workbook_contract.py; sanitized 02_CONFIG_WORKBOOK_VALIDATION_SUMMARY.json; this report |
+| Files deliberately not changed | Workbook .xlsx, Laravel resolver/importer, workflow YAML, ADRs, DOC_00, prohibited Supabase sync scripts |
 | PR | Draft PR #78: https://github.com/berkah-pos/Berkahtigaputeri/pull/78; no merge or approval is authorized by this workstream. |
 
 Repository clone was attempted with:
 
     git clone --depth 1 https://github.com/berkah-pos/Berkahtigaputeri.git /tmp/Berkahtigaputeri
 
-**Result:** exit code 128; the shell reported that it could not resolve github.com. The repository was inspected through GitHub file/commit metadata instead of a local checkout. This prevented local Python execution against the real workbook and prevented creation of a locally generated manifest.
+**Result:** exit code 128; the shell reported that it could not resolve github.com. Repository source and workbook bytes were therefore inspected through read-only GitHub file/commit metadata instead of a local checkout. An in-memory, read-only OOXML parser counted rows, examined canonical key strings, parsed aggregate JSON-object structure and compared source/export parent/key mappings. It emitted only the sanitized metadata artifact noted above. The Python exporter and test suite were still not executed.
 
 ## 3. Authority and reading record
 
@@ -61,13 +63,13 @@ Read in the required order from the canonical repository, including the current 
 
 | Gate | Acceptance criterion | Status | Evidence / blocker |
 |---|---|---|---|
-| CFG-01 | Exact seven sheet names and order | **BLOCKED** | Exact sheet order check is implemented in exporter lines 281-300, but the modified code was not executed against the workbook. Workbook blob: cb8775f498487eece091c32b2774f45daa183afd. |
-| CFG-02 | Required headers, duplicate/blank headers, required fields, literal text types and blank/null handling | **BLOCKED** | Strict table/header parsing and text identifier checks added at exporter lines 71-163; synthetic negative tests added but not run. Actual workbook header/type outcomes are unknown in this execution. |
-| CFG-03 | Formula and cached-value handling is fail-closed | **BLOCKED** | Formula and Excel error cells on configuration sheets are rejected at exporter lines 252-269. Actual workbook formula scan was not executed. |
-| CFG-04 | Exact 352 count and category counts | **PARTIAL / BLOCKED** | Historical run 38856048876 reported success on SHA 6e31574ecc04ecae6a535fe409cf415ec18655cc; workbook blob is identical to current base, but validator blob differs. No current code/data execution was performed. |
-| CFG-05 | Unique and canonical key syntax | **BLOCKED** | Canonical grammar, duplicate detection and type counts added at lines 219-250 and 323-346; tests cover malformed and duplicate keys but are NOT RUN. |
-| CFG-06 | Referential integrity across templates, tenants, services, devices, and APP_CONFIG_EXPORT | **BLOCKED** | Exact source/export key-set equality and tenant/service/device scope checks added at lines 359-465; tests cover missing parents and cross-scope keys. Not run. |
-| CFG-07 | Deterministic serialization and SHA-256 | **BLOCKED** | Stable projected-list ordering, UTF-8/LF compact JSON, source_workbook_sha256, keyset_sha256 and manifest_sha256 added at lines 444-498. No output manifest or repeat-run hashes were generated. |
+| CFG-01 | Exact seven sheet names and order | **VERIFIED (workbook structure)** | Direct workbook inspection confirms the exact seven sheet names/order at Git blob cb8775f498487eece091c32b2774f45daa183afd. Exporter re-execution is separate and remains NOT RUN. |
+| CFG-02 | Required headers, duplicate/blank headers, required fields, literal text types and blank/null handling | **PARTIAL** | Actual headings were inspected and required columns used by the branch exporter are present; canonical data rows yielded expected identifier/key relationships. Strict Python header/null/type validation was not executed, so full acceptance remains open. |
+| CFG-03 | Formula and cached-value handling is fail-closed | **PARTIAL** | Read-only OOXML inspection observed zero formula cells; branch exporter loads with data_only=False and rejects formulas/errors. Excel error-cell validation through the Python exporter remains NOT RUN. |
+| CFG-04 | Exact 352 count and category counts | **VERIFIED (workbook structure)** | APP_CONFIG_EXPORT has 352 rows, exact categories 1/3/100/140/108, zero invalid keys and zero duplicates. This is not an exporter test pass. |
+| CFG-05 | Unique and canonical key syntax | **VERIFIED (workbook structure)** | All 352 keys matched canonical key grammar and were unique in direct inspection; template IDs are BASIC/PRO/ENTERPRISE. Python validator/test execution remains NOT RUN. |
+| CFG-06 | Referential integrity across templates, tenants, services, devices, and APP_CONFIG_EXPORT | **VERIFIED (workbook structure)** | Direct inspection found zero missing/extra exported keys, zero tenant/service/device orphans, zero duplicate service pairs, zero service/device template assignment mismatches, zero invalid JSON objects, and zero type/source_sheet mismatches. Strict exporter execution remains NOT RUN. |
+| CFG-07 | Deterministic serialization and SHA-256 | **BLOCKED** | Source code now sorts projections/JSON and computes source/keyset/manifest SHA-256; exporter was not run, no manifest digest was emitted, and no two-export byte comparison exists. Git blob SHA fingerprints the workbook object only; it is not an exporter manifest hash. |
 | CFG-08 | Runtime order GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE | **BLOCKED** | app/Services/EffectiveConfigResolver.php was not found at the base SHA; GitHub Contents API returned 404. No runtime resolver code could be evaluated. |
 | CFG-09 | Requested-service-only resolution; POS/Akuntansi isolation; tenant/device mismatch rejection | **BLOCKED** | tests/Unit/Services/EffectiveConfigResolverTest.php also returned 404 at base. Workbook source/export linkage is stricter in the branch, but does not prove runtime resolver isolation. |
 | CFG-10 | No Supabase side effects and no obsolete sync invocation | **VERIFIED for this agent's actions; CONFLICT remains in repo** | No sync was run. Static inspection shows the canonical workbook workflow at .github/workflows/canonical-workbook-validate.yml:68 invokes the prohibited scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352. Workflow YAML is outside this workstream and remains unchanged. |
@@ -91,22 +93,22 @@ Read in the required order from the canonical repository, including the current 
 - **Impact:** Current CI is not a suitable safe validation path under the latest architecture authority, even though its checked-in invocation uses a dry-run argument. A future edit to triggering paths or manual dispatch could execute a forbidden legacy code path.
 - **Required next action:** Route to the workflow owner. Replace that invocation with the offline scripts/export_workbook_for_laravel.py --validate-only and standalone deterministic contract tests in a separately reviewed workflow change. Do not execute or manually dispatch the current workflow from this audit.
 
-### F-03 — The base exporter did not enforce enough of the workbook contract
+### F-03 — Base exporter was too permissive; corrective exporter code is not executed
 
 - **Severity / confidence:** P1 / High.
-- **Status:** Corrective code proposed in this branch; closure NOT VERIFIED.
-- **Evidence:** Base exporter blob af759fe3b736047de077f68e907e3e2eb9031e8e read the workbook with data_only=True, filtered blank headers, counted keys by prefix, verified the historical MD5 only, and did not require source/export service and device key equality. The branch changes exporter behavior in lines 71-269 and 281-498.
-- **Impact:** Malformed workbook rows, formulas with stale cached results, non-canonical keys, or a valid-but-wrong app_config_key could evade checks or map to the wrong service/device configuration. MD5 alone and row-order-dependent serialization did not meet the SHA-256/repeatability acceptance contract.
-- **Corrective work:** Added strict table/header parsing, literal configuration-cell enforcement, duplicate JSON property rejection, exact canonical key grammar, exact equality between exported keys and source sheet projections, tenant/service/device scope checks, sorted projected rows, and SHA-256 values while preserving the legacy MD5 field for importer compatibility.
-- **Required next action:** Run the new test file and the offline exporter against the actual canonical workbook and review any schema/header mismatch before accepting the change. No source/test pass is claimed here.
+- **Status:** SOURCE-VERIFIED changes; tests NOT RUN; closure BLOCKED.
+- **Evidence:** Base exporter blob af759fe3b736047de077f68e907e3e2eb9031e8e loaded with data_only=True, filtered blank headers, counted by prefix and emitted order-dependent projections. The branch exporter now fails closed on strict headers/formula/error cells/JSON/key grammar, reconciles source/export keys and tenant/service/device scope, sorts projections and emits SHA-256 digests. A follow-up change also requires type, source_sheet and sync_status headers and checks type/source ownership against canonical key category (code commit 3627b7eb128c3190b8249d5d7e8a5257edf0e98b). Synthetic tests were added for wrong type/source-sheet mappings.
+- **Impact:** Without these controls, stale formula caches, duplicate/malformed keys and scope-crossing references could evade validation. Source code presence does not establish runtime behavior.
+- **Corrective work:** Strict workbook parser/exporter and synthetic negative cases are committed to this branch; direct workbook inspection found no current aggregate key/source mismatch.
+- **Required next action:** Run the offline exporter and isolated synthetic tests on a local checkout or a new safe workflow approved by the workflow owner. Do not call the legacy sync wrapper.
 
-### F-04 — Actual workbook row counts and output hashes not independently regenerated
+### F-04 — Workbook data structure verified; exporter digest not yet regenerated
 
 - **Severity / confidence:** P1 / High for acceptance evidence.
-- **Status:** BLOCKED.
-- **Evidence:** Current workbook Git blob SHA is cb8775f498487eece091c32b2774f45daa183afd; querying the same path at old tested SHA 6e31574ecc04ecae6a535fe409cf415ec18655cc returned the same blob SHA. Historical evidence for run 38856048876 reports 352 keys and counts 1/3/100/140/108, but its exporter blob was 7cc291ad7d6d777d2c3472737a4744f5112d23ed, not the current base exporter blob af759fe3b736047de077f68e907e3e2eb9031e8e.
-- **Impact:** Historical same-workbook evidence is useful but cannot substitute for executing the current exporter/new checks. No source data mismatch is confirmed; current output is unverified.
-- **Required next action:** In an environment with a local checkout, run the offline validator, export to two clean local directories, compare bytes and SHA-256, and attach the sanitized manifest and command logs. Never run the old sync script.
+- **Status:** PARTIAL — structure verified; Python exporter/hash acceptance BLOCKED.
+- **Evidence:** The read-only workbook inspection artifact records the workbook Git blob cb8775f498487eece091c32b2774f45daa183afd, all seven sheets/row counts, 352 unique key-category totals, zero source/export mapping mismatches, zero formula cells, and zero template/source scope mismatches. Historical run 38856048876 is not exact-head evidence for the current exporter.
+- **Impact:** The canonical workbook structure is consistent with DOC_00, but deterministic serialization, SHA-256 manifest/keyset values and same-input repeated export equality have not been executed.
+- **Required next action:** On a machine with a local checkout, run python scripts/export_workbook_for_laravel.py --validate-only; export twice into clean directories and compare exact bytes plus SHA-256. Do not run the prohibited script.
 
 
 ### F-05 — Importer trusts manifest metadata instead of validating its contents
