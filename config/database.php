@@ -45,6 +45,21 @@ return [
             'search_path' => env('TENANT_MIGRATOR_DB_SCHEMA', 'public'),
             'sslmode' => env('TENANT_MIGRATOR_DB_SSLMODE', 'prefer'),
         ],
+        // Set dynamically only from the server-derived tenant database registry.
+        // This default deliberately cannot connect if the registry was not resolved.
+        'tenant_runtime' => [
+            'driver' => 'pgsql',
+            'host' => env('TENANT_DB_HOST', '127.0.0.1'),
+            'port' => env('TENANT_DB_PORT', '5432'),
+            'database' => '__tenant_database_not_resolved__',
+            'username' => '__tenant_runtime_role_required__',
+            'password' => '',
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('TENANT_DB_SCHEMA', 'public'),
+            'sslmode' => env('TENANT_DB_SSLMODE', 'prefer'),
+        ],
     ],
     'migrations' => [
         'table' => 'migrations',
