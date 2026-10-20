@@ -349,6 +349,7 @@ class ImportCanonicalWorkbook extends Command
         unset($desired['version']);
 
         $current = [];
+        $decoded = [];
         if ($existing !== null) {
             $decoded = json_decode((string) $existing->config, true, 512, JSON_THROW_ON_ERROR);
             if (! is_array($decoded)) {

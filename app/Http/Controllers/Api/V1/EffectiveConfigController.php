@@ -106,7 +106,7 @@ class EffectiveConfigController extends Controller
         ];
         $canonicalJson = json_encode(
             $this->canonicalize($effective),
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
         );
 
         return response()->json([

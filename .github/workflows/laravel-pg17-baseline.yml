@@ -224,7 +224,7 @@ jobs:
             php artisan config:import-workbook /tmp/canonical-central-config.json
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 -tA \
-            -c "SELECT CASE WHEN (SELECT count(*) FROM global_configs WHERE key='global')=1 AND (SELECT count(*) FROM templates)=3 AND (SELECT count(*) FROM tenants)=100 AND (SELECT count(*) FROM tenant_services)=140 AND (SELECT count(*) FROM device_registry)=108 AND (SELECT count(*) FROM tenant_configs)=240 AND (SELECT count(*) FROM device_configs)=108 THEN 'PASS canonical import counts' ELSE 'FAIL canonical import counts' END"
+            -c "DO \$\$ BEGIN IF (SELECT count(*) FROM global_configs WHERE key='global') <> 1 OR (SELECT count(*) FROM templates) <> 3 OR (SELECT count(*) FROM tenants) <> 100 OR (SELECT count(*) FROM tenant_services) <> 140 OR (SELECT count(*) FROM device_registry) <> 108 OR (SELECT count(*) FROM tenant_configs) <> 240 OR (SELECT count(*) FROM device_configs) <> 108 THEN RAISE EXCEPTION 'canonical import count mismatch'; END IF; END \$\$"
 
       - name: Migrate fresh tenant database with isolated migrator identity
         shell: bash
