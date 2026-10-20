@@ -25,8 +25,8 @@ The larger release blocker remains open: a reviewed PostgreSQL provisioning brok
 | Workflow status | SUCCESS; disposable tenant-isolation step and artifact upload succeeded; remaining build and HTTP/image smoke steps also succeeded |
 | Workflow attempt | VERIFIED: run_attempt=1 from GitHub REST run and job metadata re-check on 2026-10-20 |
 | Test artifact | [pg17-tenant-isolation artifact #12137702221](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39130938641/artifacts/12137702221); ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4 |
-| Latest re-verification at PR head | Source head `6062df7b9a0fd94db17107d654f9b3e16622531b`; [run #167 / ID 39131351376](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376); merge checkout `7de42ef09e53200ed8e0e57036d3956c6d59a82e`; job `117687064878` | All 15 workflow steps completed successfully, including the tenant-isolation harness and artifact upload. GitHub REST run and job metadata confirm run_attempt=1. |
-| Latest test artifact | [pg17-tenant-isolation artifact #12138445929](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376/artifacts/12138445929); ZIP SHA-256 `37ff566fefff3cf92494372b149af881d493bdae7aca52486ab35b53fc34e322`; extracted log SHA-256 `58c0acee063dc97565a1af242efcf581d345889d223b21185b22a913ae381db1` | Downloaded and checksum-verified; log 10,009 bytes; PostgreSQL 17.11; 84 `PASS:` assertion lines, including 27 explicit expected-denial probes; final result PASS. |
+| Latest re-verification at PR head | GitHub run/job head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`; [run #295 / ID 39404672132](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132); job `118567609555`; attempt `1` | Run and job metadata report conclusion `success`; steps 1–15 completed successfully, including disposable PG17 role/grant probes and sanitized artifact upload. A separate merge-checkout SHA was not independently surfaced by the run metadata. |
+| Latest test artifact | [PG17 artifact #12255628499](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132/artifacts/12255628499); GitHub artifact metadata SHA-256 `3e409257466c61e0f71d54bb957f7eebf1260dcb036158ea285ec35aac6c0ec2`; size 2,133 bytes | Artifact metadata reports uploaded to run #295 for source/head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`. The artifact archive/log were not downloaded or independently content-scanned during this re-check; the harness step itself completed successfully. Prior extracted-log evidence from run #167 remains recorded below. |
 | Current branch/report checkpoint before this documentation-only update | `6062df7b9a0fd94db17107d654f9b3e16622531b` | Follow-up only updates report evidence; no provisioning source, role broker, test harness, database workflow or configuration behavior changes are added in this update. |
 | PR | [Draft PR #79](https://github.com/berkah-pos/Berkahtigaputeri/pull/79); open, unmerged |
 | Production changes | None |
@@ -51,7 +51,7 @@ Out of scope: changing accepted architecture, application authentication/API imp
 
 TEST-EXECUTED: bash /security/verify_pg17_tenant_isolation.sh ran inside the workflow's loopback-only disposable PostgreSQL 17 service, with ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES, approved service marker, workflow run ID 39130938641, and merge checkout SHA a84337de54edc58ceebccc257571c35e9feea506. Target reported PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2). The script emitted RESULT: PASS and exited 0; workflow run #165 completed SUCCESS. Artifact: #12137702221, ZIP SHA-256 6fa440c09e19ee420719362830d06188501dd0b56e1f71308a950a6734bf38b4. This is positive evidence for the synthetic PG privilege contract only, not acceptance of an application provisioning broker or tenant HTTP/worker boundaries. GitHub REST run and job metadata were independently queried on 2026-10-20; both report run_attempt=1.
 
-**Latest current-head re-verification (TEST-EXECUTED):** run #167 / ID 39131351376, source head `6062df7b9a0fd94db17107d654f9b3e16622531b`, tested PR merge checkout `7de42ef09e53200ed8e0e57036d3956c6d59a82e`, job ID `117687064878`, [workflow run](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376). All workflow steps 1–15 completed successfully. The tenant-isolation step executed the following guarded disposable-only container command (environment is the ephemeral GitHub Actions PostgreSQL 17 service; synthetic identities only):
+**Previous current-head re-verification (TEST-EXECUTED; superseded by run #295 in §14):** run #167 / ID 39131351376, source head `6062df7b9a0fd94db17107d654f9b3e16622531b`, merge checkout `7de42ef09e53200ed8e0e57036d3956c6d59a82e`, job ID `117687064878`, [workflow run](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376). All workflow steps 1–15 completed successfully. The tenant-isolation step executed the following guarded disposable-only container command (environment is the ephemeral GitHub Actions PostgreSQL 17 service; synthetic identities only):
 ```bash
 docker run --rm --network host --user "$(id -u):$(id -g)" \
   --env ALLOW_DISPOSABLE_PG17_TENANT_ISOLATION=YES \
@@ -187,7 +187,7 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 | PGISO-11 | Tenant context/connection/cache/path/guard reset on request failure and reused worker A→B | BLOCKED | Import command has a local try/finally Tenancy::end() around per-device work, but there is no verified worker integration suite or configured tenancy middleware. |
 | PGISO-12 | Tenant runtime never inherits central credentials | VERIFIED — source + CI guard | Fix is in config/database.php, .env.example and docker-compose.yml; static preflight passed on the tested source head. Runtime app DB switching still depends on a future broker/configuration implementation. |
 | PGISO-13 | Provisioner and runtime credentials are separated; only private provisioning service has elevated credentials | BLOCKED | No actual provisioner connection, service, environment separation proof or provisioning audit implementation was found. Synthetic roles are test fixtures only. |
-| PGISO-14 | CI run identity and sanitized output artifact | VERIFIED for run source SHA and attempt 1; current branch HEAD is a later report-only commit | REST metadata confirms run #165 / ID 39130938641, attempt 1, source head `f84552c528a8abe07e242b2578e9451fcc285d8f`, tested merge checkout `a84337de54edc58ceebccc257571c35e9feea506`; artifact #12137702221 was uploaded. Run #167 is the newer code-test run; see the independent re-check addendum. |
+| PGISO-14 | CI run identity and sanitized output artifact | VERIFIED for code-test run #295 / attempt 1; report-only follow-up HEAD not claimed as exact same SHA | GitHub REST run/job metadata reports run #295 / ID `39404672132`, attempt `1`, head SHA `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`, job `118567609555`, conclusion `success`. The PG17 harness step and upload step succeeded; artifact #12255628499 has metadata digest recorded in §2/§14. Prior runs #165 and #167 are retained as historical evidence. |
 
 ## 8. Findings
 
@@ -256,7 +256,7 @@ Status uses VERIFIED / CLAIMED / FAILED / BLOCKED / NOT RUN / NOT APPLICABLE. A 
 | php artisan test within CI image | Same run; exact tested merge checkout SHA a84337de... | PASS as part of completed workflow | Test step completed success. This is not a tenant provisioning/API acceptance suite. |
 | Broker/provisioning, HTTP and worker integration tests | Disposable PostgreSQL 17 + app integration environment | BLOCKED / NOT RUN | Application broker/model/tenancy configuration not present in inspected baseline |
 
-Historical test-harness failures on earlier PR heads were corrected before run 39130938641: run 39129149824 exposed a mismatched role-denial assertion; run 39130223786 exposed the global default function EXECUTE issue; run 39130568857 exposed a shell-style comment inside a SQL heredoc; and an earlier matrix pass exposed a text/char cast error. These are superseded failures at earlier heads, not hidden or treated as passes. The latest source head's harness passed. A subsequent GitHub REST run/job metadata re-check on 2026-10-20 independently confirmed run_attempt=1 for runs #165 and #167. A passing synthetic role harness proves only its fixture contract; it will not close the absent application broker or HTTP/worker gates.
+Historical test-harness failures on earlier PR heads were corrected before run 39130938641: run 39129149824 exposed a mismatched role-denial assertion; run 39130223786 exposed the global default function EXECUTE issue; run 39130568857 exposed a shell-style comment inside a SQL heredoc; and an earlier matrix pass exposed a text/char cast error. These are superseded failures at earlier heads, not hidden or treated as passes. The latest source head's harness passed. A GitHub REST run/job metadata re-check on 2026-10-20 independently confirmed run_attempt=1 for runs #165 and #167; §14 records the later exact branch/head run #295, also attempt 1. A passing synthetic role harness proves only its fixture contract; it will not close the absent application broker or HTTP/worker gates.
 
 ## 11. Residual risk and dependencies
 
@@ -281,14 +281,14 @@ Historical test-harness failures on earlier PR heads were corrected before run 3
 
 ## 13. Independent re-check — 2026-10-20
 
-This addendum records an independent re-check of the existing branch/PR, current source paths, and the two relevant workflow-run metadata objects. It does not represent new PostgreSQL execution or a new code-test run.
+This addendum records an independent re-check of the existing branch/PR and source paths. The report-only commit that introduced this addendum triggered workflow run #295 afterward; that run completed successfully on its tested branch/head SHA and is documented in §14. The reviewer did not execute SQL in the local tool container.
 
 ### Revision and CI identity
 
 | Item | Verified observation |
 |---|---|
 | Canonical base SHA captured at audit start | `371b7fdf0bf672b37ceb1023e647f114221bf797` |
-| Existing workstream branch / current head at re-check | `audit/preprod-postgres-isolation-2026-10-18` / `409f83ed8ccd0d8e3dcc5ddc35d3cb4242a31252` |
+| Existing workstream branch / head immediately before the first re-check report refresh | `audit/preprod-postgres-isolation-2026-10-18` / `409f83ed8ccd0d8e3dcc5ddc35d3cb4242a31252` |
 | Pull request | [Draft PR #79](https://github.com/berkah-pos/Berkahtigaputeri/pull/79), open and unmerged |
 | Latest code-test workflow | [Run #167 / ID 39131351376](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39131351376), `Laravel PostgreSQL 17 Baseline`, event `pull_request`, conclusion `success`, attempt `1` |
 | Latest tested PR source head reported in run's linked PR snapshot | `6062df7b9a0fd94db17107d654f9b3e16622531b` |
@@ -314,3 +314,26 @@ This addendum records an independent re-check of the existing branch/PR, current
 No broker code was added in this report refresh. This is not a PASS: the missing implementation spans the private worker boundary, trusted tenant-to-database mapping, credential delivery/rotation, lifecycle state/audit, restricted grants/default ACLs, and orchestration of tenant migrations. Adding elevated PostgreSQL credentials to the shared Laravel web process, or assuming automatic role provisioning from `stancl/tenancy`, would contradict the accepted security boundary. The package's official v3 database-customization documentation describes creating per-tenant database users/passwords through the permission-controlled **MySQL** manager; package/dependency presence alone does not establish the required PostgreSQL role broker ([official v3 database customization](https://tenancyforlaravel.com/docs/v3/customizing-databases/)). PostgreSQL's `CREATEDB`/`CREATEROLE` are powerful role attributes, not per-tenant prefix-scoped grants, so a private broker boundary and negative tests are required ([PostgreSQL 17 role attributes](https://www.postgresql.org/docs/17/role-attributes.html), [role membership](https://www.postgresql.org/docs/17/role-membership.html)).
 
 The implementation gate remains **BLOCKED** until the broker and its integration tests are added on the approved boundary. No production DB, data, DNS, or secrets were changed, and no Supabase access occurred.
+
+
+## 14. Latest exact branch-head CI re-check — 2026-10-20
+
+**TEST-EXECUTED by GitHub Actions on a disposable service; no local SQL execution is claimed.**
+
+| Field | Evidence |
+|---|---|
+| Workflow | `Laravel PostgreSQL 17 Baseline` |
+| Run | [#295 / ID 39404672132](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132) |
+| Event / branch | `pull_request` / `audit/preprod-postgres-isolation-2026-10-18` |
+| Run / job attempt | `1` / `1` |
+| GitHub run and job head SHA | `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230` |
+| Job | `118567609555`, [job details](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132/job/118567609555) |
+| Workflow status / conclusion | `completed` / `success` |
+| Relevant steps | Step 5 `Run disposable PostgreSQL 17 tenant role/grant isolation probes`: `success`; step 6 `Upload sanitized PostgreSQL tenant-isolation evidence`: `success`; all workflow steps 1–15 concluded successfully |
+| Artifact | [Artifact #12255628499](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39404672132/artifacts/12255628499), name `pg17-tenant-isolation-80e7d1638620190d8ba080e5cfea345a3f176f57`, size 2,133 bytes, GitHub metadata digest `sha256:3e409257466c61e0f71d54bb957f7eebf1260dcb036158ea285ec35aac6c0ec2` |
+| Exit code | The harness step and whole workflow completed successfully; a separate process exit-code integer is not exposed in the run metadata, so it is not inferred. |
+| Exact-SHA qualification | The run and job API objects identify `d0f04ff0eb46cf13e043e65ce4a0ba908d7d7230`. The workflow object did not separately return a merge-checkout SHA. The later report-only follow-up in this section's parent commit changes no executable file; do not claim a PostgreSQL run on that later report-only commit itself. |
+| Artifact inspection limit | GitHub artifact metadata was read; the archive and extracted log were not downloaded or independently scanned during this re-check. The earlier run #167 extracted-log SHA and recorded probe counts remain historical evidence, not measurements of artifact #12255628499. |
+
+This run is fresh positive evidence for the existing synthetic privilege contract and baseline build/migration/smoke. It does **not** close PGISO-08/09/11/13: no application provisioning broker, authoritative DB-name lifecycle, tenant HTTP authorization/replay tests, or production worker-context reset implementation was added by this report-only refresh.
+
