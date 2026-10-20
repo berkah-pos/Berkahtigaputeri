@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\EffectiveConfigController;
+use App\Http\Controllers\Api\V1\SyncController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/v1/platform-health', function () {
@@ -26,4 +27,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/v1/config/effective', [EffectiveConfigController::class, 'show'])
         ->middleware('throttle:60,1')
         ->name('api.v1.config.effective');
+    Route::post('/v1/sync', [SyncController::class, 'sync'])
+        ->middleware('throttle:30,1')
+        ->name('api.v1.sync');
 });
