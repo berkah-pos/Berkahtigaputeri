@@ -25,6 +25,9 @@ return new class extends Migration
         $columns = [
             'products' => [
                 'stock_qty' => fn (Blueprint $table) => $table->decimal('stock_qty', 18, 3)->default(0),
+                'ppn_exempt' => fn (Blueprint $table) => $table->boolean('ppn_exempt')->default(false),
+                'track_expiry' => fn (Blueprint $table) => $table->boolean('track_expiry')->default(false),
+                'min_shelf_life_days' => fn (Blueprint $table) => $table->unsignedInteger('min_shelf_life_days')->default(0),
             ],
             'inventory_lots' => [
                 'reserved_qty' => fn (Blueprint $table) => $table->decimal('reserved_qty', 18, 3)->default(0),
@@ -47,6 +50,7 @@ return new class extends Migration
             ],
             'sale_items' => [
                 'line_no' => fn (Blueprint $table) => $table->unsignedInteger('line_no')->nullable(),
+                'client_line_id' => fn (Blueprint $table) => $table->string('client_line_id', 150)->nullable(),
                 'gross_amount' => fn (Blueprint $table) => $table->decimal('gross_amount', 18, 2)->default(0),
                 'item_discount_amount' => fn (Blueprint $table) => $table->decimal('item_discount_amount', 18, 2)->default(0),
                 'transaction_discount_amount' => fn (Blueprint $table) => $table->decimal('transaction_discount_amount', 18, 2)->default(0),
