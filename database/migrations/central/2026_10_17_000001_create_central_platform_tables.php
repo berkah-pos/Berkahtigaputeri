@@ -6,24 +6,24 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'central';
+    protected $connection = 'central_migrator';
 
     public function up(): void
     {
-        Schema::connection('central')->create('tenants', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('tenants', function (Blueprint $table): void {
             $table->string('id')->primary();
             $table->json('data')->nullable();
             $table->string('template_id', 40)->default('BASIC');
             $table->timestamps();
         });
-        Schema::connection('central')->create('domains', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('domains', function (Blueprint $table): void {
             $table->string('domain')->primary();
             $table->string('tenant_id');
             $table->timestamps();
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->index('tenant_id');
         });
-        Schema::connection('central')->create('users', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('users', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
@@ -35,7 +35,7 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
         });
-        Schema::connection('central')->create('personal_access_tokens', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('personal_access_tokens', function (Blueprint $table): void {
             $table->id();
             $table->morphs('tokenable');
             $table->string('name');
@@ -45,7 +45,7 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable();
             $table->timestamps();
         });
-        Schema::connection('central')->create('subscriptions', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('subscriptions', function (Blueprint $table): void {
             $table->id();
             $table->string('tenant_id')->index();
             $table->string('plan', 40)->default('trial');
@@ -56,19 +56,19 @@ return new class extends Migration
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->index(['tenant_id', 'status']);
         });
-        Schema::connection('central')->create('global_configs', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('global_configs', function (Blueprint $table): void {
             $table->string('key', 100)->primary();
             $table->json('config');
             $table->unsignedInteger('version')->default(1);
             $table->timestamps();
         });
-        Schema::connection('central')->create('templates', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('templates', function (Blueprint $table): void {
             $table->string('id', 40)->primary();
             $table->json('config');
             $table->unsignedInteger('version')->default(1);
             $table->timestamps();
         });
-        Schema::connection('central')->create('tenant_configs', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('tenant_configs', function (Blueprint $table): void {
             $table->id();
             $table->string('tenant_id')->index();
             $table->string('service', 20)->nullable();
@@ -80,7 +80,7 @@ return new class extends Migration
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->unique(['tenant_id', 'service_scope']);
         });
-        Schema::connection('central')->create('tenant_services', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('tenant_services', function (Blueprint $table): void {
             $table->string('tenant_id');
             $table->string('service', 20);
             $table->boolean('enabled')->default(false);
@@ -88,7 +88,7 @@ return new class extends Migration
             $table->primary(['tenant_id', 'service']);
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
-        Schema::connection('central')->create('audit_events', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('audit_events', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('actor_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tenant_id')->nullable()->index();
@@ -102,7 +102,7 @@ return new class extends Migration
             $table->json('metadata')->nullable();
             $table->timestamp('created_at')->useCurrent();
         });
-        Schema::connection('central')->create('device_registry', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('device_registry', function (Blueprint $table): void {
             $table->string('device_id', 150)->primary();
             $table->string('tenant_id')->index();
             $table->foreignId('owner_user_id')->nullable()->constrained('users')->nullOnDelete();
@@ -111,17 +111,17 @@ return new class extends Migration
             $table->timestamps();
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
         });
-        Schema::connection('central')->create('cache', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('cache', function (Blueprint $table): void {
             $table->string('key')->primary();
             $table->mediumText('value');
             $table->integer('expiration');
         });
-        Schema::connection('central')->create('cache_locks', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('cache_locks', function (Blueprint $table): void {
             $table->string('key')->primary();
             $table->string('owner');
             $table->integer('expiration');
         });
-        Schema::connection('central')->create('jobs', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('jobs', function (Blueprint $table): void {
             $table->bigIncrements('id');
             $table->string('queue')->index();
             $table->longText('payload');
@@ -130,7 +130,7 @@ return new class extends Migration
             $table->unsignedInteger('available_at');
             $table->unsignedInteger('created_at');
         });
-        Schema::connection('central')->create('job_batches', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('job_batches', function (Blueprint $table): void {
             $table->string('id')->primary();
             $table->string('name');
             $table->integer('total_jobs');
@@ -142,7 +142,7 @@ return new class extends Migration
             $table->integer('created_at');
             $table->integer('finished_at')->nullable();
         });
-        Schema::connection('central')->create('failed_jobs', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('failed_jobs', function (Blueprint $table): void {
             $table->id();
             $table->string('uuid')->unique();
             $table->text('connection');
@@ -158,7 +158,7 @@ return new class extends Migration
         foreach (['failed_jobs', 'job_batches', 'jobs', 'cache_locks', 'cache',
             'device_registry', 'audit_events', 'tenant_services', 'tenant_configs', 'templates', 'global_configs',
             'subscriptions', 'personal_access_tokens', 'users', 'domains', 'tenants'] as $table) {
-            Schema::connection('central')->dropIfExists($table);
+            Schema::connection('central_migrator')->dropIfExists($table);
         }
     }
 };
