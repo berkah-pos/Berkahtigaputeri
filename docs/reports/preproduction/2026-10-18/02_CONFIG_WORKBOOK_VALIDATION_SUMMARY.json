@@ -1,0 +1,71 @@
+{
+  "audit_type": "canonical_workbook_structural_inspection",
+  "evidence_date": "2026-10-20",
+  "timezone": "Asia/Jakarta",
+  "repository": "berkah-pos/Berkahtigaputeri",
+  "base_branch": "main",
+  "base_sha": "371b7fdf0bf672b37ceb1023e647f114221bf797",
+  "work_branch": "audit/preprod-config-contract-2026-10-18",
+  "workbook_path": "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx",
+  "workbook_git_blob_sha": "cb8775f498487eece091c32b2774f45daa183afd",
+  "inspection_method": "Read-only OOXML/ZIP inspection of the workbook content returned by GitHub; only aggregate metadata is recorded. No configuration payload values, emails, tenant names, secrets, credentials, or customer data are included.",
+  "execution_boundary": {
+    "python_exporter": "NOT RUN: a local repository checkout was unavailable due to DNS failure.",
+    "contract_tests": "NOT RUN: no local Python test process or safe exact-head CI run was available.",
+    "deprecated_supabase_sync": "NOT RUN: prohibited by the 2026-10-17 owner ADR, even with --dry-run.",
+    "resolver_runtime": "NOT VERIFIED: resolver source/tests were absent at the inspected base SHA.",
+    "output_hashes": "The Git blob SHA identifies the exact workbook object. Exporter-generated SHA-256 manifest/keyset hashes and repeat-run byte comparison were not generated."
+  },
+  "ordered_sheets": [
+    "README_PRODUCTION",
+    "TEMPLATES",
+    "GLOBAL",
+    "TENANTS_MASTER",
+    "DEVICES",
+    "SERVICES",
+    "APP_CONFIG_EXPORT"
+  ],
+  "nonempty_data_rows": {
+    "README_PRODUCTION": 9,
+    "TEMPLATES": 3,
+    "GLOBAL": 25,
+    "TENANTS_MASTER": 100,
+    "DEVICES": 108,
+    "SERVICES": 140,
+    "APP_CONFIG_EXPORT": 352
+  },
+  "exported_key_counts": {
+    "global": 1,
+    "template": 3,
+    "tenant": 100,
+    "service": 140,
+    "device": 108,
+    "invalid": 0,
+    "total": 352,
+    "unique": 352,
+    "duplicates": 0
+  },
+  "aggregate_relationship_checks": {
+    "template_ids": [
+      "BASIC",
+      "PRO",
+      "ENTERPRISE"
+    ],
+    "tenant_ids_unique": 100,
+    "service_pairs_unique": 140,
+    "device_ids_unique": 108,
+    "services_with_missing_tenant": 0,
+    "unsupported_service_names": 0,
+    "service_template_mismatches": 0,
+    "devices_with_missing_tenant": 0,
+    "device_template_mismatches": 0,
+    "missing_export_keys_from_source_mappings": 0,
+    "unexpected_export_keys": 0,
+    "config_values_parsed_as_json_objects": 352,
+    "invalid_config_json_values": 0,
+    "export_type_to_key_scope_mismatches": 0,
+    "source_sheet_to_key_scope_mismatches": 0,
+    "formula_cells": 0
+  },
+  "interpretation": "The workbook object itself has the expected sheet order, aggregate counts, unique canonical keys, source-sheet/type mapping and parent links in this read-only structural inspection. This is not a run of scripts/export_workbook_for_laravel.py and does not establish exporter/test pass, runtime resolution, or production readiness."
+}
