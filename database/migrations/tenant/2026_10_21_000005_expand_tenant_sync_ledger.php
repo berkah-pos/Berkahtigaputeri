@@ -7,14 +7,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    protected $connection = 'tenant_migrator';
+
     private function targetConnection(): string
     {
-        $connection = DB::getDefaultConnection();
-        if (! in_array($connection, ['tenant', 'tenant_migrator'], true)) {
-            throw new \\RuntimeException('Tenant sync-ledger migrations require an explicitly selected tenant connection.');
-        }
-
-        return $connection;
+        return 'tenant_migrator';
     }
 
     public function up(): void
