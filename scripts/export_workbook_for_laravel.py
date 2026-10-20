@@ -98,7 +98,7 @@ def _required_header_sets(sheet_name: str) -> tuple[set[str], ...]:
         "TENANTS_MASTER": ({"tenant_id"}, {"template_id"}),
         "DEVICES": ({"device_id"}, {"tenant_id"}, {"is_active", "active", "status"}),
         "SERVICES": ({"tenant_id"}, {"service"}, {"enabled"}),
-        "APP_CONFIG_EXPORT": ({"key"}, {"value_jsonb"}),
+        "APP_CONFIG_EXPORT": ({"key"}, {"value_jsonb"}, {"type"}, {"source_sheet"}, {"sync_status"}),
         # GLOBAL is format-checked but its business columns are not reinterpreted
         # here because DOC_00 defines the export keys, not a fixed GLOBAL row schema.
         "GLOBAL": (),
@@ -318,6 +318,27 @@ def build_manifest(
             if key in by_key:
                 raise ValueError("APP_CONFIG_EXPORT contains a duplicate key")
             kind, _, _ = classify_key(key)
+            expected_source_sheet = {
+                "global": "GLOBAL",
+                "template": "TEMPLATES",
+                "tenant": "TENANTS_MASTER",
+                "service": "SERVICES",
+                "device": "DEVICES",
+            }[kind]
+            row_type = required_text(
+                row.get("type"), "APP_CONFIG_EXPORT.type"
+            ).lower()
+            if row_type != kind:
+                raise ValueError(
+                    "APP_CONFIG_EXPORT type does not match canonical key scope"
+                )
+            source_sheet = required_text(
+                row.get("source_sheet"), "APP_CONFIG_EXPORT.source_sheet"
+            ).upper()
+            if source_sheet != expected_source_sheet:
+                raise ValueError(
+                    "APP_CONFIG_EXPORT source_sheet does not match canonical key scope"
+                )
             counts[kind] += 1
             status = row.get("sync_status")
             if status is not None and str(status).strip().upper() not in {"", "READY", "ACTIVE"}:
