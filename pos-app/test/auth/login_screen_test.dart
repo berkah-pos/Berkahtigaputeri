@@ -42,6 +42,9 @@ void main() {
 
   testWidgets('unconfigured cloud mode explains local-only data boundary',
       (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final preferences = await SharedPreferences.getInstance();
+    final identityStore = AppIdentityStore(preferences);
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
