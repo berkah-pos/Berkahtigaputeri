@@ -119,26 +119,37 @@ Read in the required order from the canonical repository, including the current 
 - **Impact:** An edited or malformed manifest can retain the expected count fields and supplied MD5 string while carrying altered config or mismatched record relationships. The static review does not prove a live bad import occurred; no import command was run.
 - **Required next action:** The configuration importer owner should independently validate the complete manifest *before any database write*: recompute canonical keyset and manifest hashes, validate exact key grammar and actual record counts, validate every tenant/template/service/device mapping and scope, and fail without writes on any mismatch. Add negative tests that alter a config value, identifiers, parent references, service/device scope, and supplied digest while preserving top-level counts. A plain hash detects accidental corruption, not an adversary able to rewrite both content and digest; authenticity must be handled separately if the threat model requires it.
 
+### F-06 — Synthetic test file is outside the configured discovery root
+
+- **Severity / confidence:** P2 / High.
+- **Status:** Open dependency; no workflow was edited.
+- **Evidence:** The acceptance matrix names unittest discovery under scripts/tests, while the new synthetic file is scripts/test_canonical_workbook_contract.py. The current workbook workflow path filter watches scripts/tests/** but not the new root-level test, then calls the prohibited sync script as its last step.
+- **Impact:** Existing automated discovery will not execute these new tests; moving them under scripts/tests would also match a workflow that currently invokes forbidden legacy code.
+- **Required next action:** The workflow owner must first replace the prohibited step with a safe offline exporter command, then wire the tests into CI and run them on the exact PR head.
+
 ## 6. Test commands and execution evidence
 
 | Command / check | Environment | Exit / status | Result / artifact |
 |---|---|---|---|
 | git clone --depth 1 https://github.com/berkah-pos/Berkahtigaputeri.git /tmp/Berkahtigaputeri | Shell in this session | **128** | Failed: DNS resolution for github.com unavailable; no local checkout. Sanitized output recorded above. |
-| python scripts/export_workbook_for_laravel.py --validate-only | Intended local/offline Python | **NOT RUN** | No local repository/workbook in shell; no output/counts claimed. |
-| python scripts/test_canonical_workbook_contract.py | Intended local/offline Python | **NOT RUN** | Test file added, but no Python test process was started. |
-| python -m unittest discover -s scripts/tests -p 'test_*.py' | Intended local/offline Python | **NOT RUN** | No local checkout. Current CI sequence is also blocked by the prohibited sync-script step and was not dispatched. |
-| Export twice to clean directories, then compare manifest bytes and SHA-256 | Intended local/offline Python | **NOT RUN** | No manifest/log artifact produced by this session. |
+| Read-only OOXML/ZIP workbook inspection | In-memory isolated tool context; input was the GitHub workbook object at blob cb8775f498487eece091c32b2774f45daa183afd | **Completed; process exit code N/A** | Seven ordered sheets; correct 1/3/100/140/108 counts; 352 unique keys; matching type/source labels; no parent/scope mismatch; zero formula cells. Sanitized artifact: 02_CONFIG_WORKBOOK_VALIDATION_SUMMARY.json. This is not the Python exporter. |
+| python scripts/export_workbook_for_laravel.py --validate-only | Intended local/offline Python | **NOT RUN** | No local repository checkout; exporter validation output/hashes not claimed. |
+| python scripts/test_canonical_workbook_contract.py | Intended local/offline Python | **NOT RUN** | Source exists but no Python test process was started. |
+| python -m unittest discover -s scripts/tests -p test_*.py | Intended local/offline Python | **NOT RUN** | No local checkout. The workflow also ends by invoking a prohibited legacy script and was not dispatched. |
+| Export twice to clean directories, then compare manifest bytes and SHA-256 | Intended local/offline Python | **NOT RUN** | No exporter-generated manifest or repeat-run SHA-256 artifact. |
+| GitHub Actions run query for checkpoint SHA a66c73b8e67e715d61d5b2bfe35cf2e6ec07f3c7 | GitHub Actions API, read-only | **0 runs returned** | No exact-head workflow run ID, attempt, tested SHA or URL exists for that checkpoint. No workflow was manually dispatched. |
 | python scripts/sync_excel_to_supabase.py --dry-run --expect-keys 352 | Prohibited legacy path | **NOT RUN — deliberate** | Forbidden by the latest no-Supabase authority even in dry-run mode. |
 | CI: Canonical Workbook Validation, run 38856048876, job 116827669252 | Historical GitHub Actions record | success in historical evidence | Tested SHA 6e31574ecc04ecae6a535fe409cf415ec18655cc; https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/38856048876. Attempt number and raw logs were not independently retrieved here. This run predates the current exporter and is not exact-head evidence for this branch. |
 | CI on audit/preprod-config-contract-2026-10-18 | GitHub Actions | **NOT RUN / NOT VERIFIED** | No workflow result is attributed to this branch. The changed paths do not match the current workbook workflow's listed source/test paths, and the workflow was not manually dispatched. |
 
 ## 7. Mismatches and deterministic artifact status
 
-- Required workbook inventory is 1 + 3 + 100 + 140 + 108 = 352. Historical CI evidence reported this inventory on an older SHA; the workbook Git blob is identical at the inspected refs. This is **CLAIMED / historical**, not a fresh validation result.
-- No actual count/key mismatch has been demonstrated from the current workbook in this execution.
-- Confirmed source gaps at base: missing runtime resolver path; missing matrix-named tests/Unit/Services/EffectiveConfigResolverTest.php; missing matrix-named standalone scripts/test_canonical_workbook_contract.py.
-- Corrective exporter and synthetic test source were committed on the work branch. Since neither actual workbook validation nor tests ran, **no manifest/hash artifact is claimed as generated**. The updated exporter will emit source_workbook_sha256, keyset_sha256, manifest_sha256, and retain keyset_md5 when run in a safe local environment.
-- No workbook content was modified; no secret, customer payload, or live database data was copied into this report.
+- **Directly VERIFIED from the actual workbook object:** exact sheet order; nonempty row counts 9/3/25/100/108/140/352 for README/TEMPLATES/GLOBAL/TENANTS_MASTER/DEVICES/SERVICES/APP_CONFIG_EXPORT; 352 unique canonical keys with category totals 1/3/100/140/108; expected template IDs; zero key duplicates/invalid key shapes; valid JSON-object parse for all 352 exported values; zero type-to-key-category mismatches; zero source-sheet-to-key-category mismatches; zero missing/extra source-linked keys; zero duplicate service pairs; zero orphan tenant parents; zero service/device template-parent mismatches; zero formula cells.
+- The sanitized metadata artifact is 02_CONFIG_WORKBOOK_VALIDATION_SUMMARY.json. Workbook Git blob SHA is cb8775f498487eece091c32b2774f45daa183afd; this is the Git content fingerprint, not the new exporter SHA-256 manifest or keyset digest.
+- **NOT GENERATED / NOT VERIFIED:** Python-exporter source SHA-256, keyset SHA-256 and manifest SHA-256; two-export byte equality; actual Python validator/test results. No data mismatch was found by structural inspection, but the strict exporter may still catch a schema/null/value issue when executed.
+- Source-only application gap at base: app/Services/EffectiveConfigResolver.php and tests/Unit/Services/EffectiveConfigResolverTest.php were absent; matrix/documentation references do not establish runtime behavior.
+- Automated discovery gap: the new synthetic test file is at scripts/test_canonical_workbook_contract.py, outside the configured scripts/tests discovery root. It was kept outside that path because changes under scripts/tests trigger the obsolete workflow that runs the prohibited sync wrapper. Once the workflow owner removes that call, route the test into the approved test-discovery path or add an explicit safe test command in the workflow.
+- No workbook content was modified; no secret, config payload or customer data was copied into the report or summary artifact.
 
 ## 8. Dependencies, residual risks, and next steps
 
