@@ -192,9 +192,11 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         if len(services) != counts["service"] or len(devices) != counts["device"]:
             raise ValueError("Relational projection counts differ from canonical key inventory")
 
+        workbook_sha256 = hashlib.sha256(workbook.read_bytes()).hexdigest()
         manifest = {
             "schema_version": 1,
             "source_workbook": workbook.name,
+            "source_workbook_sha256": workbook_sha256,
             "counts": counts,
             "keyset_md5": keyset_md5,
             "global_config": global_config,
