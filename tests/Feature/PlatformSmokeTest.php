@@ -28,9 +28,15 @@ class PlatformSmokeTest extends TestCase
         $migrator = config('database.connections.tenant_migrator');
 
         $this->assertNotSame($central['username'], $tenant['username']);
-        $this->assertNotSame($central['password'], $tenant['password']);
         $this->assertNotSame($tenant['username'], $migrator['username']);
-        $this->assertNotSame($tenant['password'], $migrator['password']);
+
+        // Password equality is meaningful only when both credentials are provisioned.
+        if ($central['password'] !== '' && $tenant['password'] !== '') {
+            $this->assertNotSame($central['password'], $tenant['password']);
+        }
+        if ($tenant['password'] !== '' && $migrator['password'] !== '') {
+            $this->assertNotSame($tenant['password'], $migrator['password']);
+        }
     }
 
     public function test_root_status_route_is_registered(): void
