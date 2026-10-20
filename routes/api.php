@@ -1,9 +1,9 @@
 <?php
 
-use App\\Http\\Controllers\\Api\\V1\\AuthController;
-use App\\Http\\Controllers\\Api\\V1\\DeviceController;
-use App\\Http\\Controllers\\Api\\V1\\EffectiveConfigController;
-use Illuminate\\Support\\Facades\\Route;
+use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DeviceController;
+use App\Http\Controllers\Api\V1\EffectiveConfigController;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/v1/platform-health', function () {
     return response()->json([
