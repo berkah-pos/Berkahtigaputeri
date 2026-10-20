@@ -122,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
-                      child: widget.client == null
+                      child: widget.apiClient == null
                           ? _buildLocalOnlyNotice(context)
                           : _buildLoginForm(context),
                     ),
