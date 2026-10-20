@@ -263,7 +263,9 @@ All tests below must run only on disposable PostgreSQL 17 databases with synthet
 - **Prompt 03 (Central API contracts):** no business endpoints beyond health are visible in routes/api.php; request validation, API contracts and route authorization remain outside this audit except where needed as schema acceptance.
 - **Prompt 05 (PostgreSQL provisioning/security):** role/grant separation, tenant database selection broker, private credentials, PUBLIC grants, role attributes and cross-tenant CONNECT/DML denial. F01 is a blocking handoff; this report does not create roles or alter grants.
 - **Prompt 07/08 and accounting/inventory specialists:** define accepted sale/movement idempotency identity, quantity rules, journal posting/reversal/period rules, accounting event contract and immutable transaction history.
-- **Prompt 09 (if present in the prompt pack):** security or release integration should not convert this source-only audit into a production-readiness claim.
+- **Prompt 09 (Inventory/FEFO/FIFO):** define allowed lot and movement quantity signs, lot-to-product references, and physical-allocation/financial-costing integrity tests.
+- **Prompt 10 (Accounting/COA/journal audit):** define posting-state, immutable journal/reversal, double-entry, accounting_events and closed-period contracts; verify the schema enforces or calls the explicitly accepted trusted boundary.
+- **Prompt 11 (Outbox/sync/idempotency):** define the event identity and retry/conflict transaction contract so sync_receipts, sales, inventory movements and journal effects are accepted atomically.
 
 ## 10. Execution record and final status
 
