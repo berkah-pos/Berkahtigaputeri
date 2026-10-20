@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/api/laravel_api_client.dart';
+import '../../core/sync/outbox_sync_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_identity_store.dart';
@@ -148,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (_) => _ConfigurationScreen(
                   configService: widget.configService,
                   apiClient: widget.apiClient,
+                  database: widget.database,
                   identityStore: widget.identityStore,
                   onSignOut: widget.onSignOut,
                 ),
@@ -458,12 +460,14 @@ class _ConfigurationScreen extends StatefulWidget {
   const _ConfigurationScreen({
     required this.configService,
     required this.apiClient,
+    required this.database,
     required this.identityStore,
     this.onSignOut,
   });
 
   final ConfigService? configService;
   final LaravelApiClient? apiClient;
+  final PosDatabase database;
   final AppIdentityStore identityStore;
   final Future<void> Function()? onSignOut;
 
@@ -489,6 +493,48 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
   void dispose() {
     _deviceIdController.dispose();
     super.dispose();
+  }
+
+  Future<void> _syncPendingOutbox() async {
+    final api = widget.apiClient;
+    if (api == null || !api.hasAuthenticatedSession) {
+      setState(() => _status = 'Login cloud Laravel diperlukan sebelum sinkronisasi.');
+      return;
+    }
+    if (widget.identityStore.deviceId.trim().isEmpty ||
+        widget.identityStore.tenantId.trim().isEmpty) {
+      setState(() => _status = 'Daftarkan tenant dan perangkat sebelum sinkronisasi.');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _status = null;
+    });
+    try {
+      final summary = await OutboxSyncService(
+        database: widget.database,
+        apiClient: api,
+        identityStore: widget.identityStore,
+      ).syncPending();
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _status = 'Sinkronisasi: ${summary.accepted} diterima server, '
+            '${summary.retried} dijadwalkan ulang, '
+            '${summary.needsAttention} perlu pemeriksaan.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _status = error is ApiException
+            ? 'Sinkronisasi ditolak server: ' + error.message
+            : error is ApiTransportException
+                ? error.message
+                : 'Sinkronisasi gagal. Data lokal tetap dipertahankan.';
+      });
+    }
   }
 
   Future<void> _saveDeviceId() async {
@@ -684,6 +730,11 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                         onPressed: _loading || widget.apiClient == null ? null : _enrollDevice,
                         icon: const Icon(Icons.verified_user_outlined),
                         label: const Text('Daftarkan ke server'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: _loading || widget.apiClient == null ? null : _syncPendingOutbox,
+                        icon: const Icon(Icons.sync),
+                        label: const Text('Sinkronkan penjualan'),
                       ),
                     ],
                   ),
