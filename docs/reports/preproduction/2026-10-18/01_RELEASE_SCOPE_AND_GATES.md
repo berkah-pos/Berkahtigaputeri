@@ -27,14 +27,15 @@ Temuan utama:
 | Repository | https://github.com/berkah-pos/Berkahtigaputeri |
 | Base SHA yang dicatat sebelum mengubah repo | 371b7fdf0bf672b37ceb1023e647f114221bf797 |
 | Branch laporan | audit/release-scope-governance-20261019 |
-| Commit SHA isi laporan (sebelum penghapusan salinan lama) | `c3fe5a5f3ccf99db87a2fc345a7e07de71d12d3b`; final branch HEAD is tracked in PR #91 metadata |
+| Initial report-content commit SHA | `c3fe5a5f3ccf99db87a2fc345a7e07de71d12d3b`; current final branch HEAD is tracked in PR #91 metadata |
 | File laporan | `docs/reports/preproduction/2026-10-18/01_RELEASE_SCOPE_AND_GATES.md` |
 | Scope perubahan | Laporan audit saja; tidak ada implementasi produk |
 | Database/runtime produksi | Tidak diakses |
 | Supabase | Tidak diakses, bahkan read-only; legacy sync script tidak dijalankan |
 | Merge/tag/deployment/DNS | Tidak dilakukan |
 | Commit pertama yang menambahkan laporan | 62aae89475f9f37334d65fb1a0583cfeacbb1664 (sebelum metadata PR ditambahkan) |
-| Draft PR dokumentasi | [#91 — release scope and governance recommendation](https://github.com/berkah-pos/Berkahtigaputeri/pull/91); final branch head SHA dicatat di metadata/description PR setelah konsolidasi akhir |
+| Draft PR dokumentasi | [#91 — release scope and gates recommendation](https://github.com/berkah-pos/Berkahtigaputeri/pull/91); final branch head SHA dicatat di metadata/description PR setelah konsolidasi akhir |
+| Overlapping draft artifacts | PR [#80](https://github.com/berkah-pos/Berkahtigaputeri/pull/80) berisi dua dokumen scope lain; branch `audit/preprod-release-scope-2026-10-18` pada SHA `ca18b4fda2e128799ad9c93586ad0dfc13b9023c` juga berisi versi awal dengan path laporan yang sama tetapi belum memiliki PR. Koordinator perlu mengonsolidasikan/menandai salinan lama sebelum merge; jangan merge kedua versi. |
 
 HEAD `371b7fdf0bf672b37ceb1023e647f114221bf797` terverifikasi sebagai `main` saat audit ulang 2026-10-20. Pada SHA ini, GitHub mengembalikan dua check-run bernama `Dependabot` (run **39186055413** dan **39184121515**, attempt 1, event `dynamic`); keduanya sukses sebagai otomasi Dependabot, bukan required application CI. Commit status API berstatus `pending` dengan `total_count=0`. Run CI aplikasi/workbook/PG17 yang terlihat berasal dari SHA lebih lama atau branch PR terpisah dan **tidak diwariskan** sebagai acceptance bagi HEAD audit atau calon RC baru.
 
@@ -201,6 +202,14 @@ Severity menunjukkan dampak rilis/keamanan, bukan atribusi kesalahan.
 - **Impact:** import manifest suatu hari dapat menciptakan asumsi trial/masa berlaku komersial yang belum disahkan owner. Ini **bukan** bukti subscription telah aktif pada runtime, bukan bukti billing berjalan, dan importer tidak dijalankan dalam audit.
 - **Rekomendasi:** minta owner menyetujui apakah trial 14 hari merupakan kebijakan produk; jika tidak, pisahkan pembuatan tenant dari seeding entitlement dan ubah melalui PR implementasi tersendiri. Jangan mengubah source pada workstream audit ini.
 - **Negative/regression test:** pada disposable PostgreSQL 17, import tenant baru tanpa kebijakan komersial yang disetujui tidak boleh memberi akses premium secara implisit; tanpa entitlement valid API harus fail closed; uji status trial/expired dan audit event setelah kebijakan owner disetujui.
+
+### F-10 — Duplicate scope drafts berisiko membuat bukti/otoritas rilis bercabang
+
+- **Severity:** P2 governance; **confidence:** High; **status:** SOURCE-VERIFIED.
+- **Evidence:** PR #80 berisi `RELEASE_SCOPE_GOVERNANCE_2026-10-18.md` dan `RELEASE_ACCEPTANCE_MATRIX_2026-10-18.md`; PR #91 adalah draft scope/governance terpisah; branch `audit/preprod-release-scope-2026-10-18` pada SHA `ca18b4fda2e128799ad9c93586ad0dfc13b9023c` juga berisi `docs/reports/preproduction/2026-10-18/01_RELEASE_SCOPE_AND_GATES.md` namun tidak memiliki PR yang ditemukan.
+- **Impact:** reviewer/owner dapat melihat beberapa matriks dan mengira masing-masing sebagai status yang berlaku, atau menggabungkan laporan stale dengan laporan yang lebih baru.
+- **Rekomendasi:** gunakan PR #91 sebagai tempat konsolidasi draft saat ini untuk review, lalu minta koordinator secara eksplisit menandai/mengarsipkan atau menyalin bukti relevan dari PR #80 dan branch tanpa PR. Tidak ada merge atau penutupan PR yang dilakukan oleh audit ini.
+- **Regression/acceptance:** hanya satu report/matrix yang ditunjuk release owner sebagai calon governance record; setiap bukti stale diberi label historical dan tidak dapat mengubah status gate tanpa exact-SHA evidence.
 
 ## 7. Workbook 352-entry contract: status bukti
 
