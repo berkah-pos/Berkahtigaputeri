@@ -63,7 +63,7 @@ class EffectiveConfigController extends Controller
             ->first();
 
         if ($tenant === null || $global === null || $template === null || $base === null
-            || $service === null || ! (bool) $service->enabled || $serviceConfig === null) {
+            || $service === null || ! $this->databaseBoolean($service->enabled) || $serviceConfig === null) {
             return response()->json([
                 'error' => [
                     'code' => 'effective_config_unavailable',
@@ -117,6 +117,19 @@ class EffectiveConfigController extends Controller
             'versions' => $versionVector,
             'sha256' => hash('sha256', $canonicalJson),
         ]);
+    }
+
+    private function databaseBoolean(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return $value !== 0;
+        }
+
+        return in_array(strtolower(trim((string) $value)), ['1', 't', 'true', 'yes', 'on'], true);
     }
 
     private function decodeObject(mixed $value): stdClass

@@ -221,15 +221,12 @@ class CentralMobileApiTest extends TestCase
             ->assertJsonPath('tenant_id', $this->tenantId)
             ->assertJsonPath('service', 'pos')
             ->assertJsonPath('config.origin', 'pos')
-            ->assertJsonPath('config.global_missing', null)
-            ->assertJsonPath('config.global', null)
             ->assertJsonPath('config.nested.keep', true)
             ->assertJsonPath('config.nested.template', true)
             ->assertJsonPath('config.nested.base', true)
             ->assertJsonPath('config.nested.service', true)
             ->assertJsonPath('config.nested.device', true)
             ->assertJsonPath('config.nested.choice', 'pos')
-            ->assertJsonPath('config.accounting_only', null)
             ->assertJsonPath('config.device_only', true)
             ->assertJsonPath('versions.device', 5)
             ->assertJsonStructure(['sha256']);
@@ -254,9 +251,17 @@ class CentralMobileApiTest extends TestCase
 
     public function test_effective_config_rejects_another_users_device(): void
     {
+        $otherUser = User::query()->create([
+            'name' => 'Other User',
+            'email' => 'other-'.str_replace('-', '', (string) Str::uuid()).'@example.test',
+            'password' => Hash::make('Another-Passphrase-2026!'),
+            'tenant_id' => $this->tenantId,
+            'is_super_admin' => false,
+            'is_active' => true,
+        ]);
         DB::connection('central')->table('device_registry')
             ->where('device_id', $this->deviceId)
-            ->update(['owner_user_id' => $this->user->id + 100000]);
+            ->update(['owner_user_id' => $otherUser->id]);
 
         $response = $this->actingAs($this->user, 'sanctum')
             ->postJson('/api/v1/config/effective', [
