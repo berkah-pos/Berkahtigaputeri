@@ -6,11 +6,11 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'central';
+    protected $connection = 'central_migrator';
 
     public function up(): void
     {
-        Schema::connection('central')->create('tenant_memberships', function (Blueprint $table): void {
+        Schema::connection('central_migrator')->create('tenant_memberships', function (Blueprint $table): void {
             $table->id();
             $table->string('tenant_id');
             $table->foreignId('user_id');
@@ -26,6 +26,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection('central')->dropIfExists('tenant_memberships');
+        Schema::connection('central_migrator')->dropIfExists('tenant_memberships');
     }
 };
