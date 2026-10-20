@@ -303,24 +303,26 @@ class SqliteSaleRepository implements SaleRepository {
         ),
       );
 
+      final outboxId = 'outbox:sale:$transactionId';
+      final syncEnvelope = await _buildSaleSyncEnvelope(
+        transaction: transaction,
+        eventId: outboxId,
+        saleId: saleId,
+        transactionId: transactionId,
+      );
       await transaction.insert(
         'outbox_events',
         <String, Object?>{
-          'id': 'outbox:sale:$transactionId',
+          'id': outboxId,
           'entity_type': 'sale',
           'entity_id': saleId,
-          'payload': jsonEncode(
-            <String, Object?>{
-              'saleId': saleId,
-              'transactionId': transactionId,
-              'businessDate': businessDate,
-              'grandTotal': calculation.grandTotal,
-              'ppnAmount': calculation.ppnAmount,
-              'paymentMethod': request.method.name,
-            },
-          ),
+          'payload': jsonEncode(syncEnvelope),
           'status': 'pending',
           'retry_count': 0,
+          'last_error': null,
+          'next_retry_at_utc': null,
+          'acked_at_utc': null,
+          'server_receipt_id': null,
           'created_at_utc': createdAtUtc,
         },
         conflictAlgorithm: ConflictAlgorithm.abort,
@@ -340,6 +342,105 @@ class SqliteSaleRepository implements SaleRepository {
         alreadyProcessed: false,
       );
     });
+  }
+
+  Future<Map<String, Object?>> _buildSaleSyncEnvelope({
+    required Transaction transaction,
+    required String eventId,
+    required String saleId,
+    required String transactionId,
+  }) async {
+    final sales = await transaction.query(
+      'sales',
+      where: 'id = ? AND transaction_id = ?',
+      whereArgs: <Object?>[saleId, transactionId],
+      limit: 1,
+    );
+    if (sales.length != 1) {
+      throw const SaleDataIntegrityException('Header penjualan tidak ditemukan untuk outbox.');
+    }
+
+    final itemRows = await transaction.query(
+      'sale_items',
+      where: 'sale_id = ?',
+      whereArgs: <Object?>[saleId],
+      orderBy: 'line_no',
+    );
+    if (itemRows.isEmpty) {
+      throw const SaleDataIntegrityException('Outbox penjualan wajib berisi minimal satu baris item.');
+    }
+
+    final items = <Map<String, Object?>>[];
+    for (final row in itemRows) {
+      final item = Map<String, Object?>.from(row);
+      final saleItemId = row['id']! as String;
+      final allocations = await transaction.query(
+        'sale_lot_allocations',
+        where: 'sale_item_id = ?',
+        whereArgs: <Object?>[saleItemId],
+        orderBy: 'allocation_no',
+      );
+      final consumptions = await transaction.query(
+        'cost_layer_consumptions',
+        where: 'sale_item_id = ?',
+        whereArgs: <Object?>[saleItemId],
+        orderBy: 'consumption_no',
+      );
+      if (allocations.isEmpty || consumptions.isEmpty) {
+        throw const SaleDataIntegrityException(
+          'Setiap item penjualan harus memiliki alokasi FEFO dan konsumsi biaya FIFO sebelum disinkronkan.',
+        );
+      }
+      item['allocations'] = allocations.map(Map<String, Object?>.from).toList(growable: false);
+      item['cost_consumptions'] =
+          consumptions.map(Map<String, Object?>.from).toList(growable: false);
+      items.add(item);
+    }
+
+    final journals = await transaction.query(
+      'journals',
+      where: 'transaction_id = ?',
+      whereArgs: <Object?>[transactionId],
+      limit: 1,
+    );
+    if (journals.length != 1) {
+      throw const SaleDataIntegrityException('Jurnal penjualan tidak ditemukan untuk outbox.');
+    }
+    final journal = Map<String, Object?>.from(journals.first);
+    journal['lines'] = (await transaction.query(
+      'journal_lines',
+      where: 'journal_id = ?',
+      whereArgs: <Object?>[journal['id']],
+      orderBy: 'line_no',
+    )).map(Map<String, Object?>.from).toList(growable: false);
+
+    final inventoryMovements = (await transaction.query(
+      'inventory_movements',
+      where: 'reference_id = ?',
+      whereArgs: <Object?>[transactionId],
+      orderBy: 'id',
+    )).map(Map<String, Object?>.from).toList(growable: false);
+
+    final stockMovements = (await transaction.query(
+      'stock_movements',
+      where: 'reference_id = ?',
+      whereArgs: <Object?>[transactionId],
+      orderBy: 'id',
+    )).map(Map<String, Object?>.from).toList(growable: false);
+
+    final sale = Map<String, Object?>.from(sales.single);
+    return <String, Object?>{
+      'payload_version': 1,
+      'event_id': eventId,
+      'event_type': 'sale',
+      'entity_id': saleId,
+      'transaction_id': transactionId,
+      'sale': sale,
+      'items': items,
+      'inventory_movements': inventoryMovements,
+      'stock_movements': stockMovements,
+      'journal': journal,
+    };
   }
 
   Future<List<FefoAllocation>> _consumeFefo({
