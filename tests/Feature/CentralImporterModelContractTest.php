@@ -10,7 +10,7 @@ use App\Models\Central\Subscription;
 use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
-use Tests\TestCase;
+use PHPUnit\Framework\TestCase;
 
 class CentralImporterModelContractTest extends TestCase
 {
