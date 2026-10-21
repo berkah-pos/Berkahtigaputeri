@@ -112,12 +112,14 @@ class SyncController extends Controller
         $eventId = (string) $event['event_id'];
         $payload = $event['payload'];
 
-        if (($event['entity_type'] ?? null) !== 'sale'
-            || ($payload['event_type'] ?? null) !== 'sale'
-            || ($payload['payload_version'] ?? null) !== 1
-            || ($payload['event_id'] ?? null) !== $eventId
-            || ($payload['entity_id'] ?? null) !== (string) $event['entity_id']) {
-            throw new SyncConflictException('Event envelope tidak cocok dengan identitas outbox.');
+        $envelopeMismatches = [];
+        if (($event['entity_type'] ?? null) !== 'sale') $envelopeMismatches[] = 'entity_type';
+        if (($payload['event_type'] ?? null) !== 'sale') $envelopeMismatches[] = 'event_type';
+        if (($payload['payload_version'] ?? null) !== 1) $envelopeMismatches[] = 'payload_version';
+        if (($payload['event_id'] ?? null) !== $eventId) $envelopeMismatches[] = 'event_id';
+        if (($payload['entity_id'] ?? null) !== (string) $event['entity_id']) $envelopeMismatches[] = 'entity_id';
+        if ($envelopeMismatches !== []) {
+            throw new SyncConflictException('Event envelope tidak valid pada: '.implode(', ', $envelopeMismatches).'.');
         }
 
         $canonical = json_encode($this->canonicalize($payload),
