@@ -44,4 +44,15 @@ void main() {
     expect(values.toSet().length, 1);
     expect(identity.deviceId, values.first);
   });
+
+  test('an explicit device ID assignment wins over in-flight generation', () async {
+    final identity = AppIdentityStore(await SharedPreferences.getInstance());
+    final generation = identity.ensureDeviceId();
+
+    await identity.setDeviceId('device-explicit-installation-123');
+    await generation;
+
+    expect(identity.deviceId, 'device-explicit-installation-123');
+    expect(await identity.ensureDeviceId(), 'device-explicit-installation-123');
+  });
 }
