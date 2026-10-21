@@ -52,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   OutboxSyncService? _outboxSync;
   int _selectedIndex = 0;
   int _refreshCounter = 0;
+  int _syncRefreshCounter = 0;
   final Set<int> _visitedIndices = <int>{0};
   bool _syncRunning = false;
   bool _syncRequested = false;
@@ -134,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _setCloudSyncStatus('Sync belum selesai: ' + error.toString() + '. Antrean lokal tetap disimpan.');
     } finally {
       _syncRunning = false;
-      if (mounted) setState(() => _syncBusy = false);
+      if (mounted) setState(() { _syncBusy = false; _syncRefreshCounter++; });
       if (_syncRequested) {
         _syncRequested = false;
         unawaited(_attemptCloudSync());
@@ -171,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       switch (index) {
         case 0:
           return _DashboardScreen(
-            key: ValueKey<String>('dashboard-$_refreshCounter'),
+            key: ValueKey<String>('dashboard-$_refreshCounter-$_syncRefreshCounter'),
             database: widget.database,
             cloudSyncConfigured: _cloudSyncConfigured,
             cloudSyncBusy: _syncBusy,
@@ -203,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           );
         case 4:
           return ReportsScreen(
-            key: ValueKey<String>('reports-$_refreshCounter'),
+            key: ValueKey<String>('reports-$_refreshCounter-$_syncRefreshCounter'),
             database: widget.database,
             cloudSyncConfigured: _cloudSyncConfigured,
             cloudSyncStatus: _cloudSyncStatus,
