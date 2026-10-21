@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 return new class extends Migration
@@ -47,7 +48,7 @@ return new class extends Migration
             'tenant_provisioning_events' => 'SELECT, INSERT',
         ];
         foreach ($tableGrants as $table => $privileges) {
-            if (\\Illuminate\\Support\\Facades\\Schema::connection('central_migrator')->hasTable($table)) {
+            if (Schema::connection('central_migrator')->hasTable($table)) {
                 $central->unprepared('GRANT '.$privileges.' ON TABLE "'.$table.'" TO "'.$runtimeRole.'"');
             }
         }
