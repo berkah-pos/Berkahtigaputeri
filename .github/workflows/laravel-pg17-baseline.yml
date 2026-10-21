@@ -144,7 +144,7 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
-      - name: Verify Laravel boot, API routes and feature smoke tests
+      - name: Verify Laravel boot and API route registration
         shell: bash
         run: |
           set -euo pipefail
@@ -154,7 +154,6 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
@@ -194,6 +193,16 @@ jobs:
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
+
+      - name: Run Laravel feature and identity/device acceptance tests on migrated PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" php artisan test
 
       - name: Build production image from the committed lock
         run: docker build --pull --target production --tag "$PROD_IMAGE" .
