@@ -36,7 +36,7 @@ class ImportCanonicalWorkbook extends Command
         } catch (\Throwable $exception) {
             report($exception);
             $this->error($exception->getMessage());
-            $this->warn('Import may be partially complete. Re-run the same command after correcting the cause; writes are idempotent.');
+            $this->warn('The central transaction is rolled back on a write failure. Correct the cause, then rerun the same validated manifest.');
             return self::FAILURE;
         }
     }
