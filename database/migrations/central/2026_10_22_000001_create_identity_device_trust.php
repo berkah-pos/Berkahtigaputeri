@@ -11,6 +11,12 @@ return new class extends Migration
 
     public function up(): void
     {
+        // Login resolves email case-insensitively. Enforce the same uniqueness
+        // in PostgreSQL so case variants can never make identity lookup ambiguous.
+        DB::connection('central')->statement(
+            'CREATE UNIQUE INDEX users_email_lower_unique ON users (LOWER(email))',
+        );
+
         Schema::connection('central')->table('tenants', function (Blueprint $table): void {
             $table->string('status', 20)->default('active');
         });
@@ -93,5 +99,7 @@ return new class extends Migration
         Schema::connection('central')->table('tenants', function (Blueprint $table): void {
             $table->dropColumn('status');
         });
+
+        DB::connection('central')->statement('DROP INDEX IF EXISTS users_email_lower_unique');
     }
 };
