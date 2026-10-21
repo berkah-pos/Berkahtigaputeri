@@ -289,6 +289,27 @@ class IdentityDeviceTrustTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0, 'central');
     }
 
+    public function test_expired_device_token_is_rejected(): void
+    {
+        $deviceId = 'device-' . Str::uuid();
+        $this->createActiveDevice($deviceId, (int) $this->member->getKey(), $this->tenantId);
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+        $login->assertOk();
+        $token = $login->json('access_token');
+
+        DB::connection('central')->table('personal_access_tokens')
+            ->where('device_id', $deviceId)
+            ->update(['expires_at' => now()->subSecond()]);
+
+        $this->withToken($token)->getJson('/api/v1/auth/context')->assertUnauthorized();
+    }
+
     private function createTenant(): string
     {
         $tenantId = 'tenant-' . Str::uuid();
