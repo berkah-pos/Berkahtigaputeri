@@ -155,7 +155,11 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             if pair in service_pairs:
                 raise ValueError(f"Duplicate service mapping: {pair}")
             service_pairs.add(pair)
-            key = canonical_mapping_key(\n                row.get("app_config_key"),\n                f"tenant:{tenant_id}:service:{service}",\n                f"SERVICE row {pair}",\n            )
+            key = canonical_mapping_key(
+                row.get("app_config_key"),
+                f"tenant:{tenant_id}:service:{service}",
+                f"SERVICE row {pair}",
+            )
             if key not in by_key:
                 raise ValueError(f"SERVICE row {pair} references missing key {key}")
             services.append({"tenant_id": tenant_id, "service": service, "enabled": bool_value(row.get("enabled")), "config": by_key[key]["config"]})
@@ -167,7 +171,11 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         for row in device_rows:
             device_id = text(row.get("device_id"))
             tenant_id = text(row.get("tenant_id"))
-            key = canonical_mapping_key(\n                row.get("app_config_key"),\n                f"device:{device_id}",\n                f"DEVICE row {device_id}",\n            )
+            key = canonical_mapping_key(
+                row.get("app_config_key"),
+                f"device:{device_id}",
+                f"DEVICE row {device_id}",
+            )
             if not device_id or device_id in seen_devices:
                 raise ValueError(f"Empty/duplicate device id: {device_id!r}")
             if tenant_id not in tenant_ids or key not in by_key:
