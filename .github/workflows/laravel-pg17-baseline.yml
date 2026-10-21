@@ -78,13 +78,27 @@ jobs:
       CENTRAL_DB_HOST: 127.0.0.1
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: berkahpos_central_ci
-      CENTRAL_DB_USERNAME: postgres
-      CENTRAL_DB_PASSWORD: postgres
+      CENTRAL_DB_USERNAME: central_runtime_ci
+      CENTRAL_DB_PASSWORD: central_runtime_ci_password
+      # TLS is disabled only for the disposable CI PostgreSQL service.
+      # Staging/production must set their own verified TLS policy.
+      CENTRAL_DB_SSLMODE: disable
+      CENTRAL_MIGRATOR_DB_HOST: 127.0.0.1
+      CENTRAL_MIGRATOR_DB_PORT: "5432"
+      CENTRAL_MIGRATOR_DB_DATABASE: berkahpos_central_ci
+      CENTRAL_MIGRATOR_DB_USERNAME: central_migrator_ci
+      CENTRAL_MIGRATOR_DB_PASSWORD: central_migrator_ci_password
+      CENTRAL_MIGRATOR_DB_SSLMODE: disable
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
-      TENANT_DB_USERNAME: postgres
-      TENANT_DB_PASSWORD: postgres
+      TENANT_DB_USERNAME: tenant_runtime_ci
+      TENANT_DB_PASSWORD: tenant_runtime_ci_password
+      TENANT_MIGRATOR_DB_HOST: 127.0.0.1
+      TENANT_MIGRATOR_DB_PORT: "5432"
+      TENANT_MIGRATOR_DB_DATABASE: berkahpos_tenant_ci
+      TENANT_MIGRATOR_DB_USERNAME: tenant_migrator_ci
+      TENANT_MIGRATOR_DB_PASSWORD: tenant_migrator_ci_password
       APP_ENV: testing
       APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       DB_CONNECTION: central
@@ -118,6 +132,27 @@ jobs:
           db_config = Path("config/database.php").read_text()
           assert "'default' => env('DB_CONNECTION', 'central')" in db_config
           assert "'driver' => 'pgsql'" in db_config
+          tenant_config = db_config.split("'tenant' => [", 1)[1].split("        ],", 1)[0]
+          assert "'username' => env('TENANT_DB_USERNAME') ?: '__tenant_runtime_role_required__'" in tenant_config
+          central_config = db_config.split("'central' => [", 1)[1].split("        ],", 1)[0]
+          assert "env('CENTRAL_DB_USERNAME', env('DB_USERNAME', 'postgres'))" not in central_config
+          assert "env('CENTRAL_DB_PASSWORD', env('DB_PASSWORD', ''))" not in central_config
+          assert "env('CENTRAL_DB_URL', env('DATABASE_URL'))" not in central_config
+          assert "'central_migrator' => [" in db_config
+          assert "'password' => env('TENANT_DB_PASSWORD', '')" in tenant_config
+          assert "env('CENTRAL_DB_USERNAME'" not in tenant_config
+          assert "env('DB_USERNAME'" not in tenant_config
+          assert "env('CENTRAL_DB_PASSWORD'" not in tenant_config
+          assert "env('DB_PASSWORD'" not in tenant_config
+          assert "'tenant_migrator' => [" in db_config
+          assert "TENANT_MIGRATOR_DB_USERNAME" in db_config
+          assert "TENANT_DB_URL" not in db_config
+          assert "TENANT_MIGRATOR_DB_URL" not in db_config
+          tenant_migration = Path("database/migrations/tenant/2026_10_17_000001_create_tenant_pos_tables.php").read_text()
+          assert "Schema::connection('tenant')" not in tenant_migration
+          assert "Schema::connection($this->targetConnection())" in tenant_migration
+          assert "return 'tenant_migrator';" in tenant_migration
+          assert "protected $connection = 'tenant_migrator';" in tenant_migration
           for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
               active = Path(active_path).read_text().lower()
               assert "mariadb" not in active, active_path
@@ -136,7 +171,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" composer validate --strict --no-check-publish
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" composer validate --strict --no-check-publish
           docker run --rm --network host "$CI_IMAGE" composer check-platform-reqs
           docker run --rm --network host "$CI_IMAGE" composer audit --locked --no-interaction
           docker run --rm "$CI_IMAGE" composer show --locked laravel/framework
@@ -144,25 +179,52 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
+      - name: Provision disposable tenant A/B roles and databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE central_migrator_ci LOGIN NOINHERIT PASSWORD '$CENTRAL_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE central_runtime_ci LOGIN NOINHERIT PASSWORD '$CENTRAL_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "ALTER DATABASE berkahpos_central_ci OWNER TO central_migrator_ci" \
+            -c "CREATE ROLE tenant_migrator_ci LOGIN NOINHERIT PASSWORD '$TENANT_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_ci LOGIN NOINHERIT PASSWORD '$TENANT_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_migrator_b_ci LOGIN NOINHERIT PASSWORD 'tenant_migrator_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_b_ci LOGIN NOINHERIT PASSWORD 'tenant_runtime_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE DATABASE berkahpos_tenant_ci OWNER tenant_migrator_ci" \
+            -c "CREATE DATABASE berkahpos_tenant_b_ci OWNER tenant_migrator_b_ci" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_central_ci TO central_runtime_ci, central_migrator_ci" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_ci FROM PUBLIC" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_b_ci FROM PUBLIC" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO tenant_migrator_ci, tenant_runtime_ci" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_b_ci TO tenant_migrator_b_ci, tenant_runtime_b_ci"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "REVOKE CREATE ON SCHEMA public FROM PUBLIC" \
+            -c "REVOKE CREATE ON SCHEMA public FROM tenant_runtime_ci" \
+            -c "GRANT USAGE ON SCHEMA public TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO tenant_runtime_ci"
+
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan about
-          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" php artisan about
+          routes="$(docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
-
-      - name: Create disposable tenant database on PostgreSQL 17
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
-            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE DATABASE berkahpos_tenant_ci"
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" php artisan route:list --path=api/v1)"
+          printf '%s\\n' "$routes"
+          for required_route in "api/v1/auth/login" "api/v1/auth/logout" "api/v1/devices/enroll" "api/v1/config/effective" "api/v1/sync"; do
+            if ! grep -Fq "$required_route" <<<"$routes"; then
+              echo "::error::Required Laravel mobile route is not registered: $required_route" >&2
+              exit 1
+            fi
+          done
 
       - name: Migrate fresh central database on disposable PostgreSQL 17
         shell: bash
@@ -170,19 +232,118 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
-            php artisan migrate --database=central --path=database/migrations/central --force
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE "$CI_IMAGE" \
+            php artisan migrate --database=central_migrator --path=database/migrations/central --force
 
-      - name: Migrate fresh tenant database on disposable PostgreSQL 17
+      - name: Import canonical manifest atomically into disposable central PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/workbook-import-venv"
+          "$RUNNER_TEMP/workbook-import-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+          manifest="$RUNNER_TEMP/canonical-central-config.json"
+          "$RUNNER_TEMP/workbook-import-venv/bin/python" scripts/export_workbook_for_laravel.py --output "$manifest"
+          docker run --rm --network host -v "$manifest:/tmp/canonical-central-config.json:ro" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE "$CI_IMAGE" \
+            php artisan config:import-workbook /tmp/canonical-central-config.json
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 -tA \
+            -c "DO \$\$ BEGIN IF (SELECT count(*) FROM global_configs WHERE key='global') <> 1 OR (SELECT count(*) FROM templates) <> 3 OR (SELECT count(*) FROM tenants) <> 100 OR (SELECT count(*) FROM tenant_services) <> 140 OR (SELECT count(*) FROM device_registry) <> 108 OR (SELECT count(*) FROM tenant_configs) <> 240 OR (SELECT count(*) FROM device_configs) <> 108 THEN RAISE EXCEPTION 'canonical import count mismatch'; END IF; END \$\$"
+
+      - name: Migrate fresh tenant database with isolated migrator identity
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
+            --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
+            --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" \
+            php artisan migrate --database=tenant_migrator --path=database/migrations/tenant --force
+
+      - name: Run Laravel API and authorization tests against disposable PostgreSQL 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
-            php artisan migrate --database=tenant --path=database/migrations/tenant --force
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
+            --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
+            --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
+            --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" php artisan test
+
+      - name: Prove central runtime cannot modify tenant routing registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          privileges="$(docker run --rm --network host \
+            --env PGPASSWORD="$CENTRAL_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$CENTRAL_DB_USERNAME" -d "$CENTRAL_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -tA \
+              -c "SELECT has_table_privilege(current_user, 'public.tenant_database_registry', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'DELETE') AND has_table_privilege(current_user, 'public.tenant_provisioning_events', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'DELETE') AND has_table_privilege(current_user, 'public.global_configs', 'SELECT') AND NOT has_table_privilege(current_user, 'public.global_configs', 'INSERT') AND NOT has_table_privilege(current_user, 'public.global_configs', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.global_configs', 'DELETE') AND has_table_privilege(current_user, 'public.templates', 'SELECT') AND NOT has_table_privilege(current_user, 'public.templates', 'INSERT') AND NOT has_table_privilege(current_user, 'public.templates', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.templates', 'DELETE') AND has_table_privilege(current_user, 'public.tenant_configs', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_configs', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_configs', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_configs', 'DELETE') AND has_table_privilege(current_user, 'public.tenant_services', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_services', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_services', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_services', 'DELETE') AND has_table_privilege(current_user, 'public.device_configs', 'SELECT') AND NOT has_table_privilege(current_user, 'public.device_configs', 'INSERT') AND NOT has_table_privilege(current_user, 'public.device_configs', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.device_configs', 'DELETE') AND has_sequence_privilege(current_user, 'public.personal_access_tokens_id_seq', 'USAGE') AND NOT has_sequence_privilege(current_user, 'public.users_id_seq', 'USAGE')")"
+          test "$privileges" = "t"
+          echo "PASS: central runtime can read but cannot mutate tenant routing registry or provisioning event log"
+
+      - name: Grant least-privilege tenant runtime DML
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO tenant_runtime_ci" \
+            -c "GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO tenant_runtime_ci"
+
+      - name: Prove tenant runtime cannot cross database boundaries or perform DDL
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          runtime_privileges="$(docker run --rm --network host \
+            --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$TENANT_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -tA -c "SELECT has_table_privilege(current_user, 'public.products', 'SELECT') AND has_table_privilege(current_user, 'public.products', 'INSERT') AND has_table_privilege(current_user, 'public.products', 'UPDATE') AND has_table_privilege(current_user, 'public.products', 'DELETE')")"
+          test "$runtime_privileges" = "t"
+          docker run --rm --network host \
+            --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$TENANT_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM public.products"
+
+          for denied_db in berkahpos_central_ci berkahpos_tenant_b_ci; do
+            if docker run --rm --network host --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+              psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$denied_db" \
+                -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null 2>&1; then
+              echo "ERROR: tenant_runtime_ci unexpectedly connected to $denied_db" >&2
+              exit 1
+            else
+              echo "PASS: tenant_runtime_ci cannot CONNECT to $denied_db"
+            fi
+          done
+
+          if docker run --rm --network host --env PGPASSWORD="$TENANT_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$TENANT_DB_USERNAME" -d "$TENANT_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -c "CREATE TABLE public.__runtime_ddl_probe(id integer)" >/dev/null 2>&1; then
+            echo "ERROR: tenant_runtime_ci unexpectedly created a table" >&2
+            exit 1
+          else
+            echo "PASS: tenant_runtime_ci cannot CREATE TABLE"
+          fi
+
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('tenant_runtime_ci','tenant_runtime_b_ci') AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN RAISE EXCEPTION 'tenant runtime role has cluster privileges'; END IF; END \$\$"
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
         shell: bash
@@ -208,7 +369,7 @@ jobs:
           docker run -d --name "$container" -p 127.0.0.1:8080:80 \
             --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
             --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
-            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
+            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$PROD_IMAGE"
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
             sleep 2

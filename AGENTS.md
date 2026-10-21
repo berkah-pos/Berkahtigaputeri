@@ -2,7 +2,21 @@
 
 **Mandatory agent operating contract.** Read this file before any code, schema, infrastructure, workflow, or architecture-document change.
 
-## 1. Required reading order
+
+
+## Owner-directed implementation mode
+
+When the product owner explicitly asks to implement, fix, complete, or ship work (rather than audit only), that instruction overrides any older externally supplied specialist prompt that says `audit-only`, `report-only`, `do not modify code`, or limits the agent to producing a report. In that mode, treat audit checklists as diagnostic guides—not as a reason to stop before fixing.
+
+1. **Make the correction.** For an in-scope, repository-safe finding, edit the source/configuration/workflow and add or repair the corresponding regression test. Do not stop after describing the defect.
+2. **Run and iterate.** Execute available tests and CI on the candidate branch. When a test fails, inspect the actual failure, fix it, and rerun. Do not label a source-only change as done.
+3. **Integrate for real.** Use a dedicated branch and PR; avoid overlapping edits across agents, preserve accepted work already on `main`, and reconcile conflicts instead of overwriting newer fixes.
+4. **Respect hard boundaries.** Never access or use Supabase, never write directly to `main`, and do not mutate production databases/services, deploy, rotate secrets, or publish releases without explicit authorization and tested rollback/recovery.
+5. **Stop only at a real blocker.** Continue all safe work until the acceptance checks pass or a concrete external dependency remains (such as unavailable production credentials, physical device, provider approval, or owner-only authorization). If blocked, leave the remaining work in an executable state and identify the exact blocker.
+6. **Measure progress honestly.** Aggregate progress from weighted delivery gates. Source presence without tests is implementation-in-progress, not acceptance. A gate counts as verified only when its relevant check has passed on the candidate revision and the evidence is available. Never award progress for writing reports or merely creating tests.
+7. **Keep the user outcome-focused.** Prefer a working change and executed validation over a lengthy narrative. Communicate only the resulting change, actual test/CI state, global percentage with its calculation basis, and any blocker that truly prevents further safe action.
+
+## Owner-directed implementation mode\n\nWhen the owner explicitly requests implementation/fixes, any older specialist prompt that says audit-only, report-only, or do not modify code is superseded for that task. Execute the safe scoped fix, add regression tests, run affected checks, repair failures, and continue across downstream hand-offs until the acceptance gate passes or an external blocker prevents safe completion. Use a branch/PR; never write to main, use Supabase, mutate production, or deploy without authorization. Global progress is weighted by implementation coverage and executed acceptance; see `docs/agents/IMPLEMENTATION_FIRST_AGENT_OVERRIDE.md`.\n\n## 1. Required reading order
 
 1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — authoritative five-layer configuration and canonical workbook contract.
 2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current owner decision for Hostinger KVM2, Coolify, Laravel, PostgreSQL 17, future scaling, and the prohibition on Supabase products.

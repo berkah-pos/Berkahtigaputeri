@@ -16,7 +16,7 @@ class PosDatabase {
 
   String? get legacyImportError => _legacyImportError;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
@@ -132,6 +132,14 @@ class PosDatabase {
       ''');
       await _createLegacyArchiveTables(database);
       current = 3;
+    }
+
+    if (current < 4) {
+      await database.execute('ALTER TABLE outbox_events ADD COLUMN last_error TEXT');
+      await database.execute('ALTER TABLE outbox_events ADD COLUMN next_retry_at_utc TEXT');
+      await database.execute('ALTER TABLE outbox_events ADD COLUMN acked_at_utc TEXT');
+      await database.execute('ALTER TABLE outbox_events ADD COLUMN server_receipt_id TEXT');
+      current = 4;
     }
 
     if (current != newVersion) {
@@ -486,8 +494,12 @@ class PosDatabase {
         entity_type TEXT NOT NULL,
         entity_id TEXT NOT NULL,
         payload TEXT NOT NULL,
-        status TEXT NOT NULL,
-        retry_count INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL CHECK(status IN ('pending', 'in_flight', 'retry', 'acknowledged', 'needs_attention')),
+        retry_count INTEGER NOT NULL DEFAULT 0 CHECK(retry_count >= 0),
+        last_error TEXT,
+        next_retry_at_utc TEXT,
+        acked_at_utc TEXT,
+        server_receipt_id TEXT,
         created_at_utc TEXT NOT NULL
       )
     ''');

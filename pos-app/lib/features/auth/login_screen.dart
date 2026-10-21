@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/api/laravel_api_client.dart';
+import '../../core/config/app_identity_store.dart';
 
 /// Authenticated entry point for cloud-backed use.
 ///
@@ -8,13 +9,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
-    required this.client,
+    required this.apiClient,
+    required this.identityStore,
     required this.onAuthenticated,
     required this.onContinueLocal,
     this.configurationMessage,
   });
 
-  final SupabaseClient? client;
+  final LaravelApiClient? apiClient;
+  final AppIdentityStore identityStore;
   final VoidCallback onAuthenticated;
   final VoidCallback onContinueLocal;
   final String? configurationMessage;
@@ -39,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    if (widget.client == null ||
+    if (widget.apiClient == null ||
         !(_formKey.currentState?.validate() ?? false) ||
         _loading) {
       return;
@@ -50,23 +53,39 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final response = await widget.client!.auth.signInWithPassword(
+      final user = await widget.apiClient!.login(
         email: _email.text.trim(),
         password: _password.text,
       );
-      if (response.session == null) {
-        throw StateError('Login berhasil tetapi sesi tidak tersedia.');
+      final tenantId = user['tenant_id']?.toString().trim() ?? '';
+      if (tenantId.isEmpty) {
+        await widget.apiClient!.logout();
+        throw const ApiException(
+          403,
+          'tenant_not_entitled',
+          'Akun belum ditautkan ke tenant aktif. Hubungi administrator.',
+        );
       }
+      // Allocate a stable, non-hardware-derived local ID after successful login.
+      // Server enrollment remains a separate explicit action in Settings.
+      await widget.identityStore.ensureDeviceId();
+      await widget.identityStore.setTenantId(tenantId);
       if (!mounted) return;
       setState(() => _loading = false);
       widget.onAuthenticated();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
+      var message = 'Login gagal. Periksa email dan kata sandi.';
+      if (error is ApiException) {
+        message = error.statusCode == 401
+            ? 'Email atau kata sandi tidak cocok.'
+            : error.message;
+      } else if (error is ApiTransportException) {
+        message = error.message;
+      }
       setState(() {
         _loading = false;
-        _error = 'Login gagal. Periksa email dan kata sandi, koneksi, serta '
-            'pengaturan Supabase Auth. Jika akun belum dibuat, hubungi '
-            'administrator Berkah POS.';
+        _error = message;
       });
     }
   }
@@ -106,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
-                      child: widget.client == null
+                      child: widget.apiClient == null
                           ? _buildLocalOnlyNotice(context)
                           : _buildLoginForm(context),
                     ),
@@ -141,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 8),
         Text(
           widget.configurationMessage ??
-              'SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY belum diatur.',
+              'BERKAH_API_BASE_URL belum diatur.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),

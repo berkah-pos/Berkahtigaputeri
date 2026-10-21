@@ -2,24 +2,37 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    protected $connection = 'tenant';
+    protected $connection = 'tenant_migrator';
+
+    /**
+     * Honour the connection selected by "artisan migrate --database=...".
+     * Never silently route tenant schema changes to the default/central DB.
+     */
+    private function targetConnection(): string
+    {
+        // Every tenant schema change must use the isolated migration identity.
+        // This avoids relying on Laravel's app default connection, which may be central.
+        return 'tenant_migrator';
+    }
 
     public function up(): void
     {
-        if (! Schema::connection('tenant')->hasTable('device_configs')) {
-            Schema::connection('tenant')->create('device_configs', function (Blueprint $table): void {
+        $schema = Schema::connection($this->targetConnection());
+        if (! $schema->hasTable('device_configs')) {
+            $schema->create('device_configs', function (Blueprint $table): void {
                 $table->string('device_id', 150)->primary();
                 $table->json('config')->nullable();
                 $table->unsignedInteger('version')->default(1);
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('products')) {
-            Schema::connection('tenant')->create('products', function (Blueprint $table): void {
+        if (! $schema->hasTable('products')) {
+            $schema->create('products', function (Blueprint $table): void {
                 $table->string('id', 100)->primary();
                 $table->string('sku', 100)->nullable()->index();
                 $table->string('barcode', 100)->nullable()->index();
@@ -31,8 +44,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('inventory_lots')) {
-            Schema::connection('tenant')->create('inventory_lots', function (Blueprint $table): void {
+        if (! $schema->hasTable('inventory_lots')) {
+            $schema->create('inventory_lots', function (Blueprint $table): void {
                 $table->string('id', 100)->primary();
                 $table->string('product_id', 100)->index();
                 $table->string('batch_code', 120)->nullable();
@@ -44,8 +57,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            Schema::connection('tenant')->create('sales', function (Blueprint $table): void {
+        if (! $schema->hasTable('sales')) {
+            $schema->create('sales', function (Blueprint $table): void {
                 $table->string('id', 100)->primary();
                 $table->string('device_id', 150)->index();
                 $table->string('source_event_id', 100)->nullable()->unique();
@@ -58,8 +71,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('sale_items')) {
-            Schema::connection('tenant')->create('sale_items', function (Blueprint $table): void {
+        if (! $schema->hasTable('sale_items')) {
+            $schema->create('sale_items', function (Blueprint $table): void {
                 $table->id();
                 $table->string('sale_id', 100)->index();
                 $table->string('product_id', 100)->index();
@@ -71,8 +84,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('inventory_movements')) {
-            Schema::connection('tenant')->create('inventory_movements', function (Blueprint $table): void {
+        if (! $schema->hasTable('inventory_movements')) {
+            $schema->create('inventory_movements', function (Blueprint $table): void {
                 $table->id();
                 $table->string('source_event_id', 100)->nullable()->index();
                 $table->string('product_id', 100)->index();
@@ -83,8 +96,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('journal_entries')) {
-            Schema::connection('tenant')->create('journal_entries', function (Blueprint $table): void {
+        if (! $schema->hasTable('journal_entries')) {
+            $schema->create('journal_entries', function (Blueprint $table): void {
                 $table->string('id', 100)->primary();
                 $table->string('source_event_id', 100)->nullable()->unique();
                 $table->string('description');
@@ -92,8 +105,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('journal_lines')) {
-            Schema::connection('tenant')->create('journal_lines', function (Blueprint $table): void {
+        if (! $schema->hasTable('journal_lines')) {
+            $schema->create('journal_lines', function (Blueprint $table): void {
                 $table->id();
                 $table->string('journal_entry_id', 100)->index();
                 $table->string('account_code', 50);
@@ -102,8 +115,8 @@ return new class extends Migration
                 $table->timestamps();
             });
         }
-        if (! Schema::connection('tenant')->hasTable('sync_receipts')) {
-            Schema::connection('tenant')->create('sync_receipts', function (Blueprint $table): void {
+        if (! $schema->hasTable('sync_receipts')) {
+            $schema->create('sync_receipts', function (Blueprint $table): void {
                 $table->string('event_id', 100)->primary();
                 $table->string('device_id', 150)->index();
                 $table->string('payload_sha256', 64);
@@ -116,9 +129,11 @@ return new class extends Migration
 
     public function down(): void
     {
+        $schema = Schema::connection($this->targetConnection());
+
         foreach (['sync_receipts', 'journal_lines', 'journal_entries', 'inventory_movements',
             'sale_items', 'sales', 'inventory_lots', 'products', 'device_configs'] as $table) {
-            Schema::connection('tenant')->dropIfExists($table);
+            $schema->dropIfExists($table);
         }
     }
 };

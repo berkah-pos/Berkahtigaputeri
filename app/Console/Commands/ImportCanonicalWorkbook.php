@@ -2,165 +2,421 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Central\DeviceRegistry;
-use App\Models\Central\GlobalConfig;
-use App\Models\Central\Subscription;
-use App\Models\Central\Tenant;
-use App\Models\Central\TenantConfig;
-use App\Models\Central\Template;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Stancl\Tenancy\Facades\Tenancy;
+use JsonException;
+use RuntimeException;
+use stdClass;
+use Throwable;
 
 class ImportCanonicalWorkbook extends Command
 {
+    private const EXPECTED_COUNTS = [
+        'global' => 1,
+        'template' => 3,
+        'tenant' => 100,
+        'service' => 140,
+        'device' => 108,
+    ];
+
+    private const EXPECTED_KEYSET_MD5 = '1fd3d64219ecc7c333453c20da80e295';
+    private const EXPECTED_TEMPLATES = ['BASIC', 'ENTERPRISE', 'PRO'];
+
     protected $signature = 'config:import-workbook {file : JSON manifest produced by scripts/export_workbook_for_laravel.py}';
-    protected $description = 'Idempotently import the validated 352-key workbook manifest into the central and tenant databases.';
+    protected $description = 'Validate and atomically import the canonical configuration manifest into the central PostgreSQL database.';
 
     public function handle(): int
     {
         $path = (string) $this->argument('file');
         if (! is_file($path) || ! is_readable($path)) {
-            $this->error("Cannot read manifest: {$path}");
+            $this->error('Cannot read manifest file.');
             return self::FAILURE;
         }
 
         try {
-            $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-            $this->validateManifest($manifest);
-            $this->info('Manifest checks passed. Import is resumable; existing versions are never reset to 1.');
+            $json = file_get_contents($path);
+            if ($json === false) {
+                throw new RuntimeException('Cannot read manifest bytes.');
+            }
 
+            $raw = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
+            $manifest = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            if (! $raw instanceof stdClass || ! is_array($manifest)) {
+                throw new RuntimeException('Manifest root must be a JSON object.');
+            }
+
+            $this->validateManifest($raw);
             $this->importCentral($manifest);
-            $this->importDevices($manifest);
-            $this->info('Imported central configuration, tenant records, device mappings, and per-tenant device config.');
+
+            $this->info(sprintf(
+                'PASS: atomically imported central configuration: %d templates, %d tenants, %d services, %d devices.',
+                count($manifest['templates']),
+                count($manifest['tenants']),
+                count($manifest['services']),
+                count($manifest['devices'])
+            ));
+
             return self::SUCCESS;
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             report($exception);
             $this->error($exception->getMessage());
-            $this->warn('Import may be partially complete. Re-run the same command after correcting the cause; writes are idempotent.');
             return self::FAILURE;
         }
     }
 
-    private function validateManifest(array $manifest): void
+    private function validateManifest(stdClass $raw): void
     {
-        if (($manifest['schema_version'] ?? null) !== 1 ||
-            ($manifest['keyset_md5'] ?? null) !== '1fd3d64219ecc7c333453c20da80e295') {
-            throw new \InvalidArgumentException('Manifest schema version or canonical keyset hash is invalid.');
+        if (($raw->schema_version ?? null) !== 1) {
+            throw new RuntimeException('Manifest schema_version must be 1.');
         }
-        $expected = ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108];
-        if (($manifest['counts'] ?? null) !== $expected ||
-            count($manifest['templates'] ?? []) !== 3 ||
-            count($manifest['tenants'] ?? []) !== 100 ||
-            count($manifest['services'] ?? []) !== 140 ||
-            count($manifest['devices'] ?? []) !== 108) {
-            throw new \InvalidArgumentException('Manifest must contain exactly the validated 352-key inventory.');
+
+        foreach (['source_workbook', 'source_workbook_sha256', 'manifest_sha256', 'keyset_md5'] as $field) {
+            if (! is_string($raw->{$field} ?? null) || trim($raw->{$field}) === '') {
+                throw new RuntimeException("Manifest field {$field} is required.");
+            }
         }
-        if (! is_array($manifest['global_config'] ?? null)) {
-            throw new \InvalidArgumentException('Global configuration is not an object.');
+
+        foreach (['source_workbook_sha256', 'manifest_sha256'] as $field) {
+            if (! preg_match('/^[a-f0-9]{64}$/', $raw->{$field})) {
+                throw new RuntimeException("Manifest field {$field} is not a valid SHA-256 digest.");
+            }
+        }
+
+        if (! preg_match('/^[a-f0-9]{32}$/', $raw->keyset_md5)) {
+            throw new RuntimeException('Manifest keyset_md5 is malformed.');
+        }
+
+        $payload = clone $raw;
+        unset($payload->manifest_sha256);
+        $canonical = json_encode(
+            $this->canonicalize($payload),
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
+        );
+        if (! hash_equals($raw->manifest_sha256, hash('sha256', $canonical))) {
+            throw new RuntimeException('Manifest SHA-256 mismatch; no database writes were made.');
+        }
+
+        if (! $raw->counts instanceof stdClass) {
+            throw new RuntimeException('Manifest counts must be a JSON object.');
+        }
+        $counts = get_object_vars($raw->counts);
+        if ($counts !== self::EXPECTED_COUNTS) {
+            // Object key order is not semantically meaningful in JSON.
+            foreach (self::EXPECTED_COUNTS as $kind => $expected) {
+                if (($counts[$kind] ?? null) !== $expected) {
+                    throw new RuntimeException('Manifest type counts do not match the canonical 352-entry contract.');
+                }
+            }
+            if (count($counts) !== count(self::EXPECTED_COUNTS)) {
+                throw new RuntimeException('Manifest contains unexpected entry-count categories.');
+            }
+        }
+
+        foreach (['templates', 'tenants', 'services', 'devices'] as $field) {
+            if (! is_array($raw->{$field} ?? null)) {
+                throw new RuntimeException("Manifest {$field} must be an array.");
+            }
+        }
+
+        if (count($raw->templates) !== self::EXPECTED_COUNTS['template']
+            || count($raw->tenants) !== self::EXPECTED_COUNTS['tenant']
+            || count($raw->services) !== self::EXPECTED_COUNTS['service']
+            || count($raw->devices) !== self::EXPECTED_COUNTS['device']) {
+            throw new RuntimeException('Manifest arrays do not contain the exact canonical record counts.');
+        }
+        if (! $raw->global_config instanceof stdClass) {
+            throw new RuntimeException('Global configuration must be a JSON object.');
+        }
+
+        $templateIds = [];
+        $keys = ['global'];
+        foreach ($raw->templates as $row) {
+            if (! $row instanceof stdClass || ! $this->isSafeId($row->id ?? null) || ! ($row->config ?? null) instanceof stdClass) {
+                throw new RuntimeException('Template record is malformed.');
+            }
+            if (isset($templateIds[$row->id])) {
+                throw new RuntimeException("Duplicate template ID: {$row->id}");
+            }
+            $templateIds[$row->id] = true;
+            $keys[] = 'template:'.$row->id;
+        }
+        $actualTemplates = array_keys($templateIds);
+        sort($actualTemplates, SORT_STRING);
+        if ($actualTemplates !== self::EXPECTED_TEMPLATES) {
+            throw new RuntimeException('Template IDs must be BASIC, PRO, and ENTERPRISE.');
+        }
+
+        $tenantIds = [];
+        foreach ($raw->tenants as $row) {
+            if (! $row instanceof stdClass
+                || ! $this->isSafeId($row->tenant_id ?? null)
+                || ! is_string($row->template_id ?? null)
+                || ! isset($templateIds[$row->template_id])
+                || ! ($row->config ?? null) instanceof stdClass) {
+                throw new RuntimeException('Tenant record contains an invalid ID, template, or config object.');
+            }
+            if (isset($tenantIds[$row->tenant_id])) {
+                throw new RuntimeException("Duplicate tenant ID: {$row->tenant_id}");
+            }
+            $tenantIds[$row->tenant_id] = true;
+            $keys[] = 'tenant:'.$row->tenant_id;
+        }
+
+        $servicePairs = [];
+        foreach ($raw->services as $row) {
+            if (! $row instanceof stdClass
+                || ! isset($tenantIds[$row->tenant_id ?? ''])
+                || ! in_array($row->service ?? null, ['pos', 'akuntansi'], true)
+                || ! is_bool($row->enabled ?? null)
+                || ! ($row->config ?? null) instanceof stdClass) {
+                throw new RuntimeException('Service record has an invalid tenant, service, enabled flag, or config object.');
+            }
+            $pair = $row->tenant_id.'|'.$row->service;
+            if (isset($servicePairs[$pair])) {
+                throw new RuntimeException("Duplicate tenant service mapping: {$pair}");
+            }
+            $servicePairs[$pair] = true;
+            $keys[] = 'tenant:'.$row->tenant_id.':service:'.$row->service;
+        }
+
+        $deviceIds = [];
+        foreach ($raw->devices as $row) {
+            if (! $row instanceof stdClass
+                || ! $this->isSafeDeviceId($row->device_id ?? null)
+                || ! isset($tenantIds[$row->tenant_id ?? ''])
+                || ! is_bool($row->active ?? null)
+                || ! ($row->config ?? null) instanceof stdClass) {
+                throw new RuntimeException('Device record has an invalid device ID, tenant, active flag, or config object.');
+            }
+            if (isset($deviceIds[$row->device_id])) {
+                throw new RuntimeException("Duplicate device ID: {$row->device_id}");
+            }
+            $deviceIds[$row->device_id] = true;
+            $keys[] = 'device:'.$row->device_id;
+        }
+
+        $actualCounts = [
+            'global' => 1,
+            'template' => count($templateIds),
+            'tenant' => count($tenantIds),
+            'service' => count($servicePairs),
+            'device' => count($deviceIds),
+        ];
+        if ($actualCounts !== self::EXPECTED_COUNTS || count($keys) !== 352 || count(array_unique($keys)) !== 352) {
+            throw new RuntimeException('Manifest does not produce exactly 352 unique canonical keys.');
+        }
+
+        sort($keys, SORT_STRING);
+        if (! hash_equals(self::EXPECTED_KEYSET_MD5, md5(implode("\n", $keys))) || ! hash_equals(self::EXPECTED_KEYSET_MD5, $raw->keyset_md5)) {
+            throw new RuntimeException('Manifest canonical keyset hash mismatch.');
         }
     }
 
     private function importCentral(array $manifest): void
     {
-        DB::connection('central')->transaction(function () use ($manifest): void {
-            $global = GlobalConfig::query()->firstOrNew(['key' => 'global']);
-            $global->config = $this->nextConfig($global->exists ? $global->config : null, $manifest['global_config'], (int) ($global->version ?? 0));
-            $global->version = (int) ($global->config['version'] ?? 1);
-            $global->save();
+        $central = DB::connection('central_migrator');
+
+        // This importer is an operator/deployment operation: use the dedicated central
+        // migrator identity, never the read-only web-runtime connection. Every write stays
+        // inside one central transaction; no per-tenant database side effect occurs here.
+        $central->transaction(function () use ($central, $manifest): void {
+            $this->writeVersionedConfig('global_configs', ['key' => 'global'], $manifest['global_config']);
 
             foreach ($manifest['templates'] as $row) {
-                $template = Template::query()->firstOrNew(['id' => $row['id']]);
-                $template->config = $this->nextConfig($template->exists ? $template->config : null, $row['config'], (int) ($template->version ?? 0));
-                $template->version = (int) ($template->config['version'] ?? 1);
-                $template->save();
+                $this->writeVersionedConfig('templates', ['id' => $row['id']], $row['config']);
             }
 
             foreach ($manifest['tenants'] as $row) {
-                $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
-                $isNew = ! $tenant->exists;
-                $tenant->template_id = $row['template_id'];
-                $tenant->save(); // stancl/tenancy provisions the isolated database on tenant creation.
+                $existing = $central->table('tenants')
+                    ->where('id', $row['tenant_id'])
+                    ->lockForUpdate()
+                    ->first();
 
-                $base = TenantConfig::query()->firstOrNew([
-                    'tenant_id' => $row['tenant_id'],
-                    'service_scope' => '__base__',
-                ]);
-                $base->service = null;
-                $base->template_id = $row['template_id'];
-                $base->config = $this->nextConfig($base->exists ? $base->config : null, $row['config'], (int) ($base->version ?? 0));
-                $base->version = (int) ($base->config['version'] ?? 1);
-                $base->save();
-
-                if ($isNew) {
-                    Subscription::query()->firstOrCreate(
-                        ['tenant_id' => $row['tenant_id']],
-                        ['plan' => strtolower($row['template_id']), 'status' => 'trial', 'expires_at' => now()->addDays(14)]
-                    );
+                if ($existing === null) {
+                    $central->table('tenants')->insert([
+                        'id' => $row['tenant_id'],
+                        'data' => null,
+                        'template_id' => $row['template_id'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } elseif ((string) $existing->template_id !== $row['template_id']) {
+                    $central->table('tenants')->where('id', $row['tenant_id'])->update([
+                        'template_id' => $row['template_id'],
+                        'updated_at' => now(),
+                    ]);
                 }
+
+                $this->writeVersionedConfig(
+                    'tenant_configs',
+                    ['tenant_id' => $row['tenant_id'], 'service_scope' => '__base__'],
+                    $row['config'],
+                    [
+                        'tenant_id' => $row['tenant_id'],
+                        'service' => null,
+                        'service_scope' => '__base__',
+                        'template_id' => $row['template_id'],
+                    ]
+                );
             }
 
             foreach ($manifest['services'] as $row) {
-                $config = TenantConfig::query()->firstOrNew([
-                    'tenant_id' => $row['tenant_id'],
-                    'service_scope' => $row['service'],
-                ]);
-                $config->service = $row['service'];
-                $config->config = $this->nextConfig($config->exists ? $config->config : null, $row['config'], (int) ($config->version ?? 0));
-                $config->version = (int) ($config->config['version'] ?? 1);
-                $config->save();
+                $serviceKey = ['tenant_id' => $row['tenant_id'], 'service' => $row['service']];
+                $existingService = $central->table('tenant_services')
+                    ->where($serviceKey)
+                    ->lockForUpdate()
+                    ->first();
+                $serviceValues = [
+                    'enabled' => $row['enabled'],
+                    'updated_at' => now(),
+                ];
+                if ($existingService === null) {
+                    $central->table('tenant_services')->insert($serviceKey + $serviceValues + ['created_at' => now()]);
+                } else {
+                    $central->table('tenant_services')->where($serviceKey)->update($serviceValues);
+                }
+
+                $this->writeVersionedConfig(
+                    'tenant_configs',
+                    ['tenant_id' => $row['tenant_id'], 'service_scope' => $row['service']],
+                    $row['config'],
+                    [
+                        'tenant_id' => $row['tenant_id'],
+                        'service' => $row['service'],
+                        'service_scope' => $row['service'],
+                        'template_id' => null,
+                    ]
+                );
+            }
+
+            foreach ($manifest['devices'] as $row) {
+                $deviceId = $row['device_id'];
+                $existingDevice = $central->table('device_registry')
+                    ->where('device_id', $deviceId)
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($existingDevice !== null && (string) $existingDevice->tenant_id !== (string) $row['tenant_id']) {
+                    throw new RuntimeException("Refusing to reassign device {$deviceId} to a different tenant.");
+                }
+
+                $status = $row['active'] ? 'active' : 'suspended';
+                if ($existingDevice !== null && in_array($existingDevice->status, ['suspended', 'revoked', 'disabled'], true)) {
+                    // Workbook import cannot reactivate a device disabled by an operator.
+                    $status = $existingDevice->status;
+                }
+
+                if ($existingDevice === null) {
+                    $central->table('device_registry')->insert([
+                        'device_id' => $deviceId,
+                        'tenant_id' => $row['tenant_id'],
+                        'owner_user_id' => null,
+                        'status' => $status,
+                        'registered_at' => $row['active'] ? now() : null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } else {
+                    $central->table('device_registry')->where('device_id', $deviceId)->update([
+                        'status' => $status,
+                        'registered_at' => $existingDevice->registered_at ?? ($row['active'] ? now() : null),
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                $existingConfig = $central->table('device_configs')
+                    ->where('device_id', $deviceId)
+                    ->lockForUpdate()
+                    ->first();
+                if ($existingConfig !== null && (string) $existingConfig->tenant_id !== (string) $row['tenant_id']) {
+                    throw new RuntimeException("Refusing to reassign device config {$deviceId} to a different tenant.");
+                }
+
+                $this->writeVersionedConfig(
+                    'device_configs',
+                    ['device_id' => $deviceId],
+                    $row['config'],
+                    ['device_id' => $deviceId, 'tenant_id' => $row['tenant_id']]
+                );
             }
         }, 3);
     }
 
-    private function importDevices(array $manifest): void
+    private function writeVersionedConfig(string $table, array $where, array $incoming, array $fixed = []): void
     {
-        foreach ($manifest['devices'] as $row) {
-            $tenant = Tenant::query()->findOrFail($row['tenant_id']);
-            DeviceRegistry::query()->updateOrCreate(
-                ['device_id' => $row['device_id']],
-                [
-                    'tenant_id' => $row['tenant_id'],
-                    'status' => $row['active'] ? 'active' : 'suspended',
-                    'registered_at' => $row['active'] ? now() : null,
-                ]
-            );
+        $central = DB::connection('central_migrator');
+        $existing = $central->table($table)->where($where)->lockForUpdate()->first();
+        $desired = $incoming;
+        unset($desired['version']);
 
-            Tenancy::initialize($tenant);
-            try {
-                $existing = DB::connection('tenant')->table('device_configs')
-                    ->where('device_id', $row['device_id'])->first();
-                $existingConfig = $existing?->config;
-                if (is_string($existingConfig)) {
-                    $existingConfig = json_decode($existingConfig, true, 512, JSON_THROW_ON_ERROR);
-                }
-                $next = $this->nextConfig(is_array($existingConfig) ? $existingConfig : null, $row['config'], (int) ($existing->version ?? 0));
-                DB::connection('tenant')->table('device_configs')->updateOrInsert(
-                    ['device_id' => $row['device_id']],
-                    [
-                        'config' => json_encode($next, JSON_THROW_ON_ERROR),
-                        'version' => (int) ($next['version'] ?? 1),
-                        'updated_at' => now(),
-                        'created_at' => $existing?->created_at ?? now(),
-                    ]
-                );
-            } finally {
-                Tenancy::end();
+        $current = [];
+        $decoded = [];
+        if ($existing !== null) {
+            $decoded = json_decode((string) $existing->config, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($decoded)) {
+                throw new RuntimeException("Stored configuration in {$table} is not a JSON object.");
             }
+            $current = $decoded;
+            unset($current['version']);
+        }
+
+        $rowVersion = (int) ($existing->version ?? 0);
+        $storedVersion = (int) ($decoded['version'] ?? 1);
+        if ($existing === null) {
+            $nextVersion = max(1, (int) ($incoming['version'] ?? 1));
+        } elseif ($current == $desired) {
+            $nextVersion = max(1, $rowVersion, $storedVersion);
+        } else {
+            $nextVersion = max(1, $rowVersion, $storedVersion) + 1;
+        }
+
+        $nextConfig = $desired;
+        $nextConfig['version'] = $nextVersion;
+        $now = now();
+        $values = array_merge($fixed, [
+            'config' => json_encode(
+                $nextConfig,
+                JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
+            ),
+            'version' => $nextVersion,
+            'updated_at' => $now,
+            'created_at' => $existing->created_at ?? $now,
+        ]);
+
+        if ($existing === null) {
+            $central->table($table)->insert(array_merge($where, $values));
+        } else {
+            $central->table($table)->where($where)->update($values);
         }
     }
 
-    private function nextConfig(?array $existing, array $incoming, int $currentVersion): array
+    private function isSafeId(mixed $value): bool
     {
-        $desired = $incoming;
-        unset($desired['version']);
-        $current = $existing ?? [];
-        unset($current['version']);
-        if ($existing !== null && $current === $desired) {
-            $desired['version'] = max(1, $currentVersion, (int) ($existing['version'] ?? 1));
-            return $desired;
+        return is_string($value) && preg_match('/^[A-Za-z0-9_.-]{1,150}$/', $value) === 1;
+    }
+
+    private function isSafeDeviceId(mixed $value): bool
+    {
+        return is_string($value) && preg_match('/^[A-Za-z0-9_.:-]{3,150}$/', $value) === 1;
+    }
+
+    private function canonicalize(mixed $value): mixed
+    {
+        if ($value instanceof stdClass) {
+            $properties = get_object_vars($value);
+            ksort($properties, SORT_STRING);
+            $canonical = new stdClass();
+            foreach ($properties as $key => $item) {
+                $canonical->{$key} = $this->canonicalize($item);
+            }
+
+            return $canonical;
         }
-        $desired['version'] = $existing === null ? 1 : max(1, $currentVersion, (int) ($existing['version'] ?? 1)) + 1;
-        return $desired;
+
+        if (is_array($value)) {
+            return array_map(fn (mixed $item): mixed => $this->canonicalize($item), $value);
+        }
+
+        return $value;
     }
 }

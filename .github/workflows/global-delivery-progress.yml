@@ -1,0 +1,44 @@
+name: Global Delivery Progress
+
+on:
+  pull_request:
+    paths:
+      - "AGENTS.md"
+      - "config/ci/implementation-progress.json"
+      - "scripts/implementation_progress.py"
+      - "scripts/tests/test_implementation_progress.py"
+      - "docs/agents/**"
+      - ".github/workflows/global-delivery-progress.yml"
+  push:
+    branches: ["**"]
+    paths:
+      - "AGENTS.md"
+      - "config/ci/implementation-progress.json"
+      - "scripts/implementation_progress.py"
+      - "scripts/tests/test_implementation_progress.py"
+      - "docs/agents/**"
+      - ".github/workflows/global-delivery-progress.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: global-delivery-progress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  progress:
+    name: Calculate weighted global delivery
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Validate gate register and publish global percentage
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/implementation_progress.py --format markdown | tee "$RUNNER_TEMP/implementation-progress.md"
+          cat "$RUNNER_TEMP/implementation-progress.md" >> "$GITHUB_STEP_SUMMARY"

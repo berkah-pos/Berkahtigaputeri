@@ -178,28 +178,40 @@ jobs:
             echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
           fi
 
-      - name: Reject publisher-signed release while legacy Supabase runtime remains
+      - name: Require approved HTTPS Laravel API origin for publisher release
         if: steps.signing.outputs.mode == 'release'
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
         shell: bash
         run: |
           set -euo pipefail
-          # The current Flutter client still contains a forbidden legacy path.
-          # Refuse a publisher-signed release until a reviewed PR replaces it
-          # with the Laravel API and removes the SDK/initialization/config vars.
-          if grep -R -n -E 'supabase_flutter|Supabase\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\.instance' lib pubspec.yaml; then
-            echo "::error::Publisher-signed release blocked: legacy Supabase client usage remains. Replace it with the tested Laravel API before release; do not configure Supabase secrets."
+          python3 - "${BERKAH_API_BASE_URL:-}" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+
+          raw = sys.argv[1].strip()
+          parsed = urlsplit(raw)
+          if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/"):
+              raise SystemExit("Publisher-signed release requires repository variable BERKAH_API_BASE_URL set to an approved HTTPS origin.")
+          print("Verified HTTPS Laravel API origin configured: https://" + parsed.hostname)
+          PY
+          if grep -R -n -E 'supabase_flutter|Supabase\\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\\.instance' lib pubspec.yaml; then
+            echo "::error::Publisher-signed release blocked: legacy Supabase runtime references remain."
             exit 1
           fi
 
       - name: Build publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
-        run: flutter build appbundle --release
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
+        run: flutter build appbundle --release --dart-define=BERKAH_API_BASE_URL="$BERKAH_API_BASE_URL"
 
       - name: Build test-only debug-signed AAB
         if: steps.signing.outputs.mode == 'debug'
         env:
           ORG_GRADLE_PROJECT_allowDebugReleaseSigning: "true"
-        run: flutter build appbundle --release
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
+        run: flutter build appbundle --release --dart-define=BERKAH_API_BASE_URL="${BERKAH_API_BASE_URL:-}"
 
       - name: Verify generated AAB and report certificate fingerprint
         shell: bash
