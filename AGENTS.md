@@ -13,10 +13,21 @@
 7. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting and evidence protocols, subject to the newest platform decision.
 8. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — legacy implementation snapshot and known gaps; not deployment proof.
 9. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve the active five-layer Final POS contract.
-10. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
-11. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
+10. `.github/IMPLEMENTATION_FIRST_EXECUTION.md` — default implementation-first execution contract and definition of done.
+11. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
+12. `docs/IMPLEMENTATION_PROGRESS.md` — global acceptance-gate ledger; update only with verified evidence.
+13. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
 
 Do not claim to have read or verified a file that was not actually accessible.
+
+
+## 1A. Default execution mode: implement, not report-only
+
+- Unless the user explicitly asks for an audit-only deliverable, every assigned workstream is implementation-first. Reproduce the problem, change the responsible source, add regression/acceptance tests, run the relevant checks, fix failures, and continue to the next in-scope blocker while practical.
+- Findings and analysis are intermediate inputs. A report without a fix is not completion when the fix is safe and within the workstream. If a real dependency blocks implementation, complete the independent safe parts and identify the exact blocked gate.
+- Work in a dedicated feature branch/PR, never commit directly to `main`. Do not deploy, modify production data, use live secrets, or connect to Supabase. Keep human approval requirements intact.
+- Completion requires exact changed files, tests actually executed, results, tested commit SHA, and CI run evidence where available. Label unrun tests honestly. Do not infer success from code presence or stale CI.
+- Update `docs/IMPLEMENTATION_PROGRESS.md` only when an acceptance-gate status changes based on evidence. Global completion is the percentage of required release gates fully accepted, not the count of reports or commits.
 
 ## 2. Split architecture authority
 
