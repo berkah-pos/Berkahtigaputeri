@@ -9,7 +9,7 @@ use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
 use App\Models\Central\User;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class CentralModelContractTest extends TestCase
 {
