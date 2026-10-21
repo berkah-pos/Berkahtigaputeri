@@ -21,7 +21,8 @@ RUN set -eux; \
     composer validate --strict --no-check-publish; \
     composer install --prefer-dist --no-interaction --no-progress; \
     composer check-platform-reqs; \
-    composer audit --locked --no-interaction
+    composer audit --locked --no-interaction; \
+    chown -R www-data:www-data storage bootstrap/cache
 CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
 
 FROM php-base AS production

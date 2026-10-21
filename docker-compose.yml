@@ -2,15 +2,29 @@ services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: ${CENTRAL_DB_DATABASE:-berkahpos_central}
-      POSTGRES_USER: ${CENTRAL_DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      # Bootstrap identity is used only by the database container's init process.
+      # Never pass PG_BOOTSTRAP_* to app or queue services.
+      POSTGRES_DB: postgres
+      POSTGRES_USER: ${PG_BOOTSTRAP_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${PG_BOOTSTRAP_PASSWORD:?Set a random local-only PG_BOOTSTRAP_PASSWORD in .env}
+      CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-berkah_central_runtime}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in local .env}
+      CENTRAL_DB_MIGRATOR_USERNAME: ${CENTRAL_DB_MIGRATOR_USERNAME:-berkah_central_migrator}
+      CENTRAL_DB_MIGRATOR_PASSWORD: ${CENTRAL_DB_MIGRATOR_PASSWORD:?Set CENTRAL_DB_MIGRATOR_PASSWORD in local .env}
+      TENANT_DB_DATABASE: ${TENANT_DB_DATABASE:-berkahpos_tenant}
+      TENANT_DB_USERNAME: ${TENANT_DB_USERNAME:-berkah_tenant_runtime}
+      TENANT_DB_PASSWORD: ${TENANT_DB_PASSWORD:?Set TENANT_DB_PASSWORD in local .env}
+      TENANT_DB_MIGRATOR_USERNAME: ${TENANT_DB_MIGRATOR_USERNAME:-berkah_tenant_migrator}
+      TENANT_DB_MIGRATOR_PASSWORD: ${TENANT_DB_MIGRATOR_PASSWORD:?Set TENANT_DB_MIGRATOR_PASSWORD in local .env}
     ports:
+      # Local developer access only; never copy this mapping into Coolify.
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres17_data:/var/lib/postgresql/data
+      - ./docker/postgres-init/10-runtime-roles.sql:/docker-entrypoint-initdb.d/10-runtime-roles.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CENTRAL_DB_USERNAME:-postgres} -d ${CENTRAL_DB_DATABASE:-berkahpos_central}"]
+      test: ["CMD-SHELL", "pg_isready -U ${PG_BOOTSTRAP_USERNAME:-postgres} -d postgres"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -18,6 +32,11 @@ services:
     build:
       context: .
       target: development
+    user: "33:33"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       postgres:
         condition: service_healthy
@@ -25,21 +44,22 @@ services:
       APP_NAME: "Berkah POS"
       APP_ENV: local
       APP_DEBUG: "true"
-      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_KEY: ${APP_KEY:?Set a unique local APP_KEY in .env before starting the app}
       APP_URL: http://localhost:8000
       LOG_CHANNEL: stderr
       DB_CONNECTION: central
       CENTRAL_DB_HOST: postgres
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
-      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      # App receives only non-superuser runtime identities.
+      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-berkah_central_runtime}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:?Set CENTRAL_DB_PASSWORD in local .env}
       CENTRAL_DB_SSLMODE: disable
       TENANT_DB_HOST: postgres
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: ${TENANT_DB_DATABASE:-berkahpos_tenant}
-      TENANT_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      TENANT_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      TENANT_DB_USERNAME: ${TENANT_DB_USERNAME:-berkah_tenant_runtime}
+      TENANT_DB_PASSWORD: ${TENANT_DB_PASSWORD:?Set TENANT_DB_PASSWORD in local .env}
       TENANT_DB_SSLMODE: disable
       CACHE_STORE: file
       SESSION_DRIVER: file

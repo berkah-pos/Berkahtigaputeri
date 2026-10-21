@@ -19,9 +19,15 @@ on:
       - ".env.example"
       - "docker-compose.yml"
       - "docker/**"
+      - "scripts/ops/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/runbooks/**"
+      - "docs/evidence/templates/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/reports/OPS_TARGET_AUDIT_2026-10-18.md"
+      - "docs/evidence/restore-2026-10-18.md"
   push:
     branches: ["**"]
     paths:
@@ -41,9 +47,15 @@ on:
       - ".env.example"
       - "docker-compose.yml"
       - "docker/**"
+      - "scripts/ops/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
       - "docs/development/**"
+      - "docs/runbooks/**"
+      - "docs/evidence/templates/**"
+      - "docs/KVM2_RESOURCE_BUDGET.md"
+      - "docs/reports/OPS_TARGET_AUDIT_2026-10-18.md"
+      - "docs/evidence/restore-2026-10-18.md"
   workflow_dispatch:
 
 permissions:
@@ -127,6 +139,33 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
+      - name: Validate local Compose and isolated PostgreSQL runtime roles
+        env:
+          APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+          PG_BOOTSTRAP_USERNAME: postgres
+          PG_BOOTSTRAP_PASSWORD: ci-bootstrap-only
+          CENTRAL_DB_DATABASE: berkahpos_central
+          CENTRAL_DB_USERNAME: berkah_central_runtime
+          CENTRAL_DB_PASSWORD: central-runtime-test-only
+          CENTRAL_DB_MIGRATOR_USERNAME: berkah_central_migrator
+          CENTRAL_DB_MIGRATOR_PASSWORD: central-migrator-test-only
+          TENANT_DB_DATABASE: berkahpos_tenant
+          TENANT_DB_USERNAME: berkah_tenant_runtime
+          TENANT_DB_PASSWORD: tenant-runtime-test-only
+          TENANT_DB_MIGRATOR_USERNAME: berkah_tenant_migrator
+          TENANT_DB_MIGRATOR_PASSWORD: tenant-migrator-test-only
+        run: |
+          set -euo pipefail
+          docker compose --file docker-compose.yml config --quiet
+          bash scripts/ops/verify-local-postgres-roles.sh
+
+      - name: Run synthetic PostgreSQL logical restore, tenant sentinel and PITR drills
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/ops/verify-disposable-recovery.sh
+          bash scripts/ops/verify-disposable-recovery.sh
+
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
 
@@ -196,7 +235,7 @@ jobs:
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
 
       - name: Build production image from the committed lock
-        run: docker build --pull --target production --tag "$PROD_IMAGE" .
+        run: docker build --pull --target production --build-arg VCS_REF="$GITHUB_SHA" --tag "$PROD_IMAGE" .
 
       - name: Smoke-test production image HTTP health and API route
         shell: bash

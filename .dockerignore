@@ -15,3 +15,6 @@ storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/views/*
 *.log
+
+# Operational CI fixtures are executed on the runner, never needed in app images.
+scripts/ops/
