@@ -16,3 +16,8 @@
 - New workflows use GitHub-hosted `ubuntu-24.04`; deploy immutable images only after required checks pass.
 - `scripts/sync_excel_to_supabase.py` is prohibited legacy mutation-capable code. Never run it and never give it credentials. Existing data may only be imported from an already available owner-controlled offline artifact outside Supabase; otherwise data continuity remains unverified.
 - Report unexecuted tests as `NOT RUN / NOT VERIFIED`; source presence and docs do not prove green CI, tenant isolation, successful restore, or production readiness.
+
+
+## Execution rule
+
+Default to implementation, not report-only. Fix in-scope defects, add regression tests, run relevant checks, inspect failures, and iterate until the workstream is accepted or genuinely blocked. Audit-only mode is used only when the user explicitly requests it. Read `.github/IMPLEMENTATION_FIRST_EXECUTION.md` and update `docs/IMPLEMENTATION_PROGRESS.md` only from verified acceptance evidence. Never bypass tenant-isolation, accounting, no-Supabase, review, or production-safety boundaries.
