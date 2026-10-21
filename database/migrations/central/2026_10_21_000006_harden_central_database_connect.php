@@ -33,16 +33,15 @@ return new class extends Migration
         $tableGrants = [
             'users' => 'SELECT',
             'personal_access_tokens' => 'SELECT, INSERT, UPDATE, DELETE',
-            'tenants' => 'SELECT, INSERT, UPDATE, DELETE',
-            'tenant_domains' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenants' => 'SELECT',
             'subscriptions' => 'SELECT',
             'tenant_memberships' => 'SELECT',
             'device_registry' => 'SELECT, INSERT, UPDATE',
-            'tenant_services' => 'SELECT, INSERT, UPDATE, DELETE',
-            'global_configs' => 'SELECT, INSERT, UPDATE, DELETE',
-            'templates' => 'SELECT, INSERT, UPDATE, DELETE',
-            'tenant_configs' => 'SELECT, INSERT, UPDATE, DELETE',
-            'device_configs' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenant_services' => 'SELECT',
+            'global_configs' => 'SELECT',
+            'templates' => 'SELECT',
+            'tenant_configs' => 'SELECT',
+            'device_configs' => 'SELECT',
             // Routing/credential registry is provisioner-owned; web runtime is read-only.
             'tenant_database_registry' => 'SELECT',
             // Provisioning events are append-only and written by the controlled worker.
@@ -53,7 +52,10 @@ return new class extends Migration
                 $central->unprepared('GRANT '.$privileges.' ON TABLE "'.$table.'" TO "'.$runtimeRole.'"');
             }
         }
-        $central->unprepared('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "'.$runtimeRole.'"');
+        // Login can create/revoke Sanctum tokens; no blanket sequence access.
+        if (Schema::connection('central_migrator')->hasTable('personal_access_tokens')) {
+            $central->unprepared('GRANT USAGE, SELECT ON SEQUENCE "personal_access_tokens_id_seq" TO "'.$runtimeRole.'"');
+        }
 
         $extraRoles = array_filter(array_map(
             'trim',
