@@ -165,6 +165,17 @@ class EffectiveConfigApiTest extends TestCase
         $this->assertSame(64, strlen($hash));
     }
 
+    public function test_rejects_a_suspended_tenant_before_evaluating_device_access(): void
+    {
+        Sanctum::actingAs($this->user, ['*']);
+        $this->tenant->status = 'suspended';
+        $this->tenant->save();
+
+        $this->getJson('/api/v1/config/pos', ['X-Device-ID' => $this->device->device_id])
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'tenant_access_denied');
+    }
+
     public function test_rejects_a_device_without_an_explicit_owner_binding(): void
     {
         Sanctum::actingAs($this->user, ['*']);
