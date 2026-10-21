@@ -202,7 +202,7 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" php artisan test
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" php artisan test --display-warnings
 
       - name: Build production image from the committed lock
         run: docker build --pull --target production --tag "$PROD_IMAGE" .
