@@ -21,6 +21,8 @@ class CentralMobileApiTest extends TestCase
     private bool $originalBasicTemplateExists = false;
     /** @var array<string, mixed> */
     private array $originalBasicTemplate = [];
+    /** @var list<string> */
+    private array $additionalTenantIds = [];
 
     protected function setUp(): void
     {
@@ -179,6 +181,14 @@ class CentralMobileApiTest extends TestCase
         $fixture->table('device_registry')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('tenant_configs')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('tenant_services')->where('tenant_id', $this->tenantId)->delete();
+        foreach ($this->additionalTenantIds as $additionalTenantId) {
+            $fixture->table('device_configs')->where('tenant_id', $additionalTenantId)->delete();
+            $fixture->table('device_registry')->where('tenant_id', $additionalTenantId)->delete();
+            $fixture->table('tenant_configs')->where('tenant_id', $additionalTenantId)->delete();
+            $fixture->table('tenant_services')->where('tenant_id', $additionalTenantId)->delete();
+            $fixture->table('subscriptions')->where('tenant_id', $additionalTenantId)->delete();
+            $fixture->table('tenants')->where('id', $additionalTenantId)->delete();
+        }
         $fixture->table('users')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('subscriptions')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('tenants')->where('id', $this->tenantId)->delete();
@@ -299,6 +309,7 @@ class CentralMobileApiTest extends TestCase
     public function test_device_enrollment_rejects_a_device_already_owned_by_another_tenant(): void
     {
         $otherTenant = 'other_tenant_'.str_replace('-', '', (string) Str::uuid());
+        $this->additionalTenantIds[] = $otherTenant;
         $now = now();
         DB::connection('central_migrator')->table('tenants')->insert([
             'id' => $otherTenant,
