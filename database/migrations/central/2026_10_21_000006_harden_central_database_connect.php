@@ -29,6 +29,30 @@ return new class extends Migration
         $central->unprepared('GRANT CONNECT ON DATABASE '.$quotedDatabase.' TO "'.$runtimeRole.'"');
         $central->unprepared('GRANT CONNECT ON DATABASE '.$quotedDatabase.' TO "'.$migratorRole.'"');
 
+        $central->unprepared('GRANT USAGE ON SCHEMA public TO "'.$runtimeRole.'"');
+        $tableGrants = [
+            'users' => 'SELECT',
+            'personal_access_tokens' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenants' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenant_domains' => 'SELECT, INSERT, UPDATE, DELETE',
+            'subscriptions' => 'SELECT',
+            'tenant_memberships' => 'SELECT',
+            'device_registry' => 'SELECT, INSERT, UPDATE',
+            'tenant_services' => 'SELECT, INSERT, UPDATE, DELETE',
+            'global_configs' => 'SELECT, INSERT, UPDATE, DELETE',
+            'templates' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenant_configs' => 'SELECT, INSERT, UPDATE, DELETE',
+            'device_configs' => 'SELECT, INSERT, UPDATE, DELETE',
+            'tenant_database_registry' => 'SELECT, INSERT, UPDATE',
+            'tenant_provisioning_events' => 'SELECT, INSERT',
+        ];
+        foreach ($tableGrants as $table => $privileges) {
+            if (\\Illuminate\\Support\\Facades\\Schema::connection('central_migrator')->hasTable($table)) {
+                $central->unprepared('GRANT '.$privileges.' ON TABLE "'.$table.'" TO "'.$runtimeRole.'"');
+            }
+        }
+        $central->unprepared('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "'.$runtimeRole.'"');
+
         $extraRoles = array_filter(array_map(
             'trim',
             explode(',', (string) env('CENTRAL_DB_EXTRA_CONNECT_ROLES', ''))
