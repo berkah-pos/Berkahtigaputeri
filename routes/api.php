@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\Api\V1\IdentityController;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Route;
+use App\\Http\\Controllers\\Api\\V1\\IdentityController;
+use Illuminate\\Support\\Facades\\DB;
+use Illuminate\\Support\\Facades\\Route;
 
 Route::get('/v1/platform-health', function () {
     // Liveness only: this endpoint must remain available while dependencies recover.
@@ -17,7 +17,7 @@ Route::get('/v1/platform-ready', function () {
     // Readiness is separate from liveness. Do not expose connection errors/secrets.
     try {
         DB::connection('central')->select('SELECT 1');
-    } catch (\Throwable) {
+    } catch (\\Throwable) {
         return response()->json([
             'service' => 'berkah-pos-central-api',
             'status' => 'not_ready',
@@ -52,6 +52,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
 Route::middleware(['auth:sanctum', 'active.identity'])->group(function (): void {
     Route::get('/v1/auth/session', [IdentityController::class, 'session'])
         ->name('api.v1.auth.session');
+
+    Route::put('/v1/tenants/{tenantId}/memberships/{userId}', [IdentityController::class, 'grantMembership'])
+        ->middleware('platform.ability:memberships:manage')
+        ->name('api.v1.memberships.grant');
+
+    Route::delete('/v1/tenants/{tenantId}/memberships/{userId}', [IdentityController::class, 'revokeMembership'])
+        ->middleware('platform.ability:memberships:manage')
+        ->name('api.v1.memberships.revoke');
 
     Route::post('/v1/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])
         ->middleware('platform.ability:devices:approve')
