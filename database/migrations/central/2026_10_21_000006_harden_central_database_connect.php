@@ -44,8 +44,10 @@ return new class extends Migration
             'templates' => 'SELECT, INSERT, UPDATE, DELETE',
             'tenant_configs' => 'SELECT, INSERT, UPDATE, DELETE',
             'device_configs' => 'SELECT, INSERT, UPDATE, DELETE',
-            'tenant_database_registry' => 'SELECT, INSERT, UPDATE',
-            'tenant_provisioning_events' => 'SELECT, INSERT',
+            // Routing/credential registry is provisioner-owned; web runtime is read-only.
+            'tenant_database_registry' => 'SELECT',
+            // Provisioning events are append-only and written by the controlled worker.
+            'tenant_provisioning_events' => 'SELECT',
         ];
         foreach ($tableGrants as $table => $privileges) {
             if (Schema::connection('central_migrator')->hasTable($table)) {
