@@ -29,15 +29,15 @@
       "name": "Canonical 352-entry workbook import, deterministic hash and cross-scope rejection",
       "weight": 10,
       "implementation": "present",
-      "verified": false,
+      "verified": true,
       "source_refs": [
         "scripts/export_workbook_for_laravel.py",
         "scripts/tests/test_export_workbook.py",
         "scripts/tests/test_workbook_export.py",
         "scripts/run_workbook_tests.py"
       ],
-      "evidence_sha": null,
-      "evidence_url": null
+      "evidence_sha": "74ec259601c9e8f19ef58b332e0922dc156db844",
+      "evidence_url": "https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39646360618"
     },
     {
       "id": "CENTRAL-API",
