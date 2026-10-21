@@ -206,8 +206,9 @@ jobs:
           cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
           docker run -d --name "$container" -p 127.0.0.1:8080:80 \
+            --add-host=host.docker.internal:host-gateway \
             --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
-            --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
+            --env DB_CONNECTION --env CENTRAL_DB_HOST=host.docker.internal --env CENTRAL_DB_PORT \
             --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
@@ -215,6 +216,7 @@ jobs:
           done
           curl --fail --silent --show-error http://127.0.0.1:8080/up
           curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/platform-health
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/readiness
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked laravel/framework
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked filament/filament
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked stancl/tenancy
