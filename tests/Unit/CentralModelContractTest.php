@@ -16,16 +16,16 @@ class CentralModelContractTest extends TestCase
     public function test_all_central_models_pin_to_central_connection_and_expected_tables(): void
     {
         $models = [
-            new User() => 'users',
-            new DeviceRegistry() => 'device_registry',
-            new GlobalConfig() => 'global_configs',
-            new Subscription() => 'subscriptions',
-            new Tenant() => 'tenants',
-            new TenantConfig() => 'tenant_configs',
-            new Template() => 'templates',
+            [new User(), 'users'],
+            [new DeviceRegistry(), 'device_registry'],
+            [new GlobalConfig(), 'global_configs'],
+            [new Subscription(), 'subscriptions'],
+            [new Tenant(), 'tenants'],
+            [new TenantConfig(), 'tenant_configs'],
+            [new Template(), 'templates'],
         ];
 
-        foreach ($models as $model => $table) {
+        foreach ($models as [$model, $table]) {
             $this->assertSame('central', $model->getConnectionName(), $model::class);
             $this->assertSame($table, $model->getTable(), $model::class);
         }
