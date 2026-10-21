@@ -433,6 +433,44 @@ class SqliteProductRepository {
         );
       }
 
+      final productRows = await transaction.query(
+        'products',
+        where: 'id = ?',
+        whereArgs: <Object?>[normalizedId],
+        limit: 1,
+      );
+      if (productRows.isEmpty) throw ProductNotFoundException(normalizedId);
+      final product = _fromRow(productRows.single);
+      final queuedEvents = await transaction.query(
+        'outbox_events',
+        columns: <String>['id', 'status'],
+        where: 'entity_type = ? AND entity_id = ?',
+        whereArgs: <Object?>['product', normalizedId],
+      );
+      if (queuedEvents.any((event) => event['status'] == 'in_flight')) {
+        throw const ProductValidationException(
+          'Produk sedang disinkronkan. Coba hapus kembali setelah sinkronisasi selesai.',
+        );
+      }
+      final wasAcceptedByServer =
+          queuedEvents.any((event) => event['status'] == 'acknowledged');
+      // Cancel unsent catalogue changes when deleting a never-synced product.
+      // If the server already knows it, enqueue a durable deactivation before
+      // deleting the local row so the cloud does not retain a saleable orphan.
+      await transaction.delete(
+        'outbox_events',
+        where: 'entity_type = ? AND entity_id = ? AND status <> ?',
+        whereArgs: <Object?>['product', normalizedId, 'acknowledged'],
+      );
+      if (wasAcceptedByServer) {
+        await _enqueueProductEvent(
+          transaction,
+          product,
+          createdAtUtc: DateTime.now().toUtc().toIso8601String(),
+          isActive: false,
+        );
+      }
+
       final changed = await transaction.delete(
         'products',
         where: 'id = ?',
