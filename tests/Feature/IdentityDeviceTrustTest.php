@@ -135,6 +135,7 @@ class IdentityDeviceTrustTest extends TestCase
         $adminLogin->assertOk()->assertJsonPath('token_kind', 'platform_admin');
         $adminToken = $adminLogin->json('access_token');
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($adminToken)
             ->postJson('/api/v1/devices/' . $deviceId . '/approve')
             ->assertOk()
@@ -160,6 +161,7 @@ class IdentityDeviceTrustTest extends TestCase
         $this->assertNotNull($storedToken);
         $this->assertNotNull($storedToken->expires_at);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)
             ->getJson('/api/v1/auth/context?tenant_id=forged-tenant&device_id=forged-device')
             ->assertOk()
@@ -204,6 +206,7 @@ class IdentityDeviceTrustTest extends TestCase
             ->where('id', $this->member->getKey())
             ->update(['is_active' => false]);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v1/auth/session')
             ->assertStatus(403)
             ->assertJsonPath('error', 'identity_disabled');
@@ -236,12 +239,15 @@ class IdentityDeviceTrustTest extends TestCase
         $secondLogin->assertOk();
         $secondToken = $secondLogin->json('access_token');
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($secondToken)
             ->postJson('/api/v1/devices/' . $firstDevice . '/revoke')
             ->assertOk()
             ->assertJsonPath('status', 'revoked');
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($firstToken)->getJson('/api/v1/auth/context')->assertUnauthorized();
+        $this->app['auth']->forgetGuards();
         $this->withToken($secondToken)->getJson('/api/v1/auth/context')->assertOk();
 
         $this->assertDatabaseHas('device_registry', [
@@ -270,6 +276,7 @@ class IdentityDeviceTrustTest extends TestCase
             ->where('tenant_id', $this->tenantId)
             ->update(['status' => 'revoked', 'revoked_at' => now()]);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v1/auth/context')
             ->assertStatus(403)
             ->assertJsonPath('error', 'active_device_required');
@@ -308,6 +315,7 @@ class IdentityDeviceTrustTest extends TestCase
             ->where('device_id', $deviceId)
             ->update(['expires_at' => now()->subSecond()]);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/v1/auth/context')->assertUnauthorized();
     }
 

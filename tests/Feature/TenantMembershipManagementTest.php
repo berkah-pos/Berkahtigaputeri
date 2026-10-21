@@ -30,6 +30,7 @@ class TenantMembershipManagementTest extends TestCase
         $member = $this->createUser('member', false);
         $adminToken = $this->platformToken($admin);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($adminToken)->putJson("/api/v1/tenants/{$tenantId}/memberships/{$member->getKey()}")
             ->assertOk()->assertJsonPath('status', 'active')->assertJsonPath('changed', true);
 
@@ -52,9 +53,11 @@ class TenantMembershipManagementTest extends TestCase
         $memberLogin->assertOk();
         $memberToken = $memberLogin->json('access_token');
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($adminToken)->deleteJson("/api/v1/tenants/{$tenantId}/memberships/{$member->getKey()}")
             ->assertOk()->assertJsonPath('status', 'revoked')->assertJsonPath('changed', true);
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($memberToken)->getJson('/api/v1/auth/context')->assertUnauthorized();
 
         $this->assertDatabaseHas('tenant_memberships', [
@@ -84,6 +87,7 @@ class TenantMembershipManagementTest extends TestCase
         ]);
         $login->assertOk();
 
+        $this->app['auth']->forgetGuards();
         $this->withToken($login->json('access_token'))
             ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$member->getKey()}")
             ->assertForbidden()->assertJsonPath('error', 'platform_admin_required');
