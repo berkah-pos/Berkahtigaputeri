@@ -17,7 +17,8 @@ class PlatformSmokeTest extends TestCase
             ->assertOk()
             ->assertJson([
                 'service' => 'berkah-pos-central-api',
-                'status' => 'ok',
+                'status' => 'informational',
+                'readiness_endpoint' => '/api/v1/ready',
             ]);
     }
 

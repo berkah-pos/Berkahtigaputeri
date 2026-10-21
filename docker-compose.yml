@@ -1,6 +1,9 @@
+# LOCAL DEVELOPMENT ONLY. Do not import this file into a production Coolify project.
+# Production requires private networking, restricted DB roles, explicit resource limits,
+# and an approved immutable image reference.
 services:
   postgres:
-    image: postgres:17
+    image: postgres:17.11-bookworm # Local development only; production image pin is managed separately.
     environment:
       POSTGRES_DB: ${CENTRAL_DB_DATABASE:-berkahpos_central}
       POSTGRES_USER: ${CENTRAL_DB_USERNAME:-postgres}

@@ -16,6 +16,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => env('CENTRAL_DB_SCHEMA', 'public'),
             'sslmode' => env('CENTRAL_DB_SSLMODE', env('DB_SSLMODE', 'prefer')),
+            'options' => extension_loaded('pdo_pgsql') ? [PDO::ATTR_TIMEOUT => (int) env('CENTRAL_DB_TIMEOUT', 3)] : [],
         ],
         'tenant' => [
             'driver' => 'pgsql',
@@ -30,6 +31,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => env('TENANT_DB_SCHEMA', 'public'),
             'sslmode' => env('TENANT_DB_SSLMODE', env('CENTRAL_DB_SSLMODE', env('DB_SSLMODE', 'prefer'))),
+            'options' => extension_loaded('pdo_pgsql') ? [PDO::ATTR_TIMEOUT => (int) env('TENANT_DB_TIMEOUT', 3)] : [],
         ],
     ],
     'migrations' => [

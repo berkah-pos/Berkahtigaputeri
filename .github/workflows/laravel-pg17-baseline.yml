@@ -60,7 +60,7 @@ jobs:
     timeout-minutes: 40
     services:
       postgres:
-        image: postgres:17
+        image: postgres:17.11-bookworm
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -124,7 +124,13 @@ jobs:
               assert "mysql:" not in active, active_path
           for active_path in ["composer.json", ".env.example", "Dockerfile", "docker-compose.yml"]:
               assert "SUPABASE_" not in Path(active_path).read_text(), active_path
-          print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
+          assert "postgres:17.11-bookworm" in Path("docker-compose.yml").read_text()
+          workflow = Path(".github/workflows/laravel-pg17-baseline.yml").read_text()
+          assert "postgres:17.11-bookworm" in workflow
+          entrypoint = Path("docker/entrypoint.sh").read_text()
+          assert "RUN_CENTRAL_MIGRATIONS" in entrypoint
+          assert "php artisan migrate --database=central" not in entrypoint
+          print("PHP/Laravel/Filament/Sanctum/tenancy constraints, PG17.11 patch pin and no-startup-migration policy: PASS")
           PY
 
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
@@ -160,7 +166,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17.11-bookworm \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE berkahpos_tenant_ci"
 
@@ -188,26 +194,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17.11-bookworm \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','tenant_configs') ORDER BY table_name"
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17.11-bookworm \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
 
-      - name: Build production image from the committed lock
-        run: docker build --pull --target production --tag "$PROD_IMAGE" .
+      - name: Build production image from the committed lock and exact source revision
+        run: docker build --pull --target production --build-arg VCS_REF="${GITHUB_SHA}" --tag "$PROD_IMAGE" .
 
       - name: Smoke-test production image HTTP health and API route
         shell: bash
         run: |
           set -euo pipefail
+          revision="$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$PROD_IMAGE")"
+          test "$revision" = "$GITHUB_SHA"
           container="berkah-pos-prod-smoke-${{ github.run_id }}"
           cleanup() { docker rm -f "$container" >/dev/null 2>&1 || true; }
           trap cleanup EXIT
-          docker run -d --name "$container" -p 127.0.0.1:8080:80 \
+          # The application container is isolated from the runner host; use the published
+          # disposable PostgreSQL service port via the Docker host gateway, not container-local loopback.
+          docker run -d --name "$container" --add-host=host.docker.internal:host-gateway -p 127.0.0.1:8080:80 \
             --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
-            --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
+            --env DB_CONNECTION --env CENTRAL_DB_HOST=host.docker.internal --env CENTRAL_DB_PORT \
             --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
@@ -215,6 +225,16 @@ jobs:
           done
           curl --fail --silent --show-error http://127.0.0.1:8080/up
           curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/platform-health
+          curl --fail --silent --show-error http://127.0.0.1:8080/api/v1/ready
+          if docker run --rm --env APP_ENV=testing --env RUN_CENTRAL_MIGRATIONS=true "$PROD_IMAGE" >"$RUNNER_TEMP/startup-migration-guard.log" 2>&1; then
+            echo "Startup unexpectedly accepted the migration switch" >&2
+            exit 1
+          else
+            startup_exit=$?
+          fi
+          test "$startup_exit" -eq 64
+          grep -F "startup database migrations are disabled" "$RUNNER_TEMP/startup-migration-guard.log"
+          docker stop --time 35 "$container"
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked laravel/framework
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked filament/filament
           docker run --rm --entrypoint composer "$PROD_IMAGE" show --locked stancl/tenancy
