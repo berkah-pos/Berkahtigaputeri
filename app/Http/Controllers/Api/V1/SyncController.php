@@ -151,8 +151,24 @@ class SyncController extends Controller
             || 'outbox:sale:'.$transactionId !== $eventId) {
             throw new SyncConflictException('ID transaksi tidak konsisten.');
         }
-        foreach (['occurred_at_utc', 'business_date', 'timezone', 'request_fingerprint', 'payment_method'] as $field) {
+        foreach (['occurred_at_utc', 'timezone', 'request_fingerprint', 'payment_method'] as $field) {
             $this->requiredString($sale, $field);
+        }
+        $businessDate = $this->requiredString($sale, 'business_date');
+        try {
+            $parsedBusinessDate = Carbon::createFromFormat('!Y-m-d', $businessDate);
+        } catch (Throwable) {
+            $parsedBusinessDate = false;
+        }
+        if ($parsedBusinessDate === false || $parsedBusinessDate->format('Y-m-d') !== $businessDate) {
+            throw new SyncConflictException('Tanggal pembukuan harus berupa tanggal kalender YYYY-MM-DD yang valid.');
+        }
+        $periodKey = substr($businessDate, 0, 7);
+        if ($db->table('accounting_periods')
+            ->where('period_key', $periodKey)
+            ->where('status', 'closed')
+            ->exists()) {
+            throw new SyncConflictException('Periode akuntansi sudah ditutup; transaksi perlu rekonsiliasi.');
         }
         if (! isset(self::PAYMENT_ACCOUNTS[$sale['payment_method']])) {
             throw new SyncConflictException('Metode pembayaran belum memiliki akun COA yang diizinkan.');
@@ -353,7 +369,7 @@ class SyncController extends Controller
         $db->table('journal_entries')->insert([
             'id' => $journalId, 'source_event_id' => $eventId, 'transaction_id' => $transactionId,
             'description' => 'POS sale '.$transactionId, 'journal_date' => (string) $sale['business_date'],
-            'occurred_at' => $occurredAt, 'timezone' => (string) $sale['timezone'], 'status' => 'posted',
+            'occurred_at' => $occurredAt, 'timezone' => (string) $sale['timezone'], 'status' => 'draft',
             'created_at' => $created, 'updated_at' => $created,
         ]);
         foreach ($expectedJournal as $line) {
@@ -363,6 +379,17 @@ class SyncController extends Controller
                 'created_at' => $created, 'updated_at' => $created,
             ]);
         }
+
+        // The PostgreSQL trigger validates that this journal is balanced and the
+        // accounting period is open before the entry becomes immutable.
+        $posted = $db->table('journal_entries')
+            ->where('id', $journalId)
+            ->where('status', 'draft')
+            ->update(['status' => 'posted', 'updated_at' => $created]);
+        if ($posted !== 1) {
+            throw new SyncConflictException('Jurnal tidak dapat diposting dalam status saat ini.');
+        }
+
         $db->table('accounting_events')->insert([
             'event_id' => $eventId, 'journal_entry_id' => $journalId, 'actor_user_id' => $actorId,
             'device_id' => $deviceId, 'app_version' => $appVersion, 'action' => 'post',
