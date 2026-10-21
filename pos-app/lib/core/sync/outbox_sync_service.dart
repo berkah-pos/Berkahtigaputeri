@@ -74,7 +74,7 @@ class OutboxSyncService {
         'outbox_events',
         where: "(status = 'pending' OR status = 'retry') AND (next_retry_at_utc IS NULL OR next_retry_at_utc <= ?)",
         whereArgs: <Object?>[now],
-        orderBy: 'created_at_utc ASC, id ASC',
+        orderBy: "created_at_utc ASC, CASE entity_type WHEN 'product' THEN 0 WHEN 'inventory_receipt' THEN 1 ELSE 2 END, id ASC",
         limit: _maxEventsPerRun,
       );
 
@@ -214,7 +214,7 @@ class OutboxSyncService {
         columns: <String>['id', 'status'],
         where: 'entity_id = ? AND status <> ?',
         whereArgs: <Object?>[productId, 'acknowledged'],
-        orderBy: 'created_at_utc ASC, id ASC',
+        orderBy: "created_at_utc ASC, CASE entity_type WHEN 'product' THEN 0 WHEN 'inventory_receipt' THEN 1 ELSE 2 END, id ASC",
         limit: 1,
       );
       if (unresolved.isEmpty) continue;

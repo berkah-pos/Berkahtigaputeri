@@ -432,7 +432,9 @@ class SyncController extends Controller
 
         $productId = $this->requiredString($product, 'id');
         $eventEntityId = (string) ($event['entity_id'] ?? '');
-        if ($productId !== $eventEntityId) throw new SyncConflictException('ID master produk tidak cocok dengan envelope.');
+        if (strlen($productId) > 100 || $productId !== $eventEntityId) {
+            throw new SyncConflictException('ID master produk tidak valid atau tidak cocok dengan envelope.');
+        }
         $sku = trim($this->requiredString($product, 'sku'));
         $name = trim($this->requiredString($product, 'name_id'));
         if (strlen($sku) > 100 || strlen($name) > 255) throw new SyncConflictException('SKU atau nama produk melebihi batas.');
@@ -516,6 +518,9 @@ class SyncController extends Controller
         }
         $lotId = $this->requiredString($receipt, 'lot_id');
         $costLayerId = $this->requiredString($receipt, 'cost_layer_id');
+        if (strlen($lotId) > 100 || strlen($costLayerId) > 150) {
+            throw new SyncConflictException('ID lot atau layer biaya melebihi batas skema.');
+        }
         $quantity = $this->payloadQuantity($receipt, 'quantity');
         $unitCost = $this->payloadMoney($receipt, 'unit_cost');
         $batchNo = trim($this->requiredString($receipt, 'batch_no'));
