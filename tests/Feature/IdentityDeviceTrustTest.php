@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Central\PersonalAccessToken;
 use App\Models\Central\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -308,6 +309,22 @@ class IdentityDeviceTrustTest extends TestCase
             ->update(['expires_at' => now()->subSecond()]);
 
         $this->withToken($token)->getJson('/api/v1/auth/context')->assertUnauthorized();
+    }
+
+    public function test_email_identity_is_unique_case_insensitively(): void
+    {
+        $this->expectException(QueryException::class);
+
+        DB::connection('central')->transaction(function (): void {
+            User::query()->create([
+                'name' => 'Case Variant',
+                'email' => strtoupper($this->member->email),
+                'password' => 'Correct-password-123!',
+                'tenant_id' => null,
+                'is_super_admin' => false,
+                'is_active' => true,
+            ]);
+        });
     }
 
     private function createTenant(): string
