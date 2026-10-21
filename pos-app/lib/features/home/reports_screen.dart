@@ -178,10 +178,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     : '$_pendingSync event menunggu sinkronisasi',
               ),
               subtitle: Text(
-                cloudSyncConfigured
-                    ? cloudSyncStatus
+                widget.cloudSyncConfigured
+                    ? widget.cloudSyncStatus
                     : 'Angka di atas adalah data lokal. Event hanya menjadi data cloud '
-                        'setelah server mengembalikan receipt. ' + cloudSyncStatus,
+                        'setelah server mengembalikan receipt. ' + widget.cloudSyncStatus,
               ),
               trailing: IconButton(
                 tooltip: 'Muat ulang',

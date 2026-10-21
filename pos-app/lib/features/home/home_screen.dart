@@ -46,7 +46,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   late final SqliteProductRepository _products;
   late final PaymentService _payments;
   OutboxSyncService? _outboxSync;
@@ -54,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _refreshCounter = 0;
   final Set<int> _visitedIndices = <int>{0};
   bool _syncRunning = false;
+  bool _syncRequested = false;
   bool _syncBusy = false;
   String _cloudSyncStatus = 'Akses cloud sedang diperiksa.';
 
@@ -84,7 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _attemptCloudSync() async {
-    if (_syncRunning) return;
+    if (_syncRunning) {
+      _syncRequested = true;
+      return;
+    }
     final api = widget.apiClient;
     final config = widget.configService;
     if (api == null || config == null || !api.hasAuthenticatedSession) {
@@ -131,6 +135,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } finally {
       _syncRunning = false;
       if (mounted) setState(() => _syncBusy = false);
+      if (_syncRequested) {
+        _syncRequested = false;
+        unawaited(_attemptCloudSync());
+      }
     }
   }
 
