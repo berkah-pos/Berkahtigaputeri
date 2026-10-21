@@ -38,8 +38,10 @@ services:
       TENANT_DB_HOST: postgres
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: ${TENANT_DB_DATABASE:-berkahpos_tenant}
-      TENANT_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      TENANT_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      # Fail closed: never inherit the central user/password for tenant traffic.
+      # Supply a separately provisioned tenant-scoped runtime login for local tests.
+      TENANT_DB_USERNAME: ${TENANT_DB_USERNAME:-tenant_runtime_unconfigured}
+      TENANT_DB_PASSWORD: ${TENANT_DB_PASSWORD:-tenant-runtime-not-configured}
       TENANT_DB_SSLMODE: disable
       CACHE_STORE: file
       SESSION_DRIVER: file

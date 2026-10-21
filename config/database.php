@@ -23,8 +23,10 @@ return [
             'host' => env('TENANT_DB_HOST', env('CENTRAL_DB_HOST', env('DB_HOST', '127.0.0.1'))),
             'port' => env('TENANT_DB_PORT', '5432'),
             'database' => env('TENANT_DB_DATABASE', 'berkahpos_tenant'),
-            'username' => env('TENANT_DB_USERNAME', env('CENTRAL_DB_USERNAME', env('DB_USERNAME', 'postgres'))),
-            'password' => env('TENANT_DB_PASSWORD', env('CENTRAL_DB_PASSWORD', env('DB_PASSWORD', ''))),
+            // Fail closed: never inherit central/global credentials for tenant traffic.
+            // A tenant database is usable only when a tenant-scoped runtime identity is provisioned.
+            'username' => env('TENANT_DB_USERNAME', 'tenant_runtime_unconfigured'),
+            'password' => env('TENANT_DB_PASSWORD', ''),
             'charset' => 'utf8',
             'prefix' => '',
             'prefix_indexes' => true,
