@@ -190,7 +190,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
-            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','tenant_configs') ORDER BY table_name"
+            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','device_configs','tenant_configs') ORDER BY table_name"
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
