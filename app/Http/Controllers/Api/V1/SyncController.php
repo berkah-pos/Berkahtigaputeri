@@ -12,6 +12,7 @@ use Illuminate\Database\Connection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Throwable;
 
 class SyncController extends Controller
@@ -34,8 +35,14 @@ class SyncController extends Controller
             'events.*.entity_type' => ['required', 'string', 'in:sale'],
             'events.*.entity_id' => ['required', 'string', 'max:150'],
             'events.*.payload' => ['required', 'array'],
-            'events.*.payload.sale.request_fingerprint' => ['sometimes', 'string', 'max:65536'],
         ]);
+
+        // Validate the nested fingerprint separately but retain the complete event
+        // envelope. Mixing one dotted child rule into an array-valued payload can
+        // cause validated() to narrow sibling keys that the sync contract needs.
+        Validator::make($request->all(), [
+            'events.*.payload.sale.request_fingerprint' => ['sometimes', 'string', 'max:65536'],
+        ])->validate();
 
         $user = $request->user();
         if (! $user instanceof User || ! $user->is_active || $user->tenant_id === null) {
