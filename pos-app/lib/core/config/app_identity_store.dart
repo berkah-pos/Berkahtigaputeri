@@ -53,6 +53,16 @@ class AppIdentityStore {
   }
 
   Future<void> setDeviceId(String deviceId) async {
+    // If initial ID generation is already underway, let it finish before the
+    // explicit assignment so its final write cannot overwrite the chosen ID.
+    final pending = _creatingDeviceId;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // A failed initial generation does not prevent explicit configuration.
+      }
+    }
     await _preferences.setString(_deviceKey, deviceId);
     _creatingDeviceId = null;
   }
