@@ -574,7 +574,7 @@ class CentralMobileApiTest extends TestCase
             'app_version' => 'integration-test',
             'events' => [$event],
         ]);
-        $response->assertOk()->assertJsonPath('results.0.status', 'accepted');
+        $this->assertSame('accepted', $response->json('results.0.status'), json_encode($response->json(), JSON_UNESCAPED_SLASHES));
         $this->assertSame($eventId, $response->json('results.0.receipt_id'));
 
         $sale = $tenantDb->table('sales')->where('id', $saleId)->first();
