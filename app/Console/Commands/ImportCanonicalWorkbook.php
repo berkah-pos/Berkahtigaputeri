@@ -86,6 +86,7 @@ class ImportCanonicalWorkbook extends Command
                 }
             }
 
+            $tenantServiceRows = [];
             foreach ($manifest['services'] as $row) {
                 $config = TenantConfig::query()->firstOrNew([
                     'tenant_id' => $row['tenant_id'],
@@ -95,7 +96,22 @@ class ImportCanonicalWorkbook extends Command
                 $config->config = $this->nextConfig($config->exists ? $config->config : null, $row['config'], (int) ($config->version ?? 0));
                 $config->version = (int) ($config->config['version'] ?? 1);
                 $config->save();
+
+                // Service availability is a separate authorization input, not just config data.
+                $tenantServiceRows[] = [
+                    'tenant_id' => $row['tenant_id'],
+                    'service' => $row['service'],
+                    'enabled' => $row['enabled'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
+
+            DB::connection('central')->table('tenant_services')->upsert(
+                $tenantServiceRows,
+                ['tenant_id', 'service'],
+                ['enabled', 'updated_at'],
+            );
         }, 3);
     }
 
