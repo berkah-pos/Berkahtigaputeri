@@ -31,8 +31,7 @@ class ImportCanonicalWorkbook extends Command
             $this->info('Manifest checks passed. Import is resumable; existing versions are never reset to 1.');
 
             $this->importCentral($manifest);
-            $this->importDevices($manifest);
-            $this->info('Imported central configuration, tenant records, device mappings, and per-tenant device config.');
+            $this->info('Imported central configuration, tenant records, service enablement, device mappings, and device overrides atomically.');
             return self::SUCCESS;
         } catch (\Throwable $exception) {
             report($exception);
@@ -112,6 +111,9 @@ class ImportCanonicalWorkbook extends Command
                 ['tenant_id', 'service'],
                 ['enabled', 'updated_at'],
             );
+
+            // All configuration scopes live centrally and commit or roll back together.
+            $this->importDevices($manifest);
         }, 3);
     }
 
