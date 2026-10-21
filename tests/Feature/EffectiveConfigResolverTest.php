@@ -48,12 +48,12 @@ class EffectiveConfigResolverTest extends TestCase
 
         $this->assertSame([
             'app' => ['locale' => 'id-ID', 'theme' => 'blue'],
-            'features' => ['pos' => false, 'akuntansi' => true],
-            'receipt' => [
-                'width' => 58,
-                'logo' => ['enabled' => true, 'placement' => 'bottom'],
-            ],
+            'features' => ['akuntansi' => true, 'pos' => false],
             'item_order' => ['name', 'price'],
+            'receipt' => [
+                'logo' => ['enabled' => true, 'placement' => 'bottom'],
+                'width' => 58,
+            ],
         ], $result['config']);
         $this->assertSame('tenant_001', $result['tenant_id']);
         $this->assertSame('device_001', $result['device_id']);
@@ -80,7 +80,7 @@ class EffectiveConfigResolverTest extends TestCase
         );
 
         $this->assertSame([
-            'checkout' => ['enabled' => false, 'currency' => 'IDR'],
+            'checkout' => ['currency' => 'IDR', 'enabled' => false],
         ], $result['config']);
     }
 
