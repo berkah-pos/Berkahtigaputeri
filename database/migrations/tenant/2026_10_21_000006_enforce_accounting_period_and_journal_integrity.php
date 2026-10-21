@@ -1,9 +1,9 @@
 <?php
 
-use Illuminate\\Database\\Migrations\\Migration;
-use Illuminate\\Database\\Schema\\Blueprint;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Schema;
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 return new class extends Migration
@@ -357,7 +357,7 @@ $$;
 
 DROP TRIGGER IF EXISTS btp_accounting_period_close_audit ON public.accounting_periods;
 CREATE TRIGGER btp_accounting_period_close_audit
-AFTER INSERT OR UPDATE OF status ON public.accounting_periods
+AFTER INSERT OR UPDATE ON public.accounting_periods
 FOR EACH ROW EXECUTE FUNCTION public.btp_audit_accounting_period_close();
 SQL);
 
