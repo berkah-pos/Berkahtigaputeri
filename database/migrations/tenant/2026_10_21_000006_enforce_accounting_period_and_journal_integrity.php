@@ -126,7 +126,7 @@ BEGIN
                     AND closed_by_user_id IS NULL AND close_reason IS NULL)
                 OR
                 (status = 'closed' AND closed_at IS NOT NULL
-                    AND closed_by_user_id IS NOT NULL
+                    AND closed_by_user_id IS NOT NULL AND closed_by_user_id > 0
                     AND length(trim(close_reason)) >= 10)
             );
     END IF;
@@ -343,7 +343,13 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     IF NEW.status = 'closed' THEN
-        IF TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'closed' THEN
+        IF TG_OP = 'INSERT' THEN
+            INSERT INTO public.accounting_period_events
+                (period_key, action, actor_user_id, reason, occurred_at, created_at, updated_at)
+            VALUES
+                (NEW.period_key, 'closed', NEW.closed_by_user_id, NEW.close_reason,
+                 NEW.closed_at, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+        ELSIF OLD.status IS DISTINCT FROM 'closed' THEN
             INSERT INTO public.accounting_period_events
                 (period_key, action, actor_user_id, reason, occurred_at, created_at, updated_at)
             VALUES
