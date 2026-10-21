@@ -546,7 +546,7 @@ class IdentityController extends Controller
         ]);
     }
 
-    private function resolveMembership(int $userId, ?string $requestedTenantId): \\stdClass|JsonResponse
+    private function resolveMembership(int $userId, ?string $requestedTenantId): \stdClass|JsonResponse
     {
         $memberships = $this->activeMemberships($userId);
 
