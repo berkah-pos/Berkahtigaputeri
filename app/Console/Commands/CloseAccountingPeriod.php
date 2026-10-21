@@ -1,11 +1,11 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use App\\Services\\TenantDatabaseRunner;
-use Illuminate\\Console\\Command;
-use Illuminate\\Database\\Connection;
-use Illuminate\\Support\\Facades\\DB;
+use App\Services\TenantDatabaseRunner;
+use Illuminate\Console\Command;
+use Illuminate\Database\Connection;
+use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class CloseAccountingPeriod extends Command
