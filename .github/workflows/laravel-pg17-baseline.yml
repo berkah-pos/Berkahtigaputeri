@@ -78,11 +78,17 @@ jobs:
       CENTRAL_DB_HOST: 127.0.0.1
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: berkahpos_central_ci
-      CENTRAL_DB_USERNAME: postgres
-      CENTRAL_DB_PASSWORD: postgres
+      CENTRAL_DB_USERNAME: central_runtime_ci
+      CENTRAL_DB_PASSWORD: central_runtime_ci_password
       # TLS is disabled only for the disposable CI PostgreSQL service.
       # Staging/production must set their own verified TLS policy.
       CENTRAL_DB_SSLMODE: disable
+      CENTRAL_MIGRATOR_DB_HOST: 127.0.0.1
+      CENTRAL_MIGRATOR_DB_PORT: "5432"
+      CENTRAL_MIGRATOR_DB_DATABASE: berkahpos_central_ci
+      CENTRAL_MIGRATOR_DB_USERNAME: central_migrator_ci
+      CENTRAL_MIGRATOR_DB_PASSWORD: central_migrator_ci_password
+      CENTRAL_MIGRATOR_DB_SSLMODE: disable
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
@@ -173,6 +179,35 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
+      - name: Provision disposable tenant A/B roles and databases
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE central_migrator_ci LOGIN NOINHERIT PASSWORD '$CENTRAL_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE central_runtime_ci LOGIN NOINHERIT PASSWORD '$CENTRAL_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "ALTER DATABASE berkahpos_central_ci OWNER TO central_migrator_ci" \
+            -c "CREATE ROLE tenant_migrator_ci LOGIN NOINHERIT PASSWORD '$TENANT_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_ci LOGIN NOINHERIT PASSWORD '$TENANT_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_migrator_b_ci LOGIN NOINHERIT PASSWORD 'tenant_migrator_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE ROLE tenant_runtime_b_ci LOGIN NOINHERIT PASSWORD 'tenant_runtime_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
+            -c "CREATE DATABASE berkahpos_tenant_ci OWNER tenant_migrator_ci" \
+            -c "CREATE DATABASE berkahpos_tenant_b_ci OWNER tenant_migrator_b_ci" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_central_ci TO central_runtime_ci, central_migrator_ci" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_ci FROM PUBLIC" \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_b_ci FROM PUBLIC" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO tenant_migrator_ci, tenant_runtime_ci" \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_b_ci TO tenant_migrator_b_ci, tenant_runtime_b_ci"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "REVOKE CREATE ON SCHEMA public FROM PUBLIC" \
+            -c "REVOKE CREATE ON SCHEMA public FROM tenant_runtime_ci" \
+            -c "GRANT USAGE ON SCHEMA public TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tenant_runtime_ci" \
+            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO tenant_runtime_ci"
+
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
         run: |
@@ -191,39 +226,17 @@ jobs:
             fi
           done
 
-      - name: Provision disposable tenant A/B roles and databases
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
-            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE tenant_migrator_ci LOGIN NOINHERIT PASSWORD '$TENANT_MIGRATOR_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
-            -c "CREATE ROLE tenant_runtime_ci LOGIN NOINHERIT PASSWORD '$TENANT_DB_PASSWORD' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
-            -c "CREATE ROLE tenant_migrator_b_ci LOGIN NOINHERIT PASSWORD 'tenant_migrator_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
-            -c "CREATE ROLE tenant_runtime_b_ci LOGIN NOINHERIT PASSWORD 'tenant_runtime_b_ci_password' NOSUPERUSER NOCREATEDB NOCREATEROLE" \
-            -c "CREATE DATABASE berkahpos_tenant_ci OWNER tenant_migrator_ci" \
-            -c "CREATE DATABASE berkahpos_tenant_b_ci OWNER tenant_migrator_b_ci" \
-            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC" \
-            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_ci FROM PUBLIC" \
-            -c "REVOKE CONNECT ON DATABASE berkahpos_tenant_b_ci FROM PUBLIC" \
-            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO tenant_migrator_ci, tenant_runtime_ci" \
-            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_b_ci TO tenant_migrator_b_ci, tenant_runtime_b_ci"
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
-            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
-            -c "REVOKE CREATE ON SCHEMA public FROM PUBLIC" \
-            -c "REVOKE CREATE ON SCHEMA public FROM tenant_runtime_ci" \
-            -c "GRANT USAGE ON SCHEMA public TO tenant_runtime_ci" \
-            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO tenant_runtime_ci" \
-            -c "ALTER DEFAULT PRIVILEGES FOR ROLE tenant_migrator_ci IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO tenant_runtime_ci"
-
       - name: Migrate fresh central database on disposable PostgreSQL 17
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" \
-            php artisan migrate --database=central --path=database/migrations/central --force
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE "$CI_IMAGE" \
+            php artisan migrate --database=central_migrator --path=database/migrations/central --force
 
       - name: Import canonical manifest atomically into disposable central PostgreSQL
         shell: bash
@@ -260,6 +273,9 @@ jobs:
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
             --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
             --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
