@@ -41,7 +41,7 @@ final class EffectiveConfigController
 
         // Tenant scope is always derived from the authenticated central identity, never from client input.
         $tenant = Tenant::query()->find($user->tenant_id);
-        if ($tenant === null) {
+        if ($tenant === null || $tenant->status !== 'active') {
             return $this->error('tenant_access_denied', 'The authenticated user has no active tenant record.', 403);
         }
 
