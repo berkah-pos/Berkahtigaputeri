@@ -12,6 +12,8 @@ on:
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/run_workbook_tests.py"
+      - "scripts/implementation_progress.py"
+      - "config/ci/implementation-progress.json"
       - "scripts/tests/**"
       - ".github/workflows/canonical-workbook-validate.yml"
   push:
@@ -26,6 +28,8 @@ on:
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
       - "scripts/run_workbook_tests.py"
+      - "scripts/implementation_progress.py"
+      - "config/ci/implementation-progress.json"
       - "scripts/tests/**"
       - ".github/workflows/canonical-workbook-validate.yml"
   workflow_dispatch:
@@ -146,3 +150,10 @@ jobs:
           path: build/workbook-evidence/**
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish evidence-weighted global implementation progress
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 scripts/implementation_progress.py --format markdown >> "$GITHUB_STEP_SUMMARY"
