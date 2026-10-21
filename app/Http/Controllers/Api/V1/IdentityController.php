@@ -156,9 +156,10 @@ class IdentityController extends Controller
                     'role' => (string) $membership->role,
                 ];
             }, 3);
-        } catch (QueryException) {
-            // A concurrent first-login can race on the globally unique device
-            // key. Return a generic conflict; never disclose the existing owner.
+        } catch (QueryException $exception) {
+            $sqlState = (string) ($exception->errorInfo[0] ?? $exception->getCode());
+            if ($sqlState !== '23505') throw $exception;
+            // A concurrent first-login can race on the globally unique device key.
             return $this->error(
                 'device_id_conflict',
                 'This device identifier could not be enrolled. Restart enrollment with a new installation identifier or contact an administrator.',
@@ -348,6 +349,79 @@ class IdentityController extends Controller
         };
     }
 
+    public function grantMembership(Request $request, string $tenantId, string $userId): JsonResponse
+    {
+        $actor = $request->user();
+        $result = DB::connection('central')->transaction(function () use ($actor, $tenantId, $userId): array {
+            $targetUser = DB::connection('central')->table('users')->where('id', $userId)->lockForUpdate()->first();
+            $tenant = DB::connection('central')->table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
+            if (! $targetUser || ! $tenant) return ['state' => 'not_found'];
+            if (! $targetUser->is_active) return ['state' => 'user_inactive'];
+            if (($tenant->status ?? 'active') !== 'active') return ['state' => 'tenant_inactive'];
+            $existing = DB::connection('central')->table('tenant_memberships')
+                ->where('user_id', $userId)->where('tenant_id', $tenantId)->lockForUpdate()->first();
+            if ($existing && $existing->status === 'active') {
+                return ['state' => 'active', 'changed' => false, 'role' => (string) $existing->role];
+            }
+            $now = now();
+            if ($existing) {
+                DB::connection('central')->table('tenant_memberships')->where('id', $existing->id)->update([
+                    'status' => 'active', 'activated_at' => $now, 'revoked_at' => null, 'updated_at' => $now,
+                ]);
+                $role = (string) $existing->role;
+            } else {
+                DB::connection('central')->table('tenant_memberships')->insert([
+                    'user_id' => $userId, 'tenant_id' => $tenantId, 'role' => 'member',
+                    'status' => 'active', 'activated_at' => $now, 'revoked_at' => null,
+                    'created_at' => $now, 'updated_at' => $now,
+                ]);
+                $role = 'member';
+            }
+            $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, 'membership.granted', [
+                'user_id' => (int) $userId, 'tenant_id' => $tenantId, 'role' => $role,
+            ]);
+            return ['state' => 'active', 'changed' => true, 'role' => $role];
+        }, 3);
+        if ($result['state'] === 'not_found') return $this->error('membership_target_not_found', 'The specified user or tenant does not exist.', 404);
+        if ($result['state'] === 'user_inactive') return $this->error('identity_disabled', 'An inactive account cannot be granted tenant access.', 409);
+        if ($result['state'] === 'tenant_inactive') return $this->error('tenant_inactive', 'An inactive tenant cannot accept new memberships.', 409);
+        return response()->json([
+            'status' => 'active', 'tenant_id' => $tenantId, 'user_id' => (int) $userId,
+            'role' => $result['role'], 'changed' => $result['changed'],
+        ]);
+    }
+
+    public function revokeMembership(Request $request, string $tenantId, string $userId): JsonResponse
+    {
+        $actor = $request->user();
+        $changed = DB::connection('central')->transaction(function () use ($actor, $tenantId, $userId): ?bool {
+            $membership = DB::connection('central')->table('tenant_memberships')
+                ->where('user_id', $userId)->where('tenant_id', $tenantId)->lockForUpdate()->first();
+            if (! $membership) return null;
+            if ($membership->status === 'revoked') {
+                DB::connection('central')->table('personal_access_tokens')
+                    ->where('tokenable_type', User::class)->where('tokenable_id', $userId)
+                    ->where('tenant_id', $tenantId)->delete();
+                return false;
+            }
+            $now = now();
+            DB::connection('central')->table('tenant_memberships')->where('id', $membership->id)->update([
+                'status' => 'revoked', 'revoked_at' => $now, 'updated_at' => $now,
+            ]);
+            DB::connection('central')->table('personal_access_tokens')
+                ->where('tokenable_type', User::class)->where('tokenable_id', $userId)
+                ->where('tenant_id', $tenantId)->delete();
+            $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, 'membership.revoked', [
+                'user_id' => (int) $userId, 'tenant_id' => $tenantId,
+            ]);
+            return true;
+        }, 3);
+        if ($changed === null) return $this->error('membership_not_found', 'The requested membership does not exist.', 404);
+        return response()->json([
+            'status' => 'revoked', 'tenant_id' => $tenantId, 'user_id' => (int) $userId, 'changed' => $changed,
+        ]);
+    }
+
     public function revokeDevice(Request $request, string $deviceId): JsonResponse
     {
         $user = $request->user();
@@ -436,7 +510,7 @@ class IdentityController extends Controller
         $issued = DB::connection('central')->transaction(function () use ($user, $expiresAt) {
             $created = $user->createToken(
                 'berkah-pos-platform-admin',
-                ['identity:read', 'devices:approve', 'devices:revoke'],
+                ['identity:read', 'devices:approve', 'devices:revoke', 'memberships:manage'],
                 $expiresAt,
             );
 
