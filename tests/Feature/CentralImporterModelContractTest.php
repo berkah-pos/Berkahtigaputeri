@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Central\DeviceConfig;
 use App\Models\Central\DeviceRegistry;
 use App\Models\Central\GlobalConfig;
 use App\Models\Central\Subscription;
@@ -23,6 +24,7 @@ class CentralImporterModelContractTest extends TestCase
             TenantConfig::class,
             Subscription::class,
             DeviceRegistry::class,
+            DeviceConfig::class,
         ] as $modelClass) {
             $model = new $modelClass();
 
@@ -36,7 +38,7 @@ class CentralImporterModelContractTest extends TestCase
 
     public function test_configuration_json_columns_are_cast_to_arrays(): void
     {
-        foreach ([GlobalConfig::class, Template::class, TenantConfig::class] as $modelClass) {
+        foreach ([GlobalConfig::class, Template::class, TenantConfig::class, DeviceConfig::class] as $modelClass) {
             $model = new $modelClass();
             $model->setRawAttributes(['config' => '{"feature":true,"limit":3}'], true);
 
@@ -60,5 +62,11 @@ class CentralImporterModelContractTest extends TestCase
         $this->assertSame('device_id', $device->getKeyName());
         $this->assertFalse($device->getIncrementing());
         $this->assertSame('string', $device->getKeyType());
+
+        $deviceConfig = new DeviceConfig();
+        $this->assertSame('central', $deviceConfig->getConnectionName());
+        $this->assertSame('device_id', $deviceConfig->getKeyName());
+        $this->assertFalse($deviceConfig->getIncrementing());
+        $this->assertSame('string', $deviceConfig->getKeyType());
     }
 }
