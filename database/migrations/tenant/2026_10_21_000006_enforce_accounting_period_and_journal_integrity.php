@@ -165,6 +165,14 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
+    IF TG_OP = 'INSERT' THEN
+        IF NEW.status = 'posted' THEN
+            RAISE EXCEPTION 'Journal entries must be inserted as draft and explicitly validated before posting'
+                USING ERRCODE = '55000';
+        END IF;
+        RETURN NEW;
+    END IF;
+
     IF TG_OP = 'DELETE' THEN
         IF OLD.status = 'posted' THEN
             RAISE EXCEPTION 'Posted journal entries are immutable'
@@ -184,7 +192,7 @@ $$;
 
 DROP TRIGGER IF EXISTS btp_journal_entry_immutable ON public.journal_entries;
 CREATE TRIGGER btp_journal_entry_immutable
-BEFORE UPDATE OR DELETE ON public.journal_entries
+BEFORE INSERT OR UPDATE OR DELETE ON public.journal_entries
 FOR EACH ROW EXECUTE FUNCTION public.btp_guard_journal_entry_mutation();
 SQL);
 
@@ -200,7 +208,7 @@ BEGIN
         SELECT status INTO parent_status
         FROM public.journal_entries
         WHERE id = OLD.journal_entry_id
-        FOR KEY SHARE;
+        FOR UPDATE;
 
         IF parent_status = 'posted' THEN
             RAISE EXCEPTION 'Lines of a posted journal entry are immutable'
@@ -215,7 +223,7 @@ BEGIN
     SELECT status INTO parent_status
     FROM public.journal_entries
     WHERE id = NEW.journal_entry_id
-    FOR KEY SHARE;
+    FOR UPDATE;
 
     IF parent_status IS NULL THEN
         RAISE EXCEPTION 'Journal line must reference an existing journal entry'
