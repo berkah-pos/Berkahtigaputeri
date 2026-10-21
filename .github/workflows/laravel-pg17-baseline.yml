@@ -125,6 +125,11 @@ jobs:
           assert "'driver' => 'pgsql'" in db_config
           tenant_config = db_config.split("'tenant' => [", 1)[1].split("        ],", 1)[0]
           assert "'username' => env('TENANT_DB_USERNAME') ?: '__tenant_runtime_role_required__'" in tenant_config
+          central_config = db_config.split("'central' => [", 1)[1].split("        ],", 1)[0]
+          assert "env('CENTRAL_DB_USERNAME', env('DB_USERNAME', 'postgres'))" not in central_config
+          assert "env('CENTRAL_DB_PASSWORD', env('DB_PASSWORD', ''))" not in central_config
+          assert "env('CENTRAL_DB_URL', env('DATABASE_URL'))" not in central_config
+          assert "'central_migrator' => [" in db_config
           assert "'password' => env('TENANT_DB_PASSWORD', '')" in tenant_config
           assert "env('CENTRAL_DB_USERNAME'" not in tenant_config
           assert "env('DB_USERNAME'" not in tenant_config
