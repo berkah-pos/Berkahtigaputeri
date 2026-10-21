@@ -2,7 +2,6 @@
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
-use Throwable;
 
 Route::get('/v1/platform-health', function () {
     // Liveness only: this endpoint must remain available while dependencies recover.
@@ -17,7 +16,7 @@ Route::get('/v1/platform-ready', function () {
     // Readiness is separate from liveness. Do not expose connection errors/secrets.
     try {
         DB::connection('central')->select('SELECT 1');
-    } catch (Throwable) {
+    } catch (\Throwable) {
         return response()->json([
             'service' => 'berkah-pos-central-api',
             'status' => 'not_ready',
