@@ -11,8 +11,8 @@ on:
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/run_workbook_tests.py"
       - "scripts/tests/**"
-      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
   push:
     branches: ["**"]
@@ -25,8 +25,8 @@ on:
       - "docs/permanent/**"
       - "config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx"
       - "scripts/export_workbook_for_laravel.py"
+      - "scripts/run_workbook_tests.py"
       - "scripts/tests/**"
-      - "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
       - ".github/workflows/canonical-workbook-validate.yml"
   workflow_dispatch:
 
@@ -46,21 +46,103 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
-      - name: Install isolated Python dependencies
+      - name: Prepare isolated validation environment and source evidence
         shell: bash
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/final-pos-venv"
           "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+          mkdir -p build/workbook-evidence
+          : > build/workbook-evidence/workbook-validation.log
+          sha256sum config/FINAL_Production_Excel_A_WebC_Template_100Tenants.xlsx > build/workbook-evidence/workbook-source.sha256
 
-      - name: Run workbook validation unit tests
+      - name: Run workbook validation unit tests and emit JUnit evidence
         shell: bash
         run: |
           set -euo pipefail
-          PYTHONPATH=. "$RUNNER_TEMP/final-pos-venv/bin/python" -m unittest discover -s scripts/tests -p 'test_*.py'
+          PYTHONPATH=. "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/run_workbook_tests.py \
+            --output build/workbook-evidence/workbook-tests.xml \
+            2>&1 | tee -a build/workbook-evidence/workbook-validation.log
 
       - name: Validate canonical workbook and 352-key inventory offline
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py --validate-only \
+            2>&1 | tee -a build/workbook-evidence/workbook-validation.log
+
+      - name: Prove deterministic manifest export
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence_dir="build/workbook-evidence"
+          second_manifest="$RUNNER_TEMP/canonical-manifest-second.json"
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py \
+            --output "$evidence_dir/canonical-manifest.json" \
+            2>&1 | tee -a "$evidence_dir/workbook-validation.log"
+          "$RUNNER_TEMP/final-pos-venv/bin/python" scripts/export_workbook_for_laravel.py \
+            --output "$second_manifest" \
+            2>&1 | tee -a "$evidence_dir/workbook-validation.log"
+          cmp --silent "$evidence_dir/canonical-manifest.json" "$second_manifest"
+          sha256sum "$evidence_dir/canonical-manifest.json" > "$evidence_dir/canonical-manifest.sha256"
+          "$RUNNER_TEMP/final-pos-venv/bin/python" - "$evidence_dir/canonical-manifest.json" "$second_manifest" "$evidence_dir" <<'PY'
+          import hashlib
+          import json
+          import sys
+          from pathlib import Path
+
+          first_path, second_path, output_dir = map(Path, sys.argv[1:])
+          first = first_path.read_bytes()
+          second = second_path.read_bytes()
+          if first != second:
+              raise SystemExit("Manifest exports differ byte-for-byte")
+          manifest = json.loads(first)
+          counts = manifest["counts"]
+          expected = {"global": 1, "template": 3, "tenant": 100, "service": 140, "device": 108}
+          if counts != expected or sum(counts.values()) != 352:
+              raise SystemExit(f"Unexpected canonical counts: {counts!r}")
+          (output_dir / "entry-type-counts.json").write_text(
+              json.dumps({"counts": counts, "total": sum(counts.values())}, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          digest = hashlib.sha256(first).hexdigest()
+          (output_dir / "repeat-run-comparison.json").write_text(
+              json.dumps({
+                  "identical": True,
+                  "first_sha256": digest,
+                  "second_sha256": hashlib.sha256(second).hexdigest(),
+                  "bytes": len(first),
+                  "entry_type_counts": counts,
+              }, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          print(f"PASS: deterministic manifest {digest}; {sum(counts.values())} canonical entries")
+          PY
+
+      - name: Verify required workbook evidence is complete
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            workbook-source.sha256 \
+            canonical-manifest.json \
+            canonical-manifest.sha256 \
+            repeat-run-comparison.json \
+            entry-type-counts.json \
+            workbook-tests.xml \
+            workbook-validation.log; do
+            test -s "build/workbook-evidence/$file" || {
+              echo "Missing required evidence: $file" >&2
+              exit 1
+            }
+          done
+
+      - name: Upload canonical workbook acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: canonical-workbook-evidence-${{ github.sha }}
+          path: build/workbook-evidence/**
+          if-no-files-found: error
+          retention-days: 30
