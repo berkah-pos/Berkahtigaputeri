@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\Route;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Throwable;
 
 // Liveness must stay independent of the database so the process can be restarted
