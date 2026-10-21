@@ -1,0 +1,152 @@
+# Accounting & Inventory Integrity — Implementation and Evidence Report
+
+**Status:** IMPLEMENTATION CANDIDATE — NOT CERTIFIED  
+**Date:** 2026-10-19 (Asia/Jakarta)  
+**Branch:** fix/preprod-accounting-integrity-2026-10-19  
+**Source authority:** accepted 2026-10-17 no-Supabase Laravel/PostgreSQL owner ADR; DOC_14 is subordinate. No Supabase access or migration was performed.  
+**Core rule:** source code and tests are not PASS evidence. Only executed tests with exact candidate SHA, PostgreSQL 17 runtime, logs/artifacts and an acceptance oracle can close a gate.
+
+## 1. Executive result and P0 blockers
+
+**Recommendation: NO-GO for production/SaaS release.** The latest implementation candidate completed the disposable PostgreSQL 17 CI workflow successfully, but this is branch-only evidence; it does not integrate authentication/API tenant context, does not prove production deployment/recovery, and the PHPUnit job reports unresolved warnings.
+
+CI evidence updated 2026-10-19:
+- **Run 39178727994, attempt 1, source SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d: SUCCESS.** All 18 job steps succeeded: locked dependency/security checks, clean central migration, hardened tenant migration, restricted runtime-role provisioning, Laravel tests, schema checks, production-image build, and health/API smoke. This code SHA includes fail-closed legacy-transaction preflight, opening FIFO-layer initialization for unchanged opening lots, integer-IDR constraints, period/COA/journal guards, and product/lot/movement relationship guards. The report itself was subsequently committed as a docs-only change at 521bb75282c44748e121f176700513c1f272c33d; the executable source under test is unchanged, but no fresh run has been attached to that later branch-tip SHA.
+- PHPUnit executed 15 tests with 177 assertions and reported 15 warnings. Several warning summaries visibly include truncated file_get_contents(/var/www/...) messages; the root cause could not be established from the truncated output. Assertions passed and CI was green, but the test suite is not warning-free.
+- Earlier successful run 39178518622 on SHA fd1a9e0489bc589e87361dbcdb2deeca098a3eea passed the prior implementation, before the additional preflight and relationship guards. It is superseded for source review by the newer run above.
+- Earlier runs 39177446446 (SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed) and 39178355190 (SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4) failed on migration syntax/dollar quoting. They remain preserved as historical exact-SHA evidence; subsequent source corrections passed in run 39178727994.
+- No production database was accessed. All PostgreSQL work was against the disposable CI service.
+
+Open P0 blockers:
+1. The hardened tenant migration and targeted PostgreSQL tests passed on source SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d in run 39178727994. The run is branch-only, and the latest report-only tip has not been re-tested on its exact SHA; PHPUnit still emits 15 warnings requiring diagnosis.
+2. The posting service has not been integrated behind the authenticated Laravel Central API, active tenant membership, device authorization and trusted tenant provisioning context. It is not exposed through HTTP; do not expose it until actor/device identity and tenant selection are server-derived.
+3. The migration's fail-closed behavior against synthetic pre-existing transaction/stock data has not been exercised in a dedicated migration test. Legacy data continuity still needs an owner-approved clean-start or offline migration decision.
+4. Additional direct negatives remain desirable: append a new line to a posted journal, fractional-money migration abort, overflow limits, and concurrent same-idempotency-key replay. Current test coverage is meaningful but not exhaustive.
+5. Tax/PPN, discounts, fractional-unit sales, sale refunds/returns and opening/receiving/write-off/revaluation accounting workflows are not fully implemented in this posting service. Do not market this as tax-complete accounting or a complete inventory lifecycle.
+
+## 2. Scope and source observations
+
+At the previously audited main SHA 371b7fdf0bf672b37ceb1023e647f114221bf797:
+- Flutter SqliteSaleRepository creates a local sale, FEFO lot allocations, FIFO cost-layer consumptions, stock movements, a balanced journal and an outbox event inside one SQLite transaction. This is device-local behavior, not cloud authority.
+- Flutter JournalService validates debit = credit, checks account codes against a fixed COA, uses transaction-ID idempotency and permits reversal-shaped entries. Existing unit tests exercise some behavior; they are not server-ledger certification.
+- Laravel tenant migrations create starter business tables (sales, sale_items, inventory_lots, inventory_movements, journal_entries, journal_lines, sync_receipts), but the audited API route list exposed only platform health. It did not provide a server sale-posting endpoint.
+- The selected cloud stack is PostgreSQL 17; MariaDB is not an acceptable substitute. Supabase runtime use conflicts with the latest owner decision.
+
+The implementation branch adds:
+- database/migrations/tenant/2026_10_19_000001_harden_tenant_accounting_integrity.php: whole-Rupiah conversion with refusal on fractional money; locked COA seed; accounting periods; journal posting/audit metadata; append-only guards; deferred PostgreSQL integrity checks; FEFO/FIFO allocation tables.
+- app/Services/Tenant/AtomicSalePostingService.php: internal atomic server-sale boundary with idempotency fingerprinting, deterministic stock/cost locking, FEFO physical lot allocation, FIFO financial costing, order/line/movement/journal/audit/receipt writes and rollback semantics.
+- app/Services/Tenant/JournalReversalService.php: full journal reversal for non-sale journals; it refuses sale reversal because sale/inventory/payment reversal is not implemented atomically.
+- tests/Feature/Accounting/AtomicSalePostingServiceTest.php: targeted PostgreSQL tests for posting, FEFO/FIFO, idempotency conflict/retry, fault-injection rollback, immutable posts, unbalanced journal rejection, COA lock, closed period, journal reversal and concurrent last-stock attempts.
+- .github/workflows/laravel-pg17-baseline.yml: tenant migrations now run before tests; workflow creates a restricted tenant runtime test role and grants intended runtime privileges before the accounting tests.
+
+These are candidate implementation changes. PostgreSQL 17 migration, targeted tests, image build and health smoke passed on code SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d (run 39178727994). The report-only branch tip is later than that tested code SHA, so exact-tip CI has not been claimed. No business API route was wired and no permanent architecture authority document was changed.
+
+## 3. Invariant status matrix
+
+| Invariant | Current implementation intent | Evidence classification / status |
+|---|---|---|
+| Posted journal debit = credit | PostgreSQL deferred constraint trigger checks minimum line count, positive totals and equality at commit. Sale posting writes payment/revenue plus matching COGS/inventory lines. | **TEST-EXECUTED / PASS WITH WARNINGS at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d** — balanced sale journal and unbalanced-journal rejection assertions passed in run 39178727994; this is not a production or release-head certificate. |
+| Posted header/lines immutable | PostgreSQL triggers prevent update/delete of posted headers and line mutation; sales, line items, stock movements, allocations/consumptions, receipts and accounting events are append-only. | **PARTIAL / TEST-EXECUTED with warnings** — header update and posted-line delete rejection assertions passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. A direct append-to-posted-journal negative test was added in follow-up source commit `6de6ac8bb5a5c333b32a187a1aeedd5da73d8d79`; it remains NOT VERIFIED until the exact-head PostgreSQL 17 workflow executes and passes. |
+| Corrections via reversal | Reversal service creates opposite debit/credit lines for non-sale journals, validates one full reversal and is idempotent. Sale reversal is refused. | **PARTIAL / TEST-EXECUTED** — non-sale full reversal and idempotent retry assertions passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. Sale refunds remain unsupported. |
+| Locked COA | A fixed COA seed from the tracked client model is stored with locked flags; database trigger blocks non-owner COA mutation and CI runtime role is denied DML. | **TEST-EXECUTED / PASS WITH WARNINGS** — runtime-role COA write rejection assertion passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d; migration/CI test was non-production. |
+| No partial order/stock/journal/event commit | Sale operation writes all effects in one tenant PostgreSQL transaction. Fault-injection checkpoints cover allocation, decrement, sale header/lines, journal post, audit and receipt. | **TEST-EXECUTED / PASS WITH WARNINGS** — all eight injected-failure checkpoint rollback assertions passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. |
+| Idempotent retry | SHA-256 of normalized input is stored in sale/receipt path; same key+same payload returns prior response; changed payload/device fails. Unique violation retry reads the durable receipt only after rollback. | **TEST-EXECUTED / PARTIAL** — sequential same-payload retry and changed-payload conflict assertions passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. Separate-process concurrent same-key replay is not covered. |
+| Complete accounting event | Posting requires actor, device ID, app version, transaction reference and idempotency key; immutable event records timestamp/type and sanitized context. | **TEST-EXECUTED / PASS WITH WARNINGS** — actor, device, app version, transaction reference and idempotency event checks passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. |
+| Closed-period enforcement | Journal insertion/posting checks an explicit open period under row lock; line guard denies lines in absent/closed periods; closed periods are guarded. | **TEST-EXECUTED / PASS WITH WARNINGS** — posting into a closed period rolled back at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. |
+| Whole-Rupiah / IDR | Money columns convert to BIGINT after fractional-value preflight. Service accepts integer IDR; fractional money and overflow are rejected; zero-tax is explicit. | **PARTIAL / TEST-EXECUTED** — the BIGINT conversion/migration succeeded on a clean disposable PostgreSQL 17 database in run 39178727994. Fractional preflight, overflow edge cases, tax/rounding policy and migration behavior on legacy data still require dedicated tests/owner decision. |
+| FEFO physical lots | Locks stock rows, skips expired lots, applies expiry tracking/minimum shelf-life and consumes earliest expiry first, then received time/id. | **TEST-EXECUTED / PARTIAL** — FEFO ordering, partial lot allocation, expired-stock rejection and missing FIFO-cost-layer rejection assertions passed at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. No-lot and maximum-boundary cases remain additional coverage. |
+| FIFO costing | Locks cost layers, sorts by acquired time/id, calculates integer cost consumption and reduces remaining quantity in-transaction. | **TEST-EXECUTED / PARTIAL** — test asserted FIFO cost layer order, total COGS, remaining quantities and rejection when no cost layer exists in run 39178727994. Opening-layer migration for unchanged opening lots was present in the tested code. Receipt/write-off/revaluation lifecycle remains unsupported. |
+| Concurrent last-stock requests | Locks product and lot rows in deterministic order; tests use two independent PHP processes/connections. | **TEST-EXECUTED / PASS WITH WARNINGS** — two independent PHP processes attempted to sell the last unit; one sale committed and stock did not go negative at SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. Disconnected multi-device global consistency remains a product-policy issue. |
+| Import/migration preserves history | Migration refuses to classify existing journals from an old schema and refuses fractional monetary conversion. No approved Supabase read/export path was used. | **PARTIAL** — journal migration fails closed in source; sales/stock history still needs owner-approved offline migration or explicit clean-start. |
+
+## 4. Test evidence and commands
+
+CI is intended to run the candidate through the Laravel PostgreSQL 17 baseline workflow. Required sequence:
+- Clean Composer validation/install/platform/security audit with PHP 8.4.
+- Fresh central PostgreSQL 17 migration.
+- Fresh tenant PostgreSQL 17 migration.
+- Create berkahpos_tenant_runtime_test with NOSUPERUSER, NOCREATEDB, NOCREATEROLE and NOREPLICATION.
+- Run tenant tests only after migration, using runtime credentials, not the database owner.
+- Verify schema, build image and smoke-test health/API.
+
+**Evidence rule:** the workflow must conclude success for the precise current source head and every test oracle must execute. A migration failure makes downstream tests skipped, which is NOT PASS. Historical green runs from different SHAs are not proof for this implementation.
+
+Exact-head run comparison:
+- Run 39178518622 / attempt 1 / SHA fd1a9e0489bc589e87361dbcdb2deeca098a3eea: **job success**, with all 18 workflow steps successful; PHPUnit: 15 warnings, 177 assertions. This is meaningful execution evidence for that earlier implementation state, but it is not a warning-free test-suite result.
+- Run 39178727994 / source SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d: **SUCCESS**, all 18 workflow steps. This candidate includes fail-closed legacy-data preflight, opening cost-layer bootstrap and PostgreSQL relationship constraints/triggers. The accounting report was then updated in docs-only commits, so the branch tip differs from the tested executable source SHA; do not claim fresh exact-tip CI.
+- Earlier failures remain evidence: run 39177446446 at SHA bfb774ab2c9c37ac15e46b2530e967e6b23a49ed failed with an unmatched PHP parenthesis; run 39178355190 at SHA d21831aeebe3bb84f0dbb7f2733bd7bde141b0a4 failed with a single-dollar PL/pgSQL delimiter. They were fixed in subsequent commits, not overwritten.
+- Branch-only run 39131351376 / SHA 6062df7b9a0fd94db17107d654f9b3e16622531b passed the prior PostgreSQL baseline, but it did not include this accounting migration/service/tests.
+
+## 5. Atomic scenarios and sanitized journal example
+
+### Sanitized expected sale journal
+
+For one unit at IDR 10,000 and FIFO COGS IDR 3,000, cash tender:
+
+| Account code | Debit (IDR) | Credit (IDR) |
+|---|---:|---:|
+| 1-1010 — Kas Tunai | 10,000 | 0 |
+| 4-4010 — Penjualan | 0 | 10,000 |
+| 5-5010 — Harga Pokok Penjualan | 3,000 | 0 |
+| 1-1040 — Persediaan Barang | 0 | 3,000 |
+| **Totals** | **13,000** | **13,000** |
+
+This is an expected sanitized example, not an observed production or test transaction. Tax/PPN is not calculated by this candidate service and must not be inferred from the example.
+
+### Fault-injection rollback
+
+Each injected exception occurs inside the same DB transaction. After exception, the test asserts no sale header/lines, stock movements, journal header, accounting event or sync receipt for that event; lot and FIFO layer balances must return to original values. Stages:
+- after allocation;
+- after stock decrement;
+- after sale header;
+- after sale items and allocation/consumption rows;
+- after journal lines;
+- after journal marked posted;
+- after audit event;
+- after sync receipt.
+
+These rollback assertions passed in run 39178727994 on code SHA 9d3ef44c8a193e21398f2721e7fb33a027a7f51d. They are branch-only evidence; exact branch-tip CI and production/runtime integration are not certified.
+
+### Idempotency
+
+- Same event ID + same normalized command + same device: return the original receipt without duplicate sale, stock effect, journal, accounting event or receipt.
+- Same event ID with changed quantity/payload or a different device: fail as an idempotency conflict.
+- Concurrent duplicate retries rely on PostgreSQL unique receipt/event constraints. Losing transaction must roll back; only the durable matching receipt can be returned.
+- A sale header without a durable receipt is a reconciliation error, never a reason to silently recreate effects.
+
+### Concurrency: last unit
+
+Two independent processes submit separate event IDs for one physical unit. Exactly one should commit. The other must fail without sale, movement, journal, event or receipt; lot and FIFO-layer balances must not go negative. This targets PostgreSQL with independent connections, not SQLite or mocks.
+
+### Unsupported stock and return cases
+
+- Expired lot: service refuses sale; no writes.
+- Missing FIFO cost layer: service refuses sale; no writes.
+- No eligible physical lot/no cost layer: sale is rejected instead of using a negative virtual balance.
+- Sale refund/return: **unsupported / out of scope**. JournalReversalService rejects sale journals. Full refund needs atomically compensating order/payment, lot quantity and cost-layer consumption, movements, journal and receipt/audit semantics.
+- Fractional stock quantity: service rejects it in this release. Schema still permits decimal stock quantity for future unit policy; callers must not bypass the service and claim fractional checkout is supported.
+- Opening stock/receipt/revaluation/write-off: no complete approved backend accounting lifecycle is implemented. Unsupported until owner-approved mapping and atomic tests exist.
+
+## 6. Migration, money and data-migration safeguards
+
+- Money fields convert to integer IDR only after checking for fractional values. The migration must never silently round historical money.
+- The latest migration preflight refuses any existing sales, sale_items, inventory movements, journal entries/lines, sync receipts, or pre-existing cost-layer rows because the old schema cannot prove their complete posted/stock/event lifecycle. It also stops if a lot's remaining quantity differs from its received quantity. This is intentionally fail-closed, not an automated conversion of legacy transactions. A separate reviewed data-migration plan needs source checksums, counts, trial-balance reconciliation and immutable history treatment. For unchanged opening lots, the migration seeds a matching initial FIFO cost layer.
+- No connection to Supabase, live export or Supabase sync script was used. Existing live records remain outside this audit's data reach.
+- Migration still needs disposable tests against both clean schema and a synthetic non-empty fixture. An abort must occur before irreversible conversion, and a clean rollback must be proven.
+- PostgreSQL is authoritative. SQLite local journals/outbox are not cloud postings and cannot certify a cloud ledger.
+
+## 7. Remaining work before certification
+
+1. Preserve the successful PG17 run 39178727994 and its exact-SHA logs/artifacts; rerun CI if exact current branch-tip certification is required after the docs-only report update.
+2. Investigate and remove/justify the 15 PHPUnit warnings (177 assertions passed according to the job output) without weakening assertions or disabling security audit.
+3. Run the newly added append-to-posted-journal negative test on the exact current SHA. Further direct negatives remain required for invalid COA/closed-period mutation, invalid currency, fractional-money migration abort, integer overflow, and deleting or changing posted journal lines.
+4. Validate schema ownership consistency among sale item/product, FEFO lot/product, inventory movement/lot/product and FIFO layer/product. Privileged write paths need constraints, not just service-level checks.
+5. Prove runtime tests use a restricted non-owner role; preserve pg_roles/owner/grant evidence without secrets.
+6. Repeat two independent concurrent last-stock requests and parallel idempotent duplicate requests on disposable PostgreSQL 17.
+7. Test legacy import using synthetic fixtures: source/target counts, migration key, repeated import, posted journal checksum preservation and no duplicate audit event. If old data cannot be accessed except via prohibited Supabase, migration remains blocked and clean-start requires owner acceptance.
+8. Integrate the service only after authenticated Central API middleware validates user, active tenant membership and active device. Never trust actor/device identity asserted by an unauthenticated caller.
+9. Obtain owner-approved tax/PPN, discount, rounding, unit/currency and refund policy before claiming accounting completeness.
+
+## 8. Recommendation
+
+Keep changes isolated for review. Do not deploy, run migration on production, tag or merge based on written invariants alone. Until exact-head PostgreSQL 17 evidence passes and auth/API/data-migration gaps close, accounting/inventory integrity remains a P0 release blocker.

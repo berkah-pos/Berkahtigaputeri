@@ -85,6 +85,8 @@ jobs:
       TENANT_DB_DATABASE: berkahpos_tenant_ci
       TENANT_DB_USERNAME: postgres
       TENANT_DB_PASSWORD: postgres
+      TENANT_RUNTIME_DB_USERNAME: berkahpos_tenant_runtime_test
+      TENANT_RUNTIME_DB_PASSWORD: tenant-runtime-ci-only
       APP_ENV: testing
       APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       DB_CONNECTION: central
@@ -144,7 +146,7 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
-      - name: Verify Laravel boot, API routes and feature smoke tests
+      - name: Verify Laravel boot and API routes
         shell: bash
         run: |
           set -euo pipefail
@@ -154,7 +156,6 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
@@ -183,6 +184,29 @@ jobs:
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
             --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
+
+      - name: Configure restricted tenant runtime role for integrity tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_tenant_runtime_test LOGIN PASSWORD 'tenant-runtime-ci-only' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO berkahpos_tenant_runtime_test; GRANT USAGE ON SCHEMA public TO berkahpos_tenant_runtime_test; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO berkahpos_tenant_runtime_test; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO berkahpos_tenant_runtime_test; REVOKE INSERT, UPDATE, DELETE ON chart_of_accounts FROM berkahpos_tenant_runtime_test; REVOKE INSERT, DELETE ON accounting_periods FROM berkahpos_tenant_runtime_test; GRANT UPDATE ON accounting_periods TO berkahpos_tenant_runtime_test"
+
+      - name: Run Laravel tests after tenant migrations as restricted runtime role
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
+            --env TENANT_RUNTIME_DB_USERNAME --env TENANT_RUNTIME_DB_PASSWORD \
+            "$CI_IMAGE" php artisan test
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
         shell: bash
