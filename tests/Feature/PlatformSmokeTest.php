@@ -1,11 +1,11 @@
 <?php
 
-namespace Tests\\Feature;
+namespace Tests\Feature;
 
-use Illuminate\\Support\\Facades\\DB;
+use Illuminate\Support\Facades\DB;
 use Mockery;
 use RuntimeException;
-use Tests\\TestCase;
+use Tests\TestCase;
 
 class PlatformSmokeTest extends TestCase
 {
