@@ -133,6 +133,11 @@ class SyncController extends Controller
         $canonical = json_encode($this->canonicalize($payload),
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
         $payloadHash = hash('sha256', $canonical);
+
+        // Serialize concurrent deliveries of the same event ID inside this
+        // tenant transaction. This also protects the no-receipt-yet race,
+        // where SELECT ... FOR UPDATE cannot lock a row that does not exist.
+        $db->select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', [$eventId]);
         $receipt = $db->table('sync_receipts')->where('event_id', $eventId)->lockForUpdate()->first();
         if ($receipt !== null) {
             if (! hash_equals((string) $receipt->payload_sha256, $payloadHash)
