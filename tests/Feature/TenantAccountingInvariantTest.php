@@ -30,6 +30,26 @@ class TenantAccountingInvariantTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_journal_cannot_be_inserted_directly_as_posted(): void
+    {
+        $now = now();
+        $this->assertDatabaseRejected(
+            fn () => $this->tenantDb->table('journal_entries')->insert([
+                'id' => 'invariant-direct-post',
+                'source_event_id' => 'test:invariant-direct-post',
+                'description' => 'Direct posted insert must be blocked',
+                'journal_date' => '2026-10-21',
+                'transaction_id' => 'test:invariant-direct-post',
+                'occurred_at' => $now,
+                'timezone' => 'Asia/Jakarta',
+                'status' => 'posted',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]),
+            'Journal entries must be inserted as draft and explicitly validated before posting'
+        );
+    }
+
     public function test_balanced_journal_can_be_posted(): void
     {
         $this->insertDraftJournal('invariant-balanced', '2026-10-21', [
