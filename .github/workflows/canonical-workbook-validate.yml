@@ -51,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/final-pos-venv"
-          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl requests
+          "$RUNNER_TEMP/final-pos-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
 
       - name: Run workbook validation unit tests
         shell: bash
