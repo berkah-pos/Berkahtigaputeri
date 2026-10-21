@@ -78,7 +78,7 @@ return new class extends Migration
 
         foreach ($columns as $tableName => $definitions) {
             if (! $schema->hasTable($tableName)) {
-                throw new \\RuntimeException("Required tenant table {$tableName} is missing.");
+                throw new \RuntimeException("Required tenant table {$tableName} is missing.");
             }
             foreach ($definitions as $column => $definition) {
                 if (! $schema->hasColumn($tableName, $column)) {
