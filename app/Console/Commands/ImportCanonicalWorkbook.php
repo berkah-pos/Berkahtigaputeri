@@ -8,6 +8,7 @@ use App\Models\Central\Subscription;
 use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
+use App\Services\Configuration\CanonicalWorkbookManifestValidator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Stancl\Tenancy\Facades\Tenancy;
@@ -42,23 +43,9 @@ class ImportCanonicalWorkbook extends Command
         }
     }
 
-    private function validateManifest(array $manifest): void
+    private function validateManifest(mixed $manifest): void
     {
-        if (($manifest['schema_version'] ?? null) !== 1 ||
-            ($manifest['keyset_md5'] ?? null) !== '1fd3d64219ecc7c333453c20da80e295') {
-            throw new \InvalidArgumentException('Manifest schema version or canonical keyset hash is invalid.');
-        }
-        $expected = ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108];
-        if (($manifest['counts'] ?? null) !== $expected ||
-            count($manifest['templates'] ?? []) !== 3 ||
-            count($manifest['tenants'] ?? []) !== 100 ||
-            count($manifest['services'] ?? []) !== 140 ||
-            count($manifest['devices'] ?? []) !== 108) {
-            throw new \InvalidArgumentException('Manifest must contain exactly the validated 352-key inventory.');
-        }
-        if (! is_array($manifest['global_config'] ?? null)) {
-            throw new \InvalidArgumentException('Global configuration is not an object.');
-        }
+        (new CanonicalWorkbookManifestValidator())->validate($manifest);
     }
 
     private function importCentral(array $manifest): void
