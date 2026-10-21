@@ -1,13 +1,13 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use Illuminate\\Console\\Command;
-use Illuminate\\Database\\Connection;
-use Illuminate\\Support\\Facades\\Artisan;
-use Illuminate\\Support\\Facades\\Config;
-use Illuminate\\Support\\Facades\\Crypt;
-use Illuminate\\Support\\Facades\\DB;
+use Illuminate\Console\Command;
+use Illuminate\Database\Connection;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
 
@@ -403,7 +403,7 @@ class ProvisionTenantDatabase extends Command
         }
 
         return preg_match(
-            '/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/',
+            '/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/',
             $domain
         ) === 1;
     }
