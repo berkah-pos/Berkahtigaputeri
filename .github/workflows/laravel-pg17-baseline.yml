@@ -249,7 +249,10 @@ jobs:
           docker run --rm --network host -v "$manifest:/tmp/canonical-central-config.json:ro" \
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
+            --env CENTRAL_MIGRATOR_DB_HOST --env CENTRAL_MIGRATOR_DB_PORT \
+            --env CENTRAL_MIGRATOR_DB_DATABASE --env CENTRAL_MIGRATOR_DB_USERNAME \
+            --env CENTRAL_MIGRATOR_DB_PASSWORD --env CENTRAL_MIGRATOR_DB_SSLMODE "$CI_IMAGE" \
             php artisan config:import-workbook /tmp/canonical-central-config.json
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 -tA \
