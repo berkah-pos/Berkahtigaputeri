@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-import traceback
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -17,43 +17,43 @@ class JUnitTextTestResult(unittest.TextTestResult):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.junit_cases: list[tuple[unittest.case.TestCase, str, str | None]] = []
+        self.junit_cases: list[tuple[unittest.TestCase, str, str | None]] = []
 
-    def _record(self, test: unittest.case.TestCase, outcome: str, detail: str | None = None) -> None:
+    def _record(self, test: unittest.TestCase, outcome: str, detail: str | None = None) -> None:
         self.junit_cases.append((test, outcome, detail))
 
-    def addSuccess(self, test: unittest.case.TestCase) -> None:
+    def addSuccess(self, test: unittest.TestCase) -> None:
         super().addSuccess(test)
         self._record(test, "success")
 
-    def addFailure(self, test: unittest.case.TestCase, err: tuple[type[BaseException], BaseException, Any]) -> None:
+    def addFailure(self, test: unittest.TestCase, err: tuple[type[BaseException], BaseException, Any]) -> None:
         super().addFailure(test, err)
         self._record(test, "failure", self._exc_info_to_string(err, test))
 
-    def addError(self, test: unittest.case.TestCase, err: tuple[type[BaseException], BaseException, Any]) -> None:
+    def addError(self, test: unittest.TestCase, err: tuple[type[BaseException], BaseException, Any]) -> None:
         super().addError(test, err)
         self._record(test, "error", self._exc_info_to_string(err, test))
 
-    def addSkip(self, test: unittest.case.TestCase, reason: str) -> None:
+    def addSkip(self, test: unittest.TestCase, reason: str) -> None:
         super().addSkip(test, reason)
         self._record(test, "skip", reason)
 
     def addExpectedFailure(
         self,
-        test: unittest.case.TestCase,
+        test: unittest.TestCase,
         err: tuple[type[BaseException], BaseException, Any],
     ) -> None:
         super().addExpectedFailure(test, err)
         self._record(test, "skip", "Expected failure: " + self._exc_info_to_string(err, test))
 
-    def addUnexpectedSuccess(self, test: unittest.case.TestCase) -> None:
+    def addUnexpectedSuccess(self, test: unittest.TestCase) -> None:
         super().addUnexpectedSuccess(test)
         self._record(test, "failure", "Unexpected success for a test marked as expected to fail.")
 
     def addSubTest(
         self,
-        test: unittest.case.TestCase,
-        subtest: unittest.case.TestCase,
+        test: unittest.TestCase,
+        subtest: unittest.TestCase,
         err: tuple[type[BaseException], BaseException, Any] | None,
     ) -> None:
         super().addSubTest(test, subtest, err)
@@ -86,7 +86,8 @@ def write_junit(result: JUnitTextTestResult, output: Path, elapsed_seconds: floa
             },
         )
         if outcome in {"failure", "error", "skip"}:
-            element = ET.SubElement(case, outcome, {"message": (detail or outcome).splitlines()[0][:500]})
+            tag = "skipped" if outcome == "skip" else outcome
+            element = ET.SubElement(case, tag, {"message": (detail or outcome).splitlines()[0][:500]})
             element.text = detail or outcome
     output.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(suite).write(output, encoding="utf-8", xml_declaration=True)
@@ -99,13 +100,10 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    import time
-
     started = time.monotonic()
     suite = unittest.defaultTestLoader.discover(
         str(args.test_dir),
         pattern=args.pattern,
-        top_level_dir=".",
     )
     runner = unittest.TextTestRunner(
         stream=sys.stdout,
