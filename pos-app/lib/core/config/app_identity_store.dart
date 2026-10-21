@@ -29,7 +29,25 @@ class AppIdentityStore {
   /// ID alone grants no access to tenant data or cloud configuration.
   Future<String> ensureDeviceId() async {
     final existing = deviceId.trim();
-    if (RegExp(r'^[A-Za-z0-9_.:-]{3,150}}
+    if (RegExp(r'^[A-Za-z0-9_.:-]{3,150}
+      return existing;
+    }
+
+    final secureRandom = math.Random.secure();
+    final suffix = List<String>.generate(
+      16,
+      (_) => secureRandom.nextInt(256).toRadixString(16).padLeft(2, '0'),
+      growable: false,
+    ).join();
+    final generated = 'btp_$suffix';
+    await _preferences.setString(_deviceKey, generated);
+    return generated;
+  }
+
+  Future<void> setDeviceId(String deviceId) async {
+    await _preferences.setString(_deviceKey, deviceId);
+  }
+}
 ).hasMatch(existing)) {
       return existing;
     }
