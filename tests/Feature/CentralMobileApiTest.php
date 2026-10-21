@@ -49,7 +49,7 @@ class CentralMobileApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('global_configs')->updateOrInsert(
+        $fixture->table('global_configs')->updateOrInsert(
             ['key' => 'global'],
             [
                 'config' => json_encode(['origin' => 'global', 'nested' => ['keep' => true, 'choice' => 'global']], JSON_THROW_ON_ERROR),
@@ -58,7 +58,7 @@ class CentralMobileApiTest extends TestCase
                 'updated_at' => $now,
             ]
         );
-        $central->table('templates')->updateOrInsert(
+        $fixture->table('templates')->updateOrInsert(
             ['id' => 'BASIC'],
             [
                 'config' => json_encode(['origin' => 'template', 'template_only' => true, 'nested' => ['template' => true, 'choice' => 'template']], JSON_THROW_ON_ERROR),
@@ -67,7 +67,7 @@ class CentralMobileApiTest extends TestCase
                 'updated_at' => $now,
             ]
         );
-        $central->table('tenant_configs')->insert([
+        $fixture->table('tenant_configs')->insert([
             'tenant_id' => $this->tenantId,
             'service' => null,
             'service_scope' => '__base__',
@@ -77,7 +77,7 @@ class CentralMobileApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('tenant_configs')->insert([
+        $fixture->table('tenant_configs')->insert([
             'tenant_id' => $this->tenantId,
             'service' => 'pos',
             'service_scope' => 'pos',
@@ -87,7 +87,7 @@ class CentralMobileApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('tenant_configs')->insert([
+        $fixture->table('tenant_configs')->insert([
             'tenant_id' => $this->tenantId,
             'service' => 'akuntansi',
             'service_scope' => 'akuntansi',
@@ -97,7 +97,7 @@ class CentralMobileApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('tenant_services')->insert([
+        $fixture->table('tenant_services')->insert([
             ['tenant_id' => $this->tenantId, 'service' => 'pos', 'enabled' => true, 'created_at' => $now, 'updated_at' => $now],
             ['tenant_id' => $this->tenantId, 'service' => 'akuntansi', 'enabled' => true, 'created_at' => $now, 'updated_at' => $now],
         ]);
@@ -129,7 +129,7 @@ class CentralMobileApiTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('device_configs')->insert([
+        $fixture->table('device_configs')->insert([
             'device_id' => $this->deviceId,
             'tenant_id' => $this->tenantId,
             'config' => json_encode(['device_only' => true, 'nested' => ['device' => true]], JSON_THROW_ON_ERROR),
@@ -269,14 +269,14 @@ class CentralMobileApiTest extends TestCase
     {
         $otherTenant = 'other_tenant_'.str_replace('-', '', (string) Str::uuid());
         $now = now();
-        DB::connection('central')->table('tenants')->insert([
+        DB::connection('central_migrator')->table('tenants')->insert([
             'id' => $otherTenant,
             'data' => null,
             'template_id' => 'BASIC',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        DB::connection('central')->table('device_registry')->insert([
+        DB::connection('central_migrator')->table('device_registry')->insert([
             'device_id' => 'foreign_device_'.$otherTenant,
             'tenant_id' => $otherTenant,
             'owner_user_id' => $this->user->id,
@@ -318,7 +318,7 @@ class CentralMobileApiTest extends TestCase
 
     public function test_effective_config_fails_closed_when_service_is_disabled(): void
     {
-        DB::connection('central')->table('tenant_services')
+        DB::connection('central_migrator')->table('tenant_services')
             ->where('tenant_id', $this->tenantId)
             ->where('service', 'pos')
             ->update(['enabled' => false]);
@@ -342,7 +342,7 @@ class CentralMobileApiTest extends TestCase
             'is_super_admin' => false,
             'is_active' => true,
         ]);
-        DB::connection('central')->table('device_registry')
+        DB::connection('central_migrator')->table('device_registry')
             ->where('device_id', $this->deviceId)
             ->update(['owner_user_id' => $otherUser->id]);
 
