@@ -5,9 +5,16 @@ import '../../core/database/pos_database.dart';
 /// Local sales report. Values are device-local until a cloud sync service
 /// acknowledges the pending outbox events.
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key, required this.database});
+  const ReportsScreen({
+    super.key,
+    required this.database,
+    this.cloudSyncConfigured = false,
+    this.cloudSyncStatus = 'Data laporan ini berasal dari perangkat lokal.',
+  });
 
   final PosDatabase database;
+  final bool cloudSyncConfigured;
+  final String cloudSyncStatus;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -170,9 +177,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                     ? 'Tidak ada event tertunda'
                     : '$_pendingSync event menunggu sinkronisasi',
               ),
-              subtitle: const Text(
-                'Belum ada worker cloud yang aktif pada aplikasi ini. '
-                'Angka di atas adalah data lokal perangkat.',
+              subtitle: Text(
+                cloudSyncConfigured
+                    ? cloudSyncStatus
+                    : 'Angka di atas adalah data lokal. Event hanya menjadi data cloud '
+                        'setelah server mengembalikan receipt. ' + cloudSyncStatus,
               ),
               trailing: IconButton(
                 tooltip: 'Muat ulang',

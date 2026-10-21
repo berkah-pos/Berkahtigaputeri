@@ -12,11 +12,13 @@ class CheckoutScreen extends StatefulWidget {
     required this.productsRepository,
     required this.paymentService,
     required this.onSaleSaved,
+    this.cloudSyncConfigured = false,
   });
 
   final SqliteProductRepository productsRepository;
   final PaymentService paymentService;
   final VoidCallback onSaleSaved;
+  final bool cloudSyncConfigured;
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -162,9 +164,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               Text('Total: ' + _money(result.grandTotal)),
               Text('PPN: ' + _money(result.ppnAmount)),
               const SizedBox(height: 12),
-              const Text(
-                'Tersimpan di perangkat. Sinkronisasi cloud belum aktif '
-                'pada build ini; transaksi menunggu di antrean lokal.',
+              Text(
+                widget.cloudSyncConfigured
+                    ? 'Tersimpan lokal dan masuk antrean. Server harus memberi '
+                        'receipt sebelum transaksi dianggap tersinkron.'
+                    : 'Tersimpan di perangkat. Sinkronisasi cloud belum aktif '
+                        'pada build ini; transaksi menunggu di antrean lokal.',
               ),
             ],
           ),

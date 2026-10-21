@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/api/laravel_api_client.dart';
@@ -47,9 +49,13 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   late final SqliteProductRepository _products;
   late final PaymentService _payments;
+  OutboxSyncService? _outboxSync;
   int _selectedIndex = 0;
   int _refreshCounter = 0;
   final Set<int> _visitedIndices = <int>{0};
+  bool _syncRunning = false;
+  bool _syncBusy = false;
+  String _cloudSyncStatus = 'Akses cloud sedang diperiksa.';
 
   static const _titles = <String>[
     'Beranda', 'Produk', 'Kasir', 'Stok', 'Laporan',
@@ -62,10 +68,81 @@ class _HomeScreenState extends State<HomeScreen> {
     _payments = PaymentService(
       repository: SqliteSaleRepository(widget.database),
     );
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_attemptCloudSync());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_attemptCloudSync());
+  }
+
+  bool get _cloudSyncConfigured => widget.apiClient != null && widget.configService != null && widget.apiClient!.hasAuthenticatedSession;
+
+  void _setCloudSyncStatus(String value) {
+    if (mounted) setState(() => _cloudSyncStatus = value);
+  }
+
+  Future<void> _attemptCloudSync() async {
+    if (_syncRunning) return;
+    final api = widget.apiClient;
+    final config = widget.configService;
+    if (api == null || config == null || !api.hasAuthenticatedSession) {
+      _setCloudSyncStatus('Mode lokal: data disimpan di perangkat sampai login cloud dikonfigurasi.');
+      return;
+    }
+    final tenantId = widget.identityStore.tenantId.trim();
+    final deviceId = widget.identityStore.deviceId.trim();
+    if (tenantId.isEmpty || deviceId.isEmpty) {
+      _setCloudSyncStatus('Daftarkan perangkat pada menu Pengaturan sebelum sinkronisasi.');
+      return;
+    }
+    _syncRunning = true;
+    if (mounted) setState(() { _syncBusy = true; _cloudSyncStatus = 'Memverifikasi tenant, perangkat, dan akses POS…'; });
+    var accepted = 0;
+    var retried = 0;
+    var attention = 0;
+    try {
+      final effective = await config.getEffectiveConfig(tenantId: tenantId, deviceId: deviceId, service: 'pos');
+      if (effective.fromCache) {
+        _setCloudSyncStatus('Server belum memverifikasi perangkat. Antrean tetap aman di lokal.');
+        return;
+      }
+      final features = TenantFeatures.fromEffectiveConfig(effective.value);
+      if (!features.pos) {
+        _setCloudSyncStatus('Fitur POS tidak aktif untuk tenant ini. Antrean tidak dikirim.');
+        return;
+      }
+      final worker = _outboxSync ??= OutboxSyncService(database: widget.database, apiClient: api, identityStore: widget.identityStore);
+      for (var batch = 0; batch < 5; batch++) {
+        final summary = await worker.syncPending();
+        accepted += summary.accepted;
+        retried += summary.retried;
+        attention += summary.needsAttention;
+        if (summary.accepted == 0) break;
+      }
+      _setCloudSyncStatus('Sync selesai: $accepted diterima server, $retried dijadwalkan ulang, $attention perlu pemeriksaan. Receipt server menjadi bukti sinkronisasi.');
+    } on ApiException catch (error) {
+      _setCloudSyncStatus('Akses cloud belum siap: ' + error.message + '. Antrean lokal dipertahankan.');
+    } on ApiTransportException catch (error) {
+      _setCloudSyncStatus(error.message + ' Antrean lokal dipertahankan untuk dicoba lagi.');
+    } catch (error) {
+      _setCloudSyncStatus('Sync belum selesai: ' + error.toString() + '. Antrean lokal tetap disimpan.');
+    } finally {
+      _syncRunning = false;
+      if (mounted) setState(() => _syncBusy = false);
+    }
   }
 
   void _refreshLocalViews() {
     setState(() => _refreshCounter++);
+    unawaited(_attemptCloudSync());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   void _selectTab(int index) {
@@ -88,6 +165,10 @@ class _HomeScreenState extends State<HomeScreen> {
           return _DashboardScreen(
             key: ValueKey<String>('dashboard-$_refreshCounter'),
             database: widget.database,
+            cloudSyncConfigured: _cloudSyncConfigured,
+            cloudSyncBusy: _syncBusy,
+            cloudSyncStatus: _cloudSyncStatus,
+            onSyncNow: () => unawaited(_attemptCloudSync()),
             onOpenProducts: () => _selectTab(1),
             onOpenCheckout: () => _selectTab(2),
             onOpenInventory: () => _selectTab(3),
@@ -103,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return CheckoutScreen(
             productsRepository: _products,
             paymentService: _payments,
+            cloudSyncConfigured: _cloudSyncConfigured,
             onSaleSaved: _refreshLocalViews,
           );
         case 3:
@@ -115,6 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
           return ReportsScreen(
             key: ValueKey<String>('reports-$_refreshCounter'),
             database: widget.database,
+            cloudSyncConfigured: _cloudSyncConfigured,
+            cloudSyncStatus: _cloudSyncStatus,
           );
         default:
           return const SizedBox.shrink();
@@ -199,6 +283,10 @@ class _DashboardScreen extends StatefulWidget {
   const _DashboardScreen({
     super.key,
     required this.database,
+    required this.cloudSyncConfigured,
+    required this.cloudSyncBusy,
+    required this.cloudSyncStatus,
+    required this.onSyncNow,
     required this.onOpenProducts,
     required this.onOpenCheckout,
     required this.onOpenInventory,
@@ -206,6 +294,10 @@ class _DashboardScreen extends StatefulWidget {
   });
 
   final PosDatabase database;
+  final bool cloudSyncConfigured;
+  final bool cloudSyncBusy;
+  final String cloudSyncStatus;
+  final VoidCallback onSyncNow;
   final VoidCallback onOpenProducts;
   final VoidCallback onOpenCheckout;
   final VoidCallback onOpenInventory;
@@ -309,10 +401,14 @@ class _DashboardScreenState extends State<_DashboardScreen> {
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Kasir local-first. Penjualan dan perubahan stok '
-                    'tersimpan di perangkat ini; cloud sync menunggu layanan '
-                    'terautentikasi yang belum terpasang.',
+                  Text(
+                    widget.cloudSyncConfigured
+                        ? 'Kasir local-first. Penjualan dan perubahan stok '
+                            'disimpan di perangkat, lalu dikirim setelah '
+                            'tenant, perangkat dan hak akses POS terverifikasi.'
+                        : 'Kasir local-first. Penjualan dan perubahan stok '
+                            'tetap aman secara lokal sampai login cloud dan '
+                            'pendaftaran perangkat selesai.',
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -398,14 +494,17 @@ class _DashboardScreenState extends State<_DashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Card(
+          Card(
             child: ListTile(
-              leading: Icon(Icons.cloud_off_outlined),
-              title: Text('Cloud sync belum aktif'),
-              subtitle: Text(
-                'Data perangkat bukan laporan konsolidasi. API Laravel, '
-                'autentikasi dan sinkronisasi harus diuji sebelum SaaS '
-                'multi-tenant digunakan.',
+              leading: Icon(widget.cloudSyncConfigured ? Icons.cloud_sync_outlined : Icons.cloud_off_outlined),
+              title: Text(widget.cloudSyncConfigured ? (widget.cloudSyncBusy ? 'Memproses sinkronisasi' : 'Sinkronisasi Laravel') : 'Cloud sync belum aktif'),
+              subtitle: Text(widget.cloudSyncStatus),
+              trailing: FilledButton.tonalIcon(
+                onPressed: widget.cloudSyncBusy ? null : widget.onSyncNow,
+                icon: widget.cloudSyncBusy
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.sync),
+                label: const Text('Sinkronkan'),
               ),
             ),
           ),
@@ -495,34 +594,43 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     super.dispose();
   }
 
-  Future<void> _syncPendingOutbox() async {
+  Future<void> _syncPendingOutbox({String? prefix}) async {
     final api = widget.apiClient;
-    if (api == null || !api.hasAuthenticatedSession) {
+    final configService = widget.configService;
+    if (api == null || configService == null || !api.hasAuthenticatedSession) {
       setState(() => _status = 'Login cloud Laravel diperlukan sebelum sinkronisasi.');
       return;
     }
-    if (widget.identityStore.deviceId.trim().isEmpty ||
-        widget.identityStore.tenantId.trim().isEmpty) {
+    final tenantId = widget.identityStore.tenantId.trim();
+    final deviceId = widget.identityStore.deviceId.trim();
+    if (deviceId.isEmpty || tenantId.isEmpty) {
       setState(() => _status = 'Daftarkan tenant dan perangkat sebelum sinkronisasi.');
       return;
     }
-
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
+    setState(() { _loading = true; _status = null; });
     try {
-      final summary = await OutboxSyncService(
-        database: widget.database,
-        apiClient: api,
-        identityStore: widget.identityStore,
-      ).syncPending();
+      final effective = await configService.getEffectiveConfig(tenantId: tenantId, deviceId: deviceId, service: 'pos');
+      if (effective.fromCache) {
+        throw const ApiTransportException('Server belum memverifikasi perangkat. Antrean lokal tidak dikirim.');
+      }
+      final features = TenantFeatures.fromEffectiveConfig(effective.value);
+      if (!features.pos) throw const ApiException(403, 'pos_disabled', 'Fitur POS tidak aktif untuk tenant ini.');
+      final worker = OutboxSyncService(database: widget.database, apiClient: api, identityStore: widget.identityStore);
+      var accepted = 0;
+      var retried = 0;
+      var needsAttention = 0;
+      for (var batch = 0; batch < 5; batch++) {
+        final summary = await worker.syncPending();
+        accepted += summary.accepted;
+        retried += summary.retried;
+        needsAttention += summary.needsAttention;
+        if (summary.accepted == 0) break;
+      }
       if (!mounted) return;
+      final prefixText = prefix ?? '';
       setState(() {
         _loading = false;
-        _status = 'Sinkronisasi: ${summary.accepted} diterima server, '
-            '${summary.retried} dijadwalkan ulang, '
-            '${summary.needsAttention} perlu pemeriksaan.';
+        _status = '$prefixText Sync: $accepted diterima server, $retried dijadwalkan ulang, $needsAttention perlu pemeriksaan.';
       });
     } catch (error) {
       if (!mounted) return;
@@ -575,6 +683,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _loading = false;
         _status = 'Perangkat berhasil didaftarkan oleh server untuk tenant ' + widget.identityStore.tenantId + '.';
       });
+      await _syncPendingOutbox(prefix: 'Perangkat terdaftar.');
     } catch (error) {
       if (!mounted) return;
       setState(() {
