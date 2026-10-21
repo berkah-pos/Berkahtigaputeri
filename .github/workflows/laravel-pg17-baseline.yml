@@ -80,6 +80,9 @@ jobs:
       CENTRAL_DB_DATABASE: berkahpos_central_ci
       CENTRAL_DB_USERNAME: postgres
       CENTRAL_DB_PASSWORD: postgres
+      # TLS is disabled only for the disposable CI PostgreSQL service.
+      # Staging/production must set their own verified TLS policy.
+      CENTRAL_DB_SSLMODE: disable
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
@@ -162,7 +165,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" composer validate --strict --no-check-publish
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" composer validate --strict --no-check-publish
           docker run --rm --network host "$CI_IMAGE" composer check-platform-reqs
           docker run --rm --network host "$CI_IMAGE" composer audit --locked --no-interaction
           docker run --rm "$CI_IMAGE" composer show --locked laravel/framework
@@ -176,10 +179,10 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan about
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" php artisan about
           routes="$(docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1)"
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" php artisan route:list --path=api/v1)"
           printf '%s\\n' "$routes"
           for required_route in "api/v1/auth/login" "api/v1/auth/logout" "api/v1/devices/enroll" "api/v1/config/effective" "api/v1/sync"; do
             if ! grep -Fq "$required_route" <<<"$routes"; then
@@ -219,7 +222,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
 
       - name: Import canonical manifest atomically into disposable central PostgreSQL
@@ -233,7 +236,7 @@ jobs:
           docker run --rm --network host -v "$manifest:/tmp/canonical-central-config.json:ro" \
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$CI_IMAGE" \
             php artisan config:import-workbook /tmp/canonical-central-config.json
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 -tA \
@@ -256,7 +259,7 @@ jobs:
           docker run --rm --network host \
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
             --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
             --env TENANT_MIGRATOR_DB_HOST --env TENANT_MIGRATOR_DB_PORT \
@@ -335,7 +338,7 @@ jobs:
           docker run -d --name "$container" -p 127.0.0.1:8080:80 \
             --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
             --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
-            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
+            --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD --env CENTRAL_DB_SSLMODE "$PROD_IMAGE"
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
             sleep 2
