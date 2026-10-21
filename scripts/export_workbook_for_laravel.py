@@ -46,6 +46,16 @@ def bool_value(value: Any) -> bool:
     return text(value).lower() in {"true", "1", "yes", "active", "enabled"}
 
 
+def canonical_mapping_key(raw_key: Any, expected_key: str, scope: str) -> str:
+    """Fail closed when a workbook row points at a different canonical config key."""
+    actual_key = text(raw_key) or expected_key
+    if actual_key != expected_key:
+        raise ValueError(
+            f"{scope}: app_config_key must be {expected_key!r}; got {actual_key!r}"
+        )
+    return actual_key
+
+
 def parse_value(raw: Any, key: str) -> dict[str, Any]:
     if isinstance(raw, dict):
         parsed = raw
@@ -145,7 +155,11 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
             if pair in service_pairs:
                 raise ValueError(f"Duplicate service mapping: {pair}")
             service_pairs.add(pair)
-            key = text(row.get("app_config_key")) or f"tenant:{tenant_id}:service:{service}"
+            key = canonical_mapping_key(
+                row.get("app_config_key"),
+                f"tenant:{tenant_id}:service:{service}",
+                f"SERVICE row {pair}",
+            )
             if key not in by_key:
                 raise ValueError(f"SERVICE row {pair} references missing key {key}")
             services.append({"tenant_id": tenant_id, "service": service, "enabled": bool_value(row.get("enabled")), "config": by_key[key]["config"]})
@@ -157,7 +171,11 @@ def build_manifest(workbook: Path) -> dict[str, Any]:
         for row in device_rows:
             device_id = text(row.get("device_id"))
             tenant_id = text(row.get("tenant_id"))
-            key = text(row.get("app_config_key")) or f"device:{device_id}"
+            key = canonical_mapping_key(
+                row.get("app_config_key"),
+                f"device:{device_id}",
+                f"DEVICE row {device_id}",
+            )
             if not device_id or device_id in seen_devices:
                 raise ValueError(f"Empty/duplicate device id: {device_id!r}")
             if tenant_id not in tenant_ids or key not in by_key:

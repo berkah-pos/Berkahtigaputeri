@@ -2,7 +2,7 @@
 
 import unittest
 
-from scripts.export_workbook_for_laravel import bool_value, parse_value, row_dicts
+from scripts.export_workbook_for_laravel import bool_value, canonical_mapping_key, parse_value, row_dicts
 
 
 class WorksheetDouble:
@@ -67,6 +67,34 @@ class OfflineWorkbookParserTests(unittest.TestCase):
             [{"tenant_id": "tenant_001", "template_id": "BASIC"}],
         )
 
+
+    def test_canonical_mapping_key_uses_expected_key_when_workbook_cell_is_blank(self):
+        self.assertEqual(
+            canonical_mapping_key("", "tenant:tenant_001:service:pos", "SERVICE row"),
+            "tenant:tenant_001:service:pos",
+        )
+
+    def test_canonical_mapping_key_accepts_exact_mapping(self):
+        self.assertEqual(
+            canonical_mapping_key("device:device_001", "device:device_001", "DEVICE row"),
+            "device:device_001",
+        )
+
+    def test_canonical_mapping_key_rejects_cross_service_mapping(self):
+        with self.assertRaisesRegex(ValueError, "must be.*tenant:tenant_001:service:pos"):
+            canonical_mapping_key(
+                "tenant:tenant_001:service:akuntansi",
+                "tenant:tenant_001:service:pos",
+                "SERVICE row ('tenant_001', 'pos')",
+            )
+
+    def test_canonical_mapping_key_rejects_device_mapping_to_another_device(self):
+        with self.assertRaisesRegex(ValueError, "device:device_001"):
+            canonical_mapping_key(
+                "device:device_002",
+                "device:device_001",
+                "DEVICE row device_001",
+            )
 
 if __name__ == "__main__":
     unittest.main()
