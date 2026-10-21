@@ -39,6 +39,10 @@ final class EffectiveConfigController
             return $this->error('tenant_access_denied', 'An active tenant user is required.', 403);
         }
 
+        if (! $user->tokenCan('config:read') && ! $user->tokenCan('*')) {
+            return $this->error('token_ability_denied', 'The bearer token does not grant configuration-read access.', 403);
+        }
+
         // Tenant scope is always derived from the authenticated central identity, never from client input.
         $tenant = Tenant::query()->find($user->tenant_id);
         if ($tenant === null || $tenant->status !== 'active') {
