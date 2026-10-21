@@ -36,6 +36,24 @@ void main() {
             )
           ''');
 
+          // Schema v1 already had a durable outbox. New retry/receipt fields
+          // are added by the v4 migration and must not discard existing events.
+          await database.execute('''
+            CREATE TABLE outbox_events (
+              id TEXT PRIMARY KEY,
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              status TEXT NOT NULL,
+              retry_count INTEGER NOT NULL DEFAULT 0,
+              created_at_utc TEXT NOT NULL
+            )
+          ''');
+          await database.execute('''
+            CREATE INDEX idx_outbox_status
+            ON outbox_events(status, created_at_utc)
+          ''');
+
           await database.execute('''
             CREATE TABLE inventory_lots (
               id TEXT PRIMARY KEY,
@@ -65,6 +83,18 @@ void main() {
         'price': 25000,
         'ppn_exempt': 0,
         'stock_qty': 2,
+      },
+    );
+    await legacy.insert(
+      'outbox_events',
+      <String, Object?>{
+        'id': 'OUTBOX-LEGACY',
+        'entity_type': 'sale',
+        'entity_id': 'TXN-LEGACY',
+        'payload': '{"legacy":true}',
+        'status': 'pending',
+        'retry_count': 2,
+        'created_at_utc': DateTime.utc(2026, 9, 1).toIso8601String(),
       },
     );
     await legacy.insert(
@@ -113,6 +143,15 @@ void main() {
         (await migrated.database.query('inventory_movements')).single;
     expect(opening['movement_type'], 'opening_balance');
     expect(opening['quantity_delta'], 2);
+
+    final outbox = (await migrated.database.query('outbox_events')).single;
+    expect(outbox['id'], 'OUTBOX-LEGACY');
+    expect(outbox['status'], 'pending');
+    expect(outbox['retry_count'], 2);
+    expect(outbox['last_error'], isNull);
+    expect(outbox['next_retry_at_utc'], isNull);
+    expect(outbox['acked_at_utc'], isNull);
+    expect(outbox['server_receipt_id'], isNull);
 
     expect(await migrated.database.query('legacy_import_runs'), isEmpty);
     expect(await migrated.database.query('legacy_sales_archive'), isEmpty);
