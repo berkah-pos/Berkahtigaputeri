@@ -33,6 +33,7 @@ class ImplementationProgressTests(unittest.TestCase):
 
     def test_register_rejects_weights_that_do_not_total_100(self):
         data = self.fixture()
+        data["gates"][0]["weight"] += 1
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "progress.json"
             path.write_text(json.dumps(data), encoding="utf-8")
