@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\IdentityController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -34,3 +35,32 @@ Route::get('/v1/platform-ready', function () {
         ],
     ]);
 })->name('api.v1.platform-ready');
+
+Route::post('/v1/auth/login', [IdentityController::class, 'login'])
+    ->middleware('throttle:5,1')
+    ->name('api.v1.auth.login');
+
+Route::middleware('auth:sanctum')->group(function (): void {
+    // Logout is deliberately available to a disabled/revoked identity so it can
+    // discard its local token instead of needing another successful auth check.
+    Route::post('/v1/auth/logout', [IdentityController::class, 'logout'])
+        ->name('api.v1.auth.logout');
+    Route::post('/v1/auth/logout-all', [IdentityController::class, 'logoutAll'])
+        ->name('api.v1.auth.logout-all');
+});
+
+Route::middleware(['auth:sanctum', 'active.identity'])->group(function (): void {
+    Route::get('/v1/auth/session', [IdentityController::class, 'session'])
+        ->name('api.v1.auth.session');
+
+    Route::post('/v1/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])
+        ->middleware('platform.ability:devices:approve')
+        ->name('api.v1.devices.approve');
+
+    Route::post('/v1/devices/{deviceId}/revoke', [IdentityController::class, 'revokeDevice'])
+        ->name('api.v1.devices.revoke');
+});
+
+Route::middleware(['auth:sanctum', 'active.identity', 'verified.device'])
+    ->get('/v1/auth/context', [IdentityController::class, 'context'])
+    ->name('api.v1.auth.context');
