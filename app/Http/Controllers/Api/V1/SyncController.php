@@ -32,7 +32,7 @@ class SyncController extends Controller
             'app_version' => ['sometimes', 'string', 'max:64'],
             'events' => ['required', 'array', 'min:1', 'max:20'],
             'events.*.event_id' => ['required', 'string', 'max:100'],
-            'events.*.entity_type' => ['required', 'string', 'in:sale'],
+            'events.*.entity_type' => ['required', 'string', 'in:sale,product,inventory_receipt'],
             'events.*.entity_id' => ['required', 'string', 'max:150'],
             'events.*.payload' => ['required', 'array'],
         ]);
@@ -119,9 +119,10 @@ class SyncController extends Controller
         $eventId = (string) $event['event_id'];
         $payload = $event['payload'];
 
+        $entityType = (string) ($event['entity_type'] ?? '');
         $envelopeMismatches = [];
-        if (($event['entity_type'] ?? null) !== 'sale') $envelopeMismatches[] = 'entity_type';
-        if (($payload['event_type'] ?? null) !== 'sale') $envelopeMismatches[] = 'event_type';
+        if (! in_array($entityType, ['sale', 'product', 'inventory_receipt'], true)) $envelopeMismatches[] = 'entity_type';
+        if (($payload['event_type'] ?? null) !== $entityType) $envelopeMismatches[] = 'event_type';
         if (($payload['payload_version'] ?? null) !== 1) $envelopeMismatches[] = 'payload_version';
         if (($payload['event_id'] ?? null) !== $eventId) $envelopeMismatches[] = 'event_id';
         if (($payload['entity_id'] ?? null) !== (string) $event['entity_id']) $envelopeMismatches[] = 'entity_id';
@@ -144,6 +145,13 @@ class SyncController extends Controller
                 'receipt_id' => $eventId,
                 'accepted_at' => (string) $receipt->accepted_at,
             ];
+        }
+
+        if ($entityType === 'product') {
+            return $this->acceptProductEvent($db, $event, $payload, $deviceId, $payloadHash);
+        }
+        if ($entityType === 'inventory_receipt') {
+            return $this->acceptInventoryReceiptEvent($db, $event, $payload, $deviceId, $payloadHash);
         }
 
         $sale = $payload['sale'] ?? null;
@@ -415,6 +423,246 @@ class SyncController extends Controller
         ]);
 
         return $response;
+    }
+
+    private function acceptProductEvent(Connection $db, array $event, array $payload, string $deviceId, string $payloadHash): array
+    {
+        $product = $payload['product'] ?? null;
+        if (! is_array($product)) throw new SyncConflictException('Payload master produk tidak lengkap.');
+
+        $productId = $this->requiredString($product, 'id');
+        $eventEntityId = (string) ($event['entity_id'] ?? '');
+        if ($productId !== $eventEntityId) throw new SyncConflictException('ID master produk tidak cocok dengan envelope.');
+        $sku = trim($this->requiredString($product, 'sku'));
+        $name = trim($this->requiredString($product, 'name_id'));
+        if (strlen($sku) > 100 || strlen($name) > 255) throw new SyncConflictException('SKU atau nama produk melebihi batas.');
+        $barcode = $product['barcode'] ?? null;
+        if ($barcode !== null && (! is_string($barcode) || trim($barcode) === '' || strlen($barcode) > 100)) {
+            throw new SyncConflictException('Barcode produk tidak valid.');
+        }
+        $price = $this->payloadMoney($product, 'price');
+        $ppnExempt = $this->payloadBoolean($product['ppn_exempt'] ?? null);
+        $trackExpiry = $this->payloadBoolean($product['track_expiry'] ?? false);
+        $requiresReview = $this->payloadBoolean($product['requires_review'] ?? false);
+        $isActive = $this->payloadBoolean($product['is_active'] ?? true);
+        $minShelfLifeDays = $product['min_shelf_life_days'] ?? 0;
+        if (! is_int($minShelfLifeDays) || $minShelfLifeDays < 0 || $minShelfLifeDays > 3650) {
+            throw new SyncConflictException('Minimum shelf life produk tidak valid.');
+        }
+
+        $duplicateSku = $db->table('products')->where('sku', $sku)->where('id', '<>', $productId)->exists();
+        if ($duplicateSku) throw new SyncConflictException('SKU sudah digunakan produk lain pada tenant ini.');
+        if ($barcode !== null) {
+            $duplicateBarcode = $db->table('products')->where('barcode', trim($barcode))
+                ->where('id', '<>', $productId)->exists();
+            if ($duplicateBarcode) throw new SyncConflictException('Barcode sudah digunakan produk lain pada tenant ini.');
+        }
+
+        $now = now();
+        $existing = $db->table('products')->where('id', $productId)->lockForUpdate()->first();
+        if ($existing !== null && $this->databaseBoolean($existing->track_expiry ?? false) !== $trackExpiry
+            && $db->table('inventory_lots')->where('product_id', $productId)->exists()) {
+            throw new SyncConflictException('Kebijakan kedaluwarsa tidak dapat diubah setelah lot persediaan tercatat.');
+        }
+
+        $values = [
+            'sku' => $sku,
+            'barcode' => $barcode === null ? null : trim($barcode),
+            'name' => $name,
+            'price' => $price,
+            'ppn_exempt' => $ppnExempt,
+            'track_expiry' => $trackExpiry,
+            'min_shelf_life_days' => $minShelfLifeDays,
+            'requires_review' => $requiresReview,
+            'is_active' => $isActive,
+            'updated_at' => $now,
+        ];
+        if ($existing === null) {
+            // Stock is ledger-owned. A catalog event can never create inventory.
+            $db->table('products')->insert(array_merge([
+                'id' => $productId,
+                'category_id' => null,
+                'stock_qty' => 0,
+                'created_at' => $now,
+            ], $values));
+        } else {
+            // Update only the product master; never trust client stock_qty.
+            $db->table('products')->where('id', $productId)->update($values);
+        }
+
+        $response = [
+            'event_id' => (string) $event['event_id'],
+            'status' => 'accepted',
+            'receipt_id' => (string) $event['event_id'],
+            'entity_id' => $productId,
+        ];
+        $this->saveSyncReceipt($db, (string) $event['event_id'], $deviceId, $payloadHash, $response, $now);
+        return $response;
+    }
+
+    private function acceptInventoryReceiptEvent(
+        Connection $db,
+        array $event,
+        array $payload,
+        string $deviceId,
+        string $payloadHash
+    ): array {
+        $receipt = $payload['receipt'] ?? null;
+        if (! is_array($receipt)) throw new SyncConflictException('Payload penerimaan persediaan tidak lengkap.');
+
+        $productId = $this->requiredString($receipt, 'product_id');
+        if ($productId !== (string) ($event['entity_id'] ?? '')) {
+            throw new SyncConflictException('Penerimaan persediaan tidak sesuai dengan produk pada envelope.');
+        }
+        $lotId = $this->requiredString($receipt, 'lot_id');
+        $costLayerId = $this->requiredString($receipt, 'cost_layer_id');
+        $quantity = $this->payloadQuantity($receipt, 'quantity');
+        $unitCost = $this->payloadMoney($receipt, 'unit_cost');
+        $batchNo = trim($this->requiredString($receipt, 'batch_no'));
+        if ($batchNo === '' || strlen($batchNo) > 120) throw new SyncConflictException('Nomor batch tidak valid.');
+
+        $acquiredAtRaw = $this->requiredString($receipt, 'acquired_at_utc');
+        try {
+            $acquiredAt = Carbon::parse($acquiredAtRaw)->utc();
+        } catch (Throwable) {
+            throw new SyncConflictException('Waktu penerimaan persediaan tidak valid.');
+        }
+        $expiryDate = $receipt['expiry_date'] ?? null;
+        if ($expiryDate !== null) {
+            if (! is_string($expiryDate) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $expiryDate)) {
+                throw new SyncConflictException('Tanggal kedaluwarsa harus berupa YYYY-MM-DD atau null.');
+            }
+            try {
+                $parsedExpiry = Carbon::createFromFormat('!Y-m-d', $expiryDate);
+            } catch (Throwable) {
+                $parsedExpiry = false;
+            }
+            if ($parsedExpiry === false || $parsedExpiry->format('Y-m-d') !== $expiryDate
+                || $parsedExpiry->toDateString() < now()->toDateString()) {
+                throw new SyncConflictException('Tanggal kedaluwarsa tidak valid atau sudah lewat.');
+            }
+        }
+
+        $product = $db->table('products')->where('id', $productId)->lockForUpdate()->first();
+        if ($product === null || ! $this->databaseBoolean($product->is_active ?? true)
+            || $this->databaseBoolean($product->requires_review ?? false)) {
+            throw new SyncConflictException('Penerimaan ditolak karena produk belum tersedia, nonaktif, atau memerlukan pemeriksaan.');
+        }
+        if ($this->databaseBoolean($product->track_expiry ?? false) && $expiryDate === null) {
+            throw new SyncConflictException('Produk yang melacak kedaluwarsa wajib memiliki tanggal kedaluwarsa.');
+        }
+        if ($db->table('inventory_cost_layers')->where('id', $costLayerId)->exists()) {
+            throw new SyncConflictException('ID layer biaya sudah digunakan.');
+        }
+
+        $now = now();
+        $existingLot = $db->table('inventory_lots')->where('id', $lotId)->lockForUpdate()->first();
+        $sameBatchQuery = $db->table('inventory_lots')
+            ->where('product_id', $productId)
+            ->where('batch_code', $batchNo)
+            ->where('id', '<>', $lotId);
+        if ($expiryDate === null) $sameBatchQuery->whereNull('expires_at');
+        else $sameBatchQuery->whereDate('expires_at', $expiryDate);
+        if ($sameBatchQuery->exists()) {
+            throw new SyncConflictException('Batch/tanggal kedaluwarsa sudah memiliki lot lain; gunakan ID lot yang sama untuk penerimaan tambahan.');
+        }
+
+        if ($existingLot === null) {
+            $db->table('inventory_lots')->insert([
+                'id' => $lotId,
+                'product_id' => $productId,
+                'batch_code' => $batchNo,
+                'expires_at' => $expiryDate,
+                'quantity_received' => $quantity,
+                'quantity_remaining' => $quantity,
+                'unit_cost' => $unitCost,
+                'received_at' => $acquiredAt,
+                'reserved_qty' => 0,
+                'status' => 'saleable',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        } else {
+            if ((string) $existingLot->product_id !== $productId
+                || (string) ($existingLot->batch_code ?? '') !== $batchNo
+                || (($existingLot->expires_at === null) !== ($expiryDate === null))
+                || ($expiryDate !== null && Carbon::parse($existingLot->expires_at)->toDateString() !== $expiryDate)
+                || (string) ($existingLot->status ?? 'saleable') !== 'saleable') {
+                throw new SyncConflictException('Penerimaan tidak cocok dengan lot yang ada atau lot tidak lagi saleable.');
+            }
+            $db->table('inventory_lots')->where('id', $lotId)->increment('quantity_received', $quantity, ['updated_at' => $now]);
+            $db->table('inventory_lots')->where('id', $lotId)->increment('quantity_remaining', $quantity, ['updated_at' => $now]);
+        }
+
+        $db->table('inventory_cost_layers')->insert([
+            'id' => $costLayerId,
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+            'original_qty' => $quantity,
+            'remaining_qty' => $quantity,
+            'unit_cost' => $unitCost,
+            'acquired_at' => $acquiredAt,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $updated = $db->table('products')->where('id', $productId)
+            ->increment('stock_qty', $quantity, ['updated_at' => $now]);
+        if ($updated !== 1) throw new SyncConflictException('Stok agregat produk tidak dapat diperbarui.');
+
+        $db->table('inventory_movements')->insert([
+            'source_event_id' => (string) $event['event_id'],
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+            'movement_type' => 'receipt',
+            'quantity' => $quantity,
+            'reference_id' => $costLayerId,
+            'occurred_at' => $acquiredAt,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $db->table('stock_movements')->insert([
+            'id' => 'sync:'.substr(hash('sha256', (string) $event['event_id']), 0, 48),
+            'source_event_id' => (string) $event['event_id'],
+            'product_id' => $productId,
+            'reference_id' => $costLayerId,
+            'movement_type' => 'purchase_receipt',
+            'quantity_delta' => $quantity,
+            'unit_cost' => $unitCost,
+            'total_cost' => $quantity * $unitCost,
+            'occurred_at' => $acquiredAt,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $response = [
+            'event_id' => (string) $event['event_id'],
+            'status' => 'accepted',
+            'receipt_id' => (string) $event['event_id'],
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+        ];
+        $this->saveSyncReceipt($db, (string) $event['event_id'], $deviceId, $payloadHash, $response, $now);
+        return $response;
+    }
+
+    private function saveSyncReceipt(
+        Connection $db,
+        string $eventId,
+        string $deviceId,
+        string $payloadHash,
+        array $response,
+        mixed $acceptedAt
+    ): void {
+        $db->table('sync_receipts')->insert([
+            'event_id' => $eventId,
+            'device_id' => $deviceId,
+            'payload_sha256' => $payloadHash,
+            'response' => json_encode($response, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+            'accepted_at' => $acceptedAt,
+            'created_at' => $acceptedAt,
+            'updated_at' => $acceptedAt,
+        ]);
     }
 
     private function expectedFefoAllocations(Connection $db, object $product, int $quantity, string $businessDate): array

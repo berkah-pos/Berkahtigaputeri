@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,9 +30,26 @@ void main() {
       final products = await repository.listAll();
       expect(products, hasLength(1));
       expect(products.single.id, 'P-UNUSED');
+      final productEvents = await database.database.query(
+        'outbox_events',
+        where: 'entity_type = ? AND entity_id = ?',
+        whereArgs: <Object?>['product', 'P-UNUSED'],
+      );
+      expect(productEvents, hasLength(1));
+      final eventPayload = jsonDecode(productEvents.single['payload']! as String) as Map<String, dynamic>;
+      expect(eventPayload['product']['id'], 'P-UNUSED');
+      expect(eventPayload['product'].containsKey('stock_qty'), isFalse);
 
       await repository.deleteIfUnused('P-UNUSED');
       expect(await repository.findById('P-UNUSED'), isNull);
+      expect(
+        await database.database.query(
+          'outbox_events',
+          where: 'entity_type = ? AND entity_id = ?',
+          whereArgs: <Object?>['product', 'P-UNUSED'],
+        ),
+        isEmpty,
+      );
     });
 
     test('does not delete a product with inventory lot history', () async {
@@ -56,6 +75,16 @@ void main() {
         unitCost: 15000,
         acquiredAtUtc: DateTime.utc(2026, 10, 12),
       );
+
+      final receiptEvents = await database.database.query(
+        'outbox_events',
+        where: 'entity_type = ? AND entity_id = ?',
+        whereArgs: <Object?>['inventory_receipt', 'P-HISTORY'],
+      );
+      expect(receiptEvents, hasLength(1));
+      final receiptPayload = jsonDecode(receiptEvents.single['payload']! as String) as Map<String, dynamic>;
+      expect(receiptPayload['receipt']['lot_id'], 'LOT-HISTORY');
+      expect(receiptPayload['receipt']['quantity'], 2);
 
       expect(await repository.hasInventoryLots('P-HISTORY'), isTrue);
       await expectLater(

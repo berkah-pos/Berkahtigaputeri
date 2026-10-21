@@ -1,5 +1,8 @@
 // lib/features/products/repositories/sqlite_product_repository.dart
 
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/database/pos_database.dart';
@@ -81,6 +84,11 @@ class SqliteProductRepository {
           product.minShelfLifeDays,
           product.requiresReview ? 1 : 0,
         ],
+      );
+      await _enqueueProductEvent(
+        transaction,
+        product,
+        createdAtUtc: DateTime.now().toUtc().toIso8601String(),
       );
     });
   }
@@ -205,6 +213,17 @@ class SqliteProductRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      await _enqueueInventoryReceiptEvent(
+        transaction,
+        lotId: normalizedLotId,
+        productId: normalizedProductId,
+        costLayerId: normalizedCostLayerId,
+        quantity: quantity,
+        unitCost: unitCost,
+        acquiredAtUtc: receivedAt,
+        batchNo: normalizedBatchNo,
+        expiryDate: expiry,
+      );
     });
   }
 
@@ -285,7 +304,123 @@ class SqliteProductRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+      await _enqueueInventoryReceiptEvent(
+        transaction,
+        lotId: normalizedLotId,
+        productId: productId,
+        costLayerId: normalizedCostLayerId,
+        quantity: quantity,
+        unitCost: unitCost,
+        acquiredAtUtc: receivedAt,
+        batchNo: (lot['batch_no'] as String?) ?? normalizedLotId,
+        expiryDate: lot['expiry_date'] as String?,
+      );
     });
+  }
+
+  static final Random _outboxRandom = Random.secure();
+
+  String _newOutboxEventId(String type) {
+    final now = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(36);
+    final random = List<String>.generate(
+      12,
+      (_) => _outboxRandom.nextInt(16).toRadixString(16),
+      growable: false,
+    ).join();
+    return 'outbox:$type:$now:$random';
+  }
+
+  Future<void> _enqueueProductEvent(
+    Transaction transaction,
+    Product product, {
+    required String createdAtUtc,
+    bool isActive = true,
+  }) async {
+    final eventId = _newOutboxEventId('product');
+    final snapshot = <String, Object?>{
+      'id': product.id,
+      'sku': product.sku,
+      'barcode': product.barcode,
+      'name_id': product.nameId,
+      'price': product.price,
+      'ppn_exempt': product.ppnExempt,
+      'track_expiry': product.trackExpiry,
+      'min_shelf_life_days': product.minShelfLifeDays,
+      'requires_review': product.requiresReview,
+      'is_active': isActive,
+    };
+    final payload = <String, Object?>{
+      'payload_version': 1,
+      'event_id': eventId,
+      'event_type': 'product',
+      'entity_id': product.id,
+      'product': snapshot,
+    };
+    await transaction.insert(
+      'outbox_events',
+      <String, Object?>{
+        'id': eventId,
+        'entity_type': 'product',
+        'entity_id': product.id,
+        'payload': jsonEncode(payload),
+        'status': 'pending',
+        'retry_count': 0,
+        'last_error': null,
+        'next_retry_at_utc': null,
+        'acked_at_utc': null,
+        'server_receipt_id': null,
+        'created_at_utc': createdAtUtc,
+      },
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
+  }
+
+  Future<void> _enqueueInventoryReceiptEvent(
+    Transaction transaction, {
+    required String lotId,
+    required String productId,
+    required String costLayerId,
+    required int quantity,
+    required int unitCost,
+    required String acquiredAtUtc,
+    required String batchNo,
+    required String? expiryDate,
+  }) async {
+    final eventId = _newOutboxEventId('inventory_receipt');
+    final payload = <String, Object?>{
+      'payload_version': 1,
+      'event_id': eventId,
+      'event_type': 'inventory_receipt',
+      // Key receipts to the product so the outbox preserves product-before-stock order.
+      'entity_id': productId,
+      'receipt': <String, Object?>{
+        'lot_id': lotId,
+        'product_id': productId,
+        'cost_layer_id': costLayerId,
+        'quantity': quantity,
+        'unit_cost': unitCost,
+        'acquired_at_utc': acquiredAtUtc,
+        'batch_no': batchNo,
+        'expiry_date': expiryDate,
+      },
+    };
+    await transaction.insert(
+      'outbox_events',
+      <String, Object?>{
+        'id': eventId,
+        'entity_type': 'inventory_receipt',
+        'entity_id': productId,
+        'payload': jsonEncode(payload),
+        'status': 'pending',
+        'retry_count': 0,
+        'last_error': null,
+        'next_retry_at_utc': null,
+        'acked_at_utc': null,
+        'server_receipt_id': null,
+        'created_at_utc': DateTime.now().toUtc().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.abort,
+    );
   }
 
   Future<Product> _loadProduct(

@@ -98,6 +98,12 @@ class OutboxSyncService {
           continue;
         }
 
+        if (await _hasUnresolvedProductDependency(row, payload, eventId)) {
+          // Keep this event pending. An earlier product master/receipt must be
+          // accepted first, otherwise a sale could conflict with missing cloud stock.
+          continue;
+        }
+
         final nextAttempt = ((row['retry_count'] as int?) ?? 0) + 1;
         await _database.database.update(
           'outbox_events',
@@ -178,6 +184,50 @@ class OutboxSyncService {
     } finally {
       _running = false;
     }
+  }
+
+  Future<bool> _hasUnresolvedProductDependency(
+    Map<String, Object?> row,
+    Map<String, dynamic> payload,
+    String currentEventId,
+  ) async {
+    final entityType = row['entity_type']?.toString() ?? '';
+    final dependencies = <String>{};
+    if (entityType == 'product' || entityType == 'inventory_receipt') {
+      final productId = row['entity_id']?.toString() ?? '';
+      if (productId.isNotEmpty) dependencies.add(productId);
+    } else if (entityType == 'sale') {
+      final items = payload['items'];
+      if (items is List) {
+        for (final item in items) {
+          if (item is Map) {
+            final productId = item['product_id']?.toString() ?? '';
+            if (productId.isNotEmpty) dependencies.add(productId);
+          }
+        }
+      }
+    }
+
+    for (final productId in dependencies) {
+      final unresolved = await _database.database.query(
+        'outbox_events',
+        columns: <String>['id', 'status'],
+        where: 'entity_id = ? AND status <> ?',
+        whereArgs: <Object?>[productId, 'acknowledged'],
+        orderBy: 'created_at_utc ASC, id ASC',
+        limit: 1,
+      );
+      if (unresolved.isEmpty) continue;
+      final earliestId = unresolved.single['id']?.toString() ?? '';
+      if (entityType == 'product' || entityType == 'inventory_receipt') {
+        if (earliestId != currentEventId) return true;
+      } else {
+        // A sale is a different entity, so any unresolved catalog/receipt event
+        // for one of its products must be resolved before the sale is sent.
+        return true;
+      }
+    }
+    return false;
   }
 
   Future<void> _scheduleRetry(String eventId, int attempt, String message) async {

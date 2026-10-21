@@ -600,4 +600,114 @@ class CentralMobileApiTest extends TestCase
     }
 
 
+
+    public function test_sync_accepts_product_and_inventory_receipt_with_idempotent_replay(): void
+    {
+        $tenantDb = DB::connection('tenant_migrator');
+        $tenantDb->beginTransaction();
+        $this->tenantFixtureDb = $tenantDb;
+        $this->app->instance(TenantDatabaseRunner::class, new class($tenantDb) extends TenantDatabaseRunner {
+            public function __construct(private Connection $testConnection)
+            {
+            }
+
+            public function run(string $tenantId, Closure $operation): mixed
+            {
+                return $this->testConnection->transaction(fn () => $operation($this->testConnection), 3);
+            }
+        });
+
+        $suffix = substr(str_replace('-', '', (string) Str::uuid()), 0, 12);
+        $productId = 'sync-product-' . $suffix;
+        $productEventId = 'outbox:product:' . $suffix;
+        $receiptEventId = 'outbox:inventory_receipt:' . $suffix;
+        $lotId = 'sync-lot-' . $suffix;
+        $costLayerId = 'sync-cost-' . $suffix;
+        $occurredAt = '2026-10-21T03:00:00.000000Z';
+
+        $productEvent = [
+            'event_id' => $productEventId,
+            'entity_type' => 'product',
+            'entity_id' => $productId,
+            'payload' => [
+                'payload_version' => 1,
+                'event_id' => $productEventId,
+                'event_type' => 'product',
+                'entity_id' => $productId,
+                'product' => [
+                    'id' => $productId,
+                    'sku' => 'SYNC-' . $suffix,
+                    'barcode' => null,
+                    'name_id' => 'Product sync integration test',
+                    'price' => 10000,
+                    'ppn_exempt' => true,
+                    'track_expiry' => false,
+                    'min_shelf_life_days' => 0,
+                    'requires_review' => false,
+                    'is_active' => true,
+                ],
+            ],
+        ];
+
+        $productResponse = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$productEvent],
+        ]);
+        $productResponse->assertOk()->assertJsonPath('results.0.status', 'accepted');
+        $this->assertSame(0.0, (float) $tenantDb->table('products')->where('id', $productId)->value('stock_qty'));
+
+        $productReplay = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$productEvent],
+        ]);
+        $productReplay->assertOk()->assertJsonPath('results.0.status', 'replayed');
+        $this->assertSame(1, $tenantDb->table('products')->where('id', $productId)->count());
+
+        $receiptEvent = [
+            'event_id' => $receiptEventId,
+            'entity_type' => 'inventory_receipt',
+            'entity_id' => $productId,
+            'payload' => [
+                'payload_version' => 1,
+                'event_id' => $receiptEventId,
+                'event_type' => 'inventory_receipt',
+                'entity_id' => $productId,
+                'receipt' => [
+                    'lot_id' => $lotId,
+                    'product_id' => $productId,
+                    'cost_layer_id' => $costLayerId,
+                    'quantity' => 2,
+                    'unit_cost' => 4000,
+                    'acquired_at_utc' => $occurredAt,
+                    'batch_no' => 'BATCH-' . $suffix,
+                    'expiry_date' => null,
+                ],
+            ],
+        ];
+        $receiptResponse = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$receiptEvent],
+        ]);
+        $receiptResponse->assertOk()->assertJsonPath('results.0.status', 'accepted');
+
+        $this->assertEquals(2.0, (float) $tenantDb->table('products')->where('id', $productId)->value('stock_qty'));
+        $this->assertEquals(2.0, (float) $tenantDb->table('inventory_lots')->where('id', $lotId)->value('quantity_remaining'));
+        $this->assertEquals(2.0, (float) $tenantDb->table('inventory_cost_layers')->where('id', $costLayerId)->value('remaining_qty'));
+        $this->assertSame(1, $tenantDb->table('inventory_movements')->where('source_event_id', $receiptEventId)->count());
+        $this->assertSame(1, $tenantDb->table('stock_movements')->where('source_event_id', $receiptEventId)->count());
+
+        $receiptReplay = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$receiptEvent],
+        ]);
+        $receiptReplay->assertOk()->assertJsonPath('results.0.status', 'replayed');
+        $this->assertEquals(2.0, (float) $tenantDb->table('products')->where('id', $productId)->value('stock_qty'));
+        $this->assertSame(1, $tenantDb->table('sync_receipts')->where('event_id', $receiptEventId)->count());
+    }
+
+
 }
