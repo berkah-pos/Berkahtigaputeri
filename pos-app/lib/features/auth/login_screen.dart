@@ -66,6 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
           'Akun belum ditautkan ke tenant aktif. Hubungi administrator.',
         );
       }
+      // Allocate a stable, non-hardware-derived local ID after successful login.
+      // Server enrollment remains a separate explicit action in Settings.
+      await widget.identityStore.ensureDeviceId();
       await widget.identityStore.setTenantId(tenantId);
       if (!mounted) return;
       setState(() => _loading = false);
