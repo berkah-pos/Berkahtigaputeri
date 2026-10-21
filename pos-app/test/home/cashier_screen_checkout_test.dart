@@ -107,7 +107,11 @@ void main() {
         journals = await database.database.query('journals');
         journalLines = await database.database.query('journal_lines');
         stockMovements = await database.database.query('stock_movements');
-        outbox = await database.database.query('outbox_events');
+        outbox = await database.database.query(
+          'outbox_events',
+          where: 'entity_type = ?',
+          whereArgs: <Object?>['sale'],
+        );
         product = (await products.findById('P-CHECKOUT-UI'))!;
       });
 

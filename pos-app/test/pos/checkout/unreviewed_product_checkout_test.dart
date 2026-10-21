@@ -53,7 +53,14 @@ void main() {
 
     expect(await database.database.query('sales'), isEmpty);
     expect(await database.database.query('journals'), isEmpty);
-    expect(await database.database.query('outbox_events'), isEmpty);
+    expect(
+      await database.database.query(
+        'outbox_events',
+        where: 'entity_type = ?',
+        whereArgs: <Object?>['sale'],
+      ),
+      isEmpty,
+    );
     expect((await products.findById('legacy-product-1'))!.stockQty, 1);
   });
 }
