@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Http\Controllers\Controller;
 use App\Models\Central\DeviceConfig;
 use App\Models\Central\DeviceRegistry;
 use App\Models\Central\GlobalConfig;
@@ -18,7 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-final class EffectiveConfigController extends Controller
+final class EffectiveConfigController
 {
     private const ALLOWED_SERVICES = ['pos', 'akuntansi'];
 
@@ -73,7 +72,7 @@ final class EffectiveConfigController extends Controller
             ->where('service', $service)
             ->first();
 
-        if ($serviceEntitlement === null || ! (bool) $serviceEntitlement->enabled) {
+        if ($serviceEntitlement === null || ! $this->isDatabaseBooleanTrue($serviceEntitlement->enabled)) {
             return $this->error('service_not_enabled', 'The requested service is not enabled for this tenant.', 403);
         }
 
@@ -142,6 +141,12 @@ final class EffectiveConfigController extends Controller
             ->json(['data' => $resolved])
             ->header('Cache-Control', 'private, no-store')
             ->header('Vary', 'Authorization, X-Device-ID');
+    }
+
+    private function isDatabaseBooleanTrue(mixed $value): bool
+    {
+        // PDO drivers may return PostgreSQL booleans as native booleans or textual t/f.
+        return $value === true || $value === 1 || $value === '1' || $value === 't' || $value === 'true';
     }
 
     private function hasEntitlement(?Subscription $subscription): bool
