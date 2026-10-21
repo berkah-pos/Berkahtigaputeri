@@ -16,6 +16,21 @@ return [
             'search_path' => env('CENTRAL_DB_SCHEMA', 'public'),
             'sslmode' => env('CENTRAL_DB_SSLMODE', 'verify-full'),
         ],
+        // Dedicated metadata broker connection. Only the private provisioning worker
+        // may receive these credentials; the role must have scoped SELECT/DML grants.
+        'central_provisioner' => [
+            'driver' => 'pgsql',
+            'host' => env('CENTRAL_PROVISIONER_DB_HOST', env('CENTRAL_DB_HOST', '127.0.0.1')),
+            'port' => env('CENTRAL_PROVISIONER_DB_PORT', env('CENTRAL_DB_PORT', '5432')),
+            'database' => env('CENTRAL_PROVISIONER_DB_DATABASE', env('CENTRAL_DB_DATABASE', 'berkahpos_central')),
+            'username' => env('CENTRAL_PROVISIONER_DB_USERNAME') ?: '__central_provisioner_role_required__',
+            'password' => env('CENTRAL_PROVISIONER_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('CENTRAL_PROVISIONER_DB_SCHEMA', 'public'),
+            'sslmode' => env('CENTRAL_PROVISIONER_DB_SSLMODE', 'verify-full'),
+        ],
         // Use only for controlled migrations/ACL operations, never web runtime.
         'central_migrator' => [
             'driver' => 'pgsql',
@@ -57,6 +72,21 @@ return [
             'prefix_indexes' => true,
             'search_path' => env('TENANT_MIGRATOR_DB_SCHEMA', 'public'),
             'sslmode' => env('TENANT_MIGRATOR_DB_SSLMODE', 'prefer'),
+        ],
+        // Cluster-level PostgreSQL provisioning connection. Inject only into the
+        // isolated private provisioning worker; never into web/ordinary queue services.
+        'tenant_provisioner' => [
+            'driver' => 'pgsql',
+            'host' => env('TENANT_PROVISIONER_DB_HOST', '127.0.0.1'),
+            'port' => env('TENANT_PROVISIONER_DB_PORT', '5432'),
+            'database' => env('TENANT_PROVISIONER_DB_DATABASE', 'postgres'),
+            'username' => env('TENANT_PROVISIONER_DB_USERNAME') ?: '__tenant_provisioner_role_required__',
+            'password' => env('TENANT_PROVISIONER_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('TENANT_PROVISIONER_DB_SCHEMA', 'public'),
+            'sslmode' => env('TENANT_PROVISIONER_DB_SSLMODE', 'verify-full'),
         ],
         // Set dynamically only from the server-derived tenant database registry.
         // This default deliberately cannot connect if the registry was not resolved.
