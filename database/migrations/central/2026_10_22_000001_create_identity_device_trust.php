@@ -37,7 +37,7 @@ return new class extends Migration
             ->table('users')
             ->whereNotNull('tenant_id')
             ->orderBy('id')
-            ->get(['id', 'tenant_id']);
+            ->get(['id', 'tenant_id', 'is_active']);
 
         foreach ($users as $user) {
             $tenantExists = DB::connection('central')
@@ -49,13 +49,15 @@ return new class extends Migration
                 continue;
             }
 
+            $isActive = (bool) $user->is_active;
+
             DB::connection('central')->table('tenant_memberships')->updateOrInsert(
                 ['user_id' => $user->id, 'tenant_id' => $user->tenant_id],
                 [
                     'role' => 'member',
-                    'status' => 'active',
-                    'activated_at' => $timestamp,
-                    'revoked_at' => null,
+                    'status' => $isActive ? 'active' : 'revoked',
+                    'activated_at' => $isActive ? $timestamp : null,
+                    'revoked_at' => $isActive ? null : $timestamp,
                     'created_at' => $timestamp,
                     'updated_at' => $timestamp,
                 ],
