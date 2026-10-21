@@ -253,19 +253,20 @@ DECLARE
     total_debit numeric;
     total_credit numeric;
     line_count bigint;
-    period_key text;
+    v_period_key text;
 BEGIN
     IF NEW.status = 'posted' AND OLD.status IS DISTINCT FROM 'posted' THEN
-        period_key := to_char(NEW.journal_date, 'YYYY-MM');
+        v_period_key := to_char(NEW.journal_date, 'YYYY-MM');
 
         -- Serialize close-vs-post operations for the same accounting month.
-        PERFORM pg_advisory_xact_lock(hashtext('btp_accounting_period:' || period_key)::bigint);
+        PERFORM pg_advisory_xact_lock(hashtext('btp_accounting_period:' || v_period_key)::bigint);
 
         IF EXISTS (
             SELECT 1 FROM public.accounting_periods
-            WHERE accounting_periods.period_key = period_key AND status = 'closed'
+            WHERE accounting_periods.period_key = v_period_key
+              AND accounting_periods.status = 'closed'
         ) THEN
-            RAISE EXCEPTION 'Accounting period % is closed; posted journals cannot be added', period_key
+            RAISE EXCEPTION 'Accounting period % is closed; posted journals cannot be added', v_period_key
                 USING ERRCODE = '23514';
         END IF;
 
