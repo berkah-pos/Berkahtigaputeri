@@ -15,6 +15,12 @@ class CentralMobileApiTest extends TestCase
     private string $deviceId;
     private string $email;
     private User $user;
+    private bool $originalGlobalConfigExists = false;
+    /** @var array<string, mixed> */
+    private array $originalGlobalConfig = [];
+    private bool $originalBasicTemplateExists = false;
+    /** @var array<string, mixed> */
+    private array $originalBasicTemplate = [];
 
     protected function setUp(): void
     {
@@ -22,6 +28,14 @@ class CentralMobileApiTest extends TestCase
 
         $central = DB::connection('central');
         $fixture = DB::connection('central_migrator');
+
+        $globalBefore = $fixture->table('global_configs')->where('key', 'global')->first();
+        $this->originalGlobalConfigExists = $globalBefore !== null;
+        $this->originalGlobalConfig = $globalBefore === null ? [] : (array) $globalBefore;
+        $templateBefore = $fixture->table('templates')->where('id', 'BASIC')->first();
+        $this->originalBasicTemplateExists = $templateBefore !== null;
+        $this->originalBasicTemplate = $templateBefore === null ? [] : (array) $templateBefore;
+
         $central->beginTransaction();
 
         $suffix = str_replace('-', '', (string) Str::uuid());
@@ -120,7 +134,7 @@ class CentralMobileApiTest extends TestCase
             'updated_at' => $now,
         ]);
 
-        $central->table('device_registry')->insert([
+        $fixture->table('device_registry')->insert([
             'device_id' => $this->deviceId,
             'tenant_id' => $this->tenantId,
             'owner_user_id' => $this->user->id,
@@ -159,9 +173,26 @@ class CentralMobileApiTest extends TestCase
                 ->whereIn('tokenable_id', $userIds)
                 ->delete();
         }
+        // Remove fixture rows committed through the migrator connection.
+        // Delete dependants before device/tenant rows because the FK is composite.
+        $fixture->table('device_configs')->where('tenant_id', $this->tenantId)->delete();
+        $fixture->table('device_registry')->where('tenant_id', $this->tenantId)->delete();
+        $fixture->table('tenant_configs')->where('tenant_id', $this->tenantId)->delete();
+        $fixture->table('tenant_services')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('users')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('subscriptions')->where('tenant_id', $this->tenantId)->delete();
         $fixture->table('tenants')->where('id', $this->tenantId)->delete();
+
+        // Restore shared workbook-backed fixture rows so later tests see the
+        // original imported canonical values, not the synthetic precedence values.
+        $fixture->table('global_configs')->where('key', 'global')->delete();
+        if ($this->originalGlobalConfigExists) {
+            $fixture->table('global_configs')->insert($this->originalGlobalConfig);
+        }
+        $fixture->table('templates')->where('id', 'BASIC')->delete();
+        if ($this->originalBasicTemplateExists) {
+            $fixture->table('templates')->insert($this->originalBasicTemplate);
+        }
 
         parent::tearDown();
     }
