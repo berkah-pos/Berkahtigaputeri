@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -28,6 +29,11 @@ class TenantAccountingInvariantTest extends TestCase
         }
 
         parent::tearDown();
+    }
+
+    public function test_period_close_command_is_registered(): void
+    {
+        $this->assertArrayHasKey('accounting:close-period', Artisan::all());
     }
 
     public function test_journal_cannot_be_inserted_directly_as_posted(): void
