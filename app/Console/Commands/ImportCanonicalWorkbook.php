@@ -214,10 +214,11 @@ class ImportCanonicalWorkbook extends Command
 
     private function importCentral(array $manifest): void
     {
-        $central = DB::connection('central');
+        $central = DB::connection('central_migrator');
 
-        // Every configuration, service-enable flag, device mapping, and device override
-        // is written in one central transaction. No per-tenant database side effect occurs here.
+        // This importer is an operator/deployment operation: use the dedicated central
+        // migrator identity, never the read-only web-runtime connection. Every write stays
+        // inside one central transaction; no per-tenant database side effect occurs here.
         $central->transaction(function () use ($central, $manifest): void {
             $this->writeVersionedConfig('global_configs', ['key' => 'global'], $manifest['global_config']);
 
@@ -343,7 +344,7 @@ class ImportCanonicalWorkbook extends Command
 
     private function writeVersionedConfig(string $table, array $where, array $incoming, array $fixed = []): void
     {
-        $central = DB::connection('central');
+        $central = DB::connection('central_migrator');
         $existing = $central->table($table)->where($where)->lockForUpdate()->first();
         $desired = $incoming;
         unset($desired['version']);
