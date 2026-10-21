@@ -282,6 +282,18 @@ jobs:
             --env TENANT_MIGRATOR_DB_DATABASE --env TENANT_MIGRATOR_DB_USERNAME \
             --env TENANT_MIGRATOR_DB_PASSWORD "$CI_IMAGE" php artisan test
 
+      - name: Prove central runtime cannot modify tenant routing registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          privileges="$(docker run --rm --network host \
+            --env PGPASSWORD="$CENTRAL_DB_PASSWORD" postgres:17 \
+            psql -h 127.0.0.1 -U "$CENTRAL_DB_USERNAME" -d "$CENTRAL_DB_DATABASE" \
+              -v ON_ERROR_STOP=1 -tA \
+              -c "SELECT has_table_privilege(current_user, 'public.tenant_database_registry', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_database_registry', 'DELETE') AND has_table_privilege(current_user, 'public.tenant_provisioning_events', 'SELECT') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'INSERT') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'UPDATE') AND NOT has_table_privilege(current_user, 'public.tenant_provisioning_events', 'DELETE')")"
+          test "$privileges" = "t"
+          echo "PASS: central runtime can read but cannot mutate tenant routing registry or provisioning event log"
+
       - name: Grant least-privilege tenant runtime DML
         shell: bash
         run: |
