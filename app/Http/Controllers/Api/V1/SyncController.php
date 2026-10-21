@@ -34,6 +34,7 @@ class SyncController extends Controller
             'events.*.entity_type' => ['required', 'string', 'in:sale'],
             'events.*.entity_id' => ['required', 'string', 'max:150'],
             'events.*.payload' => ['required', 'array'],
+            'events.*.payload.sale.request_fingerprint' => ['sometimes', 'string', 'max:65536'],
         ]);
 
         $user = $request->user();

@@ -3,6 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\Central\User;
+use App\Services\TenantDatabaseRunner;
+use Closure;
+use Illuminate\Database\Connection;
 use Illuminate\Foundation\Testing\TestResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -11,6 +14,7 @@ use Tests\TestCase;
 
 class CentralMobileApiTest extends TestCase
 {
+    private ?Connection $tenantFixtureDb = null;
     private string $tenantId;
     private string $deviceId;
     private string $email;
@@ -157,6 +161,12 @@ class CentralMobileApiTest extends TestCase
 
     protected function tearDown(): void
     {
+        if ($this->tenantFixtureDb !== null) {
+            while ($this->tenantFixtureDb->transactionLevel() > 0) {
+                $this->tenantFixtureDb->rollBack();
+            }
+        }
+
         $central = DB::connection('central');
         if ($central->transactionLevel() > 0) {
             $central->rollBack();
@@ -396,4 +406,198 @@ class CentralMobileApiTest extends TestCase
 
         $response->assertForbidden()->assertJsonPath('error.code', 'device_not_authorized');
     }
+
+    public function test_sync_posts_and_replays_a_real_balanced_sale_with_local_fingerprint(): void
+    {
+        $tenantDb = DB::connection('tenant_migrator');
+        $tenantDb->beginTransaction();
+        $this->tenantFixtureDb = $tenantDb;
+
+        // Exercise the complete controller transaction against the migrated
+        // PostgreSQL 17 tenant schema. Privileged dynamic provisioning itself is
+        // covered by the isolated provisioning/role CI gates.
+        $this->app->instance(TenantDatabaseRunner::class, new class($tenantDb) extends TenantDatabaseRunner {
+            public function __construct(private Connection $testConnection)
+            {
+            }
+
+            public function run(string $tenantId, Closure $operation): mixed
+            {
+                return $this->testConnection->transaction(
+                    fn () => $operation($this->testConnection),
+                    3
+                );
+            }
+        });
+
+        $suffix = substr(str_replace('-', '', (string) Str::uuid()), 0, 12);
+        $transactionId = 'sync-' . $suffix;
+        $saleId = 'sale:' . $transactionId;
+        $eventId = 'outbox:sale:' . $transactionId;
+        $productId = 'sync-product-' . $suffix;
+        $lotId = 'sync-lot-' . $suffix;
+        $costLayerId = 'sync-cost-' . $suffix;
+        $occurredAt = '2026-10-21T03:00:00.000000Z';
+        $businessDate = '2026-10-21';
+        $createdAt = now();
+
+        $tenantDb->table('products')->insert([
+            'id' => $productId,
+            'sku' => 'SYNC-' . $suffix,
+            'barcode' => null,
+            'name' => 'Integration test product',
+            'category_id' => null,
+            'price' => 10000.00,
+            'requires_review' => false,
+            'is_active' => true,
+            'stock_qty' => 2,
+            'ppn_exempt' => true,
+            'track_expiry' => false,
+            'min_shelf_life_days' => 0,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+        $tenantDb->table('inventory_lots')->insert([
+            'id' => $lotId,
+            'product_id' => $productId,
+            'batch_code' => 'BATCH-' . $suffix,
+            'expires_at' => null,
+            'quantity_received' => 2,
+            'quantity_remaining' => 2,
+            'unit_cost' => 4000.00,
+            'received_at' => $occurredAt,
+            'reserved_qty' => 0,
+            'status' => 'saleable',
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+        $tenantDb->table('inventory_cost_layers')->insert([
+            'id' => $costLayerId,
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+            'original_qty' => 2,
+            'remaining_qty' => 2,
+            'unit_cost' => 4000.00,
+            'acquired_at' => $occurredAt,
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ]);
+
+        // Flutter stores canonical request JSON in this field, not a digest.
+        $fingerprint = json_encode([
+            'transactionId' => $transactionId,
+            'method' => 'cash',
+            'occurredAtUtc' => $occurredAt,
+            'transactionDiscountAmount' => 0,
+            'reservationId' => null,
+            'timezone' => 'Asia/Jakarta',
+            'lines' => [[
+                'productId' => $productId,
+                'quantity' => 1,
+                'itemDiscountAmount' => 0,
+            ]],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $this->assertGreaterThan(64, strlen($fingerprint));
+
+        $event = [
+            'event_id' => $eventId,
+            'entity_type' => 'sale',
+            'entity_id' => $saleId,
+            'payload' => [
+                'payload_version' => 1,
+                'event_id' => $eventId,
+                'event_type' => 'sale',
+                'entity_id' => $saleId,
+                'transaction_id' => $transactionId,
+                'sale' => [
+                    'id' => $saleId,
+                    'transaction_id' => $transactionId,
+                    'occurred_at_utc' => $occurredAt,
+                    'timezone' => 'Asia/Jakarta',
+                    'request_fingerprint' => $fingerprint,
+                    'payment_method' => 'cash',
+                    'business_date' => $businessDate,
+                    'gross_amount' => 10000,
+                    'item_discount_amount' => 0,
+                    'transaction_discount_amount' => 0,
+                    'discount_amount' => 0,
+                    'taxable_dpp' => 0,
+                    'exempt_dpp' => 10000,
+                    'dpp' => 10000,
+                    'ppn_amount' => 0,
+                    'grand_total' => 10000,
+                    'cogs_amount' => 4000,
+                ],
+                'items' => [[
+                    'id' => $saleId . ':item:0',
+                    'sale_id' => $saleId,
+                    'line_no' => 0,
+                    'product_id' => $productId,
+                    'quantity' => 1,
+                    'unit_price' => 10000,
+                    'gross_amount' => 10000,
+                    'item_discount_amount' => 0,
+                    'transaction_discount_amount' => 0,
+                    'discount_amount' => 0,
+                    'dpp' => 10000,
+                    'ppn_exempt' => true,
+                    'cogs_amount' => 4000,
+                    'allocations' => [[
+                        'allocation_no' => 0,
+                        'lot_id' => $lotId,
+                        'quantity' => 1,
+                    ]],
+                    'cost_consumptions' => [[
+                        'consumption_no' => 0,
+                        'cost_layer_id' => $costLayerId,
+                        'quantity' => 1,
+                        'unit_cost' => 4000,
+                        'total_cost' => 4000,
+                    ]],
+                ]],
+                'journal' => [
+                    'id' => 'journal:sale:' . $transactionId,
+                    'transaction_id' => $transactionId,
+                    'business_date' => $businessDate,
+                    'lines' => [
+                        ['line_no' => 0, 'account_code' => '1-1010', 'debit' => 10000, 'credit' => 0],
+                        ['line_no' => 1, 'account_code' => '4-4010', 'debit' => 0, 'credit' => 10000],
+                        ['line_no' => 2, 'account_code' => '5-5010', 'debit' => 4000, 'credit' => 0],
+                        ['line_no' => 3, 'account_code' => '1-1040', 'debit' => 0, 'credit' => 4000],
+                    ],
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$event],
+        ]);
+        $response->assertOk()->assertJsonPath('results.0.status', 'accepted');
+        $this->assertSame($eventId, $response->json('results.0.receipt_id'));
+
+        $sale = $tenantDb->table('sales')->where('id', $saleId)->first();
+        $this->assertNotNull($sale);
+        $this->assertSame($fingerprint, $sale->request_fingerprint);
+        $this->assertSame('posted', $tenantDb->table('journal_entries')
+            ->where('id', 'journal:sale:' . $transactionId)->value('status'));
+        $this->assertSame(1, $tenantDb->table('accounting_events')->where('event_id', $eventId)->count());
+        $this->assertEquals(1.0, (float) $tenantDb->table('products')->where('id', $productId)->value('stock_qty'));
+        $this->assertEquals(1.0, (float) $tenantDb->table('inventory_lots')->where('id', $lotId)->value('quantity_remaining'));
+        $this->assertEquals(1.0, (float) $tenantDb->table('inventory_cost_layers')->where('id', $costLayerId)->value('remaining_qty'));
+
+        $replay = $this->actingAs($this->user, 'sanctum')->postJson('/api/v1/sync', [
+            'device_id' => $this->deviceId,
+            'app_version' => 'integration-test',
+            'events' => [$event],
+        ]);
+        $replay->assertOk()->assertJsonPath('results.0.status', 'replayed');
+        $this->assertSame(1, $tenantDb->table('sales')->where('id', $saleId)->count());
+        $this->assertSame(1, $tenantDb->table('journal_entries')
+            ->where('id', 'journal:sale:' . $transactionId)->count());
+        $this->assertSame(1, $tenantDb->table('sync_receipts')->where('event_id', $eventId)->count());
+    }
+
+
 }
