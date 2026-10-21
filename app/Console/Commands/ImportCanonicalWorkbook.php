@@ -6,6 +6,7 @@ use App\Models\Central\DeviceRegistry;
 use App\Models\Central\DeviceConfig;
 use App\Models\Central\GlobalConfig;
 use App\Models\Central\Subscription;
+use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
 use App\Services\Configuration\CanonicalWorkbookManifestValidator;
