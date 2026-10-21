@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Central\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -44,6 +45,14 @@ class AuthApiTest extends TestCase
             ->postJson('/api/v1/auth/logout')
             ->assertOk()
             ->assertJsonPath('status', 'revoked');
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'tokenable_id' => $user->getKey(),
+        ], 'central');
+
+        // Clear guard memoization between simulated HTTP requests, as a new PHP
+        // request lifecycle does, so the test checks the persisted token record.
+        Auth::forgetGuards();
 
         $this->withToken($token)
             ->getJson('/api/v1/auth/me')
