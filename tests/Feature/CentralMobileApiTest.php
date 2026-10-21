@@ -21,6 +21,7 @@ class CentralMobileApiTest extends TestCase
         parent::setUp();
 
         $central = DB::connection('central');
+        $fixture = DB::connection('central_migrator');
         $central->beginTransaction();
 
         $suffix = str_replace('-', '', (string) Str::uuid());
@@ -29,14 +30,17 @@ class CentralMobileApiTest extends TestCase
         $this->email = 'api-'.$suffix.'@example.test';
 
         $now = now();
-        $central->table('tenants')->insert([
+        // Seed identity and entitlement rows with the disposable migration role.
+        // The application-facing central connection intentionally has SELECT-only
+        // access to users, memberships, and subscriptions.
+        $fixture->table('tenants')->insert([
             'id' => $this->tenantId,
             'data' => json_encode(['test_fixture' => true], JSON_THROW_ON_ERROR),
             'template_id' => 'BASIC',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $central->table('subscriptions')->insert([
+        $fixture->table('subscriptions')->insert([
             'tenant_id' => $this->tenantId,
             'plan' => 'basic',
             'status' => 'trial',
@@ -98,7 +102,7 @@ class CentralMobileApiTest extends TestCase
             ['tenant_id' => $this->tenantId, 'service' => 'akuntansi', 'enabled' => true, 'created_at' => $now, 'updated_at' => $now],
         ]);
 
-        $this->user = User::query()->create([
+        $this->user = $this->createFixtureUser([
             'name' => 'API Test',
             'email' => $this->email,
             'password' => Hash::make('Test-Passphrase-2026!'),
@@ -107,7 +111,7 @@ class CentralMobileApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        DB::connection('central')->table('tenant_memberships')->insert([
+        $fixture->table('tenant_memberships')->insert([
             'tenant_id' => $this->tenantId,
             'user_id' => $this->user->id,
             'role' => 'owner',
@@ -142,7 +146,36 @@ class CentralMobileApiTest extends TestCase
             $central->rollBack();
         }
 
+        // Fixture identity rows were committed through central_migrator so the
+        // restricted application connection could exercise real authorization.
+        $fixture = DB::connection('central_migrator');
+        $userIds = $fixture->table('users')
+            ->where('tenant_id', $this->tenantId)
+            ->pluck('id')
+            ->all();
+        if ($userIds !== []) {
+            $fixture->table('personal_access_tokens')
+                ->where('tokenable_type', User::class)
+                ->whereIn('tokenable_id', $userIds)
+                ->delete();
+        }
+        $fixture->table('users')->where('tenant_id', $this->tenantId)->delete();
+        $fixture->table('subscriptions')->where('tenant_id', $this->tenantId)->delete();
+        $fixture->table('tenants')->where('id', $this->tenantId)->delete();
+
         parent::tearDown();
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function createFixtureUser(array $attributes): User
+    {
+        $now = now();
+        $attributes['created_at'] = $now;
+        $attributes['updated_at'] = $now;
+
+        $id = DB::connection('central_migrator')->table('users')->insertGetId($attributes);
+
+        return User::on('central')->findOrFail($id);
     }
 
     public function test_login_issues_a_limited_lifetime_token_for_an_active_entitled_user(): void
@@ -164,7 +197,7 @@ class CentralMobileApiTest extends TestCase
 
     public function test_login_rejects_a_user_without_active_tenant_membership(): void
     {
-        DB::connection('central')->table('tenant_memberships')
+        DB::connection('central_migrator')->table('tenant_memberships')
             ->where('tenant_id', $this->tenantId)
             ->where('user_id', $this->user->id)
             ->update(['status' => 'revoked']);
@@ -301,7 +334,7 @@ class CentralMobileApiTest extends TestCase
 
     public function test_effective_config_rejects_another_users_device(): void
     {
-        $otherUser = User::query()->create([
+        $otherUser = $this->createFixtureUser([
             'name' => 'Other User',
             'email' => 'other-'.str_replace('-', '', (string) Str::uuid()).'@example.test',
             'password' => Hash::make('Another-Passphrase-2026!'),
