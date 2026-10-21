@@ -63,12 +63,13 @@ final class EffectiveConfigResolver
         }
 
         $version = max($versions);
+        $canonicalConfig = $this->sortObjectKeysRecursively($effective);
         $canonicalPayload = [
             'tenant_id' => $tenantId,
             'device_id' => $deviceId,
             'service' => $service,
             'versions' => $versions,
-            'config' => $this->sortObjectKeysRecursively($effective),
+            'config' => $canonicalConfig,
         ];
         $encodedPayload = json_encode(
             $canonicalPayload,
@@ -82,7 +83,7 @@ final class EffectiveConfigResolver
             'version' => $version,
             'versions' => $versions,
             'hash' => hash('sha256', $encodedPayload),
-            'config' => $effective,
+            'config' => $canonicalConfig,
         ];
     }
 
