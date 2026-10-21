@@ -142,7 +142,8 @@ jobs:
           tenant_migration = Path("database/migrations/tenant/2026_10_17_000001_create_tenant_pos_tables.php").read_text()
           assert "Schema::connection('tenant')" not in tenant_migration
           assert "Schema::connection($this->targetConnection())" in tenant_migration
-          assert "Tenant POS migrations require --database=tenant or --database=tenant_migrator." in tenant_migration
+          assert "return 'tenant_migrator';" in tenant_migration
+          assert "protected $connection = 'tenant_migrator';" in tenant_migration
           for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
               active = Path(active_path).read_text().lower()
               assert "mariadb" not in active, active_path
