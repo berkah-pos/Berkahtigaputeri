@@ -200,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (_tenantChoices.isNotEmpty) ...<Widget>[
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _tenantId,
+                        initialValue: _tenantId,
                         decoration: const InputDecoration(
                           labelText: 'Pilih tenant',
                           border: OutlineInputBorder(),
