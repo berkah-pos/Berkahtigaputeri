@@ -57,13 +57,14 @@ def main() -> int:
         "BERKAH_API_BASE_URL",
         "IdentityService(",
         "restoreSession()",
-        "hasAuthenticatedSession",
+        "currentSession",
+        "isDeviceSession",
     ):
         require(main_dart, fragment, str(MAIN.relative_to(ROOT)))
 
     for fragment in (
         "IdentityService?",
-        "identityService.signIn(",
+        "api.signIn(",
         "SignInStatus.devicePendingApproval",
         "SignInStatus.tenantSelectionRequired",
         "requestEmailVerification",
