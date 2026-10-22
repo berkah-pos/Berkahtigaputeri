@@ -188,7 +188,7 @@ class _AppGateState extends State<_AppGate> {
     if (_localOnly) return _home(localOnly: true);
 
     if (_checkingSession) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Semantics(
             label: 'Memverifikasi sesi cloud',
