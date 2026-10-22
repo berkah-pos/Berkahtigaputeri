@@ -282,6 +282,48 @@ class IdentityDeviceTrustTest extends TestCase
             ->assertJsonPath('error', 'active_device_required');
     }
 
+    public function test_device_token_cannot_revoke_another_tenant_devices_even_for_same_user(): void
+    {
+        $otherTenant = $this->createTenant();
+        $now = now();
+
+        DB::connection('central')->table('tenant_memberships')->insert([
+            'user_id' => $this->member->getKey(),
+            'tenant_id' => $otherTenant,
+            'role' => 'owner',
+            'status' => 'active',
+            'activated_at' => $now,
+            'revoked_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $currentDevice = 'device-' . Str::uuid();
+        $foreignDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($currentDevice, (int) $this->member->getKey(), $this->tenantId);
+        $this->createActiveDevice($foreignDevice, (int) $this->member->getKey(), $otherTenant);
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $currentDevice,
+        ]);
+        $login->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->postJson('/api/v1/devices/' . $foreignDevice . '/revoke')
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'device_revoke_forbidden');
+
+        $this->assertDatabaseHas('device_registry', [
+            'device_id' => $foreignDevice,
+            'tenant_id' => $otherTenant,
+            'status' => 'active',
+        ], 'central');
+    }
+
     public function test_bad_credentials_do_not_enroll_a_device_or_issue_a_token(): void
     {
         $deviceId = 'device-' . Str::uuid();
