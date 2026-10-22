@@ -84,6 +84,56 @@ class IdentityController extends Controller
                 $deviceId,
                 $payload,
             ): array {
+                // Serialize login against tenant and membership changes using
+                // the same tenant -> user -> membership lock order as grant/revoke.
+                // The resolver result above is only a selector, not durable
+                // authorization: the current state must be re-read before issuing
+                // a privileged token or even creating a pending enrollment.
+                $tenant = DB::connection('central')
+                    ->table('tenants')
+                    ->where('id', $membership->tenant_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $tenant || ($tenant->status ?? 'active') !== 'active') {
+                    return ['state' => 'tenant_inactive'];
+                }
+
+                $lockedUser = DB::connection('central')
+                    ->table('users')
+                    ->where('id', $user->getKey())
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $lockedUser || ! $lockedUser->is_active) {
+                    return ['state' => 'user_inactive'];
+                }
+
+                // Prevent a concurrent password reset or email-verification
+                // policy change from being bypassed by a login already in flight.
+                if ((string) $lockedUser->password !== (string) $user->password) {
+                    return ['state' => 'invalid_credentials'];
+                }
+
+                if (($lockedUser->email_verification_required ?? false) &&
+                    $lockedUser->email_verified_at === null) {
+                    return ['state' => 'email_verification_required'];
+                }
+
+                $currentMembership = DB::connection('central')
+                    ->table('tenant_memberships')
+                    ->where('user_id', $user->getKey())
+                    ->where('tenant_id', $membership->tenant_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $currentMembership || $currentMembership->status !== 'active') {
+                    return ['state' => 'membership_inactive'];
+                }
+
+                // Use the role held under the transaction lock, never the stale
+                // role returned by the initial membership-selection query.
+                $membership = $currentMembership;
                 $now = now();
                 $device = DB::connection('central')
                     ->table('device_registry')
@@ -196,6 +246,38 @@ class IdentityController extends Controller
             return $this->error(
                 'device_revoked',
                 'This device has been revoked. Use a new installation identifier and request enrollment.',
+                403,
+            );
+        }
+
+        if ($result['state'] === 'tenant_inactive') {
+            return $this->error(
+                'tenant_inactive',
+                'This tenant is no longer active.',
+                409,
+            );
+        }
+
+        if ($result['state'] === 'user_inactive') {
+            return $this->error(
+                'identity_disabled',
+                'This account is disabled. Contact the platform administrator.',
+                403,
+            );
+        }
+
+        if ($result['state'] === 'invalid_credentials') {
+            return $this->error(
+                'invalid_credentials',
+                'The email or password is invalid.',
+                401,
+            );
+        }
+
+        if ($result['state'] === 'email_verification_required') {
+            return $this->error(
+                'email_verification_required',
+                'Verify the email address before starting a new tenant session.',
                 403,
             );
         }
