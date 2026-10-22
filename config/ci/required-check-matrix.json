@@ -2,9 +2,11 @@
   "schema_version": 1,
   "purpose": "Fail-closed release acceptance evidence contract. Specification only; not yet wired into CI.",
   "architecture_authority": {
-    "adr_path": "docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md",
+    "adr_path": "docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md",
     "accepted_pr": 49,
-    "configuration_contract_path": "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md"
+    "configuration_contract_path": "docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md",
+    "superseded_base_adr_path": "docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md",
+    "accepted_pr_note": "PR #49 accepted the compatible Laravel/PostgreSQL base decision on 2026-10-16; it does not supersede the later 2026-10-17 owner ADR."
   },
   "target_stack": {
     "php": "8.4",
