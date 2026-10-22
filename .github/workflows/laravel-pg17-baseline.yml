@@ -208,7 +208,7 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
