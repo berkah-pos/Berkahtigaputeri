@@ -2,20 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../core/auth/identity_service.dart';
 
-/// Laravel Central API sign-in gate.
-///
-/// A local-only route remains available for offline POS use, but it never
-/// receives an authenticated cloud service or cached bearer token.
+/// Laravel Central API login. Local-only mode never receives cloud authority.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
-    required this.identityService,
+    required this.api,
     required this.onAuthenticated,
     required this.onContinueLocal,
     this.configurationMessage,
   });
 
-  final IdentityService? identityService;
+  final IdentityService? api;
   final VoidCallback onAuthenticated;
   final VoidCallback onContinueLocal;
   final String? configurationMessage;
@@ -30,11 +27,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _password = TextEditingController();
   bool _loading = false;
   bool _showPassword = false;
-  bool _sendingRecoveryEmail = false;
-  bool _feedbackIsError = true;
-  String? _feedback;
+  String? _message;
+  bool _messageIsError = true;
+  List<TenantMembershipInfo> _tenantChoices = const <TenantMembershipInfo>[];
   String? _selectedTenantId;
-  List<TenantMembershipInfo> _memberships = const <TenantMembershipInfo>[];
+  SignInStatus? _lastStatus;
 
   @override
   void dispose() {
@@ -44,19 +41,28 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    final identityService = widget.identityService;
-    if (identityService == null ||
+    final api = widget.api;
+    if (api == null ||
         !(_formKey.currentState?.validate() ?? false) ||
         _loading) {
       return;
     }
 
+    if (_tenantChoices.isNotEmpty &&
+        (_selectedTenantId == null || _selectedTenantId!.isEmpty)) {
+      setState(() {
+        _message = 'Pilih tenant yang tersedia pada akun Anda.';
+        _messageIsError = true;
+      });
+      return;
+    }
+
     setState(() {
       _loading = true;
-      _feedback = null;
+      _message = null;
     });
 
-    final result = await identityService.signIn(
+    final result = await api.signIn(
       email: _email.text.trim(),
       password: _password.text,
       tenantId: _selectedTenantId,
@@ -65,89 +71,88 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
-      _feedback = result.message;
-      _feedbackIsError = result.status != SignInStatus.authenticated &&
-          result.status != SignInStatus.devicePendingApproval;
+      _lastStatus = result.status;
+      _message = result.message;
+      _messageIsError = result.status == SignInStatus.failed;
       if (result.status == SignInStatus.tenantSelectionRequired) {
-        _memberships = result.memberships;
-        if (_selectedTenantId == null ||
-            !_memberships.any((entry) => entry.tenantId == _selectedTenantId)) {
-          _selectedTenantId =
-              _memberships.isNotEmpty ? _memberships.first.tenantId : null;
-        }
-      } else if (result.status == SignInStatus.authenticated) {
-        _memberships = const <TenantMembershipInfo>[];
+        _tenantChoices = result.memberships;
+        _selectedTenantId =
+            result.memberships.length == 1 ? result.memberships.first.tenantId : null;
       }
     });
 
-    if (result.status == SignInStatus.authenticated) {
+    if (result.isAuthenticated &&
+        api.currentSession != null &&
+        api.currentSession!.isDeviceSession) {
       widget.onAuthenticated();
     }
   }
 
   Future<void> _requestEmailVerification() async {
-    final service = widget.identityService;
-    if (service == null || _sendingRecoveryEmail) return;
+    final api = widget.api;
+    final email = _email.text.trim();
+    if (api == null || email.isEmpty || _loading) return;
 
     setState(() {
-      _sendingRecoveryEmail = true;
-      _feedback = null;
+      _loading = true;
+      _message = null;
     });
 
     try {
-      await service.requestEmailVerification(_email.text.trim());
+      await api.requestEmailVerification(email);
       if (!mounted) return;
       setState(() {
-        _feedbackIsError = false;
-        _feedback =
-            'Jika akun memerlukan verifikasi, tautan akan dikirim ke email. '
-            'Periksa kotak masuk dan folder spam.';
+        _message =
+            'Jika akun memerlukan verifikasi, tautan akan dikirim ke email tersebut.';
+        _messageIsError = false;
       });
     } on Object {
       if (!mounted) return;
       setState(() {
-        _feedbackIsError = false;
-        // Keep the same outward message to avoid account enumeration.
-        _feedback =
-            'Jika akun memerlukan verifikasi, tautan akan dikirim ke email. '
-            'Periksa kotak masuk dan folder spam.';
+        _message =
+            'Permintaan verifikasi tidak dapat dikirim sekarang. Coba lagi nanti.';
+        _messageIsError = true;
       });
     } finally {
-      if (mounted) setState(() => _sendingRecoveryEmail = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _requestPasswordReset() async {
-    final service = widget.identityService;
-    if (service == null || _sendingRecoveryEmail) return;
-
+    final api = widget.api;
     final email = _email.text.trim();
+    if (api == null || email.isEmpty || _loading) return;
+
     if (!email.contains('@') || email.startsWith('@') || email.endsWith('@')) {
       setState(() {
-        _feedbackIsError = true;
-        _feedback = 'Masukkan email yang valid terlebih dahulu.';
+        _message = 'Masukkan alamat email terlebih dahulu.';
+        _messageIsError = true;
       });
       return;
     }
 
     setState(() {
-      _sendingRecoveryEmail = true;
-      _feedback = null;
+      _loading = true;
+      _message = null;
     });
 
     try {
-      await service.requestPasswordReset(email);
-    } on Object {
-      // The response intentionally does not reveal whether an account exists.
-    } finally {
+      await api.requestPasswordReset(email);
       if (!mounted) return;
       setState(() {
-        _sendingRecoveryEmail = false;
-        _feedbackIsError = false;
-        _feedback =
-            'Jika akun terdaftar dan dapat dipulihkan, instruksi reset '
-            'kata sandi akan dikirim ke email.';
+        _message =
+            'Jika akun memenuhi syarat, tautan reset kata sandi akan dikirim ke alamat tersebut.';
+        _messageIsError = false;
       });
+    } on Object {
+      if (!mounted) return;
+      setState(() {
+        _message =
+            'Permintaan reset kata sandi tidak dapat dikirim sekarang. Coba lagi nanti.';
+        _messageIsError = true;
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -186,16 +191,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(18),
-                      child: widget.identityService == null
+                      child: widget.api == null
                           ? _buildLocalOnlyNotice(context)
                           : _buildLoginForm(context),
                     ),
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'Login memverifikasi identitas ke Central API. Akses SaaS '
-                    'baru aktif setelah membership tenant dan perangkat '
-                    'disetujui server.',
+                    'Login hanya membuktikan identitas akun. Sesi cloud kasir '
+                    'memerlukan membership aktif dan perangkat yang disetujui '
+                    'server Laravel.',
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -221,7 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 8),
         Text(
           widget.configurationMessage ??
-              'BERKAH_API_BASE_URL belum dikonfigurasi.',
+              'BERKAH_API_BASE_URL belum diatur untuk build ini.',
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
@@ -232,8 +237,8 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'Data disimpan di perangkat ini. Mode lokal tidak memberikan '
-          'membership tenant, entitlement cloud, atau sinkronisasi SaaS.',
+          'Data tetap tersimpan di perangkat ini. Tidak ada akses cloud yang '
+          'diberikan dari ID tenant atau perangkat lokal.',
           textAlign: TextAlign.center,
         ),
       ],
@@ -252,13 +257,13 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Gunakan akun yang disediakan administrator. Identitas dan akses '
-            'tenant akan diverifikasi oleh server.',
+            'Gunakan akun yang disediakan administrator. Membership dan '
+            'status perangkat diperiksa server sebelum sesi cloud dibuka.',
           ),
           const SizedBox(height: 16),
           TextFormField(
             controller: _email,
-            enabled: !_loading && !_sendingRecoveryEmail,
+            enabled: !_loading,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const <String>[
@@ -283,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _password,
-            enabled: !_loading && !_sendingRecoveryEmail,
+            enabled: !_loading,
             obscureText: !_showPassword,
             textInputAction: TextInputAction.done,
             autofillHints: const <String>[AutofillHints.password],
@@ -307,39 +312,44 @@ class _LoginScreenState extends State<LoginScreen> {
             validator: (value) =>
                 (value ?? '').isEmpty ? 'Kata sandi wajib diisi.' : null,
           ),
-          if (_memberships.isNotEmpty) ...<Widget>[
+          if (_tenantChoices.isNotEmpty) ...<Widget>[
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              key: const ValueKey<String>('tenant-selector'),
               value: _selectedTenantId,
               decoration: const InputDecoration(
-                labelText: 'Pilih tenant',
-                prefixIcon: Icon(Icons.store_outlined),
+                labelText: 'Tenant',
+                prefixIcon: Icon(Icons.business_outlined),
                 border: OutlineInputBorder(),
               ),
-              items: _memberships
-                  .map(
-                    (membership) => DropdownMenuItem<String>(
-                      value: membership.tenantId,
-                      child: Text(
-                        '${membership.tenantId} · ${membership.role}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
+              items: _tenantChoices
+                  .map((membership) => DropdownMenuItem<String>(
+                        value: membership.tenantId,
+                        child: Text(
+                          membership.tenantId + ' · ' + membership.role,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ))
                   .toList(growable: false),
               onChanged: _loading
                   ? null
-                  : (value) => setState(() => _selectedTenantId = value),
+                  : (value) => setState(() {
+                        _selectedTenantId = value;
+                        _message = null;
+                      }),
             ),
           ],
-          if (_feedback != null) ...<Widget>[
+          if (_message != null) ...<Widget>[
             const SizedBox(height: 12),
-            Text(
-              _feedback!,
-              style: TextStyle(
-                color: _feedbackIsError
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.primary,
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                _message!,
+                style: TextStyle(
+                  color: _messageIsError
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.primary,
+                ),
               ),
             ),
           ],
@@ -351,7 +361,23 @@ class _LoginScreenState extends State<LoginScreen> {
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _loading ? null : _requestPasswordReset,
+              child: const Text('Lupa kata sandi?'),
+            ),
+          ),
+          if (_lastStatus == SignInStatus.emailVerificationRequired) ...<Widget>[
+            const SizedBox(height: 4),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : _requestEmailVerification,
+              icon: const Icon(Icons.mark_email_read_outlined),
+              label: const Text('Kirim tautan verifikasi email'),
+            ),
+          ],
+          const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: _loading ? null : _signIn,
             icon: _loading
@@ -360,34 +386,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.login),
-            label: Text(_loading ? 'Memeriksa akun...' : 'Masuk'),
-          ),
-          if (_feedback != null &&
-              _feedbackIsError &&
-              _feedback!.toLowerCase().contains('verifikasi')) ...<Widget>[
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _sendingRecoveryEmail
-                  ? null
-                  : _requestEmailVerification,
-              icon: _sendingRecoveryEmail
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.mark_email_read_outlined),
-              label: const Text('Kirim ulang email verifikasi'),
+                : Icon(_lastStatus == SignInStatus.devicePendingApproval
+                    ? Icons.refresh
+                    : Icons.login),
+            label: Text(
+              _loading
+                  ? 'Memeriksa akun...'
+                  : _lastStatus == SignInStatus.devicePendingApproval
+                      ? 'Coba lagi setelah perangkat disetujui'
+                      : _tenantChoices.isNotEmpty
+                          ? 'Pilih tenant & masuk'
+                          : 'Masuk',
             ),
-          ],
-          TextButton(
-            onPressed: _loading || _sendingRecoveryEmail
-                ? null
-                : _requestPasswordReset,
-            child: const Text('Lupa kata sandi?'),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _loading ? null : widget.onContinueLocal,
             icon: const Icon(Icons.wifi_off),
