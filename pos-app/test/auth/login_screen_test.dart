@@ -40,7 +40,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
-          identityService: service,
+          api: service,
           onAuthenticated: () {},
           onContinueLocal: () {},
         ),
@@ -54,7 +54,7 @@ void main() {
     expect(find.text('Lanjutkan lokal tanpa akun'), findsOneWidget);
     expect(find.text('Lupa kata sandi?'), findsOneWidget);
     expect(
-      find.textContaining('membership tenant dan perangkat'),
+      find.textContaining('Membership dan status perangkat diperiksa server'),
       findsOneWidget,
     );
   });
@@ -64,7 +64,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
-          identityService: null,
+          api: null,
           configurationMessage: 'Central API belum dikonfigurasi.',
           onAuthenticated: () {},
           onContinueLocal: () {},
@@ -103,7 +103,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: LoginScreen(
-          identityService: service,
+          api: service,
           onAuthenticated: () {},
           onContinueLocal: () {},
         ),
