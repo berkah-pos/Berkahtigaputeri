@@ -1,72 +1,148 @@
 #!/usr/bin/env python3
-"""Static contract checks for the Phase 5 Supabase tenant-isolation migration."""
+"""Fail-closed static checks for the active Laravel Central API identity boundary.
+
+The former Supabase/RLS check is intentionally replaced: the accepted runtime is
+Laravel Central API + PostgreSQL, and the Flutter client must not depend on the
+prohibited Supabase runtime or treat local tenant/device strings as authority.
+"""
 from __future__ import annotations
 
 from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "supabase/migrations/20261013120000_phase5_tenant_isolation_hardening.sql"
-TEST_SQL = ROOT / "supabase/tests/tenant_isolation.test.sql"
-CONFIG_SERVICE = ROOT / "pos-app/lib/core/config/config_service.dart"
+POS = ROOT / "pos-app"
+MAIN = POS / "lib/main.dart"
+LOGIN = POS / "lib/features/auth/login_screen.dart"
+IDENTITY = POS / "lib/core/auth/identity_service.dart"
+CONFIG = POS / "lib/core/config/config_service.dart"
+PUBSPEC = POS / "pubspec.yaml"
+API_ROUTES = ROOT / "routes/api.php"
+ACTIVE_DEVICE_MIDDLEWARE = ROOT / "app/Http/Middleware/EnsureVerifiedDevice.php"
+ACTIVE_IDENTITY_MIDDLEWARE = ROOT / "app/Http/Middleware/EnsureActiveIdentity.php"
+
 
 def fail(message: str) -> None:
     print(f"FAIL: {message}", file=sys.stderr)
     raise SystemExit(1)
 
+
 def require(text: str, fragment: str, source: str) -> None:
     if fragment.casefold() not in text.casefold():
         fail(f"{source} is missing required contract fragment: {fragment}")
 
+
+def forbid(text: str, fragment: str, source: str) -> None:
+    if fragment.casefold() in text.casefold():
+        fail(f"{source} contains prohibited active-runtime fragment: {fragment}")
+
+
+def read(path: Path) -> str:
+    if not path.is_file():
+        fail(f"Required active-runtime file is missing: {path.relative_to(ROOT)}")
+    return path.read_text(encoding="utf-8")
+
+
 def main() -> int:
-    migration = MIGRATION.read_text(encoding="utf-8")
-    test_sql = TEST_SQL.read_text(encoding="utf-8")
-    config_service = CONFIG_SERVICE.read_text(encoding="utf-8")
+    main_dart = read(MAIN)
+    login = read(LOGIN)
+    identity = read(IDENTITY)
+    config = read(CONFIG)
+    pubspec = read(PUBSPEC)
+    routes = read(API_ROUTES)
+    device_middleware = read(ACTIVE_DEVICE_MIDDLEWARE)
+    active_identity_middleware = read(ACTIVE_IDENTITY_MIDDLEWARE)
 
     for fragment in (
-        "revoke all privileges on table",
-        "from anon, public",
-        "enable row level security",
-        "create policy",
-        "to authenticated",
-        "auth.uid()",
-        "private.assert_app_config_inventory()",
-        "1fd3d64219ecc7c333453c20da80e295",
-        "device does not belong to tenant",
-        "caller is not authorized for device",
-        "tenant:' || p_tenant || ':service:' || svc",
-        "g || x || t || s || d",
-        "revoke all on function public.get_effective_config(text, text, text) from public, anon",
-        "grant execute on function public.get_effective_config(text, text, text) to authenticated, service_role",
+        "BERKAH_API_BASE_URL",
+        "IdentityService(",
+        "await identityService.restoreSession()",
+        "identityService?.hasAuthenticatedSession",
     ):
-        require(migration, fragment, str(MIGRATION.relative_to(ROOT)))
+        require(main_dart, fragment, str(MAIN.relative_to(ROOT)))
 
     for fragment in (
-        "plan(27)",
-        "has_table_privilege('anon'",
-        "has_function_privilege('anon'",
-        "request.jwt.claims",
-        "tenant A cannot see tenant b metadata",
-        "other-tenant config is not directly readable",
-        "effective-config exactly matches global/template/tenant/pos/device",
-        "effective-config exactly matches global/template/tenant/akuntansi/device",
-        "throws_ok(",
-        "42501",
-        "rollback;",
+        "IdentityService?",
+        "identityService.signIn(",
+        "SignInStatus.devicePendingApproval",
+        "SignInStatus.tenantSelectionRequired",
+        "requestEmailVerification",
+        "requestPasswordReset",
+        "Lanjutkan lokal tanpa akun",
     ):
-        require(test_sql, fragment, str(TEST_SQL.relative_to(ROOT)))
+        require(login, fragment, str(LOGIN.relative_to(ROOT)))
 
-    require(config_service, "_client.rpc(", str(CONFIG_SERVICE.relative_to(ROOT)))
-    require(config_service, "hasAuthenticatedSession", str(CONFIG_SERVICE.relative_to(ROOT)))
-    require(config_service, "for this exact tenant/device/service tuple", str(CONFIG_SERVICE.relative_to(ROOT)))
-    if ".from('app_config')" in config_service or "_fallbackSelectAndMerge" in config_service:
-        fail("ConfigService must not directly SELECT raw app_config layers as a client fallback")
+    for fragment in (
+        "flutter_secure_storage",
+        "api/v1/auth/login",
+        "api/v1/auth/session",
+        "api/v1/auth/logout",
+        "Authorization': 'Bearer $token",
+        "_validateTenantSession(session)",
+        "tenantId != session.tenantId",
+        "deviceId != session.deviceId",
+        "service != 'pos' && service != 'akuntansi'",
+        "statusCode == 401 || statusCode == 403",
+    ):
+        require(identity, fragment, str(IDENTITY.relative_to(ROOT)))
 
-    if "auth.role()" in migration:
-        fail("migration must use explicit TO roles and auth.uid(), not deprecated auth.role()")
+    for fragment in (
+        "IdentityService",
+        "_identityService.getEffectiveConfig(",
+        "session.tenantId",
+        "session.deviceId",
+    ):
+        require(config, fragment, str(CONFIG.relative_to(ROOT)))
 
-    print("PASS: Phase 5 source contract, SQL-test assertions, and RPC-only Flutter access")
+    for fragment in (
+        "api/v1/auth/login",
+        "api.v1.auth.login",
+        "api/v1/auth/session",
+        "api.v1.auth/logout",
+        "verified.device",
+    ):
+        require(routes, fragment, str(API_ROUTES.relative_to(ROOT)))
+
+    for fragment in (
+        "'device_registry as d'",
+        "'tenant_memberships as tm'",
+        "'t.status', 'active'",
+        "'d.status', 'active'",
+        "'tm.status', 'active'",
+        "$token->tenant_id",
+        "$token->device_id",
+        "verified_identity_context",
+    ):
+        require(device_middleware, fragment, str(ACTIVE_DEVICE_MIDDLEWARE.relative_to(ROOT)))
+
+    for fragment in (
+        "$user->is_active",
+        "$token->token_kind",
+        "identity_disabled",
+    ):
+        require(active_identity_middleware, fragment, str(ACTIVE_IDENTITY_MIDDLEWARE.relative_to(ROOT)))
+
+    # No active client source, tests, or package manifest may depend on Supabase.
+    forbid(pubspec, "supabase_flutter", str(PUBSPEC.relative_to(ROOT)))
+    forbid(pubspec, "SUPABASE_URL", str(PUBSPEC.relative_to(ROOT)))
+    forbid(pubspec, "SUPABASE_PUBLISHABLE_KEY", str(PUBSPEC.relative_to(ROOT)))
+
+    for tree in (POS / "lib", POS / "test"):
+        for dart_file in tree.rglob("*.dart"):
+            source = dart_file.read_text(encoding="utf-8")
+            forbid(source, "package:supabase_flutter/", str(dart_file.relative_to(ROOT)))
+            forbid(source, "SupabaseClient", str(dart_file.relative_to(ROOT)))
+            forbid(source, "Supabase.initialize", str(dart_file.relative_to(ROOT)))
+
+    # The mobile process cannot SELECT raw configuration layers or invent a
+    # second merge/authentication path when the Central API is unavailable.
+    forbid(config, "_client.rpc(", str(CONFIG.relative_to(ROOT)))
+    forbid(config, ".from('app_config')", str(CONFIG.relative_to(ROOT)))
+    forbid(config, "_fallbackSelectAndMerge", str(CONFIG.relative_to(ROOT)))
+
+    print("PASS: Laravel Central API identity/device boundary; Supabase-free Flutter runtime; fail-closed config access")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
