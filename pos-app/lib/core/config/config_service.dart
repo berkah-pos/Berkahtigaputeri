@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:berkahtigaputeri_pos/core/auth/identity_service.dart';
 
 class TenantFeatures {
