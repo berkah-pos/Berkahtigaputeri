@@ -255,6 +255,15 @@ class IdentityDeviceTrustTest extends TestCase
             'status' => 'revoked',
         ], 'central');
         $this->assertDatabaseMissing('personal_access_tokens', ['device_id' => $firstDevice], 'central');
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $firstDevice,
+        ])->assertStatus(403)->assertJsonPath('error', 'device_revoked');
+
+        $this->assertDatabaseMissing('personal_access_tokens', ['device_id' => $firstDevice], 'central');
     }
 
     public function test_revoked_membership_blocks_an_already_issued_device_token(): void
@@ -337,6 +346,42 @@ class IdentityDeviceTrustTest extends TestCase
 
         $this->assertDatabaseMissing('device_registry', ['device_id' => $deviceId], 'central');
         $this->assertDatabaseCount('personal_access_tokens', 0, 'central');
+    }
+
+    public function test_logout_revokes_only_the_current_token(): void
+    {
+        $deviceId = 'device-' . Str::uuid();
+        $this->createActiveDevice($deviceId, (int) $this->member->getKey(), $this->tenantId);
+
+        $first = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+        $first->assertOk();
+
+        $second = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+        $second->assertOk();
+
+        $firstToken = $first->json('access_token');
+        $secondToken = $second->json('access_token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($firstToken)->postJson('/api/v1/auth/logout')->assertNoContent();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($firstToken)->getJson('/api/v1/auth/context')->assertUnauthorized();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($secondToken)->getJson('/api/v1/auth/context')->assertOk();
+
+        $this->assertDatabaseCount('personal_access_tokens', 1, 'central');
     }
 
     public function test_login_attempts_are_limited_per_identity_even_when_credentials_are_wrong(): void
