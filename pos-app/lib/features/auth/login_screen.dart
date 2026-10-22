@@ -73,7 +73,44 @@ class _LoginScreenState extends State<LoginScreen> {
       _loading = false;
       _lastStatus = result.status;
       _message = result.message;
-      _messageIsError = result.status == SignInStatus.failed;
+      _messageIsError = result.status == SignInStatus.failed ||
+          result.status == SignInStatus.deviceRevoked;
+      if (result.status == SignInStatus.tenantSelectionRequired) {
+        _tenantChoices = result.memberships;
+        _selectedTenantId =
+            result.memberships.length == 1 ? result.memberships.first.tenantId : null;
+      }
+    });
+
+    if (result.isAuthenticated &&
+        api.currentSession != null &&
+        api.currentSession!.isDeviceSession) {
+      widget.onAuthenticated();
+    }
+  }
+
+  Future<void> _replaceRevokedDevice() async {
+    final api = widget.api;
+    if (api == null || _loading) return;
+
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+
+    final result = await api.replaceRevokedDeviceAndRequestEnrollment(
+      email: _email.text.trim(),
+      password: _password.text,
+      tenantId: _selectedTenantId,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _lastStatus = result.status;
+      _message = result.message;
+      _messageIsError = result.status == SignInStatus.failed ||
+          result.status == SignInStatus.deviceRevoked;
       if (result.status == SignInStatus.tenantSelectionRequired) {
         _tenantChoices = result.memberships;
         _selectedTenantId =
@@ -399,6 +436,20 @@ class _LoginScreenState extends State<LoginScreen> {
                           : 'Masuk',
             ),
           ),
+          if (_lastStatus == SignInStatus.deviceRevoked) ...<Widget>[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _loading ? null : _replaceRevokedDevice,
+              icon: const Icon(Icons.devices_other_outlined),
+              label: const Text('Daftarkan ulang dengan ID perangkat baru'),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'ID baru tetap menunggu persetujuan administrator sebelum akses cloud diberikan.',
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _loading ? null : widget.onContinueLocal,
