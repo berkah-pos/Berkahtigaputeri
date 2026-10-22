@@ -111,7 +111,7 @@ class PostgresSchemaIntegrityTest extends TestCase
             $journal = $this->draft($db, $period);
             $this->line($db, $journal, '1-1010', 100, 0);
             $this->line($db, $journal, '4-4010', 0, 100);
-            $this->post($db, $journal);
+            $this->postJournal($db, $journal);
             $db->statement('SET CONSTRAINTS ALL IMMEDIATE');
             $event = $db->table('accounting_events')->where('journal_entry_id', $journal)->first();
             $this->assertNotNull($event);
@@ -124,7 +124,7 @@ class PostgresSchemaIntegrityTest extends TestCase
             $period = $this->period($db);
             $journal = $this->draft($db, $period);
             $this->line($db, $journal, '1-1010', 100, 0);
-            $this->post($db, $journal);
+            $this->postJournal($db, $journal);
         }, 'must contain at least two lines and satisfy debit = credit');
     }
 
@@ -134,7 +134,7 @@ class PostgresSchemaIntegrityTest extends TestCase
             $period = $this->period($db);
             $journal = $this->draft($db, $period);
             $this->balancedLines($db, $journal, 100);
-            $this->post($db, $journal);
+            $this->postJournal($db, $journal);
             $db->statement('SET CONSTRAINTS ALL IMMEDIATE');
             $db->table('journal_entries')->where('id', $journal)->update(['description' => 'mutated']);
         }, 'posted journal entries are immutable');
@@ -143,7 +143,7 @@ class PostgresSchemaIntegrityTest extends TestCase
             $period = $this->period($db);
             $journal = $this->draft($db, $period);
             $this->balancedLines($db, $journal, 100);
-            $this->post($db, $journal);
+            $this->postJournal($db, $journal);
             $db->statement('SET CONSTRAINTS ALL IMMEDIATE');
             $db->table('journal_lines')->where('journal_entry_id', $journal)->where('account_code', '1-1010')->update(['debit' => 101]);
         }, 'journal lines for a posted journal are immutable');
@@ -155,19 +155,19 @@ class PostgresSchemaIntegrityTest extends TestCase
             $period = $this->period($db, true);
             $journal = $this->draft($db, $period);
             $this->balancedLines($db, $journal, 100);
-            $this->post($db, $journal);
+            $this->postJournal($db, $journal);
         }, 'posted journal must reference an open period containing its journal date');
 
         $this->failsDeferred(function (Connection $db): void {
             $period = $this->period($db);
             $original = $this->draft($db, $period);
             $this->balancedLines($db, $original, 100);
-            $this->post($db, $original);
+            $this->postJournal($db, $original);
             $db->statement('SET CONSTRAINTS ALL IMMEDIATE');
             $reversal = $this->draft($db, $period, $original);
             $this->line($db, $reversal, '4-4010', 0, 50);
             $this->line($db, $reversal, '1-1010', 50, 0);
-            $this->post($db, $reversal);
+            $this->postJournal($db, $reversal);
         }, 'reversal journal must exactly reverse the original account totals');
     }
 
@@ -238,7 +238,7 @@ class PostgresSchemaIntegrityTest extends TestCase
         ]);
     }
 
-    private function post(Connection $db, string $id): void
+    private function postJournal(Connection $db, string $id): void
     {
         $db->table('journal_entries')->where('id', $id)->update([
             'status' => 'posted', 'posted_at' => now(), 'posted_by' => 'test-user',
