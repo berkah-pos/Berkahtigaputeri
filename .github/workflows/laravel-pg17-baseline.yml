@@ -154,7 +154,13 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            php artisan migrate:fresh --database=central --path=database/migrations/central --force
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
@@ -164,14 +170,14 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE berkahpos_tenant_ci"
 
-      - name: Migrate fresh central database on disposable PostgreSQL 17
+      - name: Re-run fresh central migrations on disposable PostgreSQL 17
         shell: bash
         run: |
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
-            php artisan migrate --database=central --path=database/migrations/central --force
+            php artisan migrate:fresh --database=central --path=database/migrations/central --force
 
       - name: Migrate fresh tenant database on disposable PostgreSQL 17
         shell: bash
