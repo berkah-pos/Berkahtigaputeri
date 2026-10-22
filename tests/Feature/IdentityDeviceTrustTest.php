@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Central\PersonalAccessToken;
 use App\Models\Central\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -607,6 +608,48 @@ class IdentityDeviceTrustTest extends TestCase
             'device_id' => $foreignPending,
             'tenant_id' => $otherTenant,
             'status' => 'pending',
+        ], 'central');
+    }
+
+    public function test_login_rechecks_membership_inside_the_token_issuance_transaction(): void
+    {
+        $deviceId = 'device-' . Str::uuid();
+        $membershipRevokedAfterInitialResolution = false;
+
+        DB::connection('central')->listen(function (QueryExecuted $query) use (
+            &$membershipRevokedAfterInitialResolution,
+        ): void {
+            $normalizedSql = strtolower($query->sql);
+            if ($membershipRevokedAfterInitialResolution ||
+                ! str_contains($normalizedSql, 'from "tenant_memberships" as "tm"') ||
+                ! str_contains($normalizedSql, 'join "tenants" as "t"')) {
+                return;
+            }
+
+            // Simulate a membership revocation immediately after the initial
+            // selection query has returned. The later lock/re-read must deny it.
+            $membershipRevokedAfterInitialResolution = true;
+            DB::connection('central')->table('tenant_memberships')
+                ->where('user_id', $this->member->getKey())
+                ->where('tenant_id', $this->tenantId)
+                ->update(['status' => 'revoked', 'revoked_at' => now()]);
+        });
+
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+
+        $this->assertTrue($membershipRevokedAfterInitialResolution);
+        $response->assertStatus(403)
+            ->assertJsonPath('error', 'membership_inactive');
+
+        $this->assertDatabaseMissing('device_registry', ['device_id' => $deviceId], 'central');
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'tokenable_id' => $this->member->getKey(),
+            'device_id' => $deviceId,
         ], 'central');
     }
 
