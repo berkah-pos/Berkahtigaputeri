@@ -122,12 +122,12 @@ class _AppGateState extends State<_AppGate> {
 
   Future<void> _restoreSession() async {
     try {
-      final service = widget.identityService;
-      if (service != null) {
-        final session = await service.restoreSession();
+      final identityService = widget.identityService;
+      if (identityService != null) {
+        final session = await identityService.restoreSession();
         if (session != null && !session.isDeviceSession) {
           // Central admin credentials are never accepted as POS credentials.
-          await service.signOut();
+          await identityService.signOut();
         }
       }
     } catch (_) {
