@@ -125,6 +125,7 @@ ALTER TABLE chart_of_accounts ADD CONSTRAINT coa_balance_check CHECK (normal_bal
 ALTER TABLE chart_of_accounts ADD CONSTRAINT coa_locked_check CHECK (is_locked);
 ALTER TABLE accounting_periods ADD CONSTRAINT accounting_period_dates_check CHECK (starts_on <= ends_on);
 ALTER TABLE accounting_periods ADD CONSTRAINT accounting_period_status_check CHECK (status IN ('open','closed'));
+ALTER TABLE accounting_periods ADD CONSTRAINT accounting_period_no_overlap EXCLUDE USING gist ((daterange(starts_on, ends_on, '[]')) WITH &&);
 ALTER TABLE accounting_periods ADD CONSTRAINT accounting_period_closed_at_check CHECK ((status='open' AND closed_at IS NULL) OR (status='closed' AND closed_at IS NOT NULL));
 ALTER TABLE products ADD CONSTRAINT products_price_nonnegative_check CHECK (price >= 0);
 ALTER TABLE inventory_lots ADD CONSTRAINT inventory_lot_quantities_check CHECK (quantity_received > 0 AND quantity_remaining >= 0 AND quantity_remaining <= quantity_received);
@@ -181,12 +182,19 @@ CREATE TRIGGER btp_prepare_posting BEFORE INSERT OR UPDATE ON journal_entries FO
 CREATE OR REPLACE FUNCTION btp_reject_posted_journal_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN IF OLD.status='posted' THEN RAISE EXCEPTION 'Posted journals are immutable; use a reversal entry.'; END IF; IF TG_OP='DELETE' THEN RETURN OLD; END IF; RETURN NEW; END; $$;
 CREATE TRIGGER btp_journal_immutable BEFORE UPDATE OR DELETE ON journal_entries FOR EACH ROW EXECUTE FUNCTION btp_reject_posted_journal_mutation();
-CREATE OR REPLACE FUNCTION btp_reject_posted_line_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION btp_reject_posted_line_mutation() RETURNS trigger LANGUAGE plpgsql AS $
+DECLARE old_id varchar(100); new_id varchar(100); locked_entry record;
 BEGIN
- IF TG_OP<>'INSERT' AND EXISTS(SELECT 1 FROM journal_entries WHERE id=OLD.journal_entry_id AND status='posted') THEN RAISE EXCEPTION 'Posted journal lines are immutable.'; END IF;
- IF TG_OP<>'DELETE' AND EXISTS(SELECT 1 FROM journal_entries WHERE id=NEW.journal_entry_id AND status='posted') THEN RAISE EXCEPTION 'Posted journal lines are immutable.'; END IF;
+ IF TG_OP<>'INSERT' THEN old_id:=OLD.journal_entry_id; END IF;
+ IF TG_OP<>'DELETE' THEN new_id:=NEW.journal_entry_id; END IF;
+ -- Serialize line writes against posting by locking the parent header before checking status.
+ FOR locked_entry IN
+   SELECT id,status FROM journal_entries WHERE id IN (old_id,new_id) ORDER BY id FOR UPDATE
+ LOOP
+   IF locked_entry.status='posted' THEN RAISE EXCEPTION 'Posted journal lines are immutable.'; END IF;
+ END LOOP;
  IF TG_OP='DELETE' THEN RETURN OLD; END IF; RETURN NEW;
-END; $$;
+END; $;
 CREATE TRIGGER btp_journal_lines_immutable BEFORE INSERT OR UPDATE OR DELETE ON journal_lines FOR EACH ROW EXECUTE FUNCTION btp_reject_posted_line_mutation();
 CREATE OR REPLACE FUNCTION btp_enforce_posted_journal_integrity() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE n bigint; deb numeric; cred numeric; pstatus varchar(10);
@@ -263,6 +271,7 @@ ALTER TABLE inventory_lots DROP CONSTRAINT IF EXISTS inventory_lot_quantities_ch
 ALTER TABLE products DROP CONSTRAINT IF EXISTS products_price_nonnegative_check;
 ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_period_closed_at_check;
 ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_period_status_check;
+ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_period_no_overlap;
 ALTER TABLE accounting_periods DROP CONSTRAINT IF EXISTS accounting_period_dates_check;
 ALTER TABLE chart_of_accounts DROP CONSTRAINT IF EXISTS coa_locked_check;
 ALTER TABLE chart_of_accounts DROP CONSTRAINT IF EXISTS coa_balance_check;

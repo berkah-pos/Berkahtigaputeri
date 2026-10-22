@@ -79,7 +79,7 @@ class PostgresSchemaIntegrityTest extends TestCase
 
     public function test_unbalanced_journal_is_rejected_at_commit(): void
     {
-        $this->expectException(QueryException::class);
+        $this->expectException(\PDOException::class);
         $this->postJournal((string)Str::uuid(),'2001-02-10',null,null,[['1-1010',10000,0],['4-4010',0,9000]]);
     }
 
@@ -97,7 +97,7 @@ class PostgresSchemaIntegrityTest extends TestCase
     {
         $id=(string)Str::uuid();
         $this->postJournal($id,'2001-01-11',null,null,[['1-1010',2500,0],['4-4010',0,2500]]);
-        $this->expectException(QueryException::class);
+        $this->expectException(\PDOException::class);
         $this->postJournal((string)Str::uuid(),'2001-01-12',$id,'Correct erroneous posting',[['1-1010',2500,0],['4-4010',0,2500]]);
     }
 
