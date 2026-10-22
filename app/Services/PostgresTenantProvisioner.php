@@ -99,6 +99,12 @@ final class PostgresTenantProvisioner
                 . ' LOGIN PASSWORD ' . $this->literal($migratorPassword)
                 . ' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'
             );
+            // A tenant migrator must be able to SET ROLE to the no-login owner
+            // during controlled schema/ACL setup. Default ACLs are also defined for
+            // objects created directly by the migrator.
+            $connection->statement(
+                'GRANT ' . $this->identifier($ownerRole) . ' TO ' . $this->identifier($migratorRole)
+            );
 
             // A non-superuser must be allowed to SET ROLE to the requested owner
             // before it can create a database owned by that role. This membership
