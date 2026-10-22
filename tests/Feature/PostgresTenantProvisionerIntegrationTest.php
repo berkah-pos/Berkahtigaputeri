@@ -99,6 +99,86 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_existing_tenant_database_or_role_is_never_adopted_and_credentials_are_not_stored(): void
+    {
+        $broker = DB::connection('provisioner');
+        $databaseTenant = $this->tenantIds[0];
+        $roleTenant = $this->tenantIds[1];
+        $databaseName = 'berkahpos_t_' . strtolower($databaseTenant);
+        $preexistingOwnerRole = 'berkah_t_' . strtolower($roleTenant) . '_owner';
+
+        // Simulate unregistered resources left by an earlier or external process.
+        $broker->statement('CREATE DATABASE "' . $databaseName . '" TEMPLATE template0');
+        $broker->statement(
+            'CREATE ROLE "' . $preexistingOwnerRole . '" NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'
+        );
+
+        $credentialStoreCalls = 0;
+        foreach ([$databaseTenant, $roleTenant] as $tenantId) {
+            try {
+                (new PostgresTenantProvisioner())->provision(
+                    $tenantId,
+                    function (string $key, string $password) use (&$credentialStoreCalls): string {
+                        $credentialStoreCalls++;
+
+                        return 'ci-secret-ref://' . $key;
+                    }
+                );
+                $this->fail('Provisioning must refuse to adopt any existing tenant database or role.');
+            } catch (\\RuntimeException $exception) {
+                $this->assertSame(
+                    'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
+                    $exception->getMessage()
+                );
+                $this->assertNotNull($exception->getPrevious());
+                $this->assertSame(
+                    'Tenant database or role already exists; refusing to adopt or modify unverified resources.',
+                    $exception->getPrevious()->getMessage()
+                );
+            }
+        }
+
+        $this->assertSame(0, $credentialStoreCalls, 'Existing resources must be detected before credential storage.');
+        $central = DB::connection('central');
+        $this->assertSame(
+            1,
+            (int) $central->scalar('SELECT COUNT(*) FROM pg_database WHERE datname = ?', [$databaseName])
+        );
+        $this->assertSame(
+            1,
+            (int) $central->scalar('SELECT COUNT(*) FROM pg_roles WHERE rolname = ?', [$preexistingOwnerRole])
+        );
+        $this->assertNoTenantResources($databaseTenant, false, true);
+        $this->assertNoTenantResources($roleTenant, true, false);
+    }
+
+    public function test_secret_store_failure_creates_no_tenant_database_or_roles(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $storeCalls = 0;
+
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function (string $key, string $password) use (&$storeCalls): string {
+                    $storeCalls++;
+                    throw new \\RuntimeException('simulated secret-store outage');
+                }
+            );
+            $this->fail('Provisioning must stop if the secret store fails.');
+        } catch (\\RuntimeException $exception) {
+            $this->assertSame(
+                'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
+                $exception->getMessage()
+            );
+            $this->assertNotNull($exception->getPrevious());
+            $this->assertSame('simulated secret-store outage', $exception->getPrevious()->getMessage());
+        }
+
+        $this->assertSame(1, $storeCalls, 'The first failed secret write must stop provisioning immediately.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
     public function test_non_superuser_broker_provisions_two_isolated_tenants_with_working_runtime_grants(): void
     {
         $broker = DB::connection('provisioner');
@@ -270,6 +350,37 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             'SELECT has_database_privilege(?, ?, \'CONNECT\')::int',
             [$tenantA['runtime_role'], config('database.connections.central.database')]
         ));
+    }
+
+    private function assertNoTenantResources(
+        string $tenantId,
+        bool $allowOwnerRole = false,
+        bool $allowDatabase = false
+    ): void {
+        $tenant = strtoupper($tenantId);
+        $database = 'berkahpos_t_' . strtolower($tenant);
+        $suffix = strtolower($tenant);
+        $roles = [
+            'berkah_t_' . $suffix . '_owner',
+            'berkah_t_' . $suffix . '_runtime',
+            'berkah_t_' . $suffix . '_migrator',
+        ];
+        $central = DB::connection('central');
+
+        $this->assertSame(
+            $allowDatabase ? 1 : 0,
+            (int) $central->scalar('SELECT COUNT(*) FROM pg_database WHERE datname = ?', [$database]),
+            'Unexpected tenant database resource for ' . $tenant
+        );
+        $existingRoleCount = (int) $central->scalar(
+            'SELECT COUNT(*) FROM pg_roles WHERE rolname IN (?, ?, ?)',
+            $roles
+        );
+        $this->assertSame(
+            $allowOwnerRole ? 1 : 0,
+            $existingRoleCount,
+            'Unexpected tenant login/owner role resources for ' . $tenant
+        );
     }
 
     private function connectionAs(string $name, string $database, string $username, string $password): Connection
