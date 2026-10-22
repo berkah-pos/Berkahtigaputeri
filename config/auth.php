@@ -15,6 +15,7 @@ return [
         'users' => [
             'provider' => 'users',
             'table' => 'password_reset_tokens',
+            'connection' => 'central',
             'expire' => 60,
             'throttle' => 60,
         ],
