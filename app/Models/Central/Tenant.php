@@ -18,7 +18,7 @@ class Tenant extends BaseTenant implements TenantWithDatabase
 
     protected $table = 'tenants';
 
-    protected $fillable = ['id', 'data', 'template_id'];
+    protected $fillable = ['id', 'data', 'template_id', 'status'];
 
     protected $casts = [
         'data' => 'array',

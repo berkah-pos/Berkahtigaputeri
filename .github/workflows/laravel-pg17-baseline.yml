@@ -154,7 +154,6 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
@@ -258,6 +257,17 @@ jobs:
             "$CI_IMAGE" php artisan config:import-workbook /tmp/canonical-manifest.json
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT 'global:' || key || ':' || version FROM global_configs UNION ALL SELECT 'template:' || id || ':' || version FROM templates UNION ALL SELECT 'tenant-config:' || tenant_id || ':' || service_scope || ':' || version FROM tenant_configs UNION ALL SELECT 'device-config:' || device_id || ':' || version FROM device_configs ORDER BY 1" > build/import-e2e/versions-after-repeat.txt
           diff -u build/import-e2e/versions-before-invalid.txt build/import-e2e/versions-after-repeat.txt
+
+      - name: Run feature tests after migrations and canonical import
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD \
+            "$CI_IMAGE" php artisan test
 
       - name: Migrate fresh tenant database on disposable PostgreSQL 17
         shell: bash
