@@ -38,15 +38,15 @@ Route::get('/v1/platform-ready', function () {
 })->name('api.v1.platform-ready');
 
 Route::post('/v1/auth/login', [IdentityController::class, 'login'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:identity-login')
     ->name('api.v1.auth.login');
 
 Route::post('/v1/auth/password/forgot', [PasswordResetController::class, 'requestResetLink'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:password-reset')
     ->name('api.v1.auth.password.forgot');
 
 Route::post('/v1/auth/password/reset', [PasswordResetController::class, 'resetPassword'])
-    ->middleware('throttle:5,1')
+    ->middleware('throttle:password-reset')
     ->name('api.v1.auth.password.reset');
 
 Route::middleware('auth:sanctum')->group(function (): void {
