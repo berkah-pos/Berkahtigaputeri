@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Authenticated entry point for cloud-backed use.
-///
-/// A local-only path is available for offline/demo work. It deliberately does
-/// not pass a cloud configuration service to the POS shell.
+import '../../core/auth/laravel_auth_service.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
     super.key,
-    required this.client,
+    required this.authService,
+    required this.deviceId,
     required this.onAuthenticated,
     required this.onContinueLocal,
-    this.configurationMessage,
+    this.initialDeviceStatus,
+    this.onSignOut,
   });
 
-  final SupabaseClient? client;
-  final VoidCallback onAuthenticated;
+  final LaravelAuthService authService;
+  final String deviceId;
+  final Future<void> Function(AuthSession session) onAuthenticated;
   final VoidCallback onContinueLocal;
-  final String? configurationMessage;
+  final String? initialDeviceStatus;
+  final Future<void> Function()? onSignOut;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -27,9 +28,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  String? _tenantId;
+  List<TenantChoice> _tenantChoices = const <TenantChoice>[];
   bool _loading = false;
-  bool _showPassword = false;
   String? _error;
+  String? _pendingMessage;
 
   @override
   void dispose() {
@@ -39,223 +42,208 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _signIn() async {
-    if (widget.client == null ||
-        !(_formKey.currentState?.validate() ?? false) ||
-        _loading) {
-      return;
-    }
-
+    if (!(_formKey.currentState?.validate() ?? false) || _loading) return;
     setState(() {
       _loading = true;
       _error = null;
+      _pendingMessage = null;
     });
+
     try {
-      final response = await widget.client!.auth.signInWithPassword(
-        email: _email.text.trim(),
+      final session = await widget.authService.login(
+        email: _email.text,
         password: _password.text,
+        deviceId: widget.deviceId,
+        tenantId: _tenantId,
       );
-      if (response.session == null) {
-        throw StateError('Login berhasil tetapi sesi tidak tersedia.');
-      }
       if (!mounted) return;
-      setState(() => _loading = false);
-      widget.onAuthenticated();
-    } catch (_) {
+      if (session.deviceIsActive) {
+        await widget.onAuthenticated(session);
+      } else {
+        setState(() {
+          _pendingMessage = 'Perangkat ini belum disetujui administrator. '
+              'Data cloud tetap terkunci; kasir lokal tetap dapat digunakan. '
+              'Setelah disetujui, masuk kembali untuk mengaktifkan sesi.';
+        });
+      }
+    } on AuthFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _loading = false;
-        _error = 'Login gagal. Periksa email dan kata sandi, koneksi, serta '
-            'pengaturan Supabase Auth. Jika akun belum dibuat, hubungi '
-            'administrator Berkah POS.';
+        _error = failure.message;
+        if (failure.code == 'tenant_selection_required') {
+          _tenantChoices = failure.memberships;
+          if (_tenantId != null &&
+              !_tenantChoices.any((choice) => choice.id == _tenantId)) {
+            _tenantId = null;
+          }
+        }
       });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Login gagal. Periksa koneksi lalu coba kembali.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _signOutPending() async {
+    if (_loading || widget.onSignOut == null) return;
+    setState(() => _loading = true);
+    try {
+      await widget.onSignOut!();
+    } catch (_) {
+      // Local credential cleanup is owned by the auth service.
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final configured = widget.authService.isConfigured;
+    final pending = widget.initialDeviceStatus == 'pending' ||
+        widget.initialDeviceStatus == 'unregistered' ||
+        _pendingMessage != null;
+
     return Scaffold(
+      appBar: AppBar(title: const Text('Berkah POS')),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  const Icon(
-                    Icons.point_of_sale_rounded,
-                    size: 68,
-                    color: Color(0xFF137A4B),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Berkah POS',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'PT Berkah Tiga Puteri',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: widget.client == null
-                          ? _buildLocalOnlyNotice(context)
-                          : _buildLoginForm(context),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: <Widget>[
+            Text(
+              configured ? 'Masuk ke akun Berkah POS' : 'Mode lokal Berkah POS',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
+            if (!configured) ...<Widget>[
+              const Text('Mode cloud belum tersedia pada build ini'),
+              const SizedBox(height: 8),
+              Text(widget.authService.configurationMessage ?? ''),
+              const SizedBox(height: 16),
+              const Text('Produk, penjualan, stok, dan laporan di mode ini '
+                  'disimpan di perangkat. Mode lokal bukan sesi SaaS dan '
+                  'tidak mengaktifkan sinkronisasi cloud.'),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: widget.onContinueLocal,
+                child: const Text('Lanjutkan sebagai kasir lokal'),
+              ),
+            ] else ...<Widget>[
+              const Text(
+                'Masuk memakai akun Laravel Berkah POS. Perangkat baru harus '
+                'disetujui administrator sebelum mendapatkan akses cloud.',
+              ),
+              if (widget.initialDeviceStatus == 'pending' ||
+                  widget.initialDeviceStatus == 'unregistered') ...<Widget>[
+                const SizedBox(height: 12),
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Text(
+                      'Sesi tersimpan untuk perangkat yang belum aktif. '
+                      'Cloud tetap dikunci sampai perangkat disetujui dan Anda masuk kembali.',
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Masuk hanya membuktikan identitas akun. Akses cloud '
-                    'tetap memerlukan membership tenant dan enrollment '
-                    'perangkat yang diverifikasi server.',
-                    textAlign: TextAlign.center,
+                ),
+              ],
+              if (_pendingMessage != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(_pendingMessage!),
                   ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLocalOnlyNotice(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const Icon(Icons.cloud_off_outlined, size: 42),
-        const SizedBox(height: 12),
-        Text(
-          'Mode cloud belum tersedia pada build ini',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.configurationMessage ??
-              'SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY belum diatur.',
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _loading ? null : widget.onContinueLocal,
-          icon: const Icon(Icons.point_of_sale),
-          label: const Text('Lanjutkan sebagai kasir lokal'),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Data akan disimpan di perangkat ini saja. Sinkronisasi cloud, '
-          'membership tenant, dan subscription belum aktif pada mode lokal.',
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoginForm(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          Text(
-            'Masuk ke akun Berkah POS',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Gunakan akun yang disediakan administrator. Aplikasi tidak '
-            'menggunakan alamat email saja sebagai bukti kepemilikan akun.',
-          ),
-          const SizedBox(height: 16),
-          TextFormField(
-            controller: _email,
-            enabled: !_loading,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            autofillHints: const <String>[AutofillHints.username, AutofillHints.email],
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.email_outlined),
-              border: OutlineInputBorder(),
-            ),
-            validator: (value) {
-              final normalized = value?.trim() ?? '';
-              if (!normalized.contains('@') ||
-                  normalized.startsWith('@') ||
-                  normalized.endsWith('@')) {
-                return 'Masukkan email yang valid.';
-              }
-              return null;
-            },
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _password,
-            enabled: !_loading,
-            obscureText: !_showPassword,
-            textInputAction: TextInputAction.done,
-            autofillHints: const <String>[AutofillHints.password],
-            onFieldSubmitted: (_) => _signIn(),
-            decoration: InputDecoration(
-              labelText: 'Kata sandi',
-              prefixIcon: const Icon(Icons.lock_outline),
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                tooltip: _showPassword ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi',
-                onPressed: _loading
-                    ? null
-                    : () => setState(() => _showPassword = !_showPassword),
-                icon: Icon(
-                  _showPassword ? Icons.visibility_off : Icons.visibility,
+                ),
+              ],
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: 12),
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+              Form(
+                key: _formKey,
+                child: Column(
+                  children: <Widget>[
+                    const SizedBox(height: 20),
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        final text = value?.trim() ?? '';
+                        if (text.isEmpty || !text.contains('@')) {
+                          return 'Masukkan email yang valid.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Kata sandi',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) => (value ?? '').isEmpty
+                          ? 'Kata sandi wajib diisi.'
+                          : null,
+                    ),
+                    if (_tenantChoices.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: _tenantId,
+                        decoration: const InputDecoration(
+                          labelText: 'Pilih tenant',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _tenantChoices
+                            .map((choice) => DropdownMenuItem<String>(
+                                  value: choice.id,
+                                  child: Text(choice.label),
+                                ))
+                            .toList(growable: false),
+                        onChanged: _loading
+                            ? null
+                            : (value) => setState(() => _tenantId = value),
+                        validator: (value) => value == null
+                            ? 'Pilih tenant yang diberikan server.'
+                            : null,
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _loading ? null : _signIn,
+                        child: Text(_loading ? 'Memproses…' : 'Masuk'),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            validator: (value) =>
-                (value ?? '').isEmpty ? 'Kata sandi wajib diisi.' : null,
-          ),
-          if (_error != null) ...<Widget>[
-            const SizedBox(height: 12),
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _loading ? null : widget.onContinueLocal,
+                child: const Text('Lanjutkan lokal tanpa akun cloud'),
+              ),
+              if (pending && widget.onSignOut != null) ...<Widget>[
+                TextButton(
+                  onPressed: _loading ? null : _signOutPending,
+                  child: const Text('Hapus sesi perangkat tertunda'),
+                ),
+              ],
+            ],
           ],
-          if (widget.configurationMessage != null &&
-              widget.configurationMessage!.trim().isNotEmpty) ...<Widget>[
-            const SizedBox(height: 8),
-            Text(
-              widget.configurationMessage!,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _loading ? null : _signIn,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.login),
-            label: Text(_loading ? 'Memeriksa akun...' : 'Masuk'),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _loading ? null : widget.onContinueLocal,
-            icon: const Icon(Icons.wifi_off),
-            label: const Text('Lanjutkan lokal tanpa akun'),
-          ),
-        ],
+        ),
       ),
     );
   }
