@@ -148,6 +148,7 @@ class IdentitySession {
 enum SignInStatus {
   authenticated,
   devicePendingApproval,
+  deviceRevoked,
   tenantSelectionRequired,
   emailVerificationRequired,
   failed,
@@ -338,6 +339,13 @@ class IdentityService {
           );
         }
 
+        if (code == 'device_revoked') {
+          return SignInResult(
+            status: SignInStatus.deviceRevoked,
+            message: 'Perangkat ini telah dicabut. Buat ID instalasi baru untuk meminta persetujuan perangkat lagi.',
+          );
+        }
+
         return SignInResult(
           status: SignInStatus.failed,
           message: _safeUserMessage(code, message, response.statusCode),
@@ -419,6 +427,30 @@ class IdentityService {
         message: 'Login tidak dapat diselesaikan. Tidak ada sesi cloud yang diaktifkan.',
       );
     }
+  }
+
+  /// Generates a new local installation ID only after a previous ID is
+  /// rejected as revoked. The API still grants no cloud access until the new
+  /// enrollment is approved and the user successfully signs in again.
+  Future<SignInResult> replaceRevokedDeviceAndRequestEnrollment({
+    required String email,
+    required String password,
+    String? tenantId,
+  }) async {
+    try {
+      await _identityStore.rotateDeviceId();
+    } on Object {
+      return const SignInResult(
+        status: SignInStatus.failed,
+        message: 'ID perangkat baru tidak dapat dibuat. Coba lagi sebelum masuk.',
+      );
+    }
+
+    return signIn(
+      email: email,
+      password: password,
+      tenantId: tenantId,
+    );
   }
 
   Future<bool> signOut() async {
