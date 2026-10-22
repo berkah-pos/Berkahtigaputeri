@@ -55,6 +55,24 @@ class AppIdentityStore {
     return generated;
   }
 
+  /// Rotates the installation ID after the server has explicitly revoked
+  /// the previous ID. The replacement is still untrusted until an administrator
+  /// approves its new enrollment request.
+  Future<String> rotateDeviceId() async {
+    final pending = _creatingDeviceId;
+    if (pending != null) {
+      try {
+        await pending;
+      } catch (_) {
+        // A failed pending generation does not block rotation.
+      }
+    }
+
+    _creatingDeviceId = null;
+    await _preferences.remove(_deviceKey);
+    return ensureDeviceId();
+  }
+
   Future<void> setTenantId(String tenantId) async {
     await _preferences.setString(_tenantKey, tenantId);
   }
