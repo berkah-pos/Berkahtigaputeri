@@ -149,6 +149,7 @@ enum SignInStatus {
   authenticated,
   devicePendingApproval,
   deviceRevoked,
+  deviceIdentityConflict,
   tenantSelectionRequired,
   emailVerificationRequired,
   failed,
@@ -343,6 +344,13 @@ class IdentityService {
           return SignInResult(
             status: SignInStatus.deviceRevoked,
             message: 'Perangkat ini telah dicabut. Buat ID instalasi baru untuk meminta persetujuan perangkat lagi.',
+          );
+        }
+
+        if (code == 'device_id_conflict') {
+          return SignInResult(
+            status: SignInStatus.deviceIdentityConflict,
+            message: 'ID instalasi ini sudah terdaftar pada akun atau tenant lain. Buat ID perangkat baru untuk meminta persetujuan.',
           );
         }
 
