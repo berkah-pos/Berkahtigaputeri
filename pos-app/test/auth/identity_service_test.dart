@@ -142,6 +142,42 @@ void main() {
     expect(service.currentSession, isNull);
   });
 
+  test('revoked-device recovery rotates the ID and requests approval without a token', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final identityStore = AppIdentityStore(preferences);
+    await identityStore.setDeviceId('device-revoked-installation-123');
+    final tokens = _MemoryTokenStore();
+    var requestDeviceId = '';
+
+    final service = IdentityService(
+      baseUrl: 'https://api.example.test',
+      identityStore: identityStore,
+      tokenStore: tokens,
+      httpClient: MockClient((http.Request request) async {
+        expect(request.url.path, '/api/v1/auth/login');
+        final payload = jsonDecode(request.body) as Map<String, dynamic>;
+        requestDeviceId = payload['device_id'] as String;
+        return http.Response(
+          '{"status":"device_pending_approval","message":"Awaiting approval"}',
+          202,
+          headers: const <String, String>{'content-type': 'application/json'},
+        );
+      }),
+    );
+
+    final result = await service.replaceRevokedDeviceAndRequestEnrollment(
+      email: 'owner@example.test',
+      password: 'test-password',
+      tenantId: 'tenant-a',
+    );
+
+    expect(requestDeviceId, isNot('device-revoked-installation-123'));
+    expect(identityStore.deviceId, requestDeviceId);
+    expect(result.status, SignInStatus.devicePendingApproval);
+    expect(tokens.token, isNull);
+    expect(service.currentSession, isNull);
+  });
+
   test('multi-tenant login exposes only server-listed membership choices', () async {
     final preferences = await SharedPreferences.getInstance();
     final tokens = _MemoryTokenStore();
