@@ -159,6 +159,19 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             $this->assertSame($expectedCanLogin, (int) $role->rolcanlogin);
         }
 
+        $databaseOwners = DB::connection('central')->select(
+            'SELECT datname, pg_get_userbyid(datdba) AS owner_role
+             FROM pg_database WHERE datname IN (?, ?)',
+            [$tenantA['database'], $tenantB['database']]
+        );
+        $this->assertCount(2, $databaseOwners);
+        $ownerByDatabase = [];
+        foreach ($databaseOwners as $databaseOwner) {
+            $ownerByDatabase[$databaseOwner->datname] = $databaseOwner->owner_role;
+        }
+        $this->assertSame($tenantA['owner_role'], $ownerByDatabase[$tenantA['database']]);
+        $this->assertSame($tenantB['owner_role'], $ownerByDatabase[$tenantB['database']]);
+
         $table = 'provisioner_events_' . strtolower(substr($this->tenantIds[0], 0, 8));
         $migrator = $this->connectionAs(
             'provisioner_migrator_' . strtolower($this->tenantIds[0]),
@@ -183,6 +196,22 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         );
         $runtimeA->insert('INSERT INTO public."' . $table . '" (payload) VALUES (?)', ['created-by-runtime']);
         $this->assertSame(2, (int) $runtimeA->scalar('SELECT COUNT(*) FROM public."' . $table . '"'));
+        $this->assertSame(
+            1,
+            $runtimeA->update('UPDATE public."' . $table . '" SET payload = ? WHERE payload = ?', [
+                'updated-by-runtime',
+                'created-by-runtime',
+            ])
+        );
+        $this->assertSame(
+            'updated-by-runtime',
+            $runtimeA->scalar('SELECT payload FROM public."' . $table . '" WHERE id = 2')
+        );
+        $this->assertSame(
+            1,
+            $runtimeA->delete('DELETE FROM public."' . $table . '" WHERE payload = ?', ['updated-by-runtime'])
+        );
+        $this->assertSame(1, (int) $runtimeA->scalar('SELECT COUNT(*) FROM public."' . $table . '"'));
 
         try {
             $runtimeA->statement('CREATE TABLE public.runtime_must_not_ddl (id INTEGER)');
@@ -215,6 +244,25 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             (string) config('database.connections.central.database'),
             $tenantA['runtime_role'],
             $this->credentials['tenant/' . $this->tenantIds[0] . '/runtime']
+        );
+
+        $this->assertConnectionDenied(
+            'provisioner_migrator_cross_tenant',
+            $tenantB['database'],
+            $tenantA['migrator_role'],
+            $this->credentials['tenant/' . $this->tenantIds[0] . '/migrator']
+        );
+        $this->assertConnectionDenied(
+            'provisioner_migrator_reverse_cross_tenant',
+            $tenantA['database'],
+            $tenantB['migrator_role'],
+            $this->credentials['tenant/' . $this->tenantIds[1] . '/migrator']
+        );
+        $this->assertConnectionDenied(
+            'provisioner_migrator_central_denied',
+            (string) config('database.connections.central.database'),
+            $tenantA['migrator_role'],
+            $this->credentials['tenant/' . $this->tenantIds[0] . '/migrator']
         );
 
         $this->assertSame(0, (int) $runtimeB->scalar('SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?', [$table]));
