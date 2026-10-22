@@ -657,7 +657,6 @@ class IdentityController extends Controller
         $isTenantAdmin = $this->canManageTenant($request, (string) $device->tenant_id, 'devices:revoke');
 
         $isSelfDevice = $token->token_kind === 'device' &&
-            (string) $token->device_id === $deviceId &&
             (int) ($device->owner_user_id ?? 0) === (int) $user->getKey() &&
             (string) $token->tenant_id === (string) $device->tenant_id &&
             $token->can('device:revoke') &&
@@ -685,7 +684,6 @@ class IdentityController extends Controller
             $token = $user->currentAccessToken();
             $isSelfDevice = $token instanceof PersonalAccessToken &&
                 $token->token_kind === 'device' &&
-                (string) $token->device_id === $deviceId &&
                 (int) ($locked->owner_user_id ?? 0) === (int) $user->getKey() &&
                 (string) $token->tenant_id === (string) $locked->tenant_id &&
                 $token->can('device:revoke') &&
