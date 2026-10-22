@@ -48,6 +48,22 @@ class PasswordResetFlowTest extends TestCase
         Notification::assertSentTo($user, ResetPassword::class);
     }
 
+    public function test_password_reset_requests_are_rate_limited_per_identity(): void
+    {
+        Notification::fake();
+        $user = $this->createActiveUser();
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postJson('/api/v1/auth/password/forgot', [
+                'email' => $user->email,
+            ])->assertAccepted();
+        }
+
+        $this->postJson('/api/v1/auth/password/forgot', [
+            'email' => $user->email,
+        ])->assertStatus(429);
+    }
+
     public function test_successful_password_reset_revokes_all_existing_api_tokens(): void
     {
         $user = $this->createActiveUser();
