@@ -78,7 +78,7 @@ class EmailVerificationFlowTest extends TestCase
         $this->assertArrayHasKey('path', $url);
         $this->assertArrayHasKey('query', $url);
 
-        $this->getJson($url['path'] . '?' . $url['query'])
+        $this->getJson($verificationUrl)
             ->assertOk()
             ->assertJsonPath('status', 'verified');
 
@@ -120,7 +120,7 @@ class EmailVerificationFlowTest extends TestCase
         );
         $parts = parse_url($url);
 
-        $this->getJson($parts['path'] . '?' . $parts['query'])
+        $this->getJson($url)
             ->assertStatus(403)
             ->assertJsonPath('error', 'email_verification_invalid');
 
