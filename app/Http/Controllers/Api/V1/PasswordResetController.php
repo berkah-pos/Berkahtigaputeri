@@ -80,7 +80,7 @@ class PasswordResetController extends Controller
                     'revoked_token_count' => $revokedCount,
                 ], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
-            });
+            ]);
         });
 
         if ($status !== Password::PASSWORD_RESET) {
