@@ -421,30 +421,41 @@ class IdentityController extends Controller
         }
 
         $result = DB::connection('central')->transaction(function () use (
+            $request,
             $actor,
             $tenantId,
             $userId,
             $requestedRole,
         ): array {
-            $targetUser = DB::connection('central')
-                ->table('users')
-                ->where('id', $userId)
-                ->lockForUpdate()
-                ->first();
+            // Lock the tenant first. Membership mutations for one tenant are
+            // serialized so privilege checks cannot race another revocation.
             $tenant = DB::connection('central')
                 ->table('tenants')
                 ->where('id', $tenantId)
                 ->lockForUpdate()
                 ->first();
 
-            if (! $targetUser || ! $tenant) {
+            if (! $tenant) {
+                return ['state' => 'not_found'];
+            }
+            if (($tenant->status ?? 'active') !== 'active') {
+                return ['state' => 'tenant_inactive'];
+            }
+            if (! $this->canManageTenant($request, $tenantId, 'memberships:manage')) {
+                return ['state' => 'forbidden'];
+            }
+
+            $targetUser = DB::connection('central')
+                ->table('users')
+                ->where('id', $userId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $targetUser) {
                 return ['state' => 'not_found'];
             }
             if (! $targetUser->is_active) {
                 return ['state' => 'user_inactive'];
-            }
-            if (($tenant->status ?? 'active') !== 'active') {
-                return ['state' => 'tenant_inactive'];
             }
 
             $existing = DB::connection('central')
@@ -505,6 +516,7 @@ class IdentityController extends Controller
         if ($result['state'] === 'not_found') return $this->error('membership_target_not_found', 'The specified user or tenant does not exist.', 404);
         if ($result['state'] === 'user_inactive') return $this->error('identity_disabled', 'An inactive account cannot be granted tenant access.', 409);
         if ($result['state'] === 'tenant_inactive') return $this->error('tenant_inactive', 'An inactive tenant cannot accept new memberships.', 409);
+        if ($result['state'] === 'forbidden') return $this->error('membership_management_forbidden', 'The actor no longer has an active authorized membership for this tenant.', 403);
 
         return response()->json([
             'status' => 'active',
@@ -535,6 +547,23 @@ class IdentityController extends Controller
             $tenantId,
             $userId,
         ): array {
+            // Serialize owner-count changes on the tenant row and eliminate a
+            // check-then-write race against concurrent membership revocations.
+            $tenant = DB::connection('central')->table('tenants')
+                ->where('id', $tenantId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $tenant) {
+                return ['state' => 'not_found'];
+            }
+            if (($tenant->status ?? 'active') !== 'active') {
+                return ['state' => 'tenant_inactive'];
+            }
+            if (! $this->canManageTenant($request, $tenantId, 'memberships:manage')) {
+                return ['state' => 'forbidden'];
+            }
+
             $membership = DB::connection('central')->table('tenant_memberships')
                 ->where('user_id', $userId)
                 ->where('tenant_id', $tenantId)
@@ -620,6 +649,8 @@ class IdentityController extends Controller
 
         return match ($result['state']) {
             'not_found' => $this->error('membership_not_found', 'The requested membership does not exist.', 404),
+            'tenant_inactive' => $this->error('tenant_inactive', 'Memberships cannot be changed for an inactive tenant.', 409),
+            'forbidden' => $this->error('membership_management_forbidden', 'The actor no longer has an active authorized membership for this tenant.', 403),
             'privileged_target' => $this->error('membership_admin_required', 'Only a platform administrator may revoke an owner/admin membership.', 403),
             'last_owner' => $this->error('last_owner_protected', 'The last active tenant owner cannot be revoked.', 409),
             default => response()->json([
