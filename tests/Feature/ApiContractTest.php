@@ -98,8 +98,9 @@ class ApiContractTest extends TestCase
             ->assertJsonPath('errors.email.0', 'The email field is required.');
     }
 
-    public function test_unhandled_api_errors_do_not_leak_exception_messages_even_in_debug_mode(): void
+    public function test_unhandled_api_errors_do_not_leak_exception_messages(): void
     {
+        config(['app.debug' => true]);
         Route::get('/api/v1/__contract-test/internal-error', static function () {
             throw new \RuntimeException('private database URL and credentials');
         });
@@ -111,6 +112,15 @@ class ApiContractTest extends TestCase
             ->assertJsonPath('detail', 'An unexpected error occurred.')
             ->assertDontSee('private database URL and credentials')
             ->assertDontSee('RuntimeException');
+    }
+
+    public function test_liveness_remains_available_after_more_than_the_api_rate_limit(): void
+    {
+        for ($attempt = 0; $attempt < 121; $attempt++) {
+            $response = $this->getJson('/api/v1/platform-health');
+
+            $this->assertSame(200, $response->getStatusCode(), 'Liveness must not be blocked by the API rate limiter.');
+        }
     }
 
     public function test_api_rate_limiter_returns_a_retryable_problem_response(): void
