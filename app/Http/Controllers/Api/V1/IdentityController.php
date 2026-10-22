@@ -128,9 +128,18 @@ class IdentityController extends Controller
                 }
 
                 $expiresAt = now()->addHours(12);
+                $abilities = ['identity:read', 'tenant:access', 'device:revoke'];
+                if (in_array((string) $membership->role, ['owner', 'admin'], true)) {
+                    $abilities = array_merge($abilities, [
+                        'devices:approve',
+                        'devices:revoke',
+                        'memberships:manage',
+                    ]);
+                }
+
                 $created = $user->createToken(
                     'berkah-pos-device',
-                    ['identity:read', 'tenant:access', 'device:revoke'],
+                    $abilities,
                     $expiresAt,
                 );
                 $created->accessToken->forceFill([
@@ -228,7 +237,27 @@ class IdentityController extends Controller
     public function session(Request $request): JsonResponse
     {
         $user = $request->user();
-        $token = $user->currentAccessToken();
+        $token = $user?->currentAccessToken();
+
+        if (! $token instanceof PersonalAccessToken) {
+            return $this->error('identity_session_invalid', 'A supported identity session is required.', 401);
+        }
+
+        $memberships = $this->activeMemberships((int) $user->getKey());
+
+        if ($token->token_kind === 'device') {
+            $tenantId = (string) ($token->tenant_id ?? '');
+            if ($tenantId === '' ||
+                ! $this->hasActiveMembership((int) $user->getKey(), $tenantId) ||
+                ! $this->hasActiveDeviceToken($token, (int) $user->getKey())) {
+                return $this->error('active_device_required', 'The token is no longer bound to an active tenant membership and device.', 403);
+            }
+
+            // A device-bound token may only learn about its own tenant.
+            $memberships = $memberships
+                ->filter(fn ($membership): bool => (string) $membership->tenant_id === $tenantId)
+                ->values();
+        }
 
         return response()->json([
             'status' => 'authenticated',
@@ -240,7 +269,7 @@ class IdentityController extends Controller
             ],
             'token_kind' => $token->token_kind,
             'token_expires_at' => $token->expires_at?->toIso8601String(),
-            'memberships' => $this->activeMemberships((int) $user->getKey())
+            'memberships' => $memberships
                 ->map(fn ($membership): array => [
                     'tenant_id' => (string) $membership->tenant_id,
                     'template_id' => (string) $membership->template_id,
@@ -273,20 +302,33 @@ class IdentityController extends Controller
 
     public function logoutAll(Request $request): JsonResponse
     {
-        $request->user()->tokens()->delete();
+        $payload = $request->validate([
+            'password' => ['required', 'string', 'max:4096'],
+        ]);
+
+        $user = $request->user();
+        if (! Hash::check($payload['password'], (string) $user->password)) {
+            return $this->error('reauthentication_failed', 'The password confirmation is invalid.', 403);
+        }
+
+        $revokedCount = (int) $user->tokens()->count();
+        $user->tokens()->delete();
+        $this->recordAudit(
+            (int) $user->getKey(),
+            null,
+            (string) $user->getKey(),
+            'identity.logout_all',
+            ['revoked_token_count' => $revokedCount],
+        );
 
         return response()->json(null, 204);
     }
 
     public function approveDevice(Request $request, string $deviceId): JsonResponse
     {
-        $user = $request->user();
+        $actor = $request->user();
 
-        if (! $user->is_super_admin) {
-            return $this->error('platform_admin_required', 'Only a platform administrator may approve devices.', 403);
-        }
-
-        $result = DB::connection('central')->transaction(function () use ($user, $deviceId): array {
+        $result = DB::connection('central')->transaction(function () use ($request, $actor, $deviceId): array {
             $device = DB::connection('central')
                 ->table('device_registry')
                 ->where('device_id', $deviceId)
@@ -295,6 +337,10 @@ class IdentityController extends Controller
 
             if (! $device) {
                 return ['state' => 'not_found'];
+            }
+
+            if (! $this->canManageTenant($request, (string) $device->tenant_id, 'devices:approve')) {
+                return ['state' => 'forbidden'];
             }
 
             if ($device->status === 'active') {
@@ -327,7 +373,7 @@ class IdentityController extends Controller
                 ]);
 
             $this->recordAudit(
-                (int) $user->getKey(),
+                (int) $actor->getKey(),
                 (string) $device->tenant_id,
                 $deviceId,
                 'device.approved',
@@ -339,6 +385,7 @@ class IdentityController extends Controller
 
         return match ($result['state']) {
             'not_found' => $this->error('device_not_found', 'The requested device was not found.', 404),
+            'forbidden' => $this->error('device_approval_forbidden', 'A platform administrator or authorized tenant owner/admin is required.', 403),
             'not_pending' => $this->error('device_not_pending', 'A revoked or invalid device cannot be approved.', 409),
             'membership_inactive' => $this->error('membership_inactive', 'The device owner no longer has active membership in an active tenant.', 409),
             default => response()->json([
@@ -351,81 +398,244 @@ class IdentityController extends Controller
 
     public function grantMembership(Request $request, string $tenantId, string $userId): JsonResponse
     {
+        $payload = $request->validate([
+            'role' => ['sometimes', 'string', 'in:owner,admin,manager,member,cashier,accountant'],
+        ]);
+
+        if (! $this->canManageTenant($request, $tenantId, 'memberships:manage')) {
+            return $this->error('membership_management_forbidden', 'A platform administrator or authorized tenant owner/admin is required.', 403);
+        }
+
         $actor = $request->user();
-        $result = DB::connection('central')->transaction(function () use ($actor, $tenantId, $userId): array {
-            $targetUser = DB::connection('central')->table('users')->where('id', $userId)->lockForUpdate()->first();
-            $tenant = DB::connection('central')->table('tenants')->where('id', $tenantId)->lockForUpdate()->first();
-            if (! $targetUser || ! $tenant) return ['state' => 'not_found'];
-            if (! $targetUser->is_active) return ['state' => 'user_inactive'];
-            if (($tenant->status ?? 'active') !== 'active') return ['state' => 'tenant_inactive'];
-            $existing = DB::connection('central')->table('tenant_memberships')
-                ->where('user_id', $userId)->where('tenant_id', $tenantId)->lockForUpdate()->first();
-            if ($existing && $existing->status === 'active') {
-                return ['state' => 'active', 'changed' => false, 'role' => (string) $existing->role];
+        $actorToken = $actor->currentAccessToken();
+        $isPlatformAdmin = $actor->is_super_admin &&
+            $actorToken instanceof PersonalAccessToken &&
+            $actorToken->token_kind === 'platform_admin' &&
+            $actorToken->can('memberships:manage');
+        $requestedRole = $payload['role'] ?? null;
+
+        // Tenant admins can onboard ordinary staff, but only a platform
+        // administrator may grant owner/admin authority.
+        if (! $isPlatformAdmin && in_array($requestedRole, ['owner', 'admin'], true)) {
+            return $this->error('privileged_role_assignment_forbidden', 'Only a platform administrator may grant owner/admin membership roles.', 403);
+        }
+
+        $result = DB::connection('central')->transaction(function () use (
+            $actor,
+            $tenantId,
+            $userId,
+            $requestedRole,
+        ): array {
+            $targetUser = DB::connection('central')
+                ->table('users')
+                ->where('id', $userId)
+                ->lockForUpdate()
+                ->first();
+            $tenant = DB::connection('central')
+                ->table('tenants')
+                ->where('id', $tenantId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $targetUser || ! $tenant) {
+                return ['state' => 'not_found'];
             }
+            if (! $targetUser->is_active) {
+                return ['state' => 'user_inactive'];
+            }
+            if (($tenant->status ?? 'active') !== 'active') {
+                return ['state' => 'tenant_inactive'];
+            }
+
+            $existing = DB::connection('central')
+                ->table('tenant_memberships')
+                ->where('user_id', $userId)
+                ->where('tenant_id', $tenantId)
+                ->lockForUpdate()
+                ->first();
+            $role = $requestedRole ?? ($existing ? (string) $existing->role : 'member');
+
+            if ($existing && $existing->status === 'active' && (string) $existing->role === $role) {
+                return ['state' => 'active', 'changed' => false, 'role' => $role];
+            }
+
             $now = now();
             if ($existing) {
-                DB::connection('central')->table('tenant_memberships')->where('id', $existing->id)->update([
-                    'status' => 'active', 'activated_at' => $now, 'revoked_at' => null, 'updated_at' => $now,
-                ]);
-                $role = (string) $existing->role;
+                DB::connection('central')->table('tenant_memberships')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'role' => $role,
+                        'status' => 'active',
+                        'activated_at' => $now,
+                        'revoked_at' => null,
+                        'updated_at' => $now,
+                    ]);
+                $action = $existing->status === 'active' ? 'membership.role_changed' : 'membership.reactivated';
             } else {
                 DB::connection('central')->table('tenant_memberships')->insert([
-                    'user_id' => $userId, 'tenant_id' => $tenantId, 'role' => 'member',
-                    'status' => 'active', 'activated_at' => $now, 'revoked_at' => null,
-                    'created_at' => $now, 'updated_at' => $now,
+                    'user_id' => $userId,
+                    'tenant_id' => $tenantId,
+                    'role' => $role,
+                    'status' => 'active',
+                    'activated_at' => $now,
+                    'revoked_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
                 ]);
-                $role = 'member';
+                $action = 'membership.granted';
             }
-            $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, 'membership.granted', [
-                'user_id' => (int) $userId, 'tenant_id' => $tenantId, 'role' => $role,
+
+            // Existing session abilities are snapshots of the previous role.
+            // Force a fresh login after any membership-state/role change.
+            DB::connection('central')->table('personal_access_tokens')
+                ->where('tokenable_type', User::class)
+                ->where('tokenable_id', $userId)
+                ->where('tenant_id', $tenantId)
+                ->delete();
+
+            $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, $action, [
+                'user_id' => (int) $userId,
+                'tenant_id' => $tenantId,
+                'role' => $role,
             ]);
+
             return ['state' => 'active', 'changed' => true, 'role' => $role];
         }, 3);
+
         if ($result['state'] === 'not_found') return $this->error('membership_target_not_found', 'The specified user or tenant does not exist.', 404);
         if ($result['state'] === 'user_inactive') return $this->error('identity_disabled', 'An inactive account cannot be granted tenant access.', 409);
         if ($result['state'] === 'tenant_inactive') return $this->error('tenant_inactive', 'An inactive tenant cannot accept new memberships.', 409);
+
         return response()->json([
-            'status' => 'active', 'tenant_id' => $tenantId, 'user_id' => (int) $userId,
-            'role' => $result['role'], 'changed' => $result['changed'],
+            'status' => 'active',
+            'tenant_id' => $tenantId,
+            'user_id' => (int) $userId,
+            'role' => $result['role'],
+            'changed' => $result['changed'],
         ]);
     }
 
     public function revokeMembership(Request $request, string $tenantId, string $userId): JsonResponse
     {
+        if (! $this->canManageTenant($request, $tenantId, 'memberships:manage')) {
+            return $this->error('membership_management_forbidden', 'A platform administrator or authorized tenant owner/admin is required.', 403);
+        }
+
         $actor = $request->user();
-        $changed = DB::connection('central')->transaction(function () use ($actor, $tenantId, $userId): ?bool {
+        $actorToken = $actor->currentAccessToken();
+        $isPlatformAdmin = $actor->is_super_admin &&
+            $actorToken instanceof PersonalAccessToken &&
+            $actorToken->token_kind === 'platform_admin' &&
+            $actorToken->can('memberships:manage');
+
+        $result = DB::connection('central')->transaction(function () use (
+            $request,
+            $actor,
+            $isPlatformAdmin,
+            $tenantId,
+            $userId,
+        ): array {
             $membership = DB::connection('central')->table('tenant_memberships')
-                ->where('user_id', $userId)->where('tenant_id', $tenantId)->lockForUpdate()->first();
-            if (! $membership) return null;
-            if ($membership->status === 'revoked') {
-                DB::connection('central')->table('personal_access_tokens')
-                    ->where('tokenable_type', User::class)->where('tokenable_id', $userId)
-                    ->where('tenant_id', $tenantId)->delete();
-                return false;
+                ->where('user_id', $userId)
+                ->where('tenant_id', $tenantId)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $membership) {
+                return ['state' => 'not_found'];
             }
+
+            if (! $isPlatformAdmin && in_array((string) $membership->role, ['owner', 'admin'], true)) {
+                return ['state' => 'privileged_target'];
+            }
+
+            $activeOwnerCount = (int) DB::connection('central')->table('tenant_memberships')
+                ->where('tenant_id', $tenantId)
+                ->where('status', 'active')
+                ->where('role', 'owner')
+                ->count();
+
+            if ($membership->status !== 'revoked' &&
+                $membership->role === 'owner' &&
+                $activeOwnerCount <= 1) {
+                return ['state' => 'last_owner'];
+            }
+
             $now = now();
-            DB::connection('central')->table('tenant_memberships')->where('id', $membership->id)->update([
-                'status' => 'revoked', 'revoked_at' => $now, 'updated_at' => $now,
-            ]);
+            $changed = $membership->status !== 'revoked';
+
+            if ($changed) {
+                DB::connection('central')->table('tenant_memberships')
+                    ->where('id', $membership->id)
+                    ->update([
+                        'status' => 'revoked',
+                        'revoked_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+            }
+
+            // Revoke all owned devices and their tokens. A later membership
+            // reactivation must not silently reactivate old device trust.
+            $devices = DB::connection('central')->table('device_registry')
+                ->where('tenant_id', $tenantId)
+                ->where('owner_user_id', $userId)
+                ->whereIn('status', ['active', 'pending'])
+                ->lockForUpdate()
+                ->get(['device_id']);
+
+            foreach ($devices as $device) {
+                DB::connection('central')->table('device_registry')
+                    ->where('device_id', $device->device_id)
+                    ->update([
+                        'status' => 'revoked',
+                        'registered_at' => null,
+                        'revoked_at' => $now,
+                        'updated_at' => $now,
+                    ]);
+                $this->recordAudit(
+                    (int) $actor->getKey(),
+                    $tenantId,
+                    (string) $device->device_id,
+                    'device.revoked_by_membership',
+                    ['user_id' => (int) $userId],
+                );
+            }
+
             DB::connection('central')->table('personal_access_tokens')
-                ->where('tokenable_type', User::class)->where('tokenable_id', $userId)
-                ->where('tenant_id', $tenantId)->delete();
-            $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, 'membership.revoked', [
-                'user_id' => (int) $userId, 'tenant_id' => $tenantId,
-            ]);
-            return true;
+                ->where('tokenable_type', User::class)
+                ->where('tokenable_id', $userId)
+                ->where('tenant_id', $tenantId)
+                ->delete();
+
+            if ($changed) {
+                $this->recordAudit((int) $actor->getKey(), $tenantId, $userId, 'membership.revoked', [
+                    'user_id' => (int) $userId,
+                    'tenant_id' => $tenantId,
+                    'role' => (string) $membership->role,
+                ]);
+            }
+
+            return ['state' => 'revoked', 'changed' => $changed, 'devices_revoked' => $devices->count()];
         }, 3);
-        if ($changed === null) return $this->error('membership_not_found', 'The requested membership does not exist.', 404);
-        return response()->json([
-            'status' => 'revoked', 'tenant_id' => $tenantId, 'user_id' => (int) $userId, 'changed' => $changed,
-        ]);
+
+        return match ($result['state']) {
+            'not_found' => $this->error('membership_not_found', 'The requested membership does not exist.', 404),
+            'privileged_target' => $this->error('membership_admin_required', 'Only a platform administrator may revoke an owner/admin membership.', 403),
+            'last_owner' => $this->error('last_owner_protected', 'The last active tenant owner cannot be revoked.', 409),
+            default => response()->json([
+                'status' => 'revoked',
+                'tenant_id' => $tenantId,
+                'user_id' => (int) $userId,
+                'changed' => $result['changed'],
+                'devices_revoked' => $result['devices_revoked'],
+            ]),
+        };
     }
 
     public function revokeDevice(Request $request, string $deviceId): JsonResponse
     {
         $user = $request->user();
-        $token = $user->currentAccessToken();
+        $token = $user?->currentAccessToken();
 
         if (! $token instanceof PersonalAccessToken) {
             return $this->error('identity_session_invalid', 'A supported identity session is required.', 403);
@@ -444,17 +654,21 @@ class IdentityController extends Controller
             $token->token_kind === 'platform_admin' &&
             $token->can('devices:revoke');
 
-        $isOwner = $token->token_kind === 'device' &&
+        $isTenantAdmin = $this->canManageTenant($request, (string) $device->tenant_id, 'devices:revoke');
+
+        $isSelfDevice = $token->token_kind === 'device' &&
+            (string) $token->device_id === $deviceId &&
             (int) ($device->owner_user_id ?? 0) === (int) $user->getKey() &&
             (string) $token->tenant_id === (string) $device->tenant_id &&
+            $token->can('device:revoke') &&
             $this->hasActiveMembership((int) $user->getKey(), (string) $device->tenant_id) &&
             $this->hasActiveDeviceToken($token, (int) $user->getKey());
 
-        if (! $isPlatformAdmin && ! $isOwner) {
+        if (! $isPlatformAdmin && ! $isTenantAdmin && ! $isSelfDevice) {
             return $this->error('device_revoke_forbidden', 'You cannot revoke this device.', 403);
         }
 
-        $changed = DB::connection('central')->transaction(function () use ($user, $deviceId): bool {
+        $changed = DB::connection('central')->transaction(function () use ($user, $request, $deviceId, $isPlatformAdmin): bool {
             $locked = DB::connection('central')
                 ->table('device_registry')
                 ->where('device_id', $deviceId)
@@ -465,8 +679,25 @@ class IdentityController extends Controller
                 return false;
             }
 
+            $allowed = $isPlatformAdmin ||
+                $this->canManageTenant($request, (string) $locked->tenant_id, 'devices:revoke');
+
+            $token = $user->currentAccessToken();
+            $isSelfDevice = $token instanceof PersonalAccessToken &&
+                $token->token_kind === 'device' &&
+                (string) $token->device_id === $deviceId &&
+                (int) ($locked->owner_user_id ?? 0) === (int) $user->getKey() &&
+                (string) $token->tenant_id === (string) $locked->tenant_id &&
+                $token->can('device:revoke') &&
+                $this->hasActiveMembership((int) $user->getKey(), (string) $locked->tenant_id) &&
+                $this->hasActiveDeviceToken($token, (int) $user->getKey());
+
+            if (! $allowed && ! $isSelfDevice) {
+                return false;
+            }
+
+            $now = now();
             if ($locked->status !== 'revoked') {
-                $now = now();
                 DB::connection('central')->table('device_registry')
                     ->where('device_id', $deviceId)
                     ->update([
@@ -494,7 +725,7 @@ class IdentityController extends Controller
         }, 3);
 
         if (! $changed) {
-            return $this->error('device_not_found', 'The requested device was not found.', 404);
+            return $this->error('device_revoke_forbidden', 'The requested device no longer exists or is not authorized for revocation.', 403);
         }
 
         return response()->json([
@@ -613,6 +844,44 @@ class IdentityController extends Controller
             ->where('tm.status', 'active')
             ->where('t.status', 'active')
             ->exists();
+    }
+
+    private function canManageTenant(Request $request, string $tenantId, string $ability): bool
+    {
+        $user = $request->user();
+        $token = $user?->currentAccessToken();
+
+        if (! $user || ! $token instanceof PersonalAccessToken) {
+            return false;
+        }
+
+        if ($token->token_kind === 'platform_admin') {
+            return $user->is_super_admin && $token->can($ability);
+        }
+
+        if ($token->token_kind !== 'device' ||
+            (string) ($token->tenant_id ?? '') !== $tenantId ||
+            ! $token->can($ability) ||
+            ! $this->hasActiveMembership((int) $user->getKey(), $tenantId) ||
+            ! $this->hasActiveDeviceToken($token, (int) $user->getKey())) {
+            return false;
+        }
+
+        return in_array($this->membershipRole((int) $user->getKey(), $tenantId), ['owner', 'admin'], true);
+    }
+
+    private function membershipRole(int $userId, string $tenantId): ?string
+    {
+        $role = DB::connection('central')
+            ->table('tenant_memberships as tm')
+            ->join('tenants as t', 't.id', '=', 'tm.tenant_id')
+            ->where('tm.user_id', $userId)
+            ->where('tm.tenant_id', $tenantId)
+            ->where('tm.status', 'active')
+            ->where('t.status', 'active')
+            ->value('tm.role');
+
+        return $role === null ? null : (string) $role;
     }
 
     private function hasActiveDeviceToken(PersonalAccessToken $token, int $userId): bool
