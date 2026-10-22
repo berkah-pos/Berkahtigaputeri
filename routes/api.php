@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\IdentityController;
+use App\Http\Controllers\Api\V1\PasswordResetController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +40,14 @@ Route::get('/v1/platform-ready', function () {
 Route::post('/v1/auth/login', [IdentityController::class, 'login'])
     ->middleware('throttle:5,1')
     ->name('api.v1.auth.login');
+
+Route::post('/v1/auth/password/forgot', [PasswordResetController::class, 'requestResetLink'])
+    ->middleware('throttle:5,1')
+    ->name('api.v1.auth.password.forgot');
+
+Route::post('/v1/auth/password/reset', [PasswordResetController::class, 'resetPassword'])
+    ->middleware('throttle:5,1')
+    ->name('api.v1.auth.password.reset');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     // Logout is deliberately available to a disabled/revoked identity so it can
