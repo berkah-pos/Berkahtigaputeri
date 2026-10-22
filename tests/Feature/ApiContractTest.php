@@ -70,6 +70,18 @@ class ApiContractTest extends TestCase
             ->assertJsonPath('status', 405);
     }
 
+    public function test_authorization_can_hide_resource_existence_with_a_not_found_status(): void
+    {
+        Route::get('/api/v1/__contract-test/hidden-resource', static function () {
+            throw (new AuthorizationException('Do not reveal resource existence.'))->asNotFound();
+        });
+
+        $this->getJson('/api/v1/__contract-test/hidden-resource')
+            ->assertNotFound()
+            ->assertJsonPath('code', 'not_found')
+            ->assertDontSee('Do not reveal resource existence.');
+    }
+
     public function test_api_validation_errors_preserve_field_errors_in_the_common_envelope(): void
     {
         Route::post('/api/v1/__contract-test/validation', static function () {
