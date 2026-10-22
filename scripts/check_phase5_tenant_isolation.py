@@ -57,14 +57,13 @@ def main() -> int:
         "BERKAH_API_BASE_URL",
         "IdentityService(",
         "restoreSession()",
-        "currentSession",
-        "isDeviceSession",
+        "hasAuthenticatedSession",
     ):
         require(main_dart, fragment, str(MAIN.relative_to(ROOT)))
 
     for fragment in (
         "IdentityService?",
-        "api.signIn(",
+        "identityService.signIn(",
         "SignInStatus.devicePendingApproval",
         "SignInStatus.tenantSelectionRequired",
         "requestEmailVerification",
@@ -101,7 +100,11 @@ def main() -> int:
         "Route::post('/v1/auth/login'",
         "api.v1.auth.login",
         "Route::get('/v1/auth/session'",
+        "api.v1.auth.session",
         "Route::post('/v1/auth/logout'",
+        "api.v1.auth.logout",
+        "api.v1.auth.email.verify",
+        "api.v1.auth.password.reset",
         "verified.device",
     ):
         require(routes, fragment, str(API_ROUTES.relative_to(ROOT)))
