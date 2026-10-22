@@ -125,7 +125,7 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     }
                 );
                 $this->fail('Provisioning must refuse to adopt any existing tenant database or role.');
-            } catch (\\RuntimeException $exception) {
+            } catch (\RuntimeException $exception) {
                 $this->assertSame(
                     'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
                     $exception->getMessage()
@@ -162,11 +162,11 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                 $tenantId,
                 function (string $key, string $password) use (&$storeCalls): string {
                     $storeCalls++;
-                    throw new \\RuntimeException('simulated secret-store outage');
+                    throw new \RuntimeException('simulated secret-store outage');
                 }
             );
             $this->fail('Provisioning must stop if the secret store fails.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $this->assertSame(
                 'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
                 $exception->getMessage()
