@@ -114,6 +114,7 @@ void main() {
 
     await tester.enterText(find.byType(TextFormField).at(0), 'owner@example.test');
     await tester.enterText(find.byType(TextFormField).at(1), 'safe-password');
+    await tester.ensureVisible(find.text('Masuk'));
     await tester.tap(find.text('Masuk'));
     await tester.pumpAndSettle();
 
@@ -174,6 +175,9 @@ void main() {
     expect(find.text('Daftarkan ulang dengan ID perangkat baru'), findsOneWidget);
     expect(tokenStore.token, isNull);
 
+    await tester.ensureVisible(
+      find.text('Daftarkan ulang dengan ID perangkat baru'),
+    );
     await tester.tap(find.text('Daftarkan ulang dengan ID perangkat baru'));
     await tester.pumpAndSettle();
 
