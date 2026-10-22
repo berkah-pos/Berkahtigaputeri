@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
