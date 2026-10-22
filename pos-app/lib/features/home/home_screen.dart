@@ -505,7 +505,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     final service = widget.configService;
     if (service == null) {
       setState(() {
-        _status = 'SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi. '
+        _status = 'Central API belum tersedia pada build ini. '
             'Aplikasi tetap bisa bekerja lokal.';
       });
       return;
@@ -545,8 +545,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _features = features;
         _status = config.fromCache
             ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Supabase memberikan respons; validitas sesi dan otorisasi '
-                'perangkat tetap harus diverifikasi.';
+            : 'Laravel Central API mengembalikan konfigurasi untuk sesi terverifikasi.';
         _loading = false;
       });
     } catch (error) {
@@ -558,6 +557,16 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
         _loading = false;
       });
     }
+  }
+
+  String _effectiveMdr() {
+    final configuration = _configuration;
+    if (configuration == null) return '-';
+    final rawConfig = configuration['config'];
+    final effective = rawConfig is Map
+        ? Map<String, dynamic>.from(rawConfig)
+        : configuration;
+    return (effective['mdr'] ?? effective['qris_mdr'] ?? '-').toString();
   }
 
   @override
@@ -635,10 +644,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                   ],
                   if (_configuration != null) ...<Widget>[
                     const SizedBox(height: 8),
-                    Text('MDR efektif POS: ' +
-                        (_configuration!['mdr'] ??
-                                _configuration!['qris_mdr'] ?? '-')
-                            .toString()),
+                    Text('MDR efektif POS: ' + _effectiveMdr()),
                   ],
                 ],
               ),
