@@ -143,7 +143,6 @@ class EffectiveConfigApiTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertHeader('Cache-Control', 'private, no-store')
             ->assertJsonPath('data.tenant_id', $this->tenant->id)
             ->assertJsonPath('data.device_id', $this->device->device_id)
             ->assertJsonPath('data.service', 'pos')
@@ -159,6 +158,12 @@ class EffectiveConfigApiTest extends TestCase
             ->assertJsonPath('data.config.nested.service', 'S')
             ->assertJsonPath('data.config.nested.device', 'D')
             ->assertJsonPath('data.config.nested.override', 'device');
+
+        // HTTP cache directives are a set; middleware may normalize their order.
+        $cacheControl = $response->headers->get('Cache-Control');
+        $this->assertNotNull($cacheControl);
+        $this->assertStringContainsString('private', $cacheControl);
+        $this->assertStringContainsString('no-store', $cacheControl);
 
         $hash = $response->json('data.hash');
         $this->assertIsString($hash);
