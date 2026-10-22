@@ -200,6 +200,84 @@ class IdentityApiTest extends TestCase
     }
 
 
+
+    public function test_expired_access_token_is_rejected_by_the_server(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-expiry', 'active');
+        $user = $this->createUser('expired-session@example.test', $tenant);
+        $deviceId = $this->deviceId('expiry');
+        $this->createDevice($deviceId, $tenant, $user->id, 'active', $this->deviceSecret('expiry'));
+
+        $login = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'expiry'))
+            ->assertOk();
+        PersonalAccessToken::query()->where('device_id', $deviceId)->firstOrFail()
+            ->forceFill(['expires_at' => now()->subMinute()])->save();
+
+        Auth::forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->getJson('/api/v1/auth/me')
+            ->assertUnauthorized();
+    }
+
+    public function test_disabled_user_loses_an_existing_session_and_token(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-disabled-session', 'active');
+        $user = $this->createUser('disabled-session@example.test', $tenant);
+        $deviceId = $this->deviceId('disabled-session');
+        $this->createDevice($deviceId, $tenant, $user->id, 'active', $this->deviceSecret('disabled-session'));
+
+        $login = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'disabled-session'))
+            ->assertOk();
+        $user->forceFill(['is_active' => false])->save();
+
+        Auth::forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->getJson('/api/v1/auth/me')
+            ->assertForbidden()->assertJsonPath('code', 'user_inactive');
+
+        $this->assertDatabaseMissing('personal_access_tokens', ['device_id' => $deviceId], 'central');
+    }
+
+    public function test_login_rate_limit_blocks_the_sixth_attempt_per_minute(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-rate-limit', 'active');
+        $user = $this->createUser('rate-limit@example.test', $tenant);
+        $credentials = $this->credentials($user, 'wrong-password', 'rate-limit');
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postJson('/api/v1/auth/login', $credentials)->assertUnauthorized();
+        }
+
+        $this->postJson('/api/v1/auth/login', $credentials)->assertTooManyRequests();
+    }
+
+    public function test_untrusted_device_cannot_revoke_other_active_sessions(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-logout-all', 'active');
+        $user = $this->createUser('logout-all@example.test', $tenant);
+        $trustedDeviceId = $this->deviceId('trusted-all');
+        $this->createDevice(
+            $trustedDeviceId,
+            $tenant,
+            $user->id,
+            'active',
+            $this->deviceSecret('trusted-all'),
+        );
+
+        $trustedLogin = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'trusted-all'))
+            ->assertOk();
+        $untrustedLogin = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'untrusted-all'))
+            ->assertOk()->assertJsonPath('device_status', 'unregistered');
+
+        Auth::forgetGuards();
+        $this->withToken($untrustedLogin->json('access_token'))
+            ->postJson('/api/v1/auth/logout-all')
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('personal_access_tokens', ['device_id' => $trustedDeviceId], 'central');
+        $this->assertNotEmpty($trustedLogin->json('access_token'));
+    }
+
     public function test_unenrolled_super_admin_device_cannot_access_central_admin_apis(): void
     {
         $tenant = $this->createTenant('tenant-identity-untrusted-admin', 'active');
