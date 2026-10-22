@@ -256,7 +256,11 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$;
+$;
+
+CREATE TRIGGER journal_lines_guard_posted
+    BEFORE INSERT OR UPDATE OR DELETE ON journal_lines
+    FOR EACH ROW EXECUTE FUNCTION btp_guard_journal_line_mutation();
 
 CREATE OR REPLACE FUNCTION btp_reject_accounting_truncate()
 RETURNS trigger
