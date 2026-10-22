@@ -64,6 +64,27 @@ class PasswordResetFlowTest extends TestCase
         ])->assertStatus(429);
     }
 
+    public function test_password_reset_notification_links_to_a_working_reset_form(): void
+    {
+        $user = $this->createActiveUser();
+        $notification = new ResetPassword('synthetic-reset-token-0123456789abcdef');
+        $mail = $notification->toMail($user);
+
+        $parts = parse_url($mail->actionUrl);
+        $this->assertIsArray($parts);
+        $this->assertArrayHasKey('path', $parts);
+        $this->assertArrayHasKey('query', $parts);
+
+        parse_str($parts['query'], $query);
+        $this->assertSame($user->email, $query['email'] ?? null);
+
+        $this->get($parts['path'] . '?' . $parts['query'])
+            ->assertOk()
+            ->assertSee('Atur ulang kata sandi')
+            ->assertSee('synthetic-reset-token-0123456789abcdef')
+            ->assertSee('/api/v1/auth/password/reset');
+    }
+
     public function test_successful_password_reset_revokes_all_existing_api_tokens(): void
     {
         $user = $this->createActiveUser();
