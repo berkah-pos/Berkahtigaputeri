@@ -339,6 +339,23 @@ class IdentityDeviceTrustTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0, 'central');
     }
 
+    public function test_login_attempts_are_limited_per_identity_even_when_credentials_are_wrong(): void
+    {
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->postJson('/api/v1/auth/login', [
+                'email' => $this->member->email,
+                'password' => 'incorrect-password',
+            ])->assertUnauthorized();
+        }
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'incorrect-password',
+        ])->assertStatus(429);
+
+        $this->assertDatabaseCount('personal_access_tokens', 0, 'central');
+    }
+
     public function test_expired_device_token_is_rejected(): void
     {
         $deviceId = 'device-' . Str::uuid();
