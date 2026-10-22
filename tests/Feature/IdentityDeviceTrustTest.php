@@ -291,6 +291,35 @@ class IdentityDeviceTrustTest extends TestCase
             ->assertJsonPath('error', 'active_device_required');
     }
 
+    public function test_device_token_cannot_revoke_a_different_device_owned_by_the_same_user(): void
+    {
+        $currentDevice = 'device-' . Str::uuid();
+        $otherDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($currentDevice, (int) $this->member->getKey(), $this->tenantId);
+        $this->createActiveDevice($otherDevice, (int) $this->member->getKey(), $this->tenantId);
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $currentDevice,
+        ]);
+        $login->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->postJson('/api/v1/devices/' . $otherDevice . '/revoke')
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'device_revoke_forbidden');
+
+        $this->assertDatabaseHas('device_registry', [
+            'device_id' => $otherDevice,
+            'tenant_id' => $this->tenantId,
+            'owner_user_id' => $this->member->getKey(),
+            'status' => 'active',
+        ], 'central');
+    }
+
     public function test_device_token_cannot_revoke_another_tenant_devices_even_for_same_user(): void
     {
         $otherTenant = $this->createTenant();
