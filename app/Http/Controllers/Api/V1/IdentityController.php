@@ -470,6 +470,21 @@ class IdentityController extends Controller
                 return ['state' => 'active', 'changed' => false, 'role' => $role];
             }
 
+            if ($existing &&
+                $existing->status === 'active' &&
+                (string) $existing->role === 'owner' &&
+                $role !== 'owner') {
+                $activeOwnerCount = (int) DB::connection('central')->table('tenant_memberships')
+                    ->where('tenant_id', $tenantId)
+                    ->where('status', 'active')
+                    ->where('role', 'owner')
+                    ->count();
+
+                if ($activeOwnerCount <= 1) {
+                    return ['state' => 'last_owner'];
+                }
+            }
+
             $now = now();
             if ($existing) {
                 DB::connection('central')->table('tenant_memberships')
@@ -517,6 +532,7 @@ class IdentityController extends Controller
         if ($result['state'] === 'user_inactive') return $this->error('identity_disabled', 'An inactive account cannot be granted tenant access.', 409);
         if ($result['state'] === 'tenant_inactive') return $this->error('tenant_inactive', 'An inactive tenant cannot accept new memberships.', 409);
         if ($result['state'] === 'forbidden') return $this->error('membership_management_forbidden', 'The actor no longer has an active authorized membership for this tenant.', 403);
+        if ($result['state'] === 'last_owner') return $this->error('last_owner_protected', 'The last active tenant owner cannot be demoted or revoked.', 409);
 
         return response()->json([
             'status' => 'active',
