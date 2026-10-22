@@ -88,6 +88,10 @@ final class ApiProblemResponse
         }
 
         if ($exception instanceof AuthorizationException) {
+            if ($exception->hasStatus()) {
+                return self::describeHttpStatus($exception->status(), []);
+            }
+
             return [403, 'forbidden', 'Forbidden', 'The request is not authorized.', null, []];
         }
 
