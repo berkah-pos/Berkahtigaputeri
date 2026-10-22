@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\EmailVerificationController;
 use App\Http\Controllers\Api\V1\IdentityController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,14 @@ Route::post('/v1/auth/password/forgot', [PasswordResetController::class, 'reques
 Route::post('/v1/auth/password/reset', [PasswordResetController::class, 'resetPassword'])
     ->middleware('throttle:password-reset')
     ->name('api.v1.auth.password.reset');
+
+Route::post('/v1/auth/email/verification-notification', [EmailVerificationController::class, 'requestVerification'])
+    ->middleware('throttle:email-verification')
+    ->name('api.v1.auth.email.verification-notification');
+
+Route::get('/v1/auth/email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
+    ->middleware(['signed', 'throttle:6,1'])
+    ->name('api.v1.auth.email.verify');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     // Logout is deliberately available to a disabled/revoked identity so it can
