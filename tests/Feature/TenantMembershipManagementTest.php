@@ -197,13 +197,16 @@ class TenantMembershipManagementTest extends TestCase
 
     private function createUser(string $prefix, bool $admin): User
     {
-        return User::query()->create([
+        $user = User::query()->create([
             'name' => $prefix === 'admin' ? 'Platform Admin' : 'Membership User',
             'email' => $prefix . '-' . Str::uuid() . '@example.test',
-            'email_verified_at' => now(),
             'password' => 'Correct-password-123!',
             'tenant_id' => null, 'is_super_admin' => $admin, 'is_active' => true,
         ]);
+
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return $user;
     }
 
     private function platformToken(User $admin): string
