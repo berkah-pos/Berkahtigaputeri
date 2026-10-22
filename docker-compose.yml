@@ -35,11 +35,9 @@ services:
       CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
       CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
       CENTRAL_DB_SSLMODE: disable
+      # A tenant login/database must be provisioned explicitly. Do not reuse central credentials.
       TENANT_DB_HOST: postgres
       TENANT_DB_PORT: "5432"
-      TENANT_DB_DATABASE: ${TENANT_DB_DATABASE:-berkahpos_tenant}
-      TENANT_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      TENANT_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
       TENANT_DB_SSLMODE: disable
       CACHE_STORE: file
       SESSION_DRIVER: file
