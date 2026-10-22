@@ -701,71 +701,70 @@ class IdentityController extends Controller
 
     public function revokeDevice(Request $request, string $deviceId): JsonResponse
     {
+        $payload = $request->validate([
+            'current_password' => ['sometimes', 'nullable', 'string', 'max:4096'],
+        ]);
+
         $user = $request->user();
-        $token = $user?->currentAccessToken();
-
-        if (! $token instanceof PersonalAccessToken) {
-            return $this->error('identity_session_invalid', 'A supported identity session is required.', 403);
-        }
-
-        $device = DB::connection('central')
-            ->table('device_registry')
-            ->where('device_id', $deviceId)
-            ->first();
-
-        if (! $device) {
-            return $this->error('device_not_found', 'The requested device was not found.', 404);
-        }
-
-        $isPlatformAdmin = $user->is_super_admin &&
-            $token->token_kind === 'platform_admin' &&
-            $token->can('devices:revoke');
-
-        $isTenantAdmin = $this->canManageTenant($request, (string) $device->tenant_id, 'devices:revoke');
-
-        // An active session on one of a user's devices may revoke another
-        // device registered to that same user and tenant (lost/replaced-device
-        // recovery). Never let the request select a different owner's device.
-        $isSelfDevice = $token->token_kind === 'device' &&
-            (int) ($device->owner_user_id ?? 0) === (int) $user->getKey() &&
-            (string) $token->tenant_id === (string) $device->tenant_id &&
-            $token->can('device:revoke') &&
-            $this->hasActiveMembership((int) $user->getKey(), (string) $device->tenant_id) &&
-            $this->hasActiveDeviceToken($token, (int) $user->getKey());
-
-        if (! $isPlatformAdmin && ! $isTenantAdmin && ! $isSelfDevice) {
-            return $this->error('device_revoke_forbidden', 'You cannot revoke this device.', 403);
-        }
-
-        $changed = DB::connection('central')->transaction(function () use ($user, $request, $deviceId, $isPlatformAdmin): bool {
-            $locked = DB::connection('central')
+        $result = DB::connection('central')->transaction(function () use (
+            $user,
+            $request,
+            $payload,
+            $deviceId,
+        ): array {
+            $device = DB::connection('central')
                 ->table('device_registry')
                 ->where('device_id', $deviceId)
                 ->lockForUpdate()
                 ->first();
 
-            if (! $locked) {
-                return false;
+            if (! $device) {
+                return ['state' => 'not_found'];
             }
 
-            $allowed = $isPlatformAdmin ||
-                $this->canManageTenant($request, (string) $locked->tenant_id, 'devices:revoke');
+            $token = $user?->currentAccessToken();
+            if (! $token instanceof PersonalAccessToken || ! $user) {
+                return ['state' => 'forbidden'];
+            }
 
-            $token = $user->currentAccessToken();
-            $isSelfDevice = $token instanceof PersonalAccessToken &&
-                $token->token_kind === 'device' &&
-                (int) ($locked->owner_user_id ?? 0) === (int) $user->getKey() &&
-                (string) $token->tenant_id === (string) $locked->tenant_id &&
+            $isPlatformAdmin = $user->is_super_admin &&
+                $token->token_kind === 'platform_admin' &&
+                $token->can('devices:revoke');
+
+            $isTenantAdmin = $this->canManageTenant(
+                $request,
+                (string) $device->tenant_id,
+                'devices:revoke',
+            );
+
+            // A user may recover a lost/replaced device from another of their
+            // active devices in the same tenant. That operation requires fresh
+            // password proof; an ordinary device token alone must not be able
+            // to revoke all sibling sessions if it is stolen.
+            $isOwnedDevice = $token->token_kind === 'device' &&
+                (int) ($device->owner_user_id ?? 0) === (int) $user->getKey() &&
+                (string) $token->tenant_id === (string) $device->tenant_id &&
                 $token->can('device:revoke') &&
-                $this->hasActiveMembership((int) $user->getKey(), (string) $locked->tenant_id) &&
+                $this->hasActiveMembership((int) $user->getKey(), (string) $device->tenant_id) &&
                 $this->hasActiveDeviceToken($token, (int) $user->getKey());
 
-            if (! $allowed && ! $isSelfDevice) {
-                return false;
+            if (! $isPlatformAdmin && ! $isTenantAdmin && ! $isOwnedDevice) {
+                return ['state' => 'forbidden'];
+            }
+
+            $isOtherOwnedDevice = $isOwnedDevice &&
+                (string) $token->device_id !== $deviceId &&
+                ! $isPlatformAdmin &&
+                ! $isTenantAdmin;
+
+            if ($isOtherOwnedDevice &&
+                (! isset($payload['current_password']) ||
+                    ! Hash::check((string) $payload['current_password'], (string) $user->password))) {
+                return ['state' => 'reauthentication_required'];
             }
 
             $now = now();
-            if ($locked->status !== 'revoked') {
+            if ($device->status !== 'revoked') {
                 DB::connection('central')->table('device_registry')
                     ->where('device_id', $deviceId)
                     ->update([
@@ -777,10 +776,13 @@ class IdentityController extends Controller
 
                 $this->recordAudit(
                     (int) $user->getKey(),
-                    (string) $locked->tenant_id,
+                    (string) $device->tenant_id,
                     $deviceId,
                     'device.revoked',
-                    ['status' => 'revoked'],
+                    [
+                        'status' => 'revoked',
+                        'reauthenticated' => $isOtherOwnedDevice,
+                    ],
                 );
             }
 
@@ -789,17 +791,22 @@ class IdentityController extends Controller
                 ->where('device_id', $deviceId)
                 ->delete();
 
-            return true;
+            return ['state' => 'revoked'];
         }, 3);
 
-        if (! $changed) {
-            return $this->error('device_revoke_forbidden', 'The requested device no longer exists or is not authorized for revocation.', 403);
-        }
-
-        return response()->json([
-            'status' => 'revoked',
-            'device_id' => $deviceId,
-        ]);
+        return match ($result['state']) {
+            'not_found' => $this->error('device_not_found', 'The requested device was not found.', 404),
+            'forbidden' => $this->error('device_revoke_forbidden', 'You cannot revoke this device.', 403),
+            'reauthentication_required' => $this->error(
+                'reauthentication_required',
+                'Confirm the account password before revoking another device owned by this account.',
+                403,
+            ),
+            default => response()->json([
+                'status' => 'revoked',
+                'device_id' => $deviceId,
+            ]),
+        };
     }
 
     private function issuePlatformAdminToken(User $user): JsonResponse
