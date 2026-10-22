@@ -53,16 +53,15 @@ Route::middleware(['auth:sanctum', 'active.identity'])->group(function (): void 
     Route::get('/v1/auth/session', [IdentityController::class, 'session'])
         ->name('api.v1.auth.session');
 
+    // The controller verifies either a platform-admin token or a current,
+    // tenant-bound owner/admin token for the target tenant.
     Route::put('/v1/tenants/{tenantId}/memberships/{userId}', [IdentityController::class, 'grantMembership'])
-        ->middleware('platform.ability:memberships:manage')
         ->name('api.v1.memberships.grant');
 
     Route::delete('/v1/tenants/{tenantId}/memberships/{userId}', [IdentityController::class, 'revokeMembership'])
-        ->middleware('platform.ability:memberships:manage')
         ->name('api.v1.memberships.revoke');
 
     Route::post('/v1/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])
-        ->middleware('platform.ability:devices:approve')
         ->name('api.v1.devices.approve');
 
     Route::post('/v1/devices/{deviceId}/revoke', [IdentityController::class, 'revokeDevice'])
