@@ -241,7 +241,9 @@ class IdentityDeviceTrustTest extends TestCase
 
         $this->app['auth']->forgetGuards();
         $this->withToken($secondToken)
-            ->postJson('/api/v1/devices/' . $firstDevice . '/revoke')
+            ->postJson('/api/v1/devices/' . $firstDevice . '/revoke', [
+                'current_password' => 'Correct-password-123!',
+            ])
             ->assertOk()
             ->assertJsonPath('status', 'revoked');
 
@@ -291,7 +293,7 @@ class IdentityDeviceTrustTest extends TestCase
             ->assertJsonPath('error', 'active_device_required');
     }
 
-    public function test_device_token_cannot_revoke_a_different_device_owned_by_the_same_user(): void
+    public function test_device_token_requires_password_reauthentication_to_revoke_a_different_owned_device(): void
     {
         $currentDevice = 'device-' . Str::uuid();
         $otherDevice = 'device-' . Str::uuid();
@@ -310,13 +312,36 @@ class IdentityDeviceTrustTest extends TestCase
         $this->withToken($login->json('access_token'))
             ->postJson('/api/v1/devices/' . $otherDevice . '/revoke')
             ->assertStatus(403)
-            ->assertJsonPath('error', 'device_revoke_forbidden');
+            ->assertJsonPath('error', 'reauthentication_required');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->postJson('/api/v1/devices/' . $otherDevice . '/revoke', [
+                'current_password' => 'wrong-password',
+            ])
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'reauthentication_required');
 
         $this->assertDatabaseHas('device_registry', [
             'device_id' => $otherDevice,
             'tenant_id' => $this->tenantId,
             'owner_user_id' => $this->member->getKey(),
             'status' => 'active',
+        ], 'central');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($login->json('access_token'))
+            ->postJson('/api/v1/devices/' . $otherDevice . '/revoke', [
+                'current_password' => 'Correct-password-123!',
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'revoked');
+
+        $this->assertDatabaseHas('device_registry', [
+            'device_id' => $otherDevice,
+            'tenant_id' => $this->tenantId,
+            'owner_user_id' => $this->member->getKey(),
+            'status' => 'revoked',
         ], 'central');
     }
 
