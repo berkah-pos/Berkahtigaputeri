@@ -45,6 +45,14 @@ class IdentityController extends Controller
             );
         }
 
+        if ($user->email_verification_required && ! $user->hasVerifiedEmail()) {
+            return $this->error(
+                'email_verification_required',
+                'Verify the email address before starting a new tenant session.',
+                403,
+            );
+        }
+
         $requestedTenantId = isset($payload['tenant_id']) && trim($payload['tenant_id']) !== ''
             ? trim($payload['tenant_id'])
             : null;
@@ -468,6 +476,17 @@ class IdentityController extends Controller
 
             if ($existing && $existing->status === 'active' && (string) $existing->role === $role) {
                 return ['state' => 'active', 'changed' => false, 'role' => $role];
+            }
+
+            // New/reactivated membership or a role change on an unverified
+            // account requires an email proof before the next login.
+            if ($targetUser->email_verified_at === null) {
+                DB::connection('central')->table('users')
+                    ->where('id', $userId)
+                    ->update([
+                        'email_verification_required' => true,
+                        'updated_at' => now(),
+                    ]);
             }
 
             if ($existing &&
