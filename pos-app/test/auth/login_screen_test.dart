@@ -120,4 +120,68 @@ void main() {
     expect(find.textContaining('tenant-b'), findsOneWidget);
     expect(tokenStore.token, isNull);
   });
+  testWidgets('revoked device can request approval with a new installation ID',
+      (tester) async {
+    final preferences = await SharedPreferences.getInstance();
+    final identityStore = AppIdentityStore(preferences);
+    final tokenStore = _MemoryTokenStore();
+    final requestedDeviceIds = <String>[];
+    var loginCount = 0;
+
+    final service = IdentityService(
+      baseUrl: 'https://api.example.test',
+      identityStore: identityStore,
+      tokenStore: tokenStore,
+      httpClient: MockClient((http.Request request) async {
+        if (request.url.path == '/api/v1/auth/login') {
+          loginCount++;
+          final payload = jsonDecode(request.body) as Map<String, dynamic>;
+          requestedDeviceIds.add(payload['device_id'] as String);
+          if (loginCount == 1) {
+            return http.Response(
+              '{"error":"device_revoked","message":"Device revoked"}',
+              403,
+              headers: const <String, String>{'content-type': 'application/json'},
+            );
+          }
+          return http.Response(
+            '{"status":"device_pending_approval","message":"Awaiting approval"}',
+            202,
+            headers: const <String, String>{'content-type': 'application/json'},
+          );
+        }
+        return http.Response('{}', 404);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LoginScreen(
+          api: service,
+          onAuthenticated: () {},
+          onContinueLocal: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'owner@example.test');
+    await tester.enterText(find.byType(TextFormField).at(1), 'safe-password');
+    await tester.tap(find.text('Masuk'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daftarkan ulang dengan ID perangkat baru'), findsOneWidget);
+    expect(tokenStore.token, isNull);
+
+    await tester.tap(find.text('Daftarkan ulang dengan ID perangkat baru'));
+    await tester.pumpAndSettle();
+
+    expect(loginCount, 2);
+    expect(requestedDeviceIds, hasLength(2));
+    expect(requestedDeviceIds[0], isNot(requestedDeviceIds[1]));
+    expect(identityStore.deviceId, requestedDeviceIds[1]);
+    expect(find.text('Coba lagi setelah perangkat disetujui'), findsOneWidget);
+    expect(tokenStore.token, isNull);
+  });
+
+
 }
