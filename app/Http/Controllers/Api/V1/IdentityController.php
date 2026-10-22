@@ -161,8 +161,14 @@ class IdentityController extends Controller
         $user = $request->user();
         $token = $user?->currentAccessToken();
 
-        if (! $user || ! $user->is_active || ! $token instanceof PersonalAccessToken) {
+        if (! $user || ! $token instanceof PersonalAccessToken) {
             return response()->json(['message' => 'Sesi tidak aktif.', 'code' => 'session_inactive'], 403);
+        }
+
+        if (! $user->is_active) {
+            $token->delete();
+
+            return response()->json(['message' => 'Akun tidak aktif.', 'code' => 'user_inactive'], 403);
         }
 
         $tenantId = $token->tenant_id;
