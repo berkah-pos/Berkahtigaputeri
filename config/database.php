@@ -17,6 +17,22 @@ return [
             'search_path' => env('CENTRAL_DB_SCHEMA', 'public'),
             'sslmode' => env('CENTRAL_DB_SSLMODE', env('DB_SSLMODE', 'prefer')),
         ],
+        // This connection is for the isolated provisioning worker only. Do not inject
+        // PROVISIONER_* environment variables into web or ordinary queue services.
+        'provisioner' => [
+            'driver' => 'pgsql',
+            'url' => env('PROVISIONER_DB_URL'),
+            'host' => env('PROVISIONER_DB_HOST'),
+            'port' => env('PROVISIONER_DB_PORT', '5432'),
+            'database' => env('PROVISIONER_DB_DATABASE', env('CENTRAL_DB_DATABASE', 'berkahpos_central')),
+            'username' => env('PROVISIONER_DB_USERNAME'),
+            'password' => env('PROVISIONER_DB_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('PROVISIONER_DB_SSLMODE', 'verify-full'),
+        ],
         'tenant' => [
             'driver' => 'pgsql',
             'url' => env('TENANT_DB_URL'),
