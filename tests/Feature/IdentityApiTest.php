@@ -6,6 +6,7 @@ use App\Models\Central\DeviceRegistry;
 use App\Models\Central\PersonalAccessToken;
 use App\Models\Central\TenantMembership;
 use App\Models\Central\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
@@ -131,6 +132,9 @@ class IdentityApiTest extends TestCase
         $token = $login->json('access_token');
         $this->withToken($token)->getJson('/api/v1/auth/me')->assertOk();
         $this->withToken($token)->postJson('/api/v1/auth/logout')->assertOk();
+        // Feature tests dispatch multiple requests through one application container;
+        // clear the memoized Sanctum guard to model a fresh HTTP request after revocation.
+        Auth::forgetGuards();
         $this->withToken($token)->getJson('/api/v1/auth/me')->assertUnauthorized();
 
         $secondLogin = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'i'))->assertOk();
@@ -142,10 +146,12 @@ class IdentityApiTest extends TestCase
         $this->createDevice($adminDeviceId, $tenant, $admin->id, 'active', $adminSecret);
         $adminLogin = $this->postJson('/api/v1/auth/login', $this->credentials($admin, 'correct-password', 'j'))->assertOk();
 
+        Auth::forgetGuards();
         $this->withToken($adminLogin->json('access_token'))
             ->postJson('/api/v1/admin/devices/'.$deviceId.'/revoke')
             ->assertOk()->assertJsonPath('status', 'revoked');
 
+        Auth::forgetGuards();
         $this->withToken($secondToken)->getJson('/api/v1/identity/context')
             ->assertUnauthorized();
         $this->assertSame(0, PersonalAccessToken::query()->where('device_id', $deviceId)->count());
@@ -170,7 +176,10 @@ class IdentityApiTest extends TestCase
     {
         $tenantPending = $this->createTenant('tenant-identity-l', 'pending');
         $tenantActive = $this->createTenant('tenant-identity-m', 'active');
-        $member = $this->createUser('new-member@example.test', $tenantPending, ['is_active' => false]);
+        // Use an active account with no membership: an inactive user must remain
+        // unable to log in even after an administrator grants membership.
+        $member = $this->createUser('new-member@example.test', $tenantPending);
+        TenantMembership::query()->where('user_id', $member->id)->delete();
         $admin = $this->createUser('admin-membership@example.test', $tenantActive, ['is_super_admin' => true]);
         $adminDeviceId = $this->deviceId('m');
         $adminSecret = $this->deviceSecret('m');
@@ -188,6 +197,24 @@ class IdentityApiTest extends TestCase
 
         $this->postJson('/api/v1/auth/login', $this->credentials($member, 'correct-password', 'n', $tenantActive))
             ->assertOk()->assertJsonPath('tenant_id', $tenantActive);
+    }
+
+
+    public function test_unenrolled_super_admin_device_cannot_access_central_admin_apis(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-untrusted-admin', 'active');
+        $admin = $this->createUser('untrusted-admin@example.test', $tenant, ['is_super_admin' => true]);
+        $deviceId = $this->deviceId('untrusted-admin');
+        $login = $this->postJson('/api/v1/auth/login', $this->credentials($admin, 'correct-password', 'untrusted-admin'))
+            ->assertOk()
+            ->assertJsonPath('device_status', 'unregistered');
+
+        $this->withToken($login->json('access_token'))
+            ->putJson('/api/v1/admin/tenants/'.$tenant.'/memberships', [
+                'email' => $admin->email, 'role' => 'manager', 'status' => 'active',
+            ])->assertForbidden()->assertJsonPath('code', 'identity_context_denied');
+
+        $this->assertDatabaseMissing('device_registry', ['device_id' => $deviceId], 'central');
     }
 
     private function createTenant(string $tenantId, string $status): string
