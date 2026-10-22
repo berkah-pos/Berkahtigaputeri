@@ -74,7 +74,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _lastStatus = result.status;
       _message = result.message;
       _messageIsError = result.status == SignInStatus.failed ||
-          result.status == SignInStatus.deviceRevoked;
+          result.status == SignInStatus.deviceRevoked ||
+          result.status == SignInStatus.deviceIdentityConflict;
       if (result.status == SignInStatus.tenantSelectionRequired) {
         _tenantChoices = result.memberships;
         _selectedTenantId =
@@ -110,7 +111,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _lastStatus = result.status;
       _message = result.message;
       _messageIsError = result.status == SignInStatus.failed ||
-          result.status == SignInStatus.deviceRevoked;
+          result.status == SignInStatus.deviceRevoked ||
+          result.status == SignInStatus.deviceIdentityConflict;
       if (result.status == SignInStatus.tenantSelectionRequired) {
         _tenantChoices = result.memberships;
         _selectedTenantId =
@@ -436,7 +438,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           : 'Masuk',
             ),
           ),
-          if (_lastStatus == SignInStatus.deviceRevoked) ...<Widget>[
+          if (_lastStatus == SignInStatus.deviceRevoked ||
+              _lastStatus == SignInStatus.deviceIdentityConflict) ...<Widget>[
             const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _loading ? null : _replaceRevokedDevice,
