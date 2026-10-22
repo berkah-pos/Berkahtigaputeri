@@ -18,16 +18,24 @@ class TenantFeatures {
   }
 
   factory TenantFeatures.fromEffectiveConfig(Map<String, dynamic> config) {
-    final rawFeatures = config['features'];
+    // The Central API returns an envelope whose resolved feature values live
+    // inside "config". Accept that canonical response shape first; the flat
+    // form remains supported for local fixtures and older local-only data.
+    final nestedConfig = config['config'];
+    final effective = nestedConfig is Map
+        ? Map<String, dynamic>.from(nestedConfig)
+        : config;
+
+    final rawFeatures = effective['features'];
     if (rawFeatures is Map) {
       return TenantFeatures.fromJson(Map<String, dynamic>.from(rawFeatures));
     }
 
-    if (config.containsKey('pos_enabled') ||
-        config.containsKey('akuntansi_enabled')) {
+    if (effective.containsKey('pos_enabled') ||
+        effective.containsKey('akuntansi_enabled')) {
       return TenantFeatures(
-        pos: config['pos_enabled'] == true,
-        akuntansi: config['akuntansi_enabled'] == true,
+        pos: effective['pos_enabled'] == true,
+        akuntansi: effective['akuntansi_enabled'] == true,
       );
     }
 
