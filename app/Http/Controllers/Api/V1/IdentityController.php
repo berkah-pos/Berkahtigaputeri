@@ -485,16 +485,6 @@ class IdentityController extends Controller
                 return ['state' => 'active', 'changed' => false, 'role' => $role];
             }
 
-            // Tenant owners/admins may manage ordinary staff, but they must not
-            // demote, reassign, or reactivate a stored owner/admin membership.
-            // This decision is based on the persisted role, not just the input
-            // role, so omitting "role" cannot bypass the privilege boundary.
-            if (! $isPlatformAdmin &&
-                $existing &&
-                in_array((string) $existing->role, ['owner', 'admin'], true)) {
-                return ['state' => 'privileged_target'];
-            }
-
             // New/reactivated membership or a role change on an unverified
             // account requires an email proof before the next login.
             if ($targetUser->email_verified_at === null) {
@@ -519,6 +509,16 @@ class IdentityController extends Controller
                 if ($activeOwnerCount <= 1) {
                     return ['state' => 'last_owner'];
                 }
+            }
+
+            // Tenant owners/admins may manage ordinary staff, but they must not
+            // demote, reassign, or reactivate a stored owner/admin membership.
+            // This decision is based on the persisted role, not just the input
+            // role, so omitting "role" cannot bypass the privilege boundary.
+            if (! $isPlatformAdmin &&
+                $existing &&
+                in_array((string) $existing->role, ['owner', 'admin'], true)) {
+                return ['state' => 'privileged_target'];
             }
 
             $now = now();
