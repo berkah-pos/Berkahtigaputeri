@@ -178,28 +178,49 @@ jobs:
             echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
           fi
 
-      - name: Reject publisher-signed release while legacy Supabase runtime remains
+      - name: Require Supabase-free runtime and production API origin for signed releases
         if: steps.signing.outputs.mode == 'release'
         shell: bash
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
         run: |
           set -euo pipefail
-          # The current Flutter client still contains a forbidden legacy path.
-          # Refuse a publisher-signed release until a reviewed PR replaces it
-          # with the Laravel API and removes the SDK/initialization/config vars.
+          # A publisher-signed app must open a real Laravel Central API session.
+          # Never ship a signed AAB that silently opens in local-only mode.
           if grep -R -n -E 'supabase_flutter|Supabase\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\.instance' lib pubspec.yaml; then
-            echo "::error::Publisher-signed release blocked: legacy Supabase client usage remains. Replace it with the tested Laravel API before release; do not configure Supabase secrets."
+            echo "::error::Publisher-signed release blocked: a Supabase runtime reference remains. Remove the legacy path; do not configure Supabase secrets."
             exit 1
           fi
+          if [[ -z "${BERKAH_API_BASE_URL:-}" ]]; then
+            echo "::error::Publisher-signed release requires the repository variable BERKAH_API_BASE_URL."
+            exit 1
+          fi
+          python3 - "$BERKAH_API_BASE_URL" <<'PY'
+          import sys
+          from urllib.parse import urlsplit
+          value = sys.argv[1].strip()
+          parsed = urlsplit(value)
+          if parsed.scheme != "https" or not parsed.hostname:
+              raise SystemExit("BERKAH_API_BASE_URL must be an absolute HTTPS origin.")
+          if parsed.username or parsed.password or parsed.query or parsed.fragment:
+              raise SystemExit("BERKAH_API_BASE_URL must not include credentials, query, or fragment.")
+          if parsed.path not in ("", "/"):
+              raise SystemExit("BERKAH_API_BASE_URL must be the API origin only, without an extra path prefix.")
+          print("Verified HTTPS Laravel API origin configured for publisher-signed release.")
+          PY
 
       - name: Build publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
-        run: flutter build appbundle --release
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
+        run: flutter build appbundle --release --dart-define=BERKAH_API_BASE_URL="$BERKAH_API_BASE_URL"
 
       - name: Build test-only debug-signed AAB
         if: steps.signing.outputs.mode == 'debug'
         env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
           ORG_GRADLE_PROJECT_allowDebugReleaseSigning: "true"
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release --dart-define=BERKAH_API_BASE_URL="${BERKAH_API_BASE_URL:-}"
 
       - name: Verify generated AAB and report certificate fingerprint
         shell: bash
