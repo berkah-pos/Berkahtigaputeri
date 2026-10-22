@@ -51,23 +51,16 @@ final class PostgresTenantProvisioner
             throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
         }
 
-        $runtimePassword = bin2hex(random_bytes(32));
-        $migratorPassword = bin2hex(random_bytes(32));
-
-        // Persist secrets before creating any database objects. Never return passwords.
-        $runtimeRef = $storeCredential('tenant/' . $tenant . '/runtime', $runtimePassword);
-        $migratorRef = $storeCredential('tenant/' . $tenant . '/migrator', $migratorPassword);
-        if (! is_string($runtimeRef) || $runtimeRef === '' || ! is_string($migratorRef) || $migratorRef === '') {
-            throw new RuntimeException('Secret manager did not return valid credential references.');
-        }
-
         $connection = DB::connection('provisioner');
         $connection->getPdo();
+        $brokerRole = (string) $connection->scalar('SELECT current_user');
+        $brokerIdentifier = $this->identifier($brokerRole);
 
         // Session-level lock serializes concurrent attempts for this tenant. It is
         // held across CREATE DATABASE, which cannot run inside a transaction.
         $lockKey = $this->advisoryLockKey($tenant);
         $connection->select('SELECT pg_advisory_lock(?)', [$lockKey]);
+        $temporaryOwnerMembershipGranted = false;
 
         try {
             $existing = $connection->select(
@@ -83,7 +76,19 @@ final class PostgresTenantProvisioner
                 throw new RuntimeException('Tenant database or role already exists; refusing to adopt or modify unverified resources.');
             }
 
-            $connection->statement('CREATE ROLE ' . $this->identifier($ownerRole) . ' NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS');
+            // Check resource collision before writing credentials to the secret manager.
+            $runtimePassword = bin2hex(random_bytes(32));
+            $migratorPassword = bin2hex(random_bytes(32));
+            $runtimeRef = $storeCredential('tenant/' . $tenant . '/runtime', $runtimePassword);
+            $migratorRef = $storeCredential('tenant/' . $tenant . '/migrator', $migratorPassword);
+            if (! is_string($runtimeRef) || $runtimeRef === '' || ! is_string($migratorRef) || $migratorRef === '') {
+                throw new RuntimeException('Secret manager did not return valid credential references.');
+            }
+
+            $connection->statement(
+                'CREATE ROLE ' . $this->identifier($ownerRole)
+                . ' NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'
+            );
             $connection->statement(
                 'CREATE ROLE ' . $this->identifier($runtimeRole)
                 . ' LOGIN PASSWORD ' . $this->literal($runtimePassword)
@@ -95,28 +100,54 @@ final class PostgresTenantProvisioner
                 . ' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS'
             );
 
-            $connection->statement('GRANT ' . $this->identifier($ownerRole) . ' TO ' . $this->identifier($migratorRole));
+            // A non-superuser must be allowed to SET ROLE to the requested owner
+            // before it can create a database owned by that role. This membership
+            // exists only for CREATE DATABASE and is revoked immediately afterwards.
+            $connection->statement('GRANT ' . $this->identifier($ownerRole) . ' TO ' . $brokerIdentifier);
+            $temporaryOwnerMembershipGranted = true;
             $connection->statement(
                 'CREATE DATABASE ' . $this->identifier($database)
                 . ' OWNER ' . $this->identifier($ownerRole)
                 . ' TEMPLATE template0 ENCODING \'UTF8\''
             );
+            $connection->statement('REVOKE ' . $this->identifier($ownerRole) . ' FROM ' . $brokerIdentifier);
+            $temporaryOwnerMembershipGranted = false;
 
-            // Use a temporary connection derived from the private broker settings,
-            // never from caller-supplied database names or tenant IDs.
+            // Bootstrap the database as the tenant migrator, not as the cluster
+            // broker. Membership permits SET ROLE to the database owner during the
+            // one-time schema/ACL setup. Default ACLs must be declared for the role
+            // that actually creates future objects (migrator as well as owner).
             config(['database.connections.provisioning_target' => array_merge($broker, [
+                'url' => null,
                 'database' => $database,
-                'username' => $broker['username'],
-                'password' => $broker['password'],
+                'username' => $migratorRole,
+                'password' => $migratorPassword,
             ])]);
             DB::purge('provisioning_target');
             $target = DB::connection('provisioning_target');
+
+            $target->statement('SET ROLE ' . $this->identifier($ownerRole));
+            $target->statement(
+                'REVOKE ALL ON DATABASE ' . $this->identifier($database) . ' FROM PUBLIC'
+            );
+            $target->statement(
+                'GRANT CONNECT ON DATABASE ' . $this->identifier($database)
+                . ' TO ' . $this->identifier($runtimeRole)
+            );
+            $target->statement(
+                'GRANT CONNECT ON DATABASE ' . $this->identifier($database)
+                . ' TO ' . $this->identifier($migratorRole)
+            );
+
             $target->statement('ALTER SCHEMA public OWNER TO ' . $this->identifier($ownerRole));
             $target->statement('REVOKE ALL ON SCHEMA public FROM PUBLIC');
-            $target->statement('GRANT CONNECT ON DATABASE ' . $this->identifier($database) . ' TO ' . $this->identifier($runtimeRole));
-            $target->statement('GRANT USAGE ON SCHEMA public TO ' . $this->identifier($runtimeRole));
-            $target->statement('GRANT USAGE, CREATE ON SCHEMA public TO ' . $this->identifier($migratorRole));
-            $target->statement('GRANT ' . $this->identifier($ownerRole) . ' TO ' . $this->identifier($migratorRole));
+            $target->statement(
+                'GRANT USAGE ON SCHEMA public TO ' . $this->identifier($runtimeRole)
+            );
+            $target->statement(
+                'GRANT USAGE, CREATE ON SCHEMA public TO ' . $this->identifier($migratorRole)
+            );
+
             $target->statement(
                 'ALTER DEFAULT PRIVILEGES FOR ROLE ' . $this->identifier($ownerRole)
                 . ' IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO '
@@ -128,10 +159,17 @@ final class PostgresTenantProvisioner
                 . $this->identifier($runtimeRole)
             );
 
-            // Explicitly revoke broad database connection and grant only tenant roles.
-            $connection->statement('REVOKE ALL ON DATABASE ' . $this->identifier($database) . ' FROM PUBLIC');
-            $connection->statement('GRANT CONNECT ON DATABASE ' . $this->identifier($database) . ' TO ' . $this->identifier($runtimeRole));
-            $connection->statement('GRANT CONNECT ON DATABASE ' . $this->identifier($database) . ' TO ' . $this->identifier($migratorRole));
+            $target->statement('RESET ROLE');
+            $target->statement(
+                'ALTER DEFAULT PRIVILEGES FOR ROLE ' . $this->identifier($migratorRole)
+                . ' IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO '
+                . $this->identifier($runtimeRole)
+            );
+            $target->statement(
+                'ALTER DEFAULT PRIVILEGES FOR ROLE ' . $this->identifier($migratorRole)
+                . ' IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO '
+                . $this->identifier($runtimeRole)
+            );
 
             return [
                 'tenant_id' => $tenant,
@@ -148,6 +186,16 @@ final class PostgresTenantProvisioner
                 previous: $exception
             );
         } finally {
+            if ($temporaryOwnerMembershipGranted) {
+                try {
+                    $connection->statement(
+                        'REVOKE ' . $this->identifier($ownerRole) . ' FROM ' . $brokerIdentifier
+                    );
+                } catch (Throwable) {
+                    // Reported as a partial-provisioning blocker; never auto-drop resources.
+                }
+            }
+
             DB::purge('provisioning_target');
             $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
         }
