@@ -86,6 +86,10 @@ Route::middleware(['auth:sanctum', 'active.identity'])->group(function (): void 
         ->name('api.v1.devices.revoke');
 });
 
-Route::middleware(['auth:sanctum', 'active.identity', 'verified.device'])
-    ->get('/v1/auth/context', [IdentityController::class, 'context'])
-    ->name('api.v1.auth.context');
+Route::middleware(['auth:sanctum', 'active.identity', 'verified.device'])->group(function (): void {
+    Route::get('/v1/auth/context', [IdentityController::class, 'context'])
+        ->name('api.v1.auth.context');
+
+    Route::get('/v1/auth/devices', [IdentityController::class, 'listDevices'])
+        ->name('api.v1.auth.devices');
+});
