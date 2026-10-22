@@ -131,8 +131,21 @@ class PostgresSchemaIntegrityTest extends TestCase
         if(!$period){$month=substr($date,0,7);$periodId=$this->ensurePeriod('schema-test-period-'.str_replace('-','',$month),$month.'-01',date('Y-m-t',strtotime($date)));} else {$periodId=(int)$period->id;}
         $now=now()->utc();
         DB::connection('tenant')->transaction(function() use($id,$date,$reversal,$reason,$lines,$periodId,$now):void{
-            DB::connection('tenant')->table('journal_entries')->insert(['id'=>$id,'source_event_id'=>'schema-event-'.$id,'description'=>$reversal?'reversal test':'journal test','journal_date'=>$date,'status'=>'posted','posted_by_user_id'=>1,'posted_by_device_id'=>'schema-test-device','app_version'=>'schema-test/1','accounting_period_id'=>$periodId,'reversal_of_entry_id'=>$reversal,'reversal_reason'=>$reason,'created_at'=>$now,'updated_at'=>$now]);
-            foreach($lines as [$account,$debit,$credit]) DB::connection('tenant')->table('journal_lines')->insert(['journal_entry_id'=>$id,'account_code'=>$account,'debit'=>$debit,'credit'=>$credit,'created_at'=>$now,'updated_at'=>$now]);
+            // Lines may be added only while the header is draft. Posting is the final transition.
+            DB::connection('tenant')->table('journal_entries')->insert([
+                'id'=>$id,'source_event_id'=>'schema-event-'.$id,
+                'description'=>$reversal?'reversal test':'journal test','journal_date'=>$date,
+                'status'=>'draft','reversal_of_entry_id'=>$reversal,'reversal_reason'=>$reason,
+                'created_at'=>$now,'updated_at'=>$now,
+            ]);
+            foreach($lines as [$account,$debit,$credit]) DB::connection('tenant')->table('journal_lines')->insert([
+                'journal_entry_id'=>$id,'account_code'=>$account,'debit'=>$debit,'credit'=>$credit,
+                'created_at'=>$now,'updated_at'=>$now,
+            ]);
+            DB::connection('tenant')->table('journal_entries')->where('id',$id)->update([
+                'status'=>'posted','posted_by_user_id'=>1,'posted_by_device_id'=>'schema-test-device',
+                'app_version'=>'schema-test/1','accounting_period_id'=>$periodId,'updated_at'=>$now,
+            ]);
         },1);
     }
 

@@ -17,7 +17,7 @@ return new class extends Migration
             'subscriptions' => ['expires_at','created_at','updated_at'],
             'global_configs' => ['created_at','updated_at'], 'templates' => ['created_at','updated_at'],
             'tenant_configs' => ['created_at','updated_at'], 'tenant_services' => ['created_at','updated_at'],
-            'device_registry' => ['registered_at','created_at','updated_at'], 'audit_events' => ['created_at'],
+            'device_registry' => ['registered_at','created_at','updated_at'], 'audit_events' => ['created_at'], 'failed_jobs' => ['failed_at'],
         ];
         foreach ($columns as $table => $fields) {
             foreach ($fields as $field) {
@@ -33,7 +33,7 @@ ALTER TABLE audit_events DROP CONSTRAINT IF EXISTS audit_events_actor_user_id_fo
 ALTER TABLE audit_events ADD CONSTRAINT audit_events_actor_user_id_foreign
     FOREIGN KEY (actor_user_id) REFERENCES users(id) ON UPDATE RESTRICT ON DELETE RESTRICT;
 ALTER TABLE domains ADD CONSTRAINT domains_canonical_fqdn_check
-    CHECK (domain = lower(btrim(domain)) AND domain !~ '[:/[:space:]]' AND domain <> '');
+    CHECK (domain = lower(btrim(domain)) AND position(':' in domain) = 0 AND position('/' in domain) = 0 AND domain !~ '[[:space:]]' AND domain <> '');
 ALTER TABLE templates ADD CONSTRAINT templates_id_canonical_check CHECK (id IN ('BASIC','PRO','ENTERPRISE'));
 ALTER TABLE tenants ADD CONSTRAINT tenants_template_id_canonical_check CHECK (template_id IN ('BASIC','PRO','ENTERPRISE'));
 ALTER TABLE tenants ADD CONSTRAINT tenants_template_id_foreign FOREIGN KEY (template_id) REFERENCES templates(id) ON UPDATE RESTRICT ON DELETE RESTRICT;

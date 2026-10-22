@@ -249,6 +249,8 @@ ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_items_product_fk;
 ALTER TABLE sale_items DROP CONSTRAINT IF EXISTS sale_items_sale_fk;
 ALTER TABLE inventory_movements DROP CONSTRAINT IF EXISTS inventory_movements_product_fk;
 ALTER TABLE inventory_lots DROP CONSTRAINT IF EXISTS inventory_lots_product_fk;
+DROP INDEX IF EXISTS products_barcode_unique_nonblank;
+DROP INDEX IF EXISTS products_sku_unique_nonblank;
 ALTER TABLE sync_receipts DROP CONSTRAINT IF EXISTS sync_receipt_hash_check;
 ALTER TABLE journal_lines DROP CONSTRAINT IF EXISTS journal_line_one_sided_amount_check;
 ALTER TABLE journal_entries DROP CONSTRAINT IF EXISTS journal_entry_reversal_not_self_check;
