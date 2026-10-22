@@ -66,7 +66,7 @@ class PasswordResetController extends Controller
             $revokedCount = (int) $resetUser->tokens()->count();
             $resetUser->tokens()->delete();
 
-            DB::connection('central')->table('audit_events')->insert([
+            $auditEvent = [
                 'actor_user_id' => $resetUser->getKey(),
                 'tenant_id' => null,
                 'scope_type' => 'identity',
@@ -76,11 +76,11 @@ class PasswordResetController extends Controller
                 'new_version' => null,
                 'previous_sha256' => null,
                 'new_sha256' => null,
-                'metadata' => json_encode([
-                    'revoked_token_count' => $revokedCount,
-                ], JSON_THROW_ON_ERROR),
+                'metadata' => json_encode(['revoked_token_count' => $revokedCount], JSON_THROW_ON_ERROR),
                 'created_at' => now(),
-            ]);
+            ];
+
+            DB::connection('central')->table('audit_events')->insert($auditEvent);
         });
 
         if ($status !== Password::PASSWORD_RESET) {
