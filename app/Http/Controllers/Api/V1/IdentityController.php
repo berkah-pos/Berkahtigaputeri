@@ -136,7 +136,7 @@ class IdentityController extends Controller
                 }
 
                 $expiresAt = now()->addHours(12);
-                $abilities = ['identity:read', 'tenant:access', 'device:revoke'];
+                $abilities = ['identity:read', 'tenant:access', 'device:revoke', 'config:read'];
                 if (in_array((string) $membership->role, ['owner', 'admin'], true)) {
                     $abilities = array_merge($abilities, [
                         'devices:approve',
@@ -223,6 +223,7 @@ class IdentityController extends Controller
         return response()->json([
             'status' => 'authenticated',
             'token_type' => 'Bearer',
+            'token_kind' => 'device',
             'access_token' => $result['plain_text_token'],
             'expires_at' => $result['expires_at'],
             'user' => [
