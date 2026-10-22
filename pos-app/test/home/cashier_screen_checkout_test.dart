@@ -1,3 +1,4 @@
+import 'package:berkahtigaputeri_pos/core/auth/laravel_auth_service.dart';
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
@@ -70,7 +71,12 @@ void main() {
       await tester.pumpWidget(
         BerkahTigaPuteriApp(
           database: database,
+          authService: LaravelAuthService(
+            baseUrl: '',
+            vault: const FlutterSecureVault(),
+          ),
           identityStore: AppIdentityStore(preferences),
+          deviceId: 'a' * 64,
         ),
       );
       await _settle(tester, 'initial app');
