@@ -200,6 +200,7 @@ class TenantMembershipManagementTest extends TestCase
         return User::query()->create([
             'name' => $prefix === 'admin' ? 'Platform Admin' : 'Membership User',
             'email' => $prefix . '-' . Str::uuid() . '@example.test',
+            'email_verified_at' => now(),
             'password' => 'Correct-password-123!',
             'tenant_id' => null, 'is_super_admin' => $admin, 'is_active' => true,
         ]);
