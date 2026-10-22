@@ -43,35 +43,56 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
     protected function tearDown(): void
     {
         if ($this->integrationEnabled) {
-            try {
-                foreach ($this->tenantIds as $tenantId) {
-                    $database = 'berkahpos_t_' . strtolower($tenantId);
-                    $suffix = strtolower($tenantId);
+            $central = DB::connection('central');
+            $broker = DB::connection('provisioner');
+            $brokerRole = (string) $broker->scalar('SELECT current_user');
 
-                    foreach ([
-                        'provisioner_runtime_' . $suffix,
-                        'provisioner_migrator_' . $suffix,
-                    ] as $connectionName) {
-                        DB::purge($connectionName);
-                    }
+            foreach ($this->tenantIds as $tenantId) {
+                $database = 'berkahpos_t_' . strtolower($tenantId);
+                $suffix = strtolower($tenantId);
+                $ownerRole = 'berkah_t_' . $suffix . '_owner';
+                $runtimeRole = 'berkah_t_' . $suffix . '_runtime';
+                $migratorRole = 'berkah_t_' . $suffix . '_migrator';
 
-                    DB::purge('provisioning_target');
-                    DB::connection('central')->statement(
-                        'DROP DATABASE IF EXISTS "' . $database . '" WITH (FORCE)'
-                    );
-
-                    foreach ([
-                        'berkah_t_' . $suffix . '_migrator',
-                        'berkah_t_' . $suffix . '_runtime',
-                        'berkah_t_' . $suffix . '_owner',
-                    ] as $role) {
-                        DB::connection('central')->statement('DROP ROLE IF EXISTS "' . $role . '"');
-                    }
+                foreach ([
+                    'provisioner_runtime_' . $suffix,
+                    'provisioner_migrator_' . $suffix,
+                    'provisioner_runtime_cross_tenant',
+                    'provisioner_runtime_reverse_cross_tenant',
+                    'provisioner_runtime_central_denied',
+                    'provisioning_target',
+                ] as $connectionName) {
+                    DB::purge($connectionName);
                 }
-            } catch (Throwable $exception) {
-                // The workflow creates a fresh disposable PostgreSQL service per run.
-                // Preserve the original test failure; the service is discarded after the job.
-                fwrite(STDERR, "Disposable PG17 cleanup warning: " . $exception->getMessage() . PHP_EOL);
+
+                try {
+                    $central->statement('DROP DATABASE IF EXISTS "' . $database . '" WITH (FORCE)');
+                } catch (Throwable $exception) {
+                    fwrite(STDERR, "Disposable PG17 database cleanup warning: " . $exception->getMessage() . PHP_EOL);
+                }
+
+                try {
+                    $existingRoles = $central->select(
+                        'SELECT rolname FROM pg_roles WHERE rolname IN (?, ?, ?)',
+                        [$ownerRole, $runtimeRole, $migratorRole]
+                    );
+                    $existingNames = array_map(static fn (object $row): string => $row->rolname, $existingRoles);
+
+                    if (in_array($ownerRole, $existingNames, true) && in_array($migratorRole, $existingNames, true)) {
+                        $central->statement('REVOKE "' . $ownerRole . '" FROM "' . $migratorRole . '"');
+                    }
+                    if (in_array($ownerRole, $existingNames, true)) {
+                        $central->statement('REVOKE "' . $ownerRole . '" FROM "' . $brokerRole . '"');
+                    }
+
+                    foreach ([$migratorRole, $runtimeRole, $ownerRole] as $role) {
+                        $central->statement('DROP ROLE IF EXISTS "' . $role . '"');
+                    }
+                } catch (Throwable $exception) {
+                    // The workflow creates a fresh disposable PostgreSQL service per run.
+                    // Preserve the original test failure; CI destroys the service after the job.
+                    fwrite(STDERR, "Disposable PG17 role cleanup warning: " . $exception->getMessage() . PHP_EOL);
+                }
             }
         }
 
@@ -198,7 +219,7 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
 
         $this->assertSame(0, (int) $runtimeB->scalar('SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?', [$table]));
         $this->assertFalse((bool) DB::connection('central')->scalar(
-            'SELECT has_database_privilege(?, ?, \'CONNECT\')',
+            'SELECT has_database_privilege(?, ?, \'CONNECT\')::int',
             [$tenantA['runtime_role'], config('database.connections.central.database')]
         ));
     }
