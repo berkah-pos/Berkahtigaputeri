@@ -335,6 +335,140 @@ class IdentityDeviceTrustTest extends TestCase
         });
     }
 
+    public function test_device_bound_session_only_returns_the_token_tenant_membership(): void
+    {
+        $otherTenant = $this->createTenant();
+        $now = now();
+        DB::connection('central')->table('tenant_memberships')->insert([
+            'user_id' => $this->member->getKey(),
+            'tenant_id' => $otherTenant,
+            'role' => 'member',
+            'status' => 'active',
+            'activated_at' => $now,
+            'revoked_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $deviceId = 'device-' . Str::uuid();
+        $this->createActiveDevice($deviceId, (int) $this->member->getKey(), $this->tenantId);
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+        $login->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $response = $this->withToken($login->json('access_token'))
+            ->getJson('/api/v1/auth/session')
+            ->assertOk();
+
+        $memberships = $response->json('memberships');
+        $this->assertCount(1, $memberships);
+        $this->assertSame($this->tenantId, $memberships[0]['tenant_id']);
+        $this->assertNotSame($otherTenant, $memberships[0]['tenant_id']);
+    }
+
+    public function test_logout_all_requires_password_reauthentication_and_revokes_tokens_after_confirmation(): void
+    {
+        $deviceId = 'device-' . Str::uuid();
+        $this->createActiveDevice($deviceId, (int) $this->member->getKey(), $this->tenantId);
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $deviceId,
+        ]);
+        $login->assertOk();
+        $token = $login->json('access_token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)
+            ->postJson('/api/v1/auth/logout-all', ['password' => 'wrong-password'])
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'reauthentication_failed');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/auth/context')->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)
+            ->postJson('/api/v1/auth/logout-all', ['password' => 'Correct-password-123!'])
+            ->assertNoContent();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson('/api/v1/auth/context')->assertUnauthorized();
+        $this->assertDatabaseHas('audit_events', [
+            'actor_user_id' => $this->member->getKey(),
+            'action' => 'identity.logout_all',
+        ], 'central');
+    }
+
+    public function test_tenant_owner_can_approve_devices_only_inside_their_tenant(): void
+    {
+        DB::connection('central')->table('tenant_memberships')
+            ->where('user_id', $this->member->getKey())
+            ->where('tenant_id', $this->tenantId)
+            ->update(['role' => 'owner']);
+
+        $ownerDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($ownerDevice, (int) $this->member->getKey(), $this->tenantId);
+        $ownerLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->member->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $this->tenantId,
+            'device_id' => $ownerDevice,
+        ]);
+        $ownerLogin->assertOk();
+        $ownerToken = $ownerLogin->json('access_token');
+
+        $sameTenantMember = $this->createMember($this->tenantId);
+        $sameTenantPending = 'device-' . Str::uuid();
+        $this->insertPendingDevice($sameTenantPending, (int) $sameTenantMember->getKey(), $this->tenantId);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->postJson('/api/v1/devices/' . $sameTenantPending . '/approve')
+            ->assertOk()
+            ->assertJsonPath('status', 'active');
+
+        $otherTenant = $this->createTenant();
+        $otherTenantMember = $this->createMember($otherTenant);
+        $foreignPending = 'device-' . Str::uuid();
+        $this->insertPendingDevice($foreignPending, (int) $otherTenantMember->getKey(), $otherTenant);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->postJson('/api/v1/devices/' . $foreignPending . '/approve')
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'device_approval_forbidden');
+
+        $this->assertDatabaseHas('device_registry', [
+            'device_id' => $foreignPending,
+            'tenant_id' => $otherTenant,
+            'status' => 'pending',
+        ], 'central');
+    }
+
+    private function insertPendingDevice(string $deviceId, int $userId, string $tenantId): void
+    {
+        $now = now();
+        DB::connection('central')->table('device_registry')->insert([
+            'device_id' => $deviceId,
+            'tenant_id' => $tenantId,
+            'owner_user_id' => $userId,
+            'status' => 'pending',
+            'device_name' => 'Awaiting approval',
+            'registered_at' => null,
+            'enrollment_requested_at' => $now,
+            'revoked_at' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+    }
+
     private function createTenant(): string
     {
         $tenantId = 'tenant-' . Str::uuid();
