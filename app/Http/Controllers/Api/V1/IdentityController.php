@@ -299,6 +299,55 @@ class IdentityController extends Controller
         ]);
     }
 
+    public function listDevices(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $token = $user?->currentAccessToken();
+        $context = $request->attributes->get('verified_identity_context');
+
+        if (! $user || ! $token instanceof PersonalAccessToken ||
+            $token->token_kind !== 'device' || ! is_array($context)) {
+            return $this->error(
+                'active_device_required',
+                'A verified device session is required to view registered devices.',
+                403,
+            );
+        }
+
+        $tenantId = (string) ($context['tenant_id'] ?? '');
+        $devices = DB::connection('central')
+            ->table('device_registry')
+            ->where('tenant_id', $tenantId)
+            ->where('owner_user_id', $user->getKey())
+            ->orderByDesc('registered_at')
+            ->orderBy('device_id')
+            ->get([
+                'device_id',
+                'status',
+                'device_name',
+                'registered_at',
+                'enrollment_requested_at',
+                'revoked_at',
+            ])
+            ->map(fn ($device): array => [
+                'device_id' => (string) $device->device_id,
+                'status' => (string) $device->status,
+                'device_name' => $device->device_name,
+                'registered_at' => $device->registered_at,
+                'enrollment_requested_at' => $device->enrollment_requested_at,
+                'revoked_at' => $device->revoked_at,
+                'is_current' => (string) $device->device_id === (string) $context['device_id'],
+            ])
+            ->values()
+            ->all();
+
+        return response()->json([
+            'tenant_id' => $tenantId,
+            'current_device_id' => (string) $context['device_id'],
+            'devices' => $devices,
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         $token = $request->user()?->currentAccessToken();
