@@ -17,7 +17,13 @@ class EnsureIdentityContext
         $user = $request->user();
         $token = $user?->currentAccessToken();
 
-        if (! $user || ! $user->is_active || ! $token instanceof PersonalAccessToken || ! $token->can('*')) {
+        if (! $user || ! $token instanceof PersonalAccessToken || ! $token->can('*')) {
+            return $this->denied();
+        }
+
+        if (! $user->is_active) {
+            $token->delete();
+
             return $this->denied();
         }
 
