@@ -27,7 +27,7 @@ void main() {
   });
 
   group('TenantFeatures', () {
-    test('clientA hides Akuntansi', () {
+    test('parses tenant flags', () {
       final features = TenantFeatures.fromJson(
         <String, dynamic>{'pos': true, 'akuntansi': false},
       );
@@ -36,16 +36,7 @@ void main() {
       expect(features.akuntansi, isFalse);
     });
 
-    test('clientB shows POS and Akuntansi', () {
-      final features = TenantFeatures.fromJson(
-        <String, dynamic>{'pos': true, 'akuntansi': true},
-      );
-
-      expect(features.pos, isTrue);
-      expect(features.akuntansi, isTrue);
-    });
-
-    test('feature flags are derived from the central API resolver envelope', () {
+    test('parses flags from the central API resolver envelope', () {
       final features = TenantFeatures.fromEffectiveConfig(
         <String, dynamic>{
           'tenant_id': 'tenant-a',
@@ -60,19 +51,16 @@ void main() {
       expect(features.akuntansi, isFalse);
     });
 
-    test('supports canonical flat feature flags in effective config', () {
+    test('supports canonical flat feature flags', () {
       final features = TenantFeatures.fromEffectiveConfig(
-        <String, dynamic>{
-          'pos_enabled': true,
-          'akuntansi_enabled': true,
-        },
+        <String, dynamic>{'pos_enabled': true, 'akuntansi_enabled': true},
       );
 
       expect(features.pos, isTrue);
       expect(features.akuntansi, isTrue);
     });
 
-    test('fails closed when effective config has no feature flags', () {
+    test('fails closed if feature flags are missing', () {
       expect(
         () => TenantFeatures.fromEffectiveConfig(<String, dynamic>{}),
         throwsFormatException,
@@ -80,12 +68,13 @@ void main() {
     });
   });
 
-  test('authenticated config uses the server-verified tenant and device', () async {
+  test('effective configuration uses the verified API session context',
+      () async {
     final preferences = await SharedPreferences.getInstance();
     final identityStore = AppIdentityStore(preferences);
     final tokens = _MemoryTokenStore();
-    var verifiedDeviceId = '';
-    var configRequestCount = 0;
+    var deviceId = '';
+    var configRequests = 0;
 
     final identity = IdentityService(
       baseUrl: 'https://api.example.test',
@@ -93,10 +82,11 @@ void main() {
       tokenStore: tokens,
       httpClient: MockClient((http.Request request) async {
         if (request.url.path == '/api/v1/auth/login') {
-          verifiedDeviceId =
+          deviceId =
               (jsonDecode(request.body) as Map<String, dynamic>)['device_id'] as String;
           return http.Response(
-            '{"status":"authenticated","access_token":"test-token"}',
+            '{"status":"authenticated","token_kind":"device",'
+            '"access_token":"test-token"}',
             200,
             headers: const <String, String>{'content-type': 'application/json'},
           );
@@ -122,7 +112,7 @@ void main() {
                 },
               ],
               'device': <String, dynamic>{
-                'device_id': verifiedDeviceId,
+                'device_id': deviceId,
                 'tenant_id': 'tenant-a',
               },
             }),
@@ -131,17 +121,17 @@ void main() {
           );
         }
         if (request.url.path == '/api/v1/config/pos') {
-          configRequestCount++;
+          configRequests++;
           expect(request.headers['authorization'], 'Bearer test-token');
-          expect(request.headers['x-device-id'], verifiedDeviceId);
+          expect(request.headers['x-device-id'], deviceId);
           return http.Response(
             jsonEncode(<String, dynamic>{
               'data': <String, dynamic>{
                 'tenant_id': 'tenant-a',
-                'device_id': verifiedDeviceId,
+                'device_id': deviceId,
                 'service': 'pos',
                 'version': 19,
-                'hash': 'a-fixed-test-hash',
+                'hash': 'fixed-test-hash',
                 'config': <String, dynamic>{
                   'mdr': 0.5,
                   'features': <String, dynamic>{'pos': true, 'akuntansi': false},
@@ -163,43 +153,40 @@ void main() {
     );
     expect(login.status, SignInStatus.authenticated);
 
-    final service = ConfigService(identity, preferences);
+    final service = ConfigService(identity);
     expect(service.hasAuthenticatedSession, isTrue);
 
     final result = await service.getEffectiveConfig(
       tenantId: 'tenant-a',
-      deviceId: verifiedDeviceId,
+      deviceId: deviceId,
       service: 'pos',
     );
 
     expect(result.fromCache, isFalse);
     expect(result.value['tenant_id'], 'tenant-a');
-    expect(result.value['device_id'], verifiedDeviceId);
+    expect(result.value['device_id'], deviceId);
     expect(result.value['config']['mdr'], 0.5);
-    expect(configRequestCount, 1);
-    expect(
-      TenantFeatures.fromEffectiveConfig(result.value).akuntansi,
-      isFalse,
-    );
+    expect(configRequests, 1);
+    expect(TenantFeatures.fromEffectiveConfig(result.value).akuntansi, isFalse);
   });
 
-  test('server authorization denial never falls back to cached config', () async {
+  test('server authorization denial cannot be hidden by a cache fallback',
+      () async {
     final preferences = await SharedPreferences.getInstance();
     final identityStore = AppIdentityStore(preferences);
-    final tokens = _MemoryTokenStore();
-    var verifiedDeviceId = '';
-    var configRequestCount = 0;
+    var deviceId = '';
 
     final identity = IdentityService(
       baseUrl: 'https://api.example.test',
       identityStore: identityStore,
-      tokenStore: tokens,
+      tokenStore: _MemoryTokenStore(),
       httpClient: MockClient((http.Request request) async {
         if (request.url.path == '/api/v1/auth/login') {
-          verifiedDeviceId =
+          deviceId =
               (jsonDecode(request.body) as Map<String, dynamic>)['device_id'] as String;
           return http.Response(
-            '{"status":"authenticated","access_token":"test-token"}',
+            '{"status":"authenticated","token_kind":"device",'
+            '"access_token":"test-token"}',
             200,
             headers: const <String, String>{'content-type': 'application/json'},
           );
@@ -220,7 +207,7 @@ void main() {
                 <String, dynamic>{'tenant_id': 'tenant-a', 'role': 'owner'},
               ],
               'device': <String, dynamic>{
-                'device_id': verifiedDeviceId,
+                'device_id': deviceId,
                 'tenant_id': 'tenant-a',
               },
             }),
@@ -229,17 +216,8 @@ void main() {
           );
         }
         if (request.url.path == '/api/v1/config/pos') {
-          configRequestCount++;
-          if (configRequestCount == 1) {
-            return http.Response(
-              '{"data":{"tenant_id":"tenant-a","device_id":"$verifiedDeviceId",'
-              '"service":"pos","config":{"features":{"pos":true,"akuntansi":false}}}}',
-              200,
-              headers: const <String, String>{'content-type': 'application/json'},
-            );
-          }
           return http.Response(
-            '{"error":{"code":"device_access_denied","message":"Device was revoked"}}',
+            '{"error":{"code":"device_access_denied","message":"Device revoked"}}',
             403,
             headers: const <String, String>{'content-type': 'application/json'},
           );
@@ -254,19 +232,12 @@ void main() {
       tenantId: 'tenant-a',
     );
     expect(login.status, SignInStatus.authenticated);
-    final service = ConfigService(identity, preferences);
 
-    final first = await service.getEffectiveConfig(
-      tenantId: 'tenant-a',
-      deviceId: verifiedDeviceId,
-      service: 'pos',
-    );
-    expect(first.fromCache, isFalse);
-
+    final service = ConfigService(identity);
     await expectLater(
       service.getEffectiveConfig(
         tenantId: 'tenant-a',
-        deviceId: verifiedDeviceId,
+        deviceId: deviceId,
         service: 'pos',
       ),
       throwsA(
@@ -275,28 +246,28 @@ void main() {
             .having((error) => error.code, 'code', 'device_access_denied'),
       ),
     );
-    expect(configRequestCount, 2);
   });
 
-  test('mismatched local tenant/device cannot be authorized by cache', () async {
+  test('unverified identity cannot request configuration using forged local IDs',
+      () async {
     final preferences = await SharedPreferences.getInstance();
     final identity = IdentityService(
       baseUrl: 'https://api.example.test',
       identityStore: AppIdentityStore(preferences),
       tokenStore: _MemoryTokenStore(),
       httpClient: MockClient((http.Request request) async {
-        fail('No request should be sent for a mismatched identity context.');
+        fail('No HTTP request should be made without a verified identity session.');
       }),
     );
 
-    final service = ConfigService(identity, preferences);
+    final service = ConfigService(identity);
     await expectLater(
       service.getEffectiveConfig(
         tenantId: 'forged-tenant',
-        deviceId: 'forged-device-123456',
+        deviceId: 'forged-device-identifier',
         service: 'pos',
       ),
-      throwsA(isA<IdentityApiException>()),
+      throwsStateError,
     );
   });
 }
