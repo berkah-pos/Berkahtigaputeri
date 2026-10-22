@@ -144,7 +144,7 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
-      - name: Verify Laravel boot, API routes and feature smoke tests
+      - name: Verify Laravel boot and API routes
         shell: bash
         run: |
           set -euo pipefail
@@ -154,7 +154,6 @@ jobs:
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" php artisan route:list --path=api/v1
-          docker run --rm --network host --env APP_ENV --env APP_KEY "$CI_IMAGE" php artisan test
 
       - name: Create disposable tenant database on PostgreSQL 17
         shell: bash
@@ -183,6 +182,16 @@ jobs:
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
             --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
+
+      - name: Run feature and PostgreSQL integrity tests on migrated PG17 schemas
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" php artisan test
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
         shell: bash
