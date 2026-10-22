@@ -19,46 +19,31 @@ Future<void> main() async {
 
   IdentityService? identityService;
   ConfigService? configService;
-  String cloudConfigurationMessage;
+  var cloudConfigurationMessage = '';
 
-  if (_apiBaseUrl.trim().isEmpty) {
-    cloudConfigurationMessage =
-        'BERKAH_API_BASE_URL belum dikonfigurasi pada build ini. '
-        'Mode lokal tetap tersedia.';
-  } else {
-    try {
-      identityService = IdentityService(
-        baseUrl: _apiBaseUrl,
-        identityStore: identityStore,
-      );
-      configService = ConfigService(identityService, preferences);
-      try {
-        await identityService.restoreSession();
-        cloudConfigurationMessage = '';
-      } on IdentityApiException {
-        // A saved token remains in secure storage when the network is
-        // unavailable, but it is never treated as authenticated until the
-        // Central API verifies it successfully.
-        cloudConfigurationMessage =
-            'Sesi cloud tidak dapat diverifikasi. Periksa koneksi API; '
-            'mode lokal tetap tersedia.';
-      }
-    } on Object {
-      identityService = null;
-      configService = null;
-      cloudConfigurationMessage =
-          'Alamat Central API tidak valid atau belum menggunakan HTTPS. '
-          'Periksa BERKAH_API_BASE_URL pada konfigurasi build.';
+  try {
+    if (_apiBaseUrl.trim().isEmpty) {
+      throw ArgumentError('BERKAH_API_BASE_URL is not configured.');
     }
+    identityService = IdentityService(
+      baseUrl: _apiBaseUrl,
+      identityStore: identityStore,
+    );
+    configService = ConfigService(identityService);
+  } catch (_) {
+    cloudConfigurationMessage =
+        'Cloud login belum dikonfigurasi pada build ini. Set '
+        'BERKAH_API_BASE_URL ke origin HTTPS Laravel saat build. '
+        'Mode lokal tetap tersedia.';
   }
 
   runApp(
     BerkahTigaPuteriApp(
       database: database,
+      identityStore: identityStore,
       identityService: identityService,
       configService: configService,
-      identityStore: identityStore,
-      cloudConfigurationMessage: cloudConfigurationMessage,
+      configurationMessage: cloudConfigurationMessage,
     ),
   );
 }
@@ -67,17 +52,17 @@ class BerkahTigaPuteriApp extends StatelessWidget {
   const BerkahTigaPuteriApp({
     super.key,
     this.database,
+    this.identityStore,
     this.identityService,
     this.configService,
-    this.identityStore,
-    this.cloudConfigurationMessage,
+    this.configurationMessage,
   });
 
   final PosDatabase? database;
+  final AppIdentityStore? identityStore;
   final IdentityService? identityService;
   final ConfigService? configService;
-  final AppIdentityStore? identityStore;
-  final String? cloudConfigurationMessage;
+  final String? configurationMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -94,32 +79,31 @@ class BerkahTigaPuteriApp extends StatelessWidget {
             )
           : _AppGate(
               database: database!,
+              identityStore: identityStore!,
               identityService: identityService,
               configService: configService,
-              identityStore: identityStore!,
-              cloudConfigurationMessage: cloudConfigurationMessage,
+              configurationMessage: configurationMessage,
             ),
     );
   }
 }
 
-/// Keeps the auth/local-mode switch inside one stable route. Login/logout
-/// therefore replaces the app's current screen without leaving Settings on top
-/// of an obsolete authenticated route.
+/// Restores cloud entry only after the Laravel API verifies the bearer token.
+/// Local-only operation is deliberately kept as a separate, non-cloud state.
 class _AppGate extends StatefulWidget {
   const _AppGate({
     required this.database,
+    required this.identityStore,
     required this.identityService,
     required this.configService,
-    required this.identityStore,
-    required this.cloudConfigurationMessage,
+    required this.configurationMessage,
   });
 
   final PosDatabase database;
+  final AppIdentityStore identityStore;
   final IdentityService? identityService;
   final ConfigService? configService;
-  final AppIdentityStore identityStore;
-  final String? cloudConfigurationMessage;
+  final String? configurationMessage;
 
   @override
   State<_AppGate> createState() => _AppGateState();
@@ -127,36 +111,72 @@ class _AppGate extends StatefulWidget {
 
 class _AppGateState extends State<_AppGate> {
   bool _localOnly = false;
+  bool _checkingSession = true;
+  String? _restoreError;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      final service = widget.identityService;
+      if (service != null) {
+        final session = await service.restoreSession();
+        if (session != null && !session.isDeviceSession) {
+          // Central admin credentials are never accepted as POS credentials.
+          await service.signOut();
+        }
+      }
+    } catch (_) {
+      _restoreError =
+          'Sesi cloud belum dapat diverifikasi. Coba masuk lagi saat server tersedia; mode lokal tetap bisa digunakan.';
+    } finally {
+      if (mounted) setState(() => _checkingSession = false);
+    }
+  }
 
   void _continueLocalOnly() {
     setState(() => _localOnly = true);
   }
 
   void _authenticated() {
-    setState(() => _localOnly = false);
+    final session = widget.identityService?.currentSession;
+    if (session == null || !session.isDeviceSession) {
+      setState(() {
+        _restoreError =
+            'Sesi POS yang terikat tenant dan perangkat tidak tersedia. Akses cloud ditolak.';
+      });
+      return;
+    }
+    setState(() {
+      _localOnly = false;
+      _restoreError = null;
+    });
   }
 
   Future<void> _signOut() async {
-    try {
-      await widget.identityService?.signOut();
-    } finally {
-      if (mounted) {
-        // IdentityService always clears the local bearer token even when the
-        // remote revocation endpoint cannot be reached.
-        setState(() => _localOnly = false);
-      }
-    }
+    final service = widget.identityService;
+    if (service != null) await service.signOut();
+    if (!mounted) return;
+    setState(() {
+      _localOnly = false;
+      _restoreError = null;
+    });
   }
 
   Widget _home({required bool localOnly}) {
+    final session = widget.identityService?.currentSession;
+    final verifiedCloudSession =
+        !localOnly && session != null && session.isDeviceSession;
+
     return HomeScreen(
       database: widget.database,
       identityStore: widget.identityStore,
-      configService: localOnly ? null : widget.configService,
-      onSignOut: !localOnly &&
-              widget.identityService?.hasAuthenticatedSession == true
-          ? _signOut
-          : null,
+      configService: verifiedCloudSession ? widget.configService : null,
+      onSignOut: verifiedCloudSession ? _signOut : null,
     );
   }
 
@@ -164,13 +184,28 @@ class _AppGateState extends State<_AppGate> {
   Widget build(BuildContext context) {
     if (_localOnly) return _home(localOnly: true);
 
-    if (widget.identityService?.hasAuthenticatedSession == true) {
+    if (_checkingSession) {
+      return const Scaffold(
+        body: Center(
+          child: Semantics(
+            label: 'Memverifikasi sesi cloud',
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    final session = widget.identityService?.currentSession;
+    if (session != null && session.isDeviceSession) {
       return _home(localOnly: false);
     }
 
     return LoginScreen(
-      identityService: widget.identityService,
-      configurationMessage: widget.cloudConfigurationMessage,
+      api: widget.identityService,
+      configurationMessage: _restoreError ??
+          (widget.configurationMessage?.isNotEmpty == true
+              ? widget.configurationMessage
+              : null),
       onAuthenticated: _authenticated,
       onContinueLocal: _continueLocalOnly,
     );
