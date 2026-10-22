@@ -352,6 +352,16 @@ class IdentityService {
         );
       }
 
+      // The platform-admin token belongs to the central admin surface, not a
+      // POS terminal. Revoke it instead of ever persisting it in the POS app.
+      if (body?['token_kind'] == 'platform_admin') {
+        await _revokeUnstoredToken(accessToken);
+        return const SignInResult(
+          status: SignInStatus.failed,
+          message: 'Akun administrator pusat tidak dapat digunakan sebagai sesi kasir. Gunakan akun dengan membership tenant.',
+        );
+      }
+
       // A 200 login response is not enough by itself: confirm that the newly
       // issued bearer token still resolves to a live server-verified identity.
       final sessionResponse = await _http
@@ -573,14 +583,16 @@ class IdentityService {
   }
 
   void _validateTenantSession(IdentitySession session) {
-    if (session.isDeviceSession &&
-        (session.tenantId.isEmpty || session.deviceId.isEmpty)) {
+    // This client is the POS terminal, never the central admin panel. Requiring
+    // a server-confirmed tenant/device token blocks privilege confusion.
+    if (!session.isDeviceSession ||
+        session.tenantId.isEmpty ||
+        session.deviceId.isEmpty ||
+        session.memberships.every((membership) =>
+            membership.tenantId != session.tenantId)) {
       throw const FormatException(
-        'The server session does not contain a verified tenant/device binding.',
+        'The server session does not contain a verified tenant/device membership.',
       );
-    }
-    if (!session.isDeviceSession && !session.isPlatformAdmin) {
-      throw const FormatException('The server returned an unbound identity session.');
     }
   }
 
