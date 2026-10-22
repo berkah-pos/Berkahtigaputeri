@@ -21,6 +21,12 @@ return new class extends Migration
             $table->string('status', 20)->default('active');
         });
 
+        Schema::connection('central')->table('users', function (Blueprint $table): void {
+            // Keep legacy accounts compatible while requiring verified email for
+            // newly granted memberships on accounts that have not verified yet.
+            $table->boolean('email_verification_required')->default(false);
+        });
+
         Schema::connection('central')->create('tenant_memberships', function (Blueprint $table): void {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
@@ -95,6 +101,10 @@ return new class extends Migration
         });
 
         Schema::connection('central')->dropIfExists('tenant_memberships');
+
+        Schema::connection('central')->table('users', function (Blueprint $table): void {
+            $table->dropColumn('email_verification_required');
+        });
 
         Schema::connection('central')->table('tenants', function (Blueprint $table): void {
             $table->dropColumn('status');
