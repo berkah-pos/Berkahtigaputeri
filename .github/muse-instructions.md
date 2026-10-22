@@ -1,6 +1,6 @@
 # Copilot Instructions — Berkah POS SaaS
 
-Before changing code, schemas, CI, or infrastructure, read root `AGENTS.md` and follow its complete mandatory sequence.
+Before changing anything, read root AGENTS.md in full and follow its task-specific reading profile. The full historical-document sequence is for comprehensive audit assignments, not a repeated preflight for every bounded implementation.
 
 ## Authority order
 
@@ -31,4 +31,4 @@ Before changing code, schemas, CI, or infrastructure, read root `AGENTS.md` and 
 
 ## Implementation-first execution
 
-Unless the user explicitly requests audit-only work, agents must implement safe in-scope fixes, add regression tests, run and repair relevant checks, and continue through actionable blockers. Reports are evidence, not a substitute for changes. Follow `.github/IMPLEMENTATION_FIRST_EXECUTION.md`; update `docs/IMPLEMENTATION_PROGRESS.md` only when exact-head acceptance evidence changes a gate status. Never merge/deploy to production, bypass security gates, or access Supabase.
+Unless the user explicitly requests audit-only work, agents must use .github/IMPLEMENTATION_TASK_TEMPLATE.md, implement within the assigned scope, add regression tests, run and repair relevant checks, and stop when acceptance passes. Use .github/AUDIT_ONLY_TASK_TEMPLATE.md only for audit-only assignments. On execution/context exhaustion, save a checkpoint and return CONTINUE_REQUIRED; persistent HANDOFF is reserved for OWNER_BLOCKED. Update docs/IMPLEMENTATION_PROGRESS.md only when exact-head acceptance evidence changes a gate status. Never bypass security gates or access Supabase.
