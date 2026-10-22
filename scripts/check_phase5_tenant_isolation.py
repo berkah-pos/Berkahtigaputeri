@@ -95,11 +95,13 @@ def main() -> int:
     ):
         require(config, fragment, str(CONFIG.relative_to(ROOT)))
 
+    # Laravel automatically prefixes routes/api.php with /api. Validate
+    # the source declarations instead of searching for the resolved URL.
     for fragment in (
-        "api/v1/auth/login",
+        "Route::post('/v1/auth/login'",
         "api.v1.auth.login",
-        "api/v1/auth/session",
-        "api.v1.auth/logout",
+        "Route::get('/v1/auth/session'",
+        "Route::post('/v1/auth/logout'",
         "verified.device",
     ):
         require(routes, fragment, str(API_ROUTES.relative_to(ROOT)))
