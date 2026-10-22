@@ -153,6 +153,23 @@ class TenantMembershipManagementTest extends TestCase
             ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}", ['role' => 'owner'])
             ->assertOk();
 
+        $ownerDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($ownerDevice, (int) $owner->getKey(), $tenantId);
+        $ownerLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => $owner->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $tenantId,
+            'device_id' => $ownerDevice,
+        ]);
+        $ownerLogin->assertOk();
+        $ownerToken = $ownerLogin->json('access_token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}", ['role' => 'member'])
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'last_owner_protected');
+
         $this->app['auth']->forgetGuards();
         $this->withToken($adminToken)
             ->deleteJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}")
