@@ -55,8 +55,8 @@ void main() {
     );
     await _settle(tester, 'initial app');
 
-    // No Supabase client is injected in this test, so enter explicit local-only
-    // mode rather than implying the cloud account is authenticated.
+    // No Central API identity is injected in this test, so enter explicit
+    // local-only mode rather than implying the cloud account is authenticated.
     expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
     await _tap(tester, find.text('Lanjutkan sebagai kasir lokal'), 'tap-2');
     await _settle(tester, 'local mode');
