@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Central\PersonalAccessToken;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -57,6 +58,13 @@ class AppServiceProvider extends ServiceProvider
                     'hash' => sha1($notifiable->getEmailForVerification()),
                 ],
             );
+        });
+
+        ResetPassword::createUrlUsing(function ($notifiable, string $token): string {
+            return URL::route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
         });
     }
 }
