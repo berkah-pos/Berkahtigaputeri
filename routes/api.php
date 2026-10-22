@@ -52,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ]);
     })->middleware('identity.context')->name('api.v1.identity.context');
 
-    Route::middleware('central.admin')->prefix('/v1/admin')->group(function (): void {
+    Route::middleware(['identity.context', 'central.admin'])->prefix('/v1/admin')->group(function (): void {
         Route::post('/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])
             ->where('deviceId', '[a-f0-9]{64}')
             ->name('api.v1.admin.devices.approve');
