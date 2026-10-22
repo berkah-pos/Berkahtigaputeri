@@ -2,10 +2,9 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
-use Throwable;
 
 class ApiContractTest extends TestCase
 {
@@ -38,7 +37,7 @@ class ApiContractTest extends TestCase
 
     public function test_missing_api_route_returns_problem_details_without_framework_internals(): void
     {
-        $this->getJson('/api/v1/route-that-does-not-exist')
+        $response = $this->getJson('/api/v1/route-that-does-not-exist')
             ->assertNotFound()
             ->assertHeader('Content-Type', 'application/problem+json')
             ->assertHeader('Cache-Control', 'no-store, private')
@@ -55,6 +54,11 @@ class ApiContractTest extends TestCase
             ->assertJsonPath('instance', '/api/v1/route-that-does-not-exist')
             ->assertDontSee('NotFoundHttpException')
             ->assertDontSee('stack trace');
+
+        $this->assertSame(
+            $response->headers->get('X-Request-ID'),
+            $response->json('request_id')
+        );
     }
 
     public function test_api_method_not_allowed_uses_a_stable_problem_response(): void
