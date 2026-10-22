@@ -63,6 +63,9 @@ class TenantMembershipManagementTest extends TestCase
         $this->assertDatabaseHas('tenant_memberships', [
             'user_id' => $member->getKey(), 'tenant_id' => $tenantId, 'status' => 'revoked',
         ], 'central');
+        $this->assertDatabaseHas('device_registry', [
+            'device_id' => $deviceId, 'tenant_id' => $tenantId, 'status' => 'revoked',
+        ], 'central');
         $this->assertDatabaseMissing('personal_access_tokens', [
             'tokenable_id' => $member->getKey(), 'tenant_id' => $tenantId,
         ], 'central');
@@ -90,7 +93,78 @@ class TenantMembershipManagementTest extends TestCase
         $this->app['auth']->forgetGuards();
         $this->withToken($login->json('access_token'))
             ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$member->getKey()}")
-            ->assertForbidden()->assertJsonPath('error', 'platform_admin_required');
+            ->assertForbidden()->assertJsonPath('error', 'membership_management_forbidden');
+    }
+
+    public function test_platform_admin_can_assign_owner_and_tenant_owner_can_manage_staff_without_privilege_escalation(): void
+    {
+        $tenantId = $this->createTenant();
+        $admin = $this->createUser('platform-admin', true);
+        $owner = $this->createUser('owner', false);
+        $staff = $this->createUser('staff', false);
+        $adminToken = $this->platformToken($admin);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($adminToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}", ['role' => 'owner'])
+            ->assertOk()
+            ->assertJsonPath('role', 'owner');
+
+        $ownerDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($ownerDevice, (int) $owner->getKey(), $tenantId);
+        $ownerLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => $owner->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $tenantId,
+            'device_id' => $ownerDevice,
+        ]);
+        $ownerLogin->assertOk();
+        $ownerToken = $ownerLogin->json('access_token');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$staff->getKey()}", ['role' => 'cashier'])
+            ->assertOk()
+            ->assertJsonPath('role', 'cashier');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$staff->getKey()}", ['role' => 'admin'])
+            ->assertForbidden()
+            ->assertJsonPath('error', 'privileged_role_assignment_forbidden');
+
+        $this->assertDatabaseHas('tenant_memberships', [
+            'user_id' => $staff->getKey(),
+            'tenant_id' => $tenantId,
+            'role' => 'cashier',
+            'status' => 'active',
+        ], 'central');
+    }
+
+    public function test_last_active_tenant_owner_cannot_be_revoked(): void
+    {
+        $tenantId = $this->createTenant();
+        $admin = $this->createUser('platform-admin', true);
+        $owner = $this->createUser('owner', false);
+        $adminToken = $this->platformToken($admin);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($adminToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}", ['role' => 'owner'])
+            ->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($adminToken)
+            ->deleteJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}")
+            ->assertStatus(409)
+            ->assertJsonPath('error', 'last_owner_protected');
+
+        $this->assertDatabaseHas('tenant_memberships', [
+            'user_id' => $owner->getKey(),
+            'tenant_id' => $tenantId,
+            'role' => 'owner',
+            'status' => 'active',
+        ], 'central');
     }
 
     private function createTenant(): string
