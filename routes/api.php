@@ -10,7 +10,9 @@ Route::get('/v1/platform-health', function () {
         'status' => 'ok',
         'database_target' => 'PostgreSQL 17',
     ]);
-})->name('api.v1.platform-health');
+})
+    ->withoutMiddleware('throttle:api')
+    ->name('api.v1.platform-health');
 
 Route::get('/v1/platform-ready', function () {
     // Readiness is separate from liveness. Do not expose connection errors/secrets.
