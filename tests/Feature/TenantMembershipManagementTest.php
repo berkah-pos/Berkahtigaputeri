@@ -184,6 +184,81 @@ class TenantMembershipManagementTest extends TestCase
         ], 'central');
     }
 
+    public function test_tenant_owner_cannot_demote_or_reactivate_an_existing_admin_membership(): void
+    {
+        $tenantId = $this->createTenant();
+        $platformAdmin = $this->createUser('platform-admin', true);
+        $owner = $this->createUser('owner', false);
+        $existingAdmin = $this->createUser('existing-admin', false);
+        $platformAdminToken = $this->platformToken($platformAdmin);
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($platformAdminToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$owner->getKey()}", ['role' => 'owner'])
+            ->assertOk()
+            ->assertJsonPath('role', 'owner');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($platformAdminToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$existingAdmin->getKey()}", ['role' => 'admin'])
+            ->assertOk()
+            ->assertJsonPath('role', 'admin');
+
+        $ownerDevice = 'device-' . Str::uuid();
+        $this->createActiveDevice($ownerDevice, (int) $owner->getKey(), $tenantId);
+        $ownerLogin = $this->postJson('/api/v1/auth/login', [
+            'email' => $owner->email,
+            'password' => 'Correct-password-123!',
+            'tenant_id' => $tenantId,
+            'device_id' => $ownerDevice,
+        ]);
+        $ownerLogin->assertOk();
+        $ownerToken = $ownerLogin->json('access_token');
+
+        // A tenant owner may not demote an existing admin by sending a lower
+        // role; authority is constrained by the persisted target role too.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$existingAdmin->getKey()}", ['role' => 'member'])
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'privileged_membership_target_forbidden');
+
+        $this->assertDatabaseHas('tenant_memberships', [
+            'user_id' => $existingAdmin->getKey(),
+            'tenant_id' => $tenantId,
+            'role' => 'admin',
+            'status' => 'active',
+        ], 'central');
+
+        // After a platform admin revokes the admin membership, the tenant
+        // owner still cannot reactivate it implicitly or downgrade it as a way
+        // to bypass the privileged-role assignment policy.
+        $this->app['auth']->forgetGuards();
+        $this->withToken($platformAdminToken)
+            ->deleteJson("/api/v1/tenants/{$tenantId}/memberships/{$existingAdmin->getKey()}")
+            ->assertOk()
+            ->assertJsonPath('status', 'revoked');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$existingAdmin->getKey()}")
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'privileged_membership_target_forbidden');
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($ownerToken)
+            ->putJson("/api/v1/tenants/{$tenantId}/memberships/{$existingAdmin->getKey()}", ['role' => 'member'])
+            ->assertStatus(403)
+            ->assertJsonPath('error', 'privileged_membership_target_forbidden');
+
+        $this->assertDatabaseHas('tenant_memberships', [
+            'user_id' => $existingAdmin->getKey(),
+            'tenant_id' => $tenantId,
+            'role' => 'admin',
+            'status' => 'revoked',
+        ], 'central');
+    }
+
     private function createTenant(): string
     {
         $tenantId = 'tenant-' . Str::uuid();
