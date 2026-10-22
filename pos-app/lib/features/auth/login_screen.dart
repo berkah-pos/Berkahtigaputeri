@@ -316,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               key: const ValueKey<String>('tenant-selector'),
-              value: _selectedTenantId,
+              initialValue: _selectedTenantId,
               decoration: const InputDecoration(
                 labelText: 'Tenant',
                 prefixIcon: Icon(Icons.business_outlined),
