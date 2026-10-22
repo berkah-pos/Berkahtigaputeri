@@ -454,6 +454,12 @@ class IdentityController extends Controller
                 return ['state' => 'forbidden'];
             }
 
+            $actorToken = $actor->currentAccessToken();
+            $isPlatformAdmin = $actor->is_super_admin &&
+                $actorToken instanceof PersonalAccessToken &&
+                $actorToken->token_kind === 'platform_admin' &&
+                $actorToken->can('memberships:manage');
+
             $targetUser = DB::connection('central')
                 ->table('users')
                 ->where('id', $userId)
@@ -477,6 +483,16 @@ class IdentityController extends Controller
 
             if ($existing && $existing->status === 'active' && (string) $existing->role === $role) {
                 return ['state' => 'active', 'changed' => false, 'role' => $role];
+            }
+
+            // Tenant owners/admins may manage ordinary staff, but they must not
+            // demote, reassign, or reactivate a stored owner/admin membership.
+            // This decision is based on the persisted role, not just the input
+            // role, so omitting "role" cannot bypass the privilege boundary.
+            if (! $isPlatformAdmin &&
+                $existing &&
+                in_array((string) $existing->role, ['owner', 'admin'], true)) {
+                return ['state' => 'privileged_target'];
             }
 
             // New/reactivated membership or a role change on an unverified
@@ -552,6 +568,7 @@ class IdentityController extends Controller
         if ($result['state'] === 'user_inactive') return $this->error('identity_disabled', 'An inactive account cannot be granted tenant access.', 409);
         if ($result['state'] === 'tenant_inactive') return $this->error('tenant_inactive', 'An inactive tenant cannot accept new memberships.', 409);
         if ($result['state'] === 'forbidden') return $this->error('membership_management_forbidden', 'The actor no longer has an active authorized membership for this tenant.', 403);
+        if ($result['state'] === 'privileged_target') return $this->error('privileged_membership_target_forbidden', 'Only a platform administrator may modify or reactivate an existing owner/admin membership.', 403);
         if ($result['state'] === 'last_owner') return $this->error('last_owner_protected', 'The last active tenant owner cannot be demoted or revoked.', 409);
 
         return response()->json([
