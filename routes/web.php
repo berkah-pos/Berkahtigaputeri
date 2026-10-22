@@ -11,3 +11,7 @@ Route::get('/', function () {
         'admin' => '/central/admin',
     ]);
 })->name('platform.home');
+
+Route::get('/reset-password/{token}', function (string $token) {
+    return view('auth.reset-password', ['token' => $token]);
+})->name('password.reset');

@@ -1,7 +1,5 @@
-import 'dart:convert';
-
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import 'package:berkahtigaputeri_pos/core/auth/identity_service.dart';
 
 class TenantFeatures {
   final bool pos;
@@ -19,19 +17,25 @@ class TenantFeatures {
     );
   }
 
-  /// Extract feature flags from the authenticated, effective app_config result.
-  /// This deliberately avoids the deprecated tenants.features projection.
   factory TenantFeatures.fromEffectiveConfig(Map<String, dynamic> config) {
-    final rawFeatures = config['features'];
+    // The Central API returns an envelope whose resolved feature values live
+    // inside "config". Accept that canonical response shape first; the flat
+    // form remains supported for local fixtures and older local-only data.
+    final nestedConfig = config['config'];
+    final effective = nestedConfig is Map
+        ? Map<String, dynamic>.from(nestedConfig)
+        : config;
+
+    final rawFeatures = effective['features'];
     if (rawFeatures is Map) {
       return TenantFeatures.fromJson(Map<String, dynamic>.from(rawFeatures));
     }
 
-    if (config.containsKey('pos_enabled') ||
-        config.containsKey('akuntansi_enabled')) {
+    if (effective.containsKey('pos_enabled') ||
+        effective.containsKey('akuntansi_enabled')) {
       return TenantFeatures(
-        pos: config['pos_enabled'] == true,
-        akuntansi: config['akuntansi_enabled'] == true,
+        pos: effective['pos_enabled'] == true,
+        akuntansi: effective['akuntansi_enabled'] == true,
       );
     }
 
@@ -56,54 +60,42 @@ class EffectiveConfigResult {
   });
 }
 
+/// Effective configuration now goes through the server-verified Laravel
+/// identity service. No browser/mobile Supabase client or client-side table
+/// reads are allowed. Until the Laravel effective-config endpoint is deployed,
+/// this method fails closed rather than silently switching backends.
 class ConfigService {
-  final SupabaseClient _client;
-  final SharedPreferences _preferences;
+  ConfigService(this._identityService);
 
-  ConfigService(this._client, this._preferences);
+  final IdentityService _identityService;
 
-  /// True only when Supabase has an authenticated user session.
-  /// A publishable key plus tenant/device strings is not authentication.
-  bool get hasAuthenticatedSession => _client.auth.currentSession != null;
+  bool get hasAuthenticatedSession =>
+      _identityService.currentSession?.isDeviceSession == true;
 
   Future<EffectiveConfigResult> getEffectiveConfig({
     required String tenantId,
     required String deviceId,
     required String service,
   }) async {
-    final cacheKey = _effectiveCacheKey(tenantId, deviceId, service);
-
-    // The server RPC is the only remote path for raw layered configuration.
-    // Never SELECT GLOBAL/TEMPLATE/TENANT/SERVICE rows from the client.
-    if (!hasAuthenticatedSession) {
+    final session = _identityService.currentSession;
+    if (session == null || !session.isDeviceSession) {
       throw StateError(
-        'An authenticated Supabase session is required for effective configuration.',
+        'A server-verified Laravel device session is required for effective configuration.',
       );
     }
 
-    try {
-      final response = await _client.rpc(
-        'get_effective_config',
-        params: <String, dynamic>{
-          'p_tenant': tenantId,
-          'p_device': deviceId,
-          'p_service': service,
-        },
-      );
-      final effective = _asJsonMap(response);
-
-      await _preferences.setString(cacheKey, jsonEncode(effective));
-      return EffectiveConfigResult(value: effective, fromCache: false);
-    } catch (_) {
-      // Offline fallback is limited to the previously returned effective value
-      // for this exact tenant/device/service tuple, never raw table rows.
-      final cached = _preferences.getString(cacheKey);
-      if (cached == null) rethrow;
-      return EffectiveConfigResult(
-        value: _asJsonMap(jsonDecode(cached)),
-        fromCache: true,
+    if (tenantId != session.tenantId || deviceId != session.deviceId) {
+      throw StateError(
+        'Local tenant/device selectors do not match the verified server session.',
       );
     }
+
+    final effective = await _identityService.getEffectiveConfig(
+      tenantId: session.tenantId,
+      deviceId: session.deviceId,
+      service: service,
+    );
+    return EffectiveConfigResult(value: effective, fromCache: false);
   }
 
   static Map<String, dynamic> mergeLayers(
@@ -115,28 +107,4 @@ class ConfigService {
     }
     return merged;
   }
-
-  static Map<String, dynamic> _asJsonMap(dynamic value) {
-    if (value is Map<String, dynamic>) {
-      return Map<String, dynamic>.from(value);
-    }
-    if (value is Map) {
-      return Map<String, dynamic>.from(value);
-    }
-    if (value is String) {
-      final decoded = jsonDecode(value);
-      if (decoded is Map) {
-        return Map<String, dynamic>.from(decoded);
-      }
-    }
-    throw const FormatException('Expected JSON object');
-  }
-
-  static String _effectiveCacheKey(
-    String tenantId,
-    String deviceId,
-    String service,
-  ) =>
-      'p6.effective.$tenantId.$deviceId.$service';
-
 }
