@@ -42,6 +42,7 @@ class PasswordResetController extends Controller
             'email' => ['required', 'string', 'email', 'max:254'],
             'token' => ['required', 'string', 'min:20', 'max:512'],
             'password' => ['required', 'string', 'min:16', 'max:4096', 'confirmed'],
+            'password_confirmation' => ['required', 'string', 'same:password'],
         ]);
 
         $email = mb_strtolower(trim($payload['email']));
