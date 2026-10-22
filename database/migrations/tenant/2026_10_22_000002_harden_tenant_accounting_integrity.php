@@ -256,7 +256,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$;
+$$;
 
 CREATE TRIGGER journal_lines_guard_posted
     BEFORE INSERT OR UPDATE OR DELETE ON journal_lines
