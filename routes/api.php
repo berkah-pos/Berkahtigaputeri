@@ -38,7 +38,9 @@ Route::post('/v1/auth/login', [IdentityController::class, 'login'])
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/v1/auth/me', [IdentityController::class, 'me'])->name('api.v1.auth.me');
     Route::post('/v1/auth/logout', [IdentityController::class, 'logout'])->name('api.v1.auth.logout');
-    Route::post('/v1/auth/logout-all', [IdentityController::class, 'logoutAll'])->name('api.v1.auth.logout-all');
+    Route::post('/v1/auth/logout-all', [IdentityController::class, 'logoutAll'])
+        ->middleware('abilities:*')
+        ->name('api.v1.auth.logout-all');
 
     Route::post('/v1/devices/enroll', [IdentityController::class, 'enrollDevice'])
         ->middleware('abilities:device:enroll')
