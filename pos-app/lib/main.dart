@@ -170,7 +170,10 @@ class _AppGateState extends State<_AppGate> {
   Widget _home({required bool localOnly}) {
     final session = widget.identityService?.currentSession;
     final verifiedCloudSession =
-        !localOnly && session != null && session.isDeviceSession;
+        !localOnly &&
+        widget.identityService?.hasAuthenticatedSession == true &&
+        session != null &&
+        session.isDeviceSession;
 
     return HomeScreen(
       database: widget.database,
