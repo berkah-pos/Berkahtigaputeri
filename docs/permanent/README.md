@@ -1,8 +1,8 @@
 # DOCS PERMANENT — FINAL POS ARCHITECTURE AND EVIDENCE INDEX
 
-This directory records durable configuration contracts, platform decisions, security boundaries, operational procedures, and verification evidence. Read the authority documents in order and distinguish a selected target from implemented, tested, staged or deployed behavior.
+This directory records durable configuration contracts, platform decisions, security boundaries, operational procedures, and verification evidence. Distinguish a selected target from implemented, tested, staged or deployed behavior. Root AGENTS.md defines task-specific reading profiles: bounded implementation specialists read the authorities and sections relevant to their assigned gate; a comprehensive audit follows the full inventory below when its assignment requires it.
 
-## Mandatory read order
+## Full authority sequence for comprehensive audits
 
 1. Root `AGENTS.md` — agent workflow, protected invariants, and evidence rules.
 2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole authority for five-layer configuration inheritance and the canonical 352-entry workbook contract.
