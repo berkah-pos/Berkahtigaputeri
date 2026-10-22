@@ -1,33 +1,71 @@
 # AGENTS.md — Berkah POS SaaS
 
-**Mandatory agent operating contract.** Read this file before any code, schema, infrastructure, workflow, or architecture-document change.
+**Mandatory agent operating contract.** Every agent must read this file in full before any code, schema, infrastructure, workflow, or architecture-document change.
 
-## 1. Required reading order
+## 1. Task-specific reading profiles and preflight
 
-1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — authoritative five-layer configuration and canonical workbook contract.
-2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current owner decision for Hostinger KVM2, Coolify, Laravel, PostgreSQL 17, future scaling, and the prohibition on Supabase products.
-3. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier platform decision, subordinate to the 2026-10-17 no-Supabase decision where they conflict.
-4. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed PostgreSQL 17 / Laravel target architecture and implementation acceptance gates, subordinate to the newest owner ADR.
-5. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and acceptance gates.
-6. `docs/permanent/README.md` — permanent-document index and current authority map.
-7. `docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transaction, idempotency, accounting and evidence protocols, subject to the newest platform decision.
-8. `docs/permanent/DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — legacy implementation snapshot and known gaps; not deployment proof.
-9. `docs/permanent/DOC_01_3_LAYER_CONFIG.md` — legacy filename; preserve the active five-layer Final POS contract.
-10. `.github/IMPLEMENTATION_FIRST_EXECUTION.md` — default implementation-first execution contract and definition of done.
-11. `.cursor/rules/berkah-pos.mdc` and `.github/muse-instructions.md` — align agent-specific directions with this contract.
-12. `docs/IMPLEMENTATION_PROGRESS.md` — global acceptance-gate ledger; update only with verified evidence.
-13. Legacy workbook-validation sources and all scoped source, migrations, tests, workflow files and reports relevant to the assigned task.
+Before work starts, resolve the live repository, default branch, exact base SHA, assigned workstream, and working-tree/branch state. Check for an existing open PR or active owner for the same files before editing. Never rely on a SHA copied from an old prompt pack as current evidence.
+
+### 1A. Minimum reading profile for every implementation task
+
+Read these common authorities in this order:
+
+1. Read this root AGENTS.md fully and follow all non-negotiable safety, architecture-authority, and evidence rules.
+2. Read docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md fully. It is authoritative for the five-layer configuration contract and the exact 352-entry workbook inventory.
+3. Read docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md fully. It is the current platform/no-Supabase owner authority.
+4. Read .github/IMPLEMENTATION_FIRST_EXECUTION.md fully.
+5. Read docs/permanent/DOC_00_MASTER_ROADMAP.md for the assigned phase, its acceptance gate, prerequisites, and immediate downstream dependency—not unrelated historical phases.
+6. Read docs/IMPLEMENTATION_PROGRESS.md for the assigned acceptance row and immediate dependencies. Do not repeat a full status audit if its evidence has not changed.
+7. Read relevant sections of docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md. Read it fully for work involving tenant boundaries, provisioning, PostgreSQL roles/grants, authentication, API security, deployment, backup/restore, or release acceptance.
+8. Read relevant sections of docs/permanent/DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md. Read the applicable domain sections fully for work involving checkout, offline SQLite/outbox, sync, inventory, accounting, tenant isolation, authentication, subscription, file storage, operations, or evidence acceptance. This protocol’s common safety and evidence rules always apply.
+9. Read DOC_13 only when Flutter/app integration or its recorded historical source claims are relevant. Read DOC_01_3_LAYER_CONFIG.md when workbook/configuration semantics or legacy three-layer references are relevant.
+10. Read the active tool-specific instructions that govern the assigned execution environment, then inspect the smallest source, test, migration, workflow, and configuration surface that can resolve the task.
+
+This is a task-bounded reading profile, not permission to skip an explicitly required source, ignore a parent instruction, or assume a missing rule. If a source reveals a direct dependency, read that dependency before changing its behaviour. If a source is inaccessible, record the exact path and limitation rather than claiming to have read it.
+
+### 1B. Task-specific additions
+
+- **Workbook/configuration:** DOC_00 fully; canonical workbook; importer/exporter/validator; resolver; related fixtures/tests; DOC_14 configuration/import/API contract.
+- **POS, offline sync, inventory, or accounting:** applicable DOC_12 sections fully; current Flutter schema/repository/service; migrations and tests; preserve local transaction/outbox atomicity, server idempotency, double-entry accounting, immutable posted journals, period locks, and FEFO physical allocation versus FIFO financial costing where the contract applies.
+- **Authentication, provisioning, tenant security:** current owner ADR and DOC_14 fully; central/tenant schema; real PostgreSQL role/grant configuration; authorization paths; adversarial tests. Package presence or application-side tenant filtering is not proof of isolation.
+- **CI, release, or operations:** relevant workflows and dependencies, current acceptance matrix, owner ADR, applicable DOC_14 gates, exact-head CI evidence, and rollback/recovery requirements.
+- **Architecture or documentation authority:** inspect the active and historical source needed to resolve the specific authority conflict. Do not treat an old report or old commit as current implementation evidence.
+
+### 1C. Comprehensive audit-only profile
+
+Use .github/AUDIT_ONLY_TASK_TEMPLATE.md only when the user explicitly requests an audit-only assignment or when the assigned role is an independent auditor. The prompt defines its evidence scope and whether a full document inventory is required.
+
+A repository-wide architecture/provenance audit must read all tracked documentation and other assigned artifacts in batches, maintain a path/SHA/read-status/authority manifest, and classify historical material without silently promoting it to active instructions. A narrow scoped audit is comprehensive within its assigned domain; it does not automatically become an audit of every file in the repository.
+
+Audit-only means no implementation edits unless the assignment explicitly authorizes them. Audit findings are not a substitute for implementation when the assignment is an implementation workstream.
+
+### 1D. Context bounds, stop conditions, and persistent checkpoints
+
+Every assignment must finish in exactly one of these states:
+
+- **COMPLETED:** all stated acceptance criteria have been satisfied with truthful evidence. Stop the assigned task; do not start another workstream or continue an unrelated audit.
+- **CONTINUE_REQUIRED:** work remains, but context, execution capacity, tool access, or response limits prevent safe completion in this run. Preserve progress and the exact next action so this can resume without repeating completed discovery.
+- **OWNER_BLOCKED:** an owner-exclusive decision, permission, resource, credential approval, or human approval is genuinely required and cannot be derived or safely replaced. Complete independent safe work first.
+
+When work is likely to be interrupted or context is being lost, create or update a temporary checkpoint at docs/reports/agent-checkpoints/<TASK-ID>.md on the task branch when repository write access is available. Include: task and acceptance gate; repository/base/head SHA; current branch; changed paths and diff status; commands/tests actually run and results; completed and remaining criteria; exact next action/command; concrete blocker; and work that must not be repeated. If the agent cannot write a checkpoint, return the same information in its final response. Remove temporary checkpoints from the completed PR unless they serve an intentionally permanent purpose.
+
+Do not claim a precise remaining-token or context percentage unless the runtime exposes it. Do not keep auditing indefinitely because the task is large. Do not restart an entire preflight or repeat a completed audit on resume; re-verify mutable facts and affected source only.
+
+A context limit or a long task is never by itself an owner handoff. The persistent HANDOFF section is allowed only for OWNER_BLOCKED and must name the exact owner-exclusive action, why it is required, what safe work is complete, and what remains blocked. Do not label ordinary uncertainty as OWNER_BLOCKED when the source, tests, or a safe isolated experiment can resolve it.
+
+If the same genuine blocker remains after two focused attempts, stop retrying and record it in docs/reports/BLOCKERS.md with the exact dependency or owner decision. Do not loop indefinitely or expand scope to unrelated defects.
+
+## 1E. Standard implementation loop
+
+Unless the user explicitly requests audit-only work, work implementation-first: inspect the smallest relevant source surface; reproduce the issue or add a regression test; implement the correction; run focused checks; fix relevant failures; rerun and inspect the diff. Reports are supporting evidence, not the deliverable. Implement safe, in-scope work even if a separate dependency remains blocked.
+
+Stop when the defined acceptance criteria pass. Do not turn a bounded task into repository-wide cleanup. Record an out-of-scope defect briefly and leave it for the correct workstream unless the issue creates an immediate security, data-integrity, or safety blocker.
+
+Work on a dedicated feature branch and use a reviewable PR. Never push directly to main. Do not deploy, modify production data, use live secrets, or connect to Supabase. Keep human approval requirements intact.
+
+Completion evidence must include exact changed paths, tested branch/SHA, commands actually executed and results, CI evidence where available, unresolved risks, and the one next dependency-ready task. Update docs/IMPLEMENTATION_PROGRESS.md only when an acceptance-gate evidence state changes. Global completion is the percentage of required release gates fully accepted, not the number of reports, commits, or changed lines.
 
 Do not claim to have read or verified a file that was not actually accessible.
-
-
-## 1A. Default execution mode: implement, not report-only
-
-- Unless the user explicitly asks for an audit-only deliverable, every assigned workstream is implementation-first. Reproduce the problem, change the responsible source, add regression/acceptance tests, run the relevant checks, fix failures, and continue to the next in-scope blocker while practical.
-- Findings and analysis are intermediate inputs. A report without a fix is not completion when the fix is safe and within the workstream. If a real dependency blocks implementation, complete the independent safe parts and identify the exact blocked gate.
-- Work in a dedicated feature branch/PR, never commit directly to `main`. Do not deploy, modify production data, use live secrets, or connect to Supabase. Keep human approval requirements intact.
-- Completion requires exact changed files, tests actually executed, results, tested commit SHA, and CI run evidence where available. Label unrun tests honestly. Do not infer success from code presence or stale CI.
-- Update `docs/IMPLEMENTATION_PROGRESS.md` only when an acceptance-gate status changes based on evidence. Global completion is the percentage of required release gates fully accepted, not the count of reports or commits.
 
 ## 2. Split architecture authority
 
