@@ -110,8 +110,8 @@ void main() {
     expect(tokens.token, 'one-time-secret-token');
     expect(service.currentSession?.tenantId, 'tenant-a');
     expect(service.currentSession?.deviceId, requestedDeviceId);
-    expect(await identityStore.tenantId, 'tenant-a');
-    expect(await identityStore.deviceId, requestedDeviceId);
+    expect(identityStore.tenantId, 'tenant-a');
+    expect(identityStore.deviceId, requestedDeviceId);
   });
 
   test('pending device enrollment never persists a bearer token', () async {
@@ -195,7 +195,7 @@ void main() {
     expect(await service.restoreSession(), isNull);
     expect(tokens.token, isNull);
     expect(service.currentSession, isNull);
-    expect(await identityStore.tenantId, '');
+    expect(identityStore.tenantId, '');
   });
 
   test('offline session restore does not treat the stored token as verified',
