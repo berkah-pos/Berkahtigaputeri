@@ -92,4 +92,23 @@ void main() {
       'device-explicit-installation-123',
     );
   });
+  
+  test('rotateDeviceId replaces a revoked installation ID with a fresh stable ID', () async {
+    final preferences = await SharedPreferences.getInstance();
+    final identity = AppIdentityStore(preferences);
+    await identity.setDeviceId('device-revoked-installation-123');
+
+    final replacement = await identity.rotateDeviceId();
+
+    expect(replacement, isNot('device-revoked-installation-123'));
+    expect(
+      replacement,
+      matches(RegExp(
+        r'^device-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      )),
+    );
+    expect(identity.deviceId, replacement);
+    expect(await identity.ensureDeviceId(), replacement);
+  });
+
 }
