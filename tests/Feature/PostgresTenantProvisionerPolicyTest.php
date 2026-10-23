@@ -130,6 +130,59 @@ class PostgresTenantProvisionerPolicyTest extends TestCase
         }
     }
 
+    public function test_provisioner_preflight_honors_url_overrides_for_database_and_username(): void
+    {
+        $cases = [
+            [
+                'description' => 'effective usernames match despite distinct sibling config',
+                'central_url' => 'postgresql://central_runtime:central-test-password@127.0.0.1:5432/berkahpos_central',
+                'provisioner_url' => 'postgresql://central_runtime:provisioner-test-password@127.0.0.1:5432/postgres',
+            ],
+            [
+                'description' => 'effective database names match despite distinct sibling config',
+                'central_url' => 'postgresql://central_runtime:central-test-password@127.0.0.1:5432/berkahpos_central',
+                'provisioner_url' => 'postgresql://provisioner_runtime:provisioner-test-password@127.0.0.1:5432/berkahpos_central',
+            ],
+        ];
+
+        foreach ($cases as $case) {
+            config([
+                'database.connections.central.driver' => 'pgsql',
+                'database.connections.central.url' => $case['central_url'],
+                'database.connections.central.database' => 'stale_central_database',
+                'database.connections.central.username' => 'stale_central_runtime',
+                'database.connections.provisioner.driver' => 'pgsql',
+                'database.connections.provisioner.url' => $case['provisioner_url'],
+                'database.connections.provisioner.database' => 'stale_provisioner_database',
+                'database.connections.provisioner.username' => 'stale_provisioner_runtime',
+                'database.connections.provisioner.password' => '',
+            ]);
+
+            $stored = false;
+
+            try {
+                (new PostgresTenantProvisioner())->provision(
+                    '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+                    function () use (&$stored): string {
+                        $stored = true;
+
+                        return 'test-secret-reference';
+                    },
+                    static function (string $key): void {}
+                );
+                $this->fail('Provisioning must reject '.$case['description'].' before connecting.');
+            } catch (RuntimeException $exception) {
+                $this->assertSame(
+                    'Provisioner credentials must be non-empty and distinct from central runtime credentials.',
+                    $exception->getMessage(),
+                    $case['description']
+                );
+            }
+
+            $this->assertFalse($stored, 'Credentials must not be stored after the URL-effective preflight fails.');
+        }
+    }
+
     public function test_provisioning_fails_closed_when_broker_credentials_are_missing_or_shared(): void
     {
         config([
