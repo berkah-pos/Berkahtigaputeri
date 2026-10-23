@@ -11,6 +11,7 @@ class LoginScreen extends StatefulWidget {
     required this.onContinueLocal,
     this.initialDeviceStatus,
     this.initialRestoreMessage,
+    this.sessionCleanupPending = false,
     this.onSignOut,
   });
 
@@ -20,6 +21,7 @@ class LoginScreen extends StatefulWidget {
   final VoidCallback onContinueLocal;
   final String? initialDeviceStatus;
   final String? initialRestoreMessage;
+  final bool sessionCleanupPending;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -127,7 +129,34 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            if (!configured) ...<Widget>[
+            if (widget.sessionCleanupPending) ...<Widget>[
+              const Text(
+                'Sesi cloud belum dapat dibersihkan. Akses cloud dinonaktifkan '
+                'sampai penghapusan sesi lokal berhasil dikonfirmasi.',
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _loading || widget.onSignOut == null
+                    ? null
+                    : _signOutPending,
+                icon: _loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.lock_reset),
+                label: Text(_loading
+                    ? 'Membersihkan sesi...'
+                    : 'Coba bersihkan sesi cloud lagi'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: widget.onContinueLocal,
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Lanjutkan sebagai kasir lokal'),
+              ),
+            ] else if (!configured) ...<Widget>[
               const Text('Mode cloud belum tersedia pada build ini'),
               const SizedBox(height: 8),
               Text(widget.authService.configurationMessage ?? ''),

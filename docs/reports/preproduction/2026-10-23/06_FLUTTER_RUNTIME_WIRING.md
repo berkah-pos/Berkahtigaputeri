@@ -1,31 +1,44 @@
-# Prompt 06 — Flutter Startup Recovery Implementation
+# Prompt 06 — Flutter Runtime Wiring Execution Log
 
-**Date:** 2026-10-23  
+**Date:** 2026-10-23 (Asia/Jakarta)  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
-**Base revision:** `36d4a9c1b87d85e7283b33817449e7d6dcaa20ec`  
-**Work branch:** `fix/prompt06-startup-recovery-20261023`
+**Work branch / PR:** `fix/prompt06-startup-recovery-20261023` / [PR #149](https://github.com/berkah-pos/Berkahtigaputeri/pull/149)  
+**Original base revision:** `36d4a9c1b87d85e7283b33817449e7d6dcaa20ec`
 
-## Current starting state
+## Source/architecture baseline
 
-The current main branch already replaced the old Supabase Flutter dependency with the Laravel Central API client. Prompt 06 must continue from current main rather than repeating that completed source change. No Supabase service was accessed.
+The active main branch already uses a Laravel Central API client, not the former Supabase Flutter SDK. Prompt 06 continues from that current implementation. No Supabase service was accessed.
 
 ## Case 1 — cold-start recovery
 
-**Finding — SOURCE-VERIFIED:** `main()` awaited preferences and `PosDatabase.openDefault()` before calling `runApp`. A database or preference failure therefore prevented a visible recovery screen. Separately, `_AppGateState._restoreSession()` awaited stored-session restoration without a local catch. The auth gate could remain on its spinner if secure-storage access threw before the auth service's HTTP/error handling.
+**Finding — SOURCE-VERIFIED:** application startup previously awaited preferences and `PosDatabase.openDefault()` before `runApp`, so initialization exceptions prevented an in-app recovery surface. Session restore could independently throw while reading secure storage and leave the auth gate on its loading spinner.
 
-**Implementation on this branch:**
-- Introduces an in-app bootstrap screen with a retry action for preference/database/device-identity initialization failures.
-- Does not delete or overwrite local POS data during recovery.
-- Catches session-restore exceptions, releases the loading gate, fails closed for cloud mode, and exposes a recoverable message while retaining the explicit local-only route.
-- Adds two widget regression tests: database startup failure then successful retry; secure-storage failure while restoring session.
+**Implemented:**
+- Added `BerkahTigaPuteriBootstrapApp` with a visible initialization-failure screen and retry callback.
+- Kept recovery non-destructive: it does not delete or overwrite local POS data.
+- Caught session-restore platform errors, released the loading gate, and retained local-only access while cloud stayed disabled.
+- Added two regression tests: startup failure followed by successful retry; secure-storage restore exception exits the spinner into a recoverable login/local mode.
 
-## Evidence status
+**TEST-EXECUTED / CI-OBSERVED:** canonical POS CI passed for exact commit `6edefa383f4050c49586a7136787a9cab2990b83` in [run #39955503626](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39955503626). Evidence: migration/config contract check passed; no-Supabase runtime guard passed; `flutter analyze --no-pub` reported no issues; `flutter test --no-pub` reported **61 tests passed**; Android host preparation and debug AAB compilation passed; artifact `berkahtigaputeri-pos-debug-aab` uploaded. This is a debug compile artifact, not publisher-signed release evidence.
 
-- **SOURCE-VERIFIED:** current main startup and auth-gate paths inspected at the base revision above.
-- **IMPLEMENTED:** source and regression tests are added in this branch.
-- **TEST-EXECUTED:** pending exact-branch CI; do not treat the tests as passing until the workflow result is observed.
-- **NOT VERIFIED:** installed-device behavior and production runtime recovery.
+## Case 2 — logout must fail closed when secure token cleanup is uncertain
 
-## One next action
+**Finding — SOURCE-VERIFIED:** `LaravelAuthService.logout()` read the token before entering its `try/finally`, meaning an exception during `SecureVault.read()` skipped the deletion attempt. In addition, the app gate cleared its in-memory session regardless of whether secure-storage deletion had actually succeeded; a later cold start could try to restore a token left behind.
 
-Run and inspect the canonical POS Flutter CI for the exact PR head. Fix any regression detected by analyzer, widget tests, or Android bundle compilation before moving to the next Prompt 06 case.
+**Implemented in current branch (validation pending):**
+- Treat server-side token revocation as best-effort during logout but make local token deletion mandatory, even if secure-storage reads or network requests fail.
+- Return a specific `local_session_cleanup_failed` error if secure token deletion fails.
+- Persist a non-secret `sessionCleanupPending` latch before logout. While latched, startup skips token restoration and the UI disables cloud login, allowing only cleanup retry or explicit local-only use.
+- Clear the latch only after local secure-token deletion succeeds. If the local store or marker cannot be updated, surface a recoverable fail-closed message.
+- Add service tests for read failure/deletion attempt and deletion failure classification, plus a widget regression covering restart-safe lockout and successful cleanup retry.
+
+## Evidence boundary
+
+- **SOURCE-VERIFIED:** sources inspected at the base revision and latest branch commit noted above.
+- **TEST-EXECUTED:** Case 1 all 61 Flutter tests plus analyzer and debug bundle passed at `6edefa383f4050c49586a7136787a9cab2990b83`.
+- **PENDING:** Case 2 exact-head CI, device runtime, staging, and production behavior.
+- **NOT CLAIMED:** publisher-signed release, staging/production auth/session verification, or end-to-end server revocation during offline logout.
+
+## Next action
+
+Run the canonical POS Flutter CI on the case-2 commit. Fix any analyzer/widget-test/build failure before selecting another Prompt 06 case.

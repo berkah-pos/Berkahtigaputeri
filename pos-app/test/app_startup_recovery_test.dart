@@ -11,8 +11,15 @@ import 'package:berkahtigaputeri_pos/core/database/pos_database.dart';
 import 'package:berkahtigaputeri_pos/main.dart';
 
 class _FailingReadVault implements SecureVault {
+  _FailingReadVault({this.failDelete = false});
+
+  final bool failDelete;
+  int readAttempts = 0;
+  bool deleteCalled = false;
+
   @override
   Future<String?> read(String key) async {
+    readAttempts++;
     throw StateError('simulated secure storage unavailable');
   }
 
@@ -20,7 +27,12 @@ class _FailingReadVault implements SecureVault {
   Future<void> write(String key, String value) async {}
 
   @override
-  Future<void> delete(String key) async {}
+  Future<void> delete(String key) async {
+    deleteCalled = true;
+    if (failDelete) {
+      throw StateError('simulated secure storage delete failure');
+    }
+  }
 }
 
 Future<void> _settle(WidgetTester tester) async {
@@ -83,6 +95,70 @@ void main() {
 
       expect(attempts, 2);
       expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
+    },
+    timeout: const Timeout(Duration(seconds: 30)),
+  );
+
+  testWidgets(
+    'pending logout latch blocks session restore until secure deletion retry succeeds',
+    (tester) async {
+      sqfliteFfiInit();
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'p6.session_cleanup_pending': true,
+      });
+      final preferences = await SharedPreferences.getInstance();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
+      final database = (await tester.runAsync(
+        () => PosDatabase.openAt(
+          inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
+      final vault = _FailingReadVault(failDelete: true);
+      final httpClient = MockClient(
+        (_) async => http.Response('{}', 200),
+      );
+
+      addTearDown(() async {
+        await tester.runAsync(database.close);
+        httpClient.close();
+      });
+
+      await tester.pumpWidget(
+        BerkahTigaPuteriApp(
+          database: database,
+          authService: LaravelAuthService(
+            baseUrl: 'https://api.example.test',
+            vault: vault,
+            client: httpClient,
+          ),
+          identityStore: identityStore,
+          deviceId: deviceId,
+        ),
+      );
+      await _settle(tester);
+
+      expect(vault.readAttempts, 0);
+      expect(find.text('Coba bersihkan sesi cloud lagi'), findsOneWidget);
+      expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
+
+      await tester.tap(find.text('Coba bersihkan sesi cloud lagi'));
+      await _settle(tester);
+
+      expect(vault.readAttempts, 1);
+      expect(vault.deleteCalled, isTrue);
+      expect(identityStore.sessionCleanupPending, isTrue);
+      expect(find.text('Coba bersihkan sesi cloud lagi'), findsOneWidget);
+
+      // Model the platform secure-storage service recovering, then retry.
+      vault.failDelete = false;
+      await tester.tap(find.text('Coba bersihkan sesi cloud lagi'));
+      await _settle(tester);
+
+      expect(identityStore.sessionCleanupPending, isFalse);
+      expect(find.text('Coba bersihkan sesi cloud lagi'), findsNothing);
+      expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
     },
     timeout: const Timeout(Duration(seconds: 30)),
   );

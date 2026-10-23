@@ -286,6 +286,7 @@ class _AppGateState extends State<_AppGate> {
   bool _restoring = true;
   AuthSession? _session;
   String? _restoreError;
+  bool _sessionCleanupPending = false;
 
   @override
   void initState() {
@@ -296,10 +297,20 @@ class _AppGateState extends State<_AppGate> {
   Future<void> _restoreSession() async {
     AuthSession? session;
     String? restoreError;
+    var cleanupPending = false;
     try {
-      session = await widget.authService.restoreSession();
-      if (session != null && session.tenantId.isNotEmpty) {
-        await widget.identityStore.setTenantId(session.tenantId);
+      if (widget.identityStore.sessionCleanupPending) {
+        // Do not even read/restore a potentially leftover token until an
+        // explicit retry confirms that secure-storage deletion succeeded.
+        cleanupPending = true;
+        restoreError = 'Logout sebelumnya belum dapat memastikan bahwa sesi '
+            'cloud terhapus dari perangkat. Akses cloud tetap dikunci. Coba '
+            'bersihkan sesi lagi atau lanjutkan dalam mode lokal.';
+      } else {
+        session = await widget.authService.restoreSession();
+        if (session != null && session.tenantId.isNotEmpty) {
+          await widget.identityStore.setTenantId(session.tenantId);
+        }
       }
     } catch (error, stackTrace) {
       // A secure-storage/platform exception must not strand the UI on the
@@ -320,6 +331,7 @@ class _AppGateState extends State<_AppGate> {
     setState(() {
       _session = session;
       _restoreError = restoreError;
+      _sessionCleanupPending = cleanupPending;
       _restoring = false;
     });
   }
@@ -335,23 +347,96 @@ class _AppGateState extends State<_AppGate> {
     setState(() {
       _session = session;
       _localOnly = false;
+      _restoreError = null;
+      _sessionCleanupPending = false;
     });
   }
 
   Future<void> _signOut() async {
+    var lockPersisted = false;
+
+    // Hide cloud features immediately and persist the fail-closed latch before
+    // attempting token deletion, so a failed delete cannot auto-login on restart.
+    if (mounted) {
+      setState(() {
+        _session = null;
+        _localOnly = false;
+        _restoring = false;
+        _sessionCleanupPending = true;
+        _restoreError = 'Sedang membersihkan sesi cloud secara aman...';
+      });
+    }
+
+    try {
+      await widget.identityStore.setSessionCleanupPending(true);
+      lockPersisted = true;
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Berkah POS could not persist logout lock (' +
+            error.runtimeType.toString() +
+            '): ' +
+            stackTrace.toString(),
+      );
+    }
+
     try {
       await widget.authService.logout();
-    } catch (_) {
-      // Local credential cleanup is owned by the auth service.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _session = null;
-          _localOnly = false;
-          _restoring = false;
-        });
-      }
+    } catch (error, stackTrace) {
+      debugPrint(
+        'Berkah POS local logout cleanup failed (' +
+            error.runtimeType.toString() +
+            '): ' +
+            stackTrace.toString(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _session = null;
+        _localOnly = false;
+        _restoring = false;
+        _sessionCleanupPending = true;
+        _restoreError = lockPersisted
+            ? 'Sesi lokal belum dapat dihapus dari penyimpanan aman. Akses '
+                'cloud tetap dikunci. Periksa penyimpanan perangkat lalu '
+                'coba bersihkan sesi lagi.'
+            : 'Sesi lokal belum dapat dikonfirmasi terhapus, dan penanda '
+                'keamanan tidak dapat disimpan. Akses cloud dikunci untuk '
+                'sesi aplikasi ini. Periksa penyimpanan perangkat lalu coba '
+                'bersihkan sesi lagi.';
+      });
+      return;
     }
+
+    try {
+      await widget.identityStore.setSessionCleanupPending(false);
+    } catch (error, stackTrace) {
+      // The token has been removed, but retain the in-memory lock until the
+      // persistent marker can be reset on a retry.
+      debugPrint(
+        'Berkah POS could not reset logout lock (' +
+            error.runtimeType.toString() +
+            '): ' +
+            stackTrace.toString(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _session = null;
+        _localOnly = false;
+        _restoring = false;
+        _sessionCleanupPending = true;
+        _restoreError = 'Token sesi sudah dihapus dari perangkat, tetapi '
+            'penanda logout belum dapat direset. Coba bersihkan sesi lagi.';
+      });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _session = null;
+      _localOnly = false;
+      _restoring = false;
+      _sessionCleanupPending = false;
+      _restoreError = null;
+    });
   }
 
   Widget _home({required bool localOnly}) {
@@ -360,7 +445,9 @@ class _AppGateState extends State<_AppGate> {
       identityStore: widget.identityStore,
       authService: localOnly ? null : widget.authService,
       // Cloud config is now fetchable through Laravel; transaction sync remains separate.
-      onSignOut: !localOnly && _session?.deviceIsActive == true ? _signOut : null,
+      onSignOut: _sessionCleanupPending || (!localOnly && _session?.deviceIsActive == true)
+          ? _signOut
+          : null,
     );
   }
 
@@ -382,9 +469,10 @@ class _AppGateState extends State<_AppGate> {
       deviceId: widget.deviceId,
       initialDeviceStatus: session?.deviceStatus,
       initialRestoreMessage: _restoreError,
+      sessionCleanupPending: _sessionCleanupPending,
       onAuthenticated: _authenticated,
       onContinueLocal: _continueLocalOnly,
-      onSignOut: session == null ? null : _signOut,
+      onSignOut: session == null && !_sessionCleanupPending ? null : _signOut,
     );
   }
 }
