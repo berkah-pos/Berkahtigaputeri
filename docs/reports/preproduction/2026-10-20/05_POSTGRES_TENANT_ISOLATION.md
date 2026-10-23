@@ -1,13 +1,13 @@
 # Prompt 05 — PostgreSQL Tenant Provisioning, Roles, Grants & Isolation
 
 **Execution date:** 2026-10-23  
-**Report status:** PARTIAL — case P05-01 is fixed and CI-verified; the full Prompt 05 release gate remains OPEN.  
+**Report status:** PARTIAL — cases P05-01 and P05-02 are fixed and CI-verified; the full Prompt 05 release gate remains OPEN.  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Base:** `main` at `8dc29d9ee909ab71645b1d6cbff1281d426c103f`  
-**Implementation branch:** `fix/p05-provisioning-tenant-status-guard-2026-10-23`  
-**PR:** [#134 — gate tenant provisioning on central pending status](https://github.com/berkah-pos/Berkahtigaputeri/pull/134)  
-**Verified implementation/test commit:** `7da149ecb0567662b242854fe5887feb3a1bf38c`  
-**CI evidence:** [Laravel PostgreSQL 17 Baseline, run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882) — **SUCCESS** (24 successful steps, zero failed steps).
+**Parent implementation PR:** [#134 — gate tenant provisioning on central pending status](https://github.com/berkah-pos/Berkahtigaputeri/pull/134), verified on `7da149ecb0567662b242854fe5887feb3a1bf38c`.  
+**Follow-up implementation PR:** [#135 — validate effective PostgreSQL connection identity](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), verified on `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.  
+**Follow-up branch:** `fix/p05-effective-connection-identity-2026-10-23`  
+**CI evidence:** [Laravel PostgreSQL 17 Baseline, run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882) and [run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759) — both **SUCCESS** (24 successful steps, zero failed steps each).
 
 ## Executive result
 
@@ -68,9 +68,19 @@ The tests also verify that the broker used by the disposable integration job is 
 
 ## 4. Remaining findings — Prompt 05 is not fully complete
 
-### P1 — Verify effective connection identity, not only config fields
+### P1 — Enforce broker role capability inside the provisioner (next active case P05-03)
 
-The current connection separation preflight compares configured `database` and `username` values. The database configuration also supports connection URLs. The provisioner should verify the **actual connected** `current_database()` and `current_user` identities against the central connection when URL-based configuration is used, and have regression coverage for URL/config divergence. This is a source-level concern pending adversarial verification; it is not covered by run #970.
+The provisioner reads the broker's effective role name but does not independently inspect and enforce the corresponding `pg_roles` attributes before proceeding. A privileged URL-resolved connection can be distinct from central and pass the identity-overlap check. The integration test checks that the **CI broker identity** is a non-superuser with `CREATEDB` and `CREATEROLE`, but that assertion is evidence about test setup—not an enforcement guarantee in production code.
+
+Add a source-level fail-closed check using the connected broker identity against `pg_roles`. Require `rolsuper = false`, `rolcreatedb = true`, and `rolcreaterole = true`; reject unexpected identities before the advisory lock, secret callbacks or resource changes. Exercise an alternate test-only superuser through the disposable PostgreSQL 17 integration service. No production role changes are allowed.
+
+### Closed on the follow-up branch — Effective connection identity (P05-02)
+
+Laravel v13.37.0 resolves connection URLs into the effective configuration: its `ConfigurationUrlParser` overlays URL-derived database/user/host values over raw config, and `DatabaseManager` invokes that parser before opening the connection ([parser source](https://github.com/laravel/framework/blob/v13.37.0/src/Illuminate/Support/ConfigurationUrlParser.php), [manager source](https://github.com/laravel/framework/blob/v13.37.0/src/Illuminate/Database/DatabaseManager.php)). Therefore comparing raw `database`/`username` config alone was insufficient.
+
+The follow-up reads `current_database()` and `current_user` from the actual central connection, connects the broker, reads the same live identity from PostgreSQL, and rejects a broker whose resolved database or role matches central. It purges the broker connection on rejection and does so before advisory locking, secret callbacks, role creation or database creation. The new `test_url_resolved_broker_identity_cannot_match_central_database_or_role` test exercises raw-config/URL divergence against the disposable PG17 service and asserts no credential/resource side effects.
+
+**Evidence:** [PR #135](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), code/test commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`, [CI run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759) — full workflow succeeded. Case P05-02 is closed for this implementation revision; PR #135 is still unmerged and stacked on PR #134.
 
 ### P1 — Prove deployment-level privilege separation
 
@@ -86,6 +96,8 @@ Current code safely refuses to adopt pre-existing/unverified resources and avoid
 
 ## 5. Acceptance decision
 
-**Case P05-01: CLOSED for this implementation revision.** The central-registry eligibility check and regression tests passed the complete disposable PostgreSQL 17 workflow and production-image smoke stage on commit `7da149ecb0567662b242854fe5887feb3a1bf38c`.
+**Case P05-01: CLOSED for this implementation revision.** The central-registry eligibility check and regression tests passed the full disposable PostgreSQL 17 workflow and production-image smoke stage on commit `7da149ecb0567662b242854fe5887feb3a1bf38c`, run #970.
 
-**Prompt 05 overall: OPEN / NOT CERTIFIED.** Continue with the effective connection-identity case next, on a follow-on branch based on the validated implementation. Keep deployment isolation and identity/worker-context checks as explicit release blockers. Do not merge or deploy based on this report alone.
+**Case P05-02: CLOSED for this implementation revision.** The effective-connection identity guard and adversarial URL/config regression passed the full workflow on commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`, run #975.
+
+**Prompt 05 overall: OPEN / NOT CERTIFIED.** The next in-scope case is to enforce the broker's effective role capability at runtime: reject superuser broker identities and require only the specific broker attributes needed for tenant provisioning (`CREATEDB` and `CREATEROLE`). Current integration checks confirm the disposable CI broker has expected attributes, but the service itself has not yet proven that a misconfigured deployment cannot use a superuser. Continue deployment-secret separation and identity/worker-context tests as explicit blockers. Do not merge or deploy based on this report alone.
