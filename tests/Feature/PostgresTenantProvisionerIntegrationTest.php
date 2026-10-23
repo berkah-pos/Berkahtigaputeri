@@ -793,6 +793,48 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $tenantA = $provisioner->provision($this->tenantIds[0], $storeCredential, $deleteCredential);
         $tenantB = $provisioner->provision($this->tenantIds[1], $storeCredential, $deleteCredential);
 
+        foreach ($this->tenantIds as $tenantId) {
+            $auditEvents = DB::connection('central')->table('audit_events')
+                ->where('scope_type', 'tenant_provisioning')
+                ->where('scope_id', $tenantId)
+                ->orderBy('id')
+                ->get();
+
+            $this->assertGreaterThan(10, $auditEvents->count(), 'Provisioning DDL/grant changes must be audited.');
+            $auditActions = $auditEvents->pluck('action')->all();
+            foreach ([
+                'tenant_provisioning.role.create.runtime.attempted',
+                'tenant_provisioning.role.create.runtime.succeeded',
+                'tenant_provisioning.database.create.attempted',
+                'tenant_provisioning.database.create.succeeded',
+                'tenant_provisioning.role.membership.grant.broker_owner_temporary.succeeded',
+                'tenant_provisioning.role.membership.revoke.broker_owner_temporary.succeeded',
+                'tenant_provisioning.default_privileges.sequences.owner_runtime.succeeded',
+            ] as $requiredAction) {
+                $this->assertContains($requiredAction, $auditActions, 'Missing provisioning audit event: ' . $requiredAction);
+            }
+
+            foreach ($auditEvents as $event) {
+                $this->assertNull($event->tenant_id, 'Provisioning audit evidence must not be deleted with a synthetic tenant row.');
+                $metadata = json_decode((string) $event->metadata, true, 512, JSON_THROW_ON_ERROR);
+                $this->assertSame($tenantId, $metadata['tenant_id'] ?? null);
+                $this->assertArrayNotHasKey('password', $metadata);
+                $this->assertArrayNotHasKey('secret', $metadata);
+            }
+        }
+
+        $serializedAudit = json_encode(
+            DB::connection('central')->table('audit_events')
+                ->where('scope_type', 'tenant_provisioning')
+                ->whereIn('scope_id', $this->tenantIds)
+                ->get()
+                ->toArray(),
+            JSON_THROW_ON_ERROR
+        );
+        foreach ($this->credentials as $secretValue) {
+            $this->assertStringNotContainsString($secretValue, $serializedAudit, 'Provisioning audit must never include credential values.');
+        }
+
         $this->assertNotSame($tenantA['database'], $tenantB['database']);
         $this->assertNotSame($tenantA['runtime_role'], $tenantB['runtime_role']);
         $this->assertNotSame($tenantA['migrator_role'], $tenantB['migrator_role']);
