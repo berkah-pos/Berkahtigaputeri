@@ -767,6 +767,109 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $this->assertNoTenantResources($tenantId);
     }
 
+    public function test_audit_completion_failure_still_revokes_temporary_broker_membership_and_preserves_database(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $central = DB::connection('central');
+        $suffix = strtolower($tenantId);
+        $database = 'berkahpos_t_' . $suffix;
+        $ownerRole = 'berkah_t_' . $suffix . '_owner';
+        $runtimeRole = 'berkah_t_' . $suffix . '_runtime';
+        $migratorRole = 'berkah_t_' . $suffix . '_migrator';
+        $brokerRole = (string) DB::connection('provisioner')->scalar('SELECT current_user');
+
+        // Inject one audit-store failure after CREATE DATABASE has succeeded.
+        // This test runs only against the disposable PostgreSQL 17 CI service.
+        $central->unprepared(<<<'SQL'
+CREATE FUNCTION btp_ci_fail_provision_success_audit()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $btp_ci_audit$
+BEGIN
+    IF NEW.scope_type = 'tenant_provisioning'
+       AND NEW.action = 'tenant_provisioning.database.create.succeeded' THEN
+        RAISE EXCEPTION 'injected disposable-CI audit write failure'
+            USING ERRCODE = '58000';
+    END IF;
+    RETURN NEW;
+END;
+$btp_ci_audit$
+SQL);
+        $central->unprepared(<<<'SQL'
+CREATE TRIGGER btp_ci_fail_provision_success_audit_insert
+BEFORE INSERT ON audit_events
+FOR EACH ROW EXECUTE FUNCTION btp_ci_fail_provision_success_audit()
+SQL);
+
+        try {
+            try {
+                (new PostgresTenantProvisioner())->provision(
+                    $tenantId,
+                    function (string $key, string $password): string {
+                        $this->credentials[$key] = $password;
+
+                        return 'ci-secret-ref://' . $key;
+                    },
+                    function (string $key): void {
+                        unset($this->credentials[$key]);
+                    }
+                );
+                $this->fail('Provisioning must stop when a completed CREATE DATABASE action cannot be audited.');
+            } catch (\RuntimeException $exception) {
+                $this->assertStringContainsString('Tenant provisioning failed', $exception->getMessage());
+                $this->assertStringContainsString(
+                    'completion audit could not be recorded',
+                    (string) $exception->getPrevious()?->getMessage()
+                );
+            }
+
+            // The database may contain resources now and must be preserved for manual review.
+            $this->assertSame(
+                1,
+                (int) $central->scalar('SELECT COUNT(*) FROM pg_database WHERE datname = ?', [$database])
+            );
+            $this->assertSame(
+                3,
+                (int) $central->scalar(
+                    'SELECT COUNT(*) FROM pg_roles WHERE rolname IN (?, ?, ?)',
+                    [$ownerRole, $runtimeRole, $migratorRole]
+                )
+            );
+
+            // Even though the central success-audit insert failed, emergency cleanup
+            // must revoke the broker's temporary membership to the tenant owner role.
+            $this->assertSame(
+                0,
+                (int) $central->scalar(
+                    'SELECT COUNT(*)
+                       FROM pg_auth_members m
+                       JOIN pg_roles granted ON granted.oid = m.roleid
+                       JOIN pg_roles member ON member.oid = m.member
+                      WHERE granted.rolname = ? AND member.rolname = ?',
+                    [$ownerRole, $brokerRole]
+                ),
+                'Broker must not retain owner-role membership after partial provisioning.'
+            );
+
+            $actions = $central->table('audit_events')
+                ->where('scope_type', 'tenant_provisioning')
+                ->where('scope_id', $tenantId)
+                ->orderBy('id')
+                ->pluck('action')
+                ->all();
+            $this->assertContains('tenant_provisioning.database.create.attempted', $actions);
+            $this->assertNotContains('tenant_provisioning.database.create.succeeded', $actions);
+            $this->assertContains(
+                'tenant_provisioning.role.membership.revoke.broker_owner_temporary.succeeded',
+                $actions,
+                'Emergency cleanup must itself be audited when the audit store is otherwise available.'
+            );
+        } finally {
+            $central->unprepared('DROP TRIGGER IF EXISTS btp_ci_fail_provision_success_audit_insert ON audit_events');
+            $central->unprepared('DROP FUNCTION IF EXISTS btp_ci_fail_provision_success_audit()');
+        }
+    }
+
     public function test_non_superuser_broker_provisions_two_isolated_tenants_with_working_runtime_grants(): void
     {
         $broker = DB::connection('provisioner');
@@ -792,6 +895,48 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $provisioner = new PostgresTenantProvisioner();
         $tenantA = $provisioner->provision($this->tenantIds[0], $storeCredential, $deleteCredential);
         $tenantB = $provisioner->provision($this->tenantIds[1], $storeCredential, $deleteCredential);
+
+        foreach ($this->tenantIds as $tenantId) {
+            $auditEvents = DB::connection('central')->table('audit_events')
+                ->where('scope_type', 'tenant_provisioning')
+                ->where('scope_id', $tenantId)
+                ->orderBy('id')
+                ->get();
+
+            $this->assertGreaterThan(10, $auditEvents->count(), 'Provisioning DDL/grant changes must be audited.');
+            $auditActions = $auditEvents->pluck('action')->all();
+            foreach ([
+                'tenant_provisioning.role.create.runtime.attempted',
+                'tenant_provisioning.role.create.runtime.succeeded',
+                'tenant_provisioning.database.create.attempted',
+                'tenant_provisioning.database.create.succeeded',
+                'tenant_provisioning.role.membership.grant.broker_owner_temporary.succeeded',
+                'tenant_provisioning.role.membership.revoke.broker_owner_temporary.succeeded',
+                'tenant_provisioning.default_privileges.sequences.owner_runtime.succeeded',
+            ] as $requiredAction) {
+                $this->assertContains($requiredAction, $auditActions, 'Missing provisioning audit event: ' . $requiredAction);
+            }
+
+            foreach ($auditEvents as $event) {
+                $this->assertNull($event->tenant_id, 'Provisioning audit evidence must not be deleted with a synthetic tenant row.');
+                $metadata = json_decode((string) $event->metadata, true, 512, JSON_THROW_ON_ERROR);
+                $this->assertSame($tenantId, $metadata['tenant_id'] ?? null);
+                $this->assertArrayNotHasKey('password', $metadata);
+                $this->assertArrayNotHasKey('secret', $metadata);
+            }
+        }
+
+        $serializedAudit = json_encode(
+            DB::connection('central')->table('audit_events')
+                ->where('scope_type', 'tenant_provisioning')
+                ->whereIn('scope_id', $this->tenantIds)
+                ->get()
+                ->toArray(),
+            JSON_THROW_ON_ERROR
+        );
+        foreach ($this->credentials as $secretValue) {
+            $this->assertStringNotContainsString($secretValue, $serializedAudit, 'Provisioning audit must never include credential values.');
+        }
 
         $this->assertNotSame($tenantA['database'], $tenantB['database']);
         $this->assertNotSame($tenantA['runtime_role'], $tenantB['runtime_role']);

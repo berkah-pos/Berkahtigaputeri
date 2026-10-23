@@ -143,6 +143,51 @@ jobs:
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
 
+      - name: Assert web and ordinary worker credential separation
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose_json="$RUNNER_TEMP/berkah-compose-config.json"
+          docker compose config --format json > "$compose_json"
+          python3 - "$compose_json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          config = json.loads(Path(sys.argv[1]).read_text())
+          services = config.get("services", {})
+          runtime_services = [
+              name for name in ("app", "web", "worker", "queue", "horizon")
+              if name in services
+          ]
+          assert runtime_services, "No web/application/ordinary-worker service found to audit"
+
+          forbidden_prefixes = ("PROVISIONER_", "MIGRATOR_")
+          for name in runtime_services:
+              service = services[name]
+              env = service.get("environment", {}) or {}
+              keys = list(env.keys()) if isinstance(env, dict) else [
+                  entry.split("=", 1)[0] for entry in env
+              ]
+              forbidden = sorted(key for key in keys if key.startswith(forbidden_prefixes))
+              assert not forbidden, (
+                  f"{name} service must not receive privileged credential names: {forbidden}"
+              )
+              assert not service.get("env_file"), (
+                  f"{name} service must use explicit environment entries, not bulk env_file injection"
+              )
+
+          provisioner = services.get("provisioner")
+          if provisioner is not None:
+              assert not provisioner.get("ports"), (
+                  "Provisioning service must not publish ports or have public ingress in Compose"
+              )
+          print(
+              "PASS: Compose web/ordinary-worker services receive no PROVISIONER_/MIGRATOR_ "
+              "variables or bulk env_file; any provisioner service publishes no ports."
+          )
+          PY
+
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
 
@@ -346,6 +391,12 @@ jobs:
             --env APP_ENV=testing --env APP_DEBUG=false --env APP_KEY \
             --env DB_CONNECTION --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT \
             --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
+           forbidden_names="$(docker exec "$container" sh -c 'env | cut -d= -f1 | grep -E "^(PROVISIONER_|MIGRATOR_)" || true')"
+           if [[ -n "$forbidden_names" ]]; then
+             printf '%s\n' 'Production smoke container has forbidden privileged environment names:' "$forbidden_names" >&2
+             exit 1
+           fi
+           echo "PASS: production smoke container has no PROVISIONER_/MIGRATOR_ environment variable names."
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:8080/up >/dev/null; then break; fi
             sleep 2
