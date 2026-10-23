@@ -572,6 +572,94 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $this->assertNoTenantResources($tenantId);
     }
 
+    public function test_superuser_broker_is_rejected_before_secret_storage(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $originalBroker = config('database.connections.provisioner');
+        $originalCentralUsername = config('database.connections.central.username');
+        $broker = $originalBroker;
+        $broker['url'] = null;
+        $broker['database'] = 'postgres';
+        $broker['username'] = 'postgres';
+        $broker['password'] = (string) config('database.connections.central.password');
+
+        // The central username setting is changed only to pass the earlier
+        // configuration-name comparison. The central DB is never connected
+        // through the modified config; PostgreSQL must reject the actual
+        // authenticated superuser identity in the broker preflight.
+        config([
+            'database.connections.provisioner' => $broker,
+            'database.connections.central.username' => 'central_runtime_placeholder',
+        ]);
+        DB::purge('provisioner');
+
+        $storeCalls = 0;
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function () use (&$storeCalls): string {
+                    $storeCalls++;
+
+                    return 'must-not-be-written';
+                },
+                static function (string $key): void {}
+            );
+            $this->fail('A PostgreSQL superuser must never be accepted as the provisioning broker.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame(
+                'Provisioner PostgreSQL role must be non-superuser with CREATEDB and CREATEROLE, without REPLICATION, BYPASSRLS, or central database CONNECT privilege.',
+                $exception->getMessage()
+            );
+        } finally {
+            config([
+                'database.connections.provisioner' => $originalBroker,
+                'database.connections.central.username' => $originalCentralUsername,
+            ]);
+            DB::purge('provisioner');
+        }
+
+        $this->assertSame(0, $storeCalls, 'The broker must be rejected before credentials or resources are created.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
+    public function test_broker_with_central_database_connect_is_rejected_before_secret_storage(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $central = DB::connection('central');
+        $centralDatabase = (string) config('database.connections.central.database');
+        $brokerRole = (string) config('database.connections.provisioner.username');
+        $centralIdentifier = '"' . str_replace('"', '""', $centralDatabase) . '"';
+        $brokerIdentifier = '"' . str_replace('"', '""', $brokerRole) . '"';
+
+        $central->statement('GRANT CONNECT ON DATABASE ' . $centralIdentifier . ' TO ' . $brokerIdentifier);
+        $storeCalls = 0;
+
+        try {
+            try {
+                (new PostgresTenantProvisioner())->provision(
+                    $tenantId,
+                    function () use (&$storeCalls): string {
+                        $storeCalls++;
+
+                        return 'must-not-be-written';
+                    },
+                    static function (string $key): void {}
+                );
+                $this->fail('A provisioning broker that can connect to the central database must be rejected.');
+            } catch (\RuntimeException $exception) {
+                $this->assertSame(
+                    'Provisioner PostgreSQL role must be non-superuser with CREATEDB and CREATEROLE, without REPLICATION, BYPASSRLS, or central database CONNECT privilege.',
+                    $exception->getMessage()
+                );
+            }
+        } finally {
+            $central->statement('REVOKE CONNECT ON DATABASE ' . $centralIdentifier . ' FROM ' . $brokerIdentifier);
+        }
+
+        $this->assertSame(0, $storeCalls, 'The broker must be rejected before credentials or resources are created.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
     public function test_non_superuser_broker_provisions_two_isolated_tenants_with_working_runtime_grants(): void
     {
         $broker = DB::connection('provisioner');

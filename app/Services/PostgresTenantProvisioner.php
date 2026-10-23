@@ -55,7 +55,45 @@ final class PostgresTenantProvisioner
 
         $connection = DB::connection('provisioner');
         $connection->getPdo();
-        $brokerRole = (string) $connection->scalar('SELECT current_user');
+
+        $centralDatabase = $this->configuredDatabaseName($central);
+        if ($centralDatabase === '') {
+            throw new RuntimeException('Central PostgreSQL database name must be configured for broker isolation checks.');
+        }
+
+        // Validate the privileges of the role PostgreSQL actually authenticated,
+        // not only the username written in configuration. A URL can override the
+        // configured username, and a superuser or a role that can connect to the
+        // central database would invalidate the intended trust boundary.
+        $brokerPolicy = $connection->selectOne(
+            'SELECT r.rolname,
+                    r.rolsuper::int AS is_superuser,
+                    r.rolcreatedb::int AS can_create_database,
+                    r.rolcreaterole::int AS can_create_role,
+                    r.rolreplication::int AS can_replicate,
+                    r.rolbypassrls::int AS can_bypass_rls,
+                    has_database_privilege(r.rolname, ?, \'CONNECT\')::int AS can_connect_central
+             FROM pg_roles AS r
+             WHERE r.rolname = current_user',
+            [$centralDatabase]
+        );
+
+        if ($brokerPolicy === null
+            || (int) $brokerPolicy->is_superuser !== 0
+            || (int) $brokerPolicy->can_create_database !== 1
+            || (int) $brokerPolicy->can_create_role !== 1
+            || (int) $brokerPolicy->can_replicate !== 0
+            || (int) $brokerPolicy->can_bypass_rls !== 0
+            || (int) $brokerPolicy->can_connect_central !== 0) {
+            throw new RuntimeException(
+                'Provisioner PostgreSQL role must be non-superuser with CREATEDB and CREATEROLE, without REPLICATION, BYPASSRLS, or central database CONNECT privilege.'
+            );
+        }
+
+        $brokerRole = (string) $brokerPolicy->rolname;
+        if ($brokerRole !== (string) ($broker['username'] ?? '')) {
+            throw new RuntimeException('Authenticated PostgreSQL broker role does not match the configured provisioner username.');
+        }
         $brokerIdentifier = $this->identifier($brokerRole);
 
         // Session-level lock serializes concurrent attempts for this tenant. It is
@@ -240,6 +278,37 @@ final class PostgresTenantProvisioner
             DB::purge('provisioning_target');
             $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
         }
+    }
+
+    /**
+     * Resolve the actual central database name from connection configuration.
+     * Laravel connection URLs take precedence over the scalar database setting.
+     *
+     * @param array<string, mixed> $connection
+     */
+    private function configuredDatabaseName(array $connection): string
+    {
+        $url = $connection['url'] ?? null;
+        if (is_string($url) && trim($url) !== '') {
+            $parts = parse_url($url);
+            if (! is_array($parts)) {
+                throw new RuntimeException('Central PostgreSQL URL is invalid for broker isolation checks.');
+            }
+
+            $pathDatabase = rawurldecode(trim((string) ($parts['path'] ?? ''), '/'));
+            if ($pathDatabase !== '') {
+                return $pathDatabase;
+            }
+
+            parse_str((string) ($parts['query'] ?? ''), $query);
+            foreach (['dbname', 'database'] as $key) {
+                if (isset($query[$key]) && is_string($query[$key]) && trim($query[$key]) !== '') {
+                    return trim($query[$key]);
+                }
+            }
+        }
+
+        return trim((string) ($connection['database'] ?? ''));
     }
 
     public function normalizeTenantId(string $tenantId): string
