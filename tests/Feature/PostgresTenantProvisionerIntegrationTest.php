@@ -99,6 +99,163 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_concurrent_provisioning_serializes_competing_attempts_for_the_same_tenant(): void
+    {
+        if (! function_exists('proc_open')) {
+            $this->markTestSkipped('The concurrency acceptance test requires PHP proc_open in isolated CI.');
+        }
+
+        $tenantId = $this->tenantIds[0];
+        $barrierDir = sys_get_temp_dir() . '/berkahpos-provision-concurrency-' . bin2hex(random_bytes(8));
+        $this->assertTrue(mkdir($barrierDir, 0700), 'Could not create the disposable concurrency barrier directory.');
+
+        /** @var list<array{process: resource|null, pipes: array<int, resource>, slot:string}> $processes */
+        $processes = [];
+        $results = [];
+        $bothWorkersReady = false;
+
+        try {
+            for ($slot = 0; $slot < 2; $slot++) {
+                $descriptors = [
+                    0 => ['pipe', 'r'],
+                    1 => ['pipe', 'w'],
+                    2 => ['pipe', 'w'],
+                ];
+                $pipes = [];
+                $process = proc_open(
+                    [
+                        PHP_BINARY,
+                        base_path('tests/Fixtures/provision_tenant_process.php'),
+                        $tenantId,
+                        $barrierDir,
+                        (string) $slot,
+                        '750',
+                    ],
+                    $descriptors,
+                    $pipes,
+                    base_path()
+                );
+
+                if (! is_resource($process)) {
+                    throw new \RuntimeException('Unable to start a disposable tenant provisioning worker.');
+                }
+
+                fclose($pipes[0]);
+                $processes[] = ['process' => $process, 'pipes' => $pipes, 'slot' => (string) $slot];
+            }
+
+            $deadline = microtime(true) + 20;
+            while (microtime(true) < $deadline) {
+                if (is_file($barrierDir . '/0.ready') && is_file($barrierDir . '/1.ready')) {
+                    $bothWorkersReady = true;
+                    break;
+                }
+                usleep(10_000);
+            }
+
+            // Release both bootstrapped workers together so the database lock is
+            // contended while the winner is deliberately delayed in secret storage.
+            file_put_contents($barrierDir . '/release', 'go', LOCK_EX);
+
+            foreach ($processes as $index => $worker) {
+                $stdout = stream_get_contents($worker['pipes'][1]);
+                $stderr = stream_get_contents($worker['pipes'][2]);
+                fclose($worker['pipes'][1]);
+                fclose($worker['pipes'][2]);
+
+                $exitCode = proc_close($worker['process']);
+                $processes[$index]['process'] = null;
+
+                $payloadLine = null;
+                foreach (preg_split('/\R/', (string) $stdout) ?: [] as $line) {
+                    if (str_starts_with($line, 'PROVISION_RESULT:')) {
+                        $payloadLine = substr($line, strlen('PROVISION_RESULT:'));
+                    }
+                }
+
+                if ($payloadLine === null) {
+                    throw new \RuntimeException(
+                        'Concurrency worker returned no result marker. stdout='
+                        . substr((string) $stdout, 0, 1000)
+                        . '; stderr=' . substr((string) $stderr, 0, 1000)
+                    );
+                }
+
+                $results[] = [
+                    'payload' => json_decode($payloadLine, true, 512, JSON_THROW_ON_ERROR),
+                    'exit_code' => $exitCode,
+                    'stderr' => (string) $stderr,
+                ];
+            }
+        } finally {
+            // Ensure a failed assertion or process startup does not strand a worker.
+            file_put_contents($barrierDir . '/release', 'go', LOCK_EX);
+            foreach ($processes as $worker) {
+                if (is_resource($worker['process'])) {
+                    proc_terminate($worker['process']);
+                    foreach ($worker['pipes'] as $pipe) {
+                        if (is_resource($pipe)) {
+                            fclose($pipe);
+                        }
+                    }
+                    proc_close($worker['process']);
+                }
+            }
+            foreach (glob($barrierDir . '/*') ?: [] as $path) {
+                if (is_file($path)) {
+                    unlink($path);
+                }
+            }
+            rmdir($barrierDir);
+        }
+
+        $this->assertTrue($bothWorkersReady, 'Both subprocesses must be ready before the race is released.');
+        $this->assertCount(2, $results);
+
+        $successes = array_values(array_filter(
+            $results,
+            static fn (array $result): bool => ($result['payload']['ok'] ?? false) === true
+        ));
+        $failures = array_values(array_filter(
+            $results,
+            static fn (array $result): bool => ($result['payload']['ok'] ?? true) === false
+        ));
+
+        $this->assertCount(1, $successes, 'Exactly one concurrent provisioning attempt must create the tenant resources.');
+        $this->assertCount(1, $failures, 'The competing attempt must fail closed after the lock is released.');
+        $this->assertSame(0, $successes[0]['exit_code']);
+        $this->assertSame(1, $failures[0]['exit_code']);
+        $this->assertSame(2, $successes[0]['payload']['store_calls']);
+        $this->assertSame(0, $failures[0]['payload']['store_calls']);
+        $this->assertSame(
+            'Tenant database or role already exists; refusing to adopt or modify unverified resources.',
+            $failures[0]['payload']['previous'] ?? null
+        );
+
+        $database = 'berkahpos_t_' . strtolower($tenantId);
+        $suffix = strtolower($tenantId);
+        $ownerRole = 'berkah_t_' . $suffix . '_owner';
+        $runtimeRole = 'berkah_t_' . $suffix . '_runtime';
+        $migratorRole = 'berkah_t_' . $suffix . '_migrator';
+        $central = DB::connection('central');
+
+        $this->assertSame(
+            1,
+            (int) $central->scalar('SELECT COUNT(*) FROM pg_database WHERE datname = ?', [$database])
+        );
+        $this->assertSame(
+            3,
+            (int) $central->scalar(
+                'SELECT COUNT(*) FROM pg_roles WHERE rolname IN (?, ?, ?)',
+                [$ownerRole, $runtimeRole, $migratorRole]
+            )
+        );
+        $this->assertSame(
+            $ownerRole,
+            $central->scalar('SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = ?', [$database])
+        );
+    }
+
     public function test_existing_tenant_database_or_role_is_never_adopted_and_credentials_are_not_stored(): void
     {
         $broker = DB::connection('provisioner');
