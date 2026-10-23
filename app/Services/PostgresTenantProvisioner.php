@@ -237,8 +237,20 @@ final class PostgresTenantProvisioner
                 }
             }
 
-            DB::purge('provisioning_target');
-            $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
+            // Purge the live connection, then scrub its runtime credential from
+            // Laravel's config repository so a long-lived worker cannot retain it.
+            try {
+                DB::purge('provisioning_target');
+            } finally {
+                $targetConfig = (array) config('database.connections.provisioning_target', []);
+                $targetConfig['url'] = null;
+                $targetConfig['database'] = '__tenant_not_configured__';
+                $targetConfig['username'] = '';
+                $targetConfig['password'] = '';
+                config(['database.connections.provisioning_target' => $targetConfig]);
+
+                $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
+            }
         }
     }
 
