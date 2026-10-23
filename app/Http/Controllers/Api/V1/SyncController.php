@@ -19,6 +19,8 @@ class SyncController extends Controller
     private const ENTITLED_SUBSCRIPTION_STATES = ['trial', 'active', 'grace', 'past_due'];
     private const GRACE_PERIOD_DAYS = 3;
 
+    private const INVENTORY_COUNTER_ACCOUNTS = ['1-1010', '1-1020', '1-1030', '2-2020'];
+
     private const PAYMENT_ACCOUNTS = [
         'cash' => '1-1010',
         'qris' => '1-1020',
@@ -566,6 +568,7 @@ class SyncController extends Controller
         }
         $quantity = $this->payloadQuantity($receipt, 'quantity');
         $unitCost = $this->payloadMoney($receipt, 'unit_cost');
+        $counterAccountCode = $receipt['counter_account_code'] ?? null;
         $batchNo = trim($this->requiredString($receipt, 'batch_no'));
         if ($batchNo === '' || strlen($batchNo) > 120) throw new SyncConflictException('Nomor batch tidak valid.');
 
@@ -616,6 +619,13 @@ class SyncController extends Controller
         $receiptTotalCost = $quantity * $unitCost;
         if ($receiptTotalCost > 9_999_999_999_999_999) {
             throw new SyncConflictException('Nilai penerimaan melebihi presisi moneter skema.');
+        }
+        if ($receiptTotalCost > 0
+            && (! is_string($counterAccountCode)
+                || ! in_array($counterAccountCode, self::INVENTORY_COUNTER_ACCOUNTS, true))) {
+            throw new SyncConflictException(
+                'Akun lawan penerimaan wajib dipilih: kas, QRIS, transfer bank, atau utang supplier.'
+            );
         }
 
         $period = null;
@@ -725,8 +735,8 @@ class SyncController extends Controller
 
         $journalId = null;
         if ($receiptTotalCost > 0) {
-            // Goods receipt increases inventory and supplier payable. A cash
-            // settlement, if any, is a separate payable/payment transaction.
+            // The operator explicitly selects the counter-account; never infer
+            // supplier credit for a purchase paid by cash, QRIS, or bank transfer.
             $journalId = 'journal:receipt:'.substr(hash('sha256', (string) $event['event_id']), 0, 48);
             $journalTransactionId = 'receipt:'.substr(hash('sha256', (string) $event['event_id']), 0, 48);
             $db->table('journal_entries')->insert([
@@ -750,7 +760,7 @@ class SyncController extends Controller
                 ],
                 [
                     'journal_entry_id' => $journalId, 'line_no' => 1,
-                    'account_code' => '2-2020', 'debit' => 0, 'credit' => $receiptTotalCost,
+                    'account_code' => (string) $counterAccountCode, 'debit' => 0, 'credit' => $receiptTotalCost,
                     'created_at' => $now, 'updated_at' => $now,
                 ],
             ]);

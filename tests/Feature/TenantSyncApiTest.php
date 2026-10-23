@@ -102,6 +102,78 @@ class TenantSyncApiTest extends TestCase
         $mismatch->assertForbidden()->assertJsonPath('error.code', 'device_identity_mismatch');
     }
 
+    public function test_positive_cost_receipt_without_counter_account_is_rejected_without_server_writes(): void
+    {
+        [, , , $bearer] = $this->identityFixture(true);
+        $productId = 'receipt-product-'.Str::lower(Str::ulid());
+        $productEventId = 'outbox:product:'.Str::lower(Str::ulid());
+        $receiptEventId = 'outbox:inventory_receipt:'.Str::lower(Str::ulid());
+        $productPayload = [
+            'event_id' => $productEventId,
+            'event_type' => 'product',
+            'payload_version' => 1,
+            'entity_id' => $productId,
+            'product' => [
+                'id' => $productId,
+                'sku' => 'SKU-'.Str::upper(Str::random(8)),
+                'name_id' => 'Receipt policy test',
+                'barcode' => null,
+                'price' => 12000,
+                'ppn_exempt' => false,
+                'track_expiry' => false,
+                'min_shelf_life_days' => 0,
+                'requires_review' => false,
+                'is_active' => true,
+            ],
+        ];
+        $receiptPayload = [
+            'event_id' => $receiptEventId,
+            'event_type' => 'inventory_receipt',
+            'payload_version' => 1,
+            'entity_id' => $productId,
+            'receipt' => [
+                'product_id' => $productId,
+                'lot_id' => 'LOT-'.Str::lower(Str::ulid()),
+                'cost_layer_id' => 'COST-'.Str::lower(Str::ulid()),
+                'quantity' => 2,
+                'unit_cost' => 12000,
+                'batch_no' => 'BATCH-'.Str::upper(Str::random(8)),
+                'expiry_date' => null,
+                'acquired_at_utc' => now()->utc()->toIso8601String(),
+                'timezone' => 'Asia/Jakarta',
+                'counter_account_code' => null,
+            ],
+        ];
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$bearer)->postJson('/api/v1/sync', [
+            'events' => [
+                [
+                    'event_id' => $productEventId,
+                    'entity_type' => 'product',
+                    'entity_id' => $productId,
+                    'payload' => $productPayload,
+                ],
+                [
+                    'event_id' => $receiptEventId,
+                    'entity_type' => 'inventory_receipt',
+                    'entity_id' => $productId,
+                    'payload' => $receiptPayload,
+                ],
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.1.status', 'conflict');
+        $response->assertJsonPath(
+            'results.1.message',
+            'Akun lawan penerimaan wajib dipilih: kas, QRIS, transfer bank, atau utang supplier.'
+        );
+        $this->assertDatabaseMissing('inventory_lots', ['id' => $receiptPayload['receipt']['lot_id']], 'tenant');
+        $this->assertDatabaseMissing('journal_entries', ['source_event_id' => $receiptEventId], 'tenant');
+        $this->assertDatabaseMissing('sync_receipts', ['event_id' => $receiptEventId], 'tenant');
+    }
+
     public function test_sync_fails_closed_until_a_tenant_runtime_connection_is_registered(): void
     {
         [, , , $bearer] = $this->identityFixture(false);

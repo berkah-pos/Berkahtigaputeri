@@ -27,6 +27,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<Map<String, Object?>> _legacyStock = const <Map<String, Object?>>[];
   Product? _selected;
   DateTime? _expiryDate;
+  String? _counterAccountCode;
   bool _loading = true;
   bool _saving = false;
   String? _error;
@@ -125,6 +126,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         acquiredAtUtc: DateTime.now().toUtc(),
         batchNo: batch,
         expiryDate: _expiryDate,
+        counterAccountCode: _counterAccountCode,
       );
       if (!mounted) return;
       setState(() {
@@ -132,6 +134,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         _unitCost.clear();
         _batchNo.clear();
         _expiryDate = null;
+        _counterAccountCode = null;
         _saving = false;
       });
       await _reload();
@@ -287,6 +290,44 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) => _nonNegative(value, 'Harga pokok'),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _counterAccountCode,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Sumber pembelian / akun lawan',
+                        helperText: 'Pilih akun untuk jurnal penerimaan stok.',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const <DropdownMenuItem<String>>[
+                        DropdownMenuItem(
+                          value: '1-1010',
+                          child: Text('Dibayar tunai — Kas'),
+                        ),
+                        DropdownMenuItem(
+                          value: '1-1020',
+                          child: Text('Dibayar QRIS'),
+                        ),
+                        DropdownMenuItem(
+                          value: '1-1030',
+                          child: Text('Dibayar transfer bank'),
+                        ),
+                        DropdownMenuItem(
+                          value: '2-2020',
+                          child: Text('Belum dibayar — Utang supplier'),
+                        ),
+                      ],
+                      onChanged: _saving
+                          ? null
+                          : (value) => setState(() => _counterAccountCode = value),
+                      validator: (value) {
+                        final unitCost = int.tryParse(_unitCost.text.trim()) ?? 0;
+                        if (unitCost > 0 && value == null) {
+                          return 'Pilih sumber pembelian untuk menjaga jurnal seimbang.';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 12),
                     TextFormField(

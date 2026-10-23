@@ -143,6 +143,7 @@ class SqliteProductRepository {
     String? batchNo,
     DateTime? expiryDate,
     String? costLayerId,
+    String? counterAccountCode,
   }) async {
     if (id.trim().isEmpty) {
       throw const ProductValidationException('ID lot wajib diisi.');
@@ -241,6 +242,7 @@ class SqliteProductRepository {
             'cost_layer_id': normalizedCostLayerId,
             'quantity': quantity,
             'unit_cost': unitCost,
+            'counter_account_code': counterAccountCode,
             'batch_no': normalizedBatchNo,
             'expiry_date': expiry,
             'acquired_at_utc': receivedAt,
@@ -258,6 +260,7 @@ class SqliteProductRepository {
     required int quantity,
     required int unitCost,
     required DateTime acquiredAtUtc,
+    String? counterAccountCode,
   }) async {
     if (lotId.trim().isEmpty || costLayerId.trim().isEmpty) {
       throw const ProductValidationException(
@@ -341,6 +344,7 @@ class SqliteProductRepository {
             'cost_layer_id': normalizedCostLayerId,
             'quantity': quantity,
             'unit_cost': unitCost,
+            'counter_account_code': counterAccountCode,
             'batch_no': (lot['batch_no'] as String?) ?? normalizedLotId,
             'expiry_date': lot['expiry_date'] as String?,
             'acquired_at_utc': receivedAt,
