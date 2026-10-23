@@ -267,7 +267,10 @@ void main() {
       expect(vault.values['berkah.auth.laravel.access_token'], '1|pending-token');
       expect(requests, contains('POST /api/v1/devices/enroll'));
 
-      await tester.tap(find.text('Hapus sesi perangkat tertunda'));
+      final cleanupButton = find.text('Hapus sesi perangkat tertunda');
+      await tester.ensureVisible(cleanupButton);
+      await tester.pump();
+      await tester.tap(cleanupButton);
       await _settle(tester);
 
       expect(requests, contains('POST /api/v1/auth/logout'));
