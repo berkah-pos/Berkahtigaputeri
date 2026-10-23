@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/config/app_identity_store.dart';
-import '../../core/config/config_service.dart';
 import '../../core/database/pos_database.dart';
 import '../inventory/inventory_screen.dart';
 import '../pos/checkout/payment_service.dart';
@@ -26,13 +25,11 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.database,
     required this.identityStore,
-    this.configService,
     this.onSignOut,
   });
 
   final PosDatabase database;
   final AppIdentityStore identityStore;
-  final ConfigService? configService;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -142,7 +139,6 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (_) => _ConfigurationScreen(
-                  configService: widget.configService,
                   identityStore: widget.identityStore,
                   onSignOut: widget.onSignOut,
                 ),
@@ -451,12 +447,10 @@ class _DashboardMetric extends StatelessWidget {
 
 class _ConfigurationScreen extends StatefulWidget {
   const _ConfigurationScreen({
-    required this.configService,
     required this.identityStore,
     this.onSignOut,
   });
 
-  final ConfigService? configService;
   final AppIdentityStore identityStore;
   final Future<void> Function()? onSignOut;
 
@@ -465,17 +459,9 @@ class _ConfigurationScreen extends StatefulWidget {
 }
 
 class _ConfigurationScreenState extends State<_ConfigurationScreen> {
-  bool _loading = false;
-  String? _status;
-  Map<String, dynamic>? _configuration;
-  TenantFeatures? _features;
-
   Future<void> _openExternal(String url) async {
     try {
-      final opened = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
+      final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
       if (!opened && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tautan tidak dapat dibuka.')),
@@ -501,65 +487,6 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
     await _openExternal(link.toString());
   }
 
-  Future<void> _checkConfiguration() async {
-    final service = widget.configService;
-    if (service == null) {
-      setState(() {
-        _status = 'SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY belum dikonfigurasi. '
-            'Aplikasi tetap bisa bekerja lokal.';
-      });
-      return;
-    }
-    if (!service.hasAuthenticatedSession) {
-      setState(() {
-        _status = 'Akses cloud diblokir: belum ada sesi login yang '
-            'terautentikasi. ID tenant/perangkat lokal bukan kredensial dan '
-            'tidak menggantikan membership atau enrollment yang diverifikasi server.';
-      });
-      return;
-    }
-    final tenantId = widget.identityStore.tenantId.trim();
-    final deviceId = widget.identityStore.deviceId.trim();
-    if (tenantId.isEmpty || deviceId.isEmpty) {
-      setState(() {
-        _status = 'Tenant dan perangkat belum terdaftar oleh layanan '
-            'enrollment. Hubungkan akun melalui alur enrollment resmi sebelum '
-            'meminta konfigurasi cloud.';
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _status = null;
-    });
-    try {
-      final config = await service.getEffectiveConfig(
-        tenantId: tenantId,
-        deviceId: deviceId,
-        service: 'pos',
-      );
-      final features = TenantFeatures.fromEffectiveConfig(config.value);
-      if (!mounted) return;
-      setState(() {
-        _configuration = config.value;
-        _features = features;
-        _status = config.fromCache
-            ? 'Konfigurasi berasal dari cache lokal.'
-            : 'Supabase memberikan respons; validitas sesi dan otorisasi '
-                'perangkat tetap harus diverifikasi.';
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _status = 'Konfigurasi cloud tidak dapat diverifikasi. Periksa '
-            'session autentikasi, enrollment device, dan konfigurasi environment. '
-            'Detail: ' + error.toString();
-        _loading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -573,23 +500,17 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('Identitas lokal',
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Text('Identitas lokal', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 12),
                   const Text(
-                    'ID lokal bukan kredensial login atau bukti kepemilikan '
-                    'tenant. Jangan mengganti tenant/device untuk melewati '
-                    'otorisasi server.',
+                    'ID tenant/perangkat yang tersimpan lokal bukan bukti autentikasi '
+                    'atau izin akses. Server harus memverifikasi membership dan perangkat.',
                   ),
                   const SizedBox(height: 12),
-                  SelectableText('Tenant: ' +
-                      (widget.identityStore.tenantId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.tenantId)),
-                  SelectableText('Device: ' +
-                      (widget.identityStore.deviceId.isEmpty
-                          ? 'Belum terdaftar'
-                          : widget.identityStore.deviceId)),
+                  SelectableText('Tenant: ' + (widget.identityStore.tenantId.isEmpty
+                      ? 'Belum terdaftar' : widget.identityStore.tenantId)),
+                  SelectableText('Device: ' + (widget.identityStore.deviceId.isEmpty
+                      ? 'Belum terdaftar' : widget.identityStore.deviceId)),
                 ],
               ),
             ),
@@ -601,45 +522,24 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text('Konfigurasi cloud',
-                      style: Theme.of(context).textTheme.titleLarge),
+                  Text('Konfigurasi cloud', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   const Text(
-                    'Konfigurasi efektif mengikuti GLOBAL → TEMPLATE → '
-                    'TENANT → SERVICE → DEVICE. Layanan cloud memerlukan '
-                    'session yang sah dan device yang telah terdaftar.',
+                    'Kontrak konfigurasi tetap GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. '
+                    'Namun endpoint efektif Laravel dan client Flutter untuk konfigurasi '
+                    'belum diimplementasikan. Tidak ada permintaan cloud konfigurasi yang dikirim.',
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: _loading ? null : _checkConfiguration,
-                      icon: _loading
-                          ? const SizedBox(width: 18, height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.cloud_sync),
-                      label: Text(_loading
-                          ? 'Memeriksa...'
-                          : 'Periksa konfigurasi'),
+                  const ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.cloud_off_outlined),
+                    title: Text('Konfigurasi cloud belum aktif'),
+                    subtitle: Text(
+                      'Login Laravel/device trust adalah workstream terpisah. '
+                      'Konfigurasi efektif, sinkronisasi penjualan/outbox, dan laporan lintas perangkat '
+                      'belum tersedia. Penjualan lokal tetap tersimpan di SQLite.',
                     ),
                   ),
-                  if (_status != null) ...<Widget>[
-                    const SizedBox(height: 12),
-                    Text(_status!),
-                  ],
-                  if (_features != null) ...<Widget>[
-                    const Divider(height: 24),
-                    Text('POS aktif: ' + (_features!.pos ? 'Ya' : 'Tidak')),
-                    Text('Akuntansi aktif: ' +
-                        (_features!.akuntansi ? 'Ya' : 'Tidak')),
-                  ],
-                  if (_configuration != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text('MDR efektif POS: ' +
-                        (_configuration!['mdr'] ??
-                                _configuration!['qris_mdr'] ?? '-')
-                            .toString()),
-                  ],
                 ],
               ),
             ),
@@ -670,11 +570,9 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                 ListTile(
                   leading: const Icon(Icons.support_agent_outlined),
                   title: const Text('Hubungi Sales via WhatsApp'),
-                  subtitle: Text(
-                    _salesWhatsAppNumber.trim().isEmpty
-                        ? 'Nomor sales dapat dikonfigurasi saat build.'
-                        : 'Minta informasi aktivasi atau paket berlangganan.',
-                  ),
+                  subtitle: Text(_salesWhatsAppNumber.trim().isEmpty
+                      ? 'Nomor sales dapat dikonfigurasi saat build.'
+                      : 'Minta informasi aktivasi atau paket berlangganan.'),
                   trailing: const Icon(Icons.open_in_new),
                   onTap: _contactSales,
                 ),
@@ -688,8 +586,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                 leading: const Icon(Icons.logout),
                 title: const Text('Keluar dari akun cloud'),
                 subtitle: const Text(
-                  'Akhiri sesi akun ini pada perangkat. Data lokal tetap '
-                  'tersimpan pada perangkat.',
+                  'Akhiri sesi akun ini pada perangkat. Data lokal tetap tersimpan.',
                 ),
                 onTap: () async {
                   final signOut = widget.onSignOut;

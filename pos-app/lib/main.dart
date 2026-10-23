@@ -1,16 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/auth/laravel_auth_service.dart';
 import 'core/config/app_identity_store.dart';
-import 'core/config/config_service.dart';
 import 'core/database/pos_database.dart';
 import 'features/auth/login_screen.dart';
 import 'features/home/home_screen.dart';
 
-const String _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const String _supabasePublishableKey =
-    String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+const String _laravelApiBaseUrl = String.fromEnvironment('BERKAH_API_BASE_URL');
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,41 +15,18 @@ Future<void> main() async {
   final preferences = await SharedPreferences.getInstance();
   final database = await PosDatabase.openDefault();
   final identityStore = AppIdentityStore(preferences);
-
-  SupabaseClient? authClient;
-  ConfigService? configService;
-  String cloudConfigurationMessage;
-
-  if (_supabaseUrl.trim().isEmpty ||
-      _supabasePublishableKey.trim().isEmpty) {
-    cloudConfigurationMessage =
-        'Cloud login belum dikonfigurasi pada build ini. '
-        'Atur SUPABASE_URL dan SUPABASE_PUBLISHABLE_KEY saat build. '
-        'Mode lokal tetap tersedia.';
-  } else {
-    try {
-      // supabase_flutter persists/restores user sessions across app restarts.
-      await Supabase.initialize(
-        url: _supabaseUrl,
-        publishableKey: _supabasePublishableKey,
-      );
-      authClient = Supabase.instance.client;
-      configService = ConfigService(authClient, preferences);
-      cloudConfigurationMessage = '';
-    } catch (_) {
-      cloudConfigurationMessage =
-          'Supabase tidak dapat diinisialisasi. Periksa konfigurasi build '
-          'dan koneksi; mode lokal tetap tersedia.';
-    }
-  }
+  final deviceId = await identityStore.ensureDeviceId();
+  final authService = LaravelAuthService(
+    baseUrl: _laravelApiBaseUrl,
+    vault: const FlutterSecureVault(),
+  );
 
   runApp(
     BerkahTigaPuteriApp(
       database: database,
-      authClient: authClient,
-      configService: configService,
+      authService: authService,
       identityStore: identityStore,
-      cloudConfigurationMessage: cloudConfigurationMessage,
+      deviceId: deviceId,
     ),
   );
 }
@@ -61,17 +35,15 @@ class BerkahTigaPuteriApp extends StatelessWidget {
   const BerkahTigaPuteriApp({
     super.key,
     this.database,
-    this.authClient,
-    this.configService,
+    this.authService,
     this.identityStore,
-    this.cloudConfigurationMessage,
+    this.deviceId,
   });
 
   final PosDatabase? database;
-  final SupabaseClient? authClient;
-  final ConfigService? configService;
+  final LaravelAuthService? authService;
   final AppIdentityStore? identityStore;
-  final String? cloudConfigurationMessage;
+  final String? deviceId;
 
   @override
   Widget build(BuildContext context) {
@@ -82,38 +54,37 @@ class BerkahTigaPuteriApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFF137A4B),
         useMaterial3: true,
       ),
-      home: database == null || identityStore == null
+      home: database == null ||
+              identityStore == null ||
+              authService == null ||
+              deviceId == null
           ? const Scaffold(
               body: Center(child: Text('Berkah Tiga Puteri POS')),
             )
           : _AppGate(
               database: database!,
-              authClient: authClient,
-              configService: configService,
+              authService: authService!,
               identityStore: identityStore!,
-              cloudConfigurationMessage: cloudConfigurationMessage,
+              deviceId: deviceId!,
             ),
     );
   }
 }
 
-/// Keeps the auth/local-mode switch inside one stable route. Login/logout
-/// therefore replaces the app's current screen without leaving Settings on top
-/// of an obsolete authenticated route.
+/// Cloud UI is enabled only for a server-verified active membership + device.
+/// SQLite POS remains available independently when the API is unavailable.
 class _AppGate extends StatefulWidget {
   const _AppGate({
     required this.database,
-    required this.authClient,
-    required this.configService,
+    required this.authService,
     required this.identityStore,
-    required this.cloudConfigurationMessage,
+    required this.deviceId,
   });
 
   final PosDatabase database;
-  final SupabaseClient? authClient;
-  final ConfigService? configService;
+  final LaravelAuthService authService;
   final AppIdentityStore identityStore;
-  final String? cloudConfigurationMessage;
+  final String deviceId;
 
   @override
   State<_AppGate> createState() => _AppGateState();
@@ -121,27 +92,55 @@ class _AppGate extends StatefulWidget {
 
 class _AppGateState extends State<_AppGate> {
   bool _localOnly = false;
+  bool _restoring = true;
+  AuthSession? _session;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final session = await widget.authService.restoreSession();
+    if (!mounted) return;
+    if (session != null && session.tenantId.isNotEmpty) {
+      await widget.identityStore.setTenantId(session.tenantId);
+    }
+    if (!mounted) return;
+    setState(() {
+      _session = session;
+      _restoring = false;
+    });
+  }
 
   void _continueLocalOnly() {
     setState(() => _localOnly = true);
   }
 
-  void _authenticated() {
-    setState(() => _localOnly = false);
+  Future<void> _authenticated(AuthSession session) async {
+    if (!session.deviceIsActive) return;
+    await widget.identityStore.setTenantId(session.tenantId);
+    if (!mounted) return;
+    setState(() {
+      _session = session;
+      _localOnly = false;
+    });
   }
 
   Future<void> _signOut() async {
     try {
-      await widget.authClient?.auth.signOut();
-      if (!mounted) return;
-      // Successful local sign-out removes the session; the gate returns to
-      // LoginScreen on the next build.
-      setState(() => _localOnly = false);
+      await widget.authService.logout();
     } catch (_) {
-      if (!mounted) return;
-      // Fail closed: even if remote sign-out fails, do not leave this route
-      // using the cloud configuration client until the session is resolved.
-      setState(() => _localOnly = true);
+      // Local token deletion still happens in logout's finally block.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _session = null;
+          _localOnly = false;
+          _restoring = false;
+        });
+      }
     }
   }
 
@@ -149,8 +148,8 @@ class _AppGateState extends State<_AppGate> {
     return HomeScreen(
       database: widget.database,
       identityStore: widget.identityStore,
-      configService: localOnly ? null : widget.configService,
-      onSignOut: !localOnly && widget.authClient != null ? _signOut : null,
+      // Configuration/sync parity is a separate gate: identity alone must
+      onSignOut: !localOnly && _session?.deviceIsActive == true ? _signOut : null,
     );
   }
 
@@ -158,25 +157,22 @@ class _AppGateState extends State<_AppGate> {
   Widget build(BuildContext context) {
     if (_localOnly) return _home(localOnly: true);
 
-    final client = widget.authClient;
-    if (client == null) {
-      return LoginScreen(
-        client: null,
-        configurationMessage: widget.cloudConfigurationMessage,
-        onAuthenticated: _authenticated,
-        onContinueLocal: _continueLocalOnly,
+    if (_restoring) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (client.auth.currentSession != null) {
-      return _home(localOnly: false);
-    }
+    final session = _session;
+    if (session?.deviceIsActive == true) return _home(localOnly: false);
 
     return LoginScreen(
-      client: client,
-      configurationMessage: widget.cloudConfigurationMessage,
+      authService: widget.authService,
+      deviceId: widget.deviceId,
+      initialDeviceStatus: session?.deviceStatus,
       onAuthenticated: _authenticated,
       onContinueLocal: _continueLocalOnly,
+      onSignOut: session == null ? null : _signOut,
     );
   }
 }

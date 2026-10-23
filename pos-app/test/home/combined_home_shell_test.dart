@@ -55,14 +55,23 @@ void main() {
     );
     await _settle(tester, 'initial app');
 
-    // No Supabase client is injected in this test, so enter explicit local-only
-    // mode rather than implying the cloud account is authenticated.
+    // An unconfigured Laravel API must preserve the explicit local-only path.
     expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
     await _tap(tester, find.text('Lanjutkan sebagai kasir lokal'), 'tap-2');
     await _settle(tester, 'local mode');
 
     expect(find.text('Beranda'), findsOneWidget);
     expect(find.text('Buka kasir'), findsOneWidget);
+
+    await _tap(tester, find.byTooltip('Pengaturan tenant dan cloud'), 'open-settings');
+    await _settle(tester, 'settings');
+    expect(find.text('Konfigurasi cloud belum aktif'), findsOneWidget);
+    expect(
+      find.textContaining('Tidak ada permintaan cloud konfigurasi yang dikirim.'),
+      findsOneWidget,
+    );
+    await tester.pageBack();
+    await _settle(tester, 'return from settings');
 
     await _tap(tester, find.text('Produk').last, 'tap-3');
     await _settle(tester, 'products tab');

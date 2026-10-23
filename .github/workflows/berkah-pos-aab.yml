@@ -178,22 +178,38 @@ jobs:
             echo "::warning::Release signing secrets are absent; this AAB is signed with the Android debug key and is only for testing."
           fi
 
-      - name: Reject publisher-signed release while legacy Supabase runtime remains
+      - name: Enforce no-Supabase and Phase-5 release gates
         if: steps.signing.outputs.mode == 'release'
         shell: bash
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
         run: |
           set -euo pipefail
-          # The current Flutter client still contains a forbidden legacy path.
-          # Refuse a publisher-signed release until a reviewed PR replaces it
-          # with the Laravel API and removes the SDK/initialization/config vars.
-          if grep -R -n -E 'supabase_flutter|Supabase\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\.instance' lib pubspec.yaml; then
-            echo "::error::Publisher-signed release blocked: legacy Supabase client usage remains. Replace it with the tested Laravel API before release; do not configure Supabase secrets."
+          if grep -R -n -E 'supabase_flutter|Supabase\.initialize|SUPABASE_URL|SUPABASE_PUBLISHABLE_KEY|Supabase\.instance|get_effective_config' lib pubspec.yaml; then
+            echo "::error::Publisher-signed release blocked: legacy Supabase runtime/RPC references remain."
+            exit 1
+          fi
+          if [[ ! "$BERKAH_API_BASE_URL" =~ ^https://[^/]+(/.*)?$ ]]; then
+            echo "::error::Publisher-signed release blocked: set BERKAH_API_BASE_URL to the reviewed HTTPS Laravel API origin."
+            exit 1
+          fi
+          # Auth alone is not Phase-5 acceptance. A publisher-signed release is
+          # blocked until the Laravel effective-config and durable sale-sync API
+          # contracts exist on this exact revision.
+          if ! grep -Eiq 'effective-config|effective/config|configuration/effective' "$GITHUB_WORKSPACE/routes/api.php"; then
+            echo "::error::Publisher-signed release blocked: Laravel effective-configuration route is not implemented."
+            exit 1
+          fi
+          if ! grep -Eiq 'sync' "$GITHUB_WORKSPACE/routes/api.php"; then
+            echo "::error::Publisher-signed release blocked: durable sale/outbox sync route is not implemented."
             exit 1
           fi
 
       - name: Build publisher-signed AAB
         if: steps.signing.outputs.mode == 'release'
-        run: flutter build appbundle --release
+        env:
+          BERKAH_API_BASE_URL: ${{ vars.BERKAH_API_BASE_URL }}
+        run: flutter build appbundle --release --dart-define="BERKAH_API_BASE_URL=$BERKAH_API_BASE_URL"
 
       - name: Build test-only debug-signed AAB
         if: steps.signing.outputs.mode == 'debug'
