@@ -156,6 +156,11 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         );
 
         $this->assertCount(2, $storedPasswords);
+        $temporaryConnection = (array) config('database.connections.provisioning_target', []);
+        $this->assertSame('__tenant_not_configured__', $temporaryConnection['database'] ?? null);
+        $this->assertSame('', $temporaryConnection['username'] ?? null);
+        $this->assertSame('', $temporaryConnection['password'] ?? null, 'The migrator password must not remain in Laravel config.');
+        $this->assertNull($temporaryConnection['url'] ?? null);
         $suffix = strtolower($tenantId);
         $table = 'provisioner_retry_guard_' . strtolower(substr($tenantId, 0, 8));
         $migrator = $this->connectionAs(
