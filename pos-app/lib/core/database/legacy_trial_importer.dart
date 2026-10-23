@@ -36,10 +36,10 @@ class LegacyTrialImporter {
     final legacy = await selectedFactory.openDatabase(
       legacyPath,
       options: OpenDatabaseOptions(
+        // The source is archival input only: it must never be migrated or
+        // changed as a side effect of opening it for import.
+        readOnly: true,
         singleInstance: false,
-        onConfigure: (database) async {
-          await database.execute('PRAGMA foreign_keys = ON');
-        },
       ),
     );
 
@@ -93,9 +93,7 @@ class LegacyTrialImporter {
         final mappedProductIds = <int, String>{};
 
         for (final old in oldProducts) {
-          final rawId = old['id'];
-          if (rawId is! num) continue;
-          final originalId = rawId.toInt();
+          final originalId = _requiredInteger(old['id'], 'product.id');
           final productId = 'legacy-product-$originalId';
           mappedProductIds[originalId] = productId;
 
@@ -128,7 +126,7 @@ class LegacyTrialImporter {
                 'name_id': originalName.isEmpty
                     ? 'Produk trial $originalId'
                     : originalName,
-                'price': _nonNegativeInt(old['price']) ?? 0,
+                'price': _nonNegativeInteger(old['price'], 'product.price'),
                 // Legacy records did not carry tax classification. Keep the
                 // product blocked until the owner explicitly reviews it.
                 'ppn_exempt': 0,
@@ -149,7 +147,7 @@ class LegacyTrialImporter {
           );
           if (stockRows.isEmpty) {
             final originalQuantity =
-                _nonNegativeInt(old['stock']) ?? 0;
+                _nonNegativeInteger(old['stock'], 'product.stock');
             await transaction.insert(
               'legacy_product_stock_archive',
               <String, Object?>{
@@ -168,17 +166,15 @@ class LegacyTrialImporter {
 
         final archivedSaleIds = <int>{};
         for (final old in oldSales) {
-          final rawId = old['id'];
-          if (rawId is! num) continue;
-          final saleId = rawId.toInt();
+          final saleId = _requiredInteger(old['id'], 'sale.id');
           final created = old['created']?.toString().trim() ?? '';
           await transaction.insert(
             'legacy_sales_archive',
             <String, Object?>{
               'id': 'legacy-sale-$saleId',
               'original_sale_id': saleId,
-              'total_amount': _signedInt(old['total']) ?? 0,
-              'item_count': _signedInt(old['item_count']) ?? 0,
+              'total_amount': _nonNegativeInteger(old['total'], 'sale.total'),
+              'item_count': _nonNegativeInteger(old['item_count'], 'sale.item_count'),
               'email': old['email']?.toString() ?? '',
               'created_at': created.isEmpty ? importedAt : created,
             },
@@ -188,17 +184,18 @@ class LegacyTrialImporter {
         }
 
         for (final old in oldSaleItems) {
-          final rawItemId = old['id'];
-          final rawSaleId = old['sale_id'];
-          if (rawItemId is! num || rawSaleId is! num) continue;
-          final itemId = rawItemId.toInt();
-          final saleId = rawSaleId.toInt();
-          if (!archivedSaleIds.contains(saleId)) continue;
+          final itemId = _requiredInteger(old['id'], 'sale_item.id');
+          final saleId = _requiredInteger(old['sale_id'], 'sale_item.sale_id');
+          if (!archivedSaleIds.contains(saleId)) {
+            throw const FormatException(
+              'Legacy import stopped: a sale item has no matching legacy sale. '
+              'The source file was not changed and the import was rolled back.',
+            );
+          }
 
-          final rawProductId = old['product_id'];
-          final productId = rawProductId is num
-              ? mappedProductIds[rawProductId.toInt()]
-              : null;
+          final oldProductId =
+              _requiredInteger(old['product_id'], 'sale_item.product_id');
+          final productId = mappedProductIds[oldProductId];
           await transaction.insert(
             'legacy_sale_items_archive',
             <String, Object?>{
@@ -207,9 +204,9 @@ class LegacyTrialImporter {
               'original_sale_id': saleId,
               'product_id': productId,
               'product_name': old['name']?.toString() ?? '',
-              'quantity': _signedInt(old['qty']) ?? 0,
-              'unit_price': _signedInt(old['price']) ?? 0,
-              'subtotal': _signedInt(old['subtotal']) ?? 0,
+              'quantity': _positiveInteger(old['qty'], 'sale_item.quantity'),
+              'unit_price': _nonNegativeInteger(old['price'], 'sale_item.price'),
+              'subtotal': _nonNegativeInteger(old['subtotal'], 'sale_item.subtotal'),
             },
           );
           counts['saleItems'] = counts['saleItems']! + 1;
@@ -234,14 +231,53 @@ class LegacyTrialImporter {
     }
   }
 
-  static int? _signedInt(Object? value) {
-    if (value is num) return value.round();
-    return int.tryParse(value?.toString() ?? '');
+  /// Converts only exact whole-number values. The source trial schema uses
+  /// REAL for several currency/quantity fields, so rounding here would silently
+  /// corrupt legacy history. Any invalid required value aborts the surrounding
+  /// target transaction; the legacy source remains untouched.
+  static int _requiredInteger(Object? value, String field) {
+    if (value is int) return value;
+    if (value is num) {
+      if (value.isFinite && value == value.truncateToDouble()) {
+        return value.toInt();
+      }
+    } else if (value is String) {
+      final text = value.trim();
+      final integer = int.tryParse(text);
+      if (integer != null) return integer;
+      final numeric = double.tryParse(text);
+      if (numeric != null &&
+          numeric.isFinite &&
+          numeric == numeric.truncateToDouble()) {
+        return numeric.toInt();
+      }
+    }
+
+    throw FormatException(
+      'Legacy import stopped: $field must be a finite whole number. '
+      'The source file was not changed and the import was rolled back.',
+    );
   }
 
-  static int? _nonNegativeInt(Object? value) {
-    final parsed = _signedInt(value);
-    if (parsed == null) return null;
-    return parsed < 0 ? 0 : parsed;
+  static int _nonNegativeInteger(Object? value, String field) {
+    final parsed = _requiredInteger(value, field);
+    if (parsed < 0) {
+      throw FormatException(
+        'Legacy import stopped: $field must not be negative. '
+        'The source file was not changed and the import was rolled back.',
+      );
+    }
+    return parsed;
+  }
+
+  static int _positiveInteger(Object? value, String field) {
+    final parsed = _requiredInteger(value, field);
+    if (parsed <= 0) {
+      throw FormatException(
+        'Legacy import stopped: $field must be greater than zero. '
+        'The source file was not changed and the import was rolled back.',
+      );
+    }
+    return parsed;
   }
 }
