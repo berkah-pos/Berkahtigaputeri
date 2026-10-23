@@ -33,9 +33,6 @@ final class PostgresTenantProvisioner
     public function provision(string $tenantId, Closure $storeCredential, Closure $deleteCredential): array
     {
         $tenant = $this->normalizeTenantId($tenantId);
-        // Fail closed before touching the broker or writing credentials: only a
-        // centrally registered tenant waiting for its first provisioning may proceed.
-        $this->assertTenantIsEligibleForProvisioning($tenant);
         $database = 'berkahpos_t_' . strtolower($tenant);
         $suffix = strtolower($tenant);
         $ownerRole = 'berkah_t_' . $suffix . '_owner';
@@ -55,6 +52,11 @@ final class PostgresTenantProvisioner
             || empty($broker['password'])) {
             throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
         }
+
+        // Configuration errors must fail without a database connection. Once the
+        // connection definitions are safe, verify eligibility in the central registry
+        // before connecting to the privileged broker or writing any credentials.
+        $this->assertTenantIsEligibleForProvisioning($tenant);
 
         $connection = DB::connection('provisioner');
         $connection->getPdo();
