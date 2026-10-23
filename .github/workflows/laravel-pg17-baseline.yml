@@ -296,7 +296,7 @@ jobs:
             --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
 
-      - name: Run Laravel feature tests against migrated PostgreSQL 17 central schema
+      - name: Run Laravel feature and PostgreSQL schema-integrity tests on migrated PostgreSQL 17 schemas
         shell: bash
         run: |
           set -euo pipefail
@@ -304,6 +304,8 @@ jobs:
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE \
             "$CI_IMAGE" php artisan test
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
