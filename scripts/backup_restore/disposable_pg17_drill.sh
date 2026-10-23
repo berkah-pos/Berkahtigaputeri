@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ARTIFACT_DIR=$BACKUP_DRILL_ARTIFACT_DIR
+if [ -z "$ARTIFACT_DIR" ]; then
+  echo "BLOCKED: BACKUP_DRILL_ARTIFACT_DIR must be set to a temporary artifact directory" >&2
+  exit 2
+fi
+mkdir -p "$ARTIFACT_DIR"
+for tool in docker openssl sha256sum tar python3 date; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    printf '{"status":"BLOCKED","reason":"missing required executable: %s"}\n' "$tool" > "$ARTIFACT_DIR/result.json"
+    echo "BLOCKED: missing required executable: $tool" >&2
+    exit 2
+  fi
+done
+if ! docker info >/dev/null 2>&1; then
+  printf '{"status":"BLOCKED","reason":"Docker daemon unavailable"}\n' > "$ARTIFACT_DIR/result.json"
+  echo "BLOCKED: Docker daemon unavailable" >&2
+  exit 2
+fi
+
+# Synthetic-only harness. No production URL/config input is accepted and no database port is published.
+unset DATABASE_URL CENTRAL_DB_URL TENANT_DB_URL PGPASSWORD || true
+umask 077
+started=$(date +%s)
+started_iso=$(date -u +%FT%TZ)
+work=$(mktemp -d)
+suffix="$(date -u +%Y%m%d%H%M%S%N)"
+source_backup_id="synthetic-pg17-$suffix"
+network="backup-drill-net-$suffix"
+source_db="backup-drill-src-$suffix"
+target_db="backup-drill-dst-$suffix"
+app_image="berkah-pos-backup-drill-$suffix"
+db_password="DisposableOnly-Synthetic-Database-Password"
+export BACKUP_DRILL_SYNTHETIC_PASSPHRASE="synthetic-only-passphrase-not-a-production-secret"
+
+cleanup() {
+  rc=$?
+  set +e
+  if [ "$rc" -ne 0 ] && [ ! -f "$ARTIFACT_DIR/result.json" ]; then
+    printf '{"status":"FAILED","exit_code":%s,"sha":"%s","scope":"synthetic disposable PostgreSQL 17 drill only"}\n' "$rc" "$GITHUB_SHA" > "$ARTIFACT_DIR/result.json"
+  fi
+  docker rm -f "$target_db" "$source_db" >/dev/null 2>&1
+  docker network rm "$network" >/dev/null 2>&1
+  docker image rm "$app_image" >/dev/null 2>&1
+  rm -rf "$work"
+  exit "$rc"
+}
+trap cleanup EXIT
+
+docker network create --internal "$network" >/dev/null
+docker run -d --name "$source_db" --network "$network" \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$db_password" \
+  -e POSTGRES_DB=berkahpos_central postgres:17 >/dev/null
+docker run -d --name "$target_db" --network "$network" \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD="$db_password" \
+  -e POSTGRES_DB=postgres postgres:17 >/dev/null
+ready=false
+for attempt in $(seq 1 60); do
+  if docker exec "$source_db" pg_isready -U postgres -d berkahpos_central >/dev/null 2>&1 &&
+     docker exec "$target_db" pg_isready -U postgres -d postgres >/dev/null 2>&1; then ready=true; break; fi
+  sleep 2
+done
+if [ "$ready" != true ]; then echo "FAIL: disposable PostgreSQL containers did not become ready" >&2; exit 1; fi
+
+docker build --pull --target development --tag "$app_image" .
+docker exec "$source_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE berkahpos_tenant_a'
+docker exec "$source_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE berkahpos_tenant_b'
+
+docker run --rm --network "$network" \
+  -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+  -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$source_db" -e CENTRAL_DB_PORT=5432 \
+  -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres \
+  -e CENTRAL_DB_PASSWORD="$db_password" -e CENTRAL_DB_SSLMODE=disable \
+  -e TENANT_DB_HOST="$source_db" -e TENANT_DB_PORT=5432 \
+  -e TENANT_DB_DATABASE=berkahpos_tenant_a -e TENANT_DB_USERNAME=postgres \
+  -e TENANT_DB_PASSWORD="$db_password" -e TENANT_DB_SSLMODE=disable \
+  "$app_image" php artisan migrate --database=central --path=database/migrations/central --force
+for tenant_db in berkahpos_tenant_a berkahpos_tenant_b; do
+  docker run --rm --network "$network" \
+    -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$source_db" -e CENTRAL_DB_PORT=5432 \
+    -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres \
+    -e CENTRAL_DB_PASSWORD="$db_password" -e CENTRAL_DB_SSLMODE=disable \
+    -e TENANT_DB_HOST="$source_db" -e TENANT_DB_PORT=5432 \
+    -e TENANT_DB_DATABASE="$tenant_db" -e TENANT_DB_USERNAME=postgres \
+    -e TENANT_DB_PASSWORD="$db_password" -e TENANT_DB_SSLMODE=disable \
+    "$app_image" php artisan migrate --database=tenant --path=database/migrations/tenant --force
+done
+
+docker exec "$source_db" psql -U postgres -d berkahpos_central -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO tenants (id, template_id, created_at, updated_at) VALUES ('tenant_a_synthetic','BASIC',now(),now()),('tenant_b_synthetic','BASIC',now(),now())"
+docker exec "$source_db" psql -U postgres -d berkahpos_tenant_a -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO products (id,name,price,requires_review,is_active,created_at,updated_at) VALUES ('DRILL-A','Synthetic marker A',1.00,false,true,now(),now())"
+docker exec "$source_db" psql -U postgres -d berkahpos_tenant_b -v ON_ERROR_STOP=1 \
+  -c "INSERT INTO products (id,name,price,requires_review,is_active,created_at,updated_at) VALUES ('DRILL-B','Synthetic marker B',2.00,false,true,now(),now())"
+
+mkdir -p "$work/files"
+printf 'SYNTHETIC FILE A ONLY - NO CUSTOMER DATA\n' > "$work/files/tenant-a.txt"
+printf 'SYNTHETIC FILE B ONLY - NO CUSTOMER DATA\n' > "$work/files/tenant-b.txt"
+sha256sum "$work/files/tenant-a.txt" "$work/files/tenant-b.txt" > "$work/file-checksums.txt"
+printf 'synthetic-key-material-only\n' > "$work/synthetic-key.txt"
+sha256sum "$work/synthetic-key.txt" > "$work/key-checksum.txt"
+openssl enc -aes-256-cbc -pbkdf2 -salt -in "$work/synthetic-key.txt" -out "$work/synthetic-key.enc" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
+openssl enc -d -aes-256-cbc -pbkdf2 -in "$work/synthetic-key.enc" -out "$work/synthetic-key.restored" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
+sha256sum -c "$work/key-checksum.txt" >/dev/null
+cmp "$work/synthetic-key.txt" "$work/synthetic-key.restored"
+
+: > "$work/synthetic-database-backup-checksums.txt"
+for db in berkahpos_central berkahpos_tenant_a berkahpos_tenant_b; do
+  # Write the archive inside the disposable source, then copy the binary file without a streamed stdout.
+  source_dump_path="/tmp/backup-drill-$db.dump"
+  docker exec -e PGPASSWORD="$db_password" "$source_db" \
+    pg_dump -h 127.0.0.1 -U postgres -d "$db" -Fc -f "$source_dump_path"
+  docker cp "$source_db:$source_dump_path" "$work/$db.dump" >/dev/null
+  docker exec "$source_db" rm -f "$source_dump_path"
+  if [ ! -s "$work/$db.dump" ]; then echo "FAIL: generated backup archive is empty" >&2; exit 1; fi
+  docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.dump" >/dev/null
+  sha256sum "$work/$db.dump" > "$work/$db.sha256"
+  awk -v name="$db.dump" '{print $1 "  " name}' "$work/$db.sha256" >> "$work/synthetic-database-backup-checksums.txt"
+  openssl enc -aes-256-cbc -pbkdf2 -salt -in "$work/$db.dump" -out "$work/$db.dump.enc" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
+  openssl enc -d -aes-256-cbc -pbkdf2 -in "$work/$db.dump.enc" -out "$work/$db.restore.dump" -pass env:BACKUP_DRILL_SYNTHETIC_PASSPHRASE
+  if [ ! -s "$work/$db.restore.dump" ]; then echo "FAIL: decrypted backup archive is empty" >&2; exit 1; fi
+  sha256sum -c "$work/$db.sha256" >/dev/null
+  docker run -i --rm --network "$network" postgres:17 pg_restore --list < "$work/$db.restore.dump" >/dev/null
+  docker exec "$target_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE $db"
+  docker run -i --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
+    pg_restore --exit-on-error --no-owner -h "$target_db" -U postgres -d "$db" < "$work/$db.restore.dump"
+done
+
+central_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_central -Atc "SELECT count(*) FROM tenants WHERE id IN ('tenant_a_synthetic','tenant_b_synthetic')")
+a_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a -Atc "SELECT count(*) FROM products WHERE id='DRILL-A'")
+b_cross_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+b_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_b -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+a_cross_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_b -Atc "SELECT count(*) FROM products WHERE id='DRILL-A'")
+[ "$central_count" = "2" ] && [ "$a_count" = "1" ] && [ "$b_count" = "1" ] && [ "$b_cross_count" = "0" ] && [ "$a_cross_count" = "0" ] || {
+  echo "FAIL: synthetic central/tenant row-count or tenant marker validation failed" >&2; exit 1;
+}
+for spec in "central:berkahpos_central" "tenant:berkahpos_tenant_a" "tenant:berkahpos_tenant_b"; do
+  connection=$(printf '%s' "$spec" | cut -d: -f1)
+  db=$(printf '%s' "$spec" | cut -d: -f2-)
+  status_file="$work/migration-$db.txt"
+  if [ "$connection" = "central" ]; then
+    docker run --rm --network "$network" -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+      -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$target_db" -e CENTRAL_DB_PORT=5432 \
+      -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres -e CENTRAL_DB_PASSWORD="$db_password" \
+      -e CENTRAL_DB_SSLMODE=disable "$app_image" php artisan migrate:status --database=central --path=database/migrations/central > "$status_file"
+  else
+    docker run --rm --network "$network" -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+      -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$target_db" -e CENTRAL_DB_PORT=5432 \
+      -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres -e CENTRAL_DB_PASSWORD="$db_password" \
+      -e CENTRAL_DB_SSLMODE=disable -e TENANT_DB_HOST="$target_db" -e TENANT_DB_PORT=5432 \
+      -e TENANT_DB_DATABASE="$db" -e TENANT_DB_USERNAME=postgres -e TENANT_DB_PASSWORD="$db_password" \
+      -e TENANT_DB_SSLMODE=disable "$app_image" php artisan migrate:status --database=tenant --path=database/migrations/tenant > "$status_file"
+  fi
+  if grep -Eq '\| No[[:space:]]+\|' "$status_file"; then
+    echo "FAIL: pending migration detected after restore for a synthetic DB" >&2; exit 1
+  fi
+done
+
+
+# Recover only tenant A into a fresh database from A's own verified/decrypted archive.
+# This must not alter central metadata or tenant B, and the target must not contain B's marker.
+docker exec "$target_db" psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  -c "CREATE DATABASE berkahpos_tenant_a_recovery"
+docker run -i --rm --network "$network" -e PGPASSWORD="$db_password" postgres:17 \
+  pg_restore --exit-on-error --no-owner -h "$target_db" -U postgres \
+  -d berkahpos_tenant_a_recovery < "$work/berkahpos_tenant_a.restore.dump"
+single_a_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a_recovery -Atc "SELECT count(*) FROM products WHERE id='DRILL-A'")
+single_a_cross_b=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_a_recovery -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+single_central_count=$(docker exec "$target_db" psql -U postgres -d berkahpos_central -Atc "SELECT count(*) FROM tenants WHERE id IN ('tenant_a_synthetic','tenant_b_synthetic')")
+single_b_count_after=$(docker exec "$target_db" psql -U postgres -d berkahpos_tenant_b -Atc "SELECT count(*) FROM products WHERE id='DRILL-B'")
+[ "$single_a_count" = "1" ] && [ "$single_a_cross_b" = "0" ] && \
+  [ "$single_central_count" = "2" ] && [ "$single_b_count_after" = "1" ] || {
+  echo "FAIL: isolated single-tenant restore leaked or changed central/tenant B data" >&2; exit 1;
+}
+docker run --rm --network "$network" -e APP_ENV=testing -e APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+  -e DB_CONNECTION=central -e CENTRAL_DB_HOST="$target_db" -e CENTRAL_DB_PORT=5432 \
+  -e CENTRAL_DB_DATABASE=berkahpos_central -e CENTRAL_DB_USERNAME=postgres -e CENTRAL_DB_PASSWORD="$db_password" \
+  -e CENTRAL_DB_SSLMODE=disable -e TENANT_DB_HOST="$target_db" -e TENANT_DB_PORT=5432 \
+  -e TENANT_DB_DATABASE=berkahpos_tenant_a_recovery -e TENANT_DB_USERNAME=postgres \
+  -e TENANT_DB_PASSWORD="$db_password" -e TENANT_DB_SSLMODE=disable \
+  "$app_image" php artisan migrate:status --database=tenant --path=database/migrations/tenant > "$work/migration-single-tenant-recovery.txt"
+if grep -Eq '\| No[[:space:]]+\|' "$work/migration-single-tenant-recovery.txt"; then
+  echo "FAIL: pending migration detected in isolated single-tenant restore" >&2; exit 1;
+fi
+
+mkdir -p "$work/restore-files"
+cp "$work/files/tenant-a.txt" "$work/restore-files/tenant-a.txt"
+cp "$work/files/tenant-b.txt" "$work/restore-files/tenant-b.txt"
+cp "$work/synthetic-key.restored" "$work/restore-files/synthetic-key.txt"
+cmp "$work/files/tenant-a.txt" "$work/restore-files/tenant-a.txt"
+cmp "$work/files/tenant-b.txt" "$work/restore-files/tenant-b.txt"
+cmp "$work/synthetic-key.txt" "$work/restore-files/synthetic-key.txt"
+
+finish=$(date +%s)
+finish_iso=$(date -u +%FT%TZ)
+duration=$((finish-started))
+pg_version=$(docker exec "$target_db" psql -U postgres -d postgres -Atc 'SHOW server_version')
+pg_image_id=$(docker image inspect --format '{{.Id}}' postgres:17)
+file_a_sha=$(sha256sum "$work/restore-files/tenant-a.txt" | awk '{print $1}')
+file_b_sha=$(sha256sum "$work/restore-files/tenant-b.txt" | awk '{print $1}')
+key_sha=$(sha256sum "$work/restore-files/synthetic-key.txt" | awk '{print $1}')
+printf '{"status":"PASS","scope":"synthetic disposable data only","workflow_sha":"%s","source_backup_id":"%s","started_at_utc":"%s","completed_at_utc":"%s","postgres_version":"%s","postgres_image_id":"%s","duration_seconds":%s,"central_synthetic_tenants":%s,"tenant_a_marker_rows":%s,"tenant_b_marker_rows":%s,"cross_tenant_a_to_b_marker_rows":%s,"cross_tenant_b_to_a_marker_rows":%s,"single_tenant_restore_target":"berkahpos_tenant_a_recovery","single_tenant_a_restored_rows":%s,"single_tenant_b_cross_rows":%s,"central_tenants_unchanged":true,"tenant_b_unchanged":true,"file_a_sha256":"%s","file_b_sha256":"%s","synthetic_key_sha256":"%s","production_backup_used":false,"off_host_provider_tested":false,"pitr_tested":false,"real_vault_tested":false}\n' \
+  "$GITHUB_SHA" "$source_backup_id" "$started_iso" "$finish_iso" "$pg_version" "$pg_image_id" "$duration" "$central_count" "$a_count" "$b_count" "$b_cross_count" "$a_cross_count" "$single_a_count" "$single_a_cross_b" "$file_a_sha" "$file_b_sha" "$key_sha" > "$ARTIFACT_DIR/result.json"
+cp "$work/file-checksums.txt" "$ARTIFACT_DIR/synthetic-file-checksums.txt"
+cp "$work/synthetic-database-backup-checksums.txt" "$ARTIFACT_DIR/synthetic-database-backup-checksums.txt"
+(cd "$ARTIFACT_DIR" && sha256sum result.json synthetic-file-checksums.txt synthetic-database-backup-checksums.txt > artifact-checksums.txt)
+echo "PASS: synthetic PostgreSQL 17 central + two-tenant dump/encrypt/restore and synthetic file/key integrity checks completed; no production or off-host provider was used."
