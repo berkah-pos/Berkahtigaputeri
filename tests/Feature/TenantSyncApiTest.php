@@ -260,6 +260,7 @@ class TenantSyncApiTest extends TestCase
             $this->fail('Credential resolution failure should block tenant database access.');
         } catch (\RuntimeException $exception) {
             $this->assertSame('tenant_database_credentials_unavailable', $exception->getMessage());
+            $this->assertNull($exception->getPrevious());
             $this->assertStringNotContainsString('provider-token=never-log-this-value', $exception->getMessage());
         }
     }

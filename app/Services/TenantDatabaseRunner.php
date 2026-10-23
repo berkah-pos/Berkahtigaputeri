@@ -77,10 +77,9 @@ final class TenantDatabaseRunner
                 'tenant_id' => $tenantId,
                 'exception_class' => $exception::class,
             ]);
-            throw new RuntimeException(
-                'tenant_database_credentials_unavailable',
-                previous: $exception
-            );
+            // Do not retain the original provider exception as `previous`; its message
+            // may contain provider response bodies or other secret material.
+            throw new RuntimeException('tenant_database_credentials_unavailable');
         }
 
         if ($password === '') {
