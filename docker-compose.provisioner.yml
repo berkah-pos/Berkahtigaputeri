@@ -23,8 +23,10 @@ services:
       CENTRAL_DB_HOST: postgres
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
-      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      # The provisioning worker must use a separate, narrowly granted central-registry identity.
+      # Empty defaults deliberately fail closed instead of inheriting the app's local postgres user.
+      CENTRAL_DB_USERNAME: ${WORKER_CENTRAL_DB_USERNAME:-}
+      CENTRAL_DB_PASSWORD: ${WORKER_CENTRAL_DB_PASSWORD:-}
       CENTRAL_DB_SSLMODE: disable
       TENANT_DB_HOST: postgres
       TENANT_DB_PORT: "5432"
