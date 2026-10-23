@@ -88,9 +88,9 @@ void main() {
       await _tap(tester, find.text('Selesaikan checkout'), 'tap-5');
       await _settle(tester, 'checkout');
 
-      expect(find.text('Transaksi tersimpan'), findsOneWidget);
+      expect(find.text('Transaksi tersimpan lokal'), findsOneWidget);
       expect(
-        find.textContaining('Sinkronisasi cloud belum aktif'),
+        find.textContaining('sinkronisasi cloud belum aktif'),
         findsOneWidget,
       );
 

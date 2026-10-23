@@ -1,5 +1,7 @@
 // test/pos/checkout/payment_service_test.dart
 
+import 'dart:io';
+
 import 'package:berkahtigaputeri_pos/features/accounting/exceptions/accounting_exceptions.dart';
 import 'package:berkahtigaputeri_pos/core/database/pos_database.dart';
 import 'package:berkahtigaputeri_pos/features/accounting/models/journal_entry.dart';
@@ -7,6 +9,8 @@ import 'package:berkahtigaputeri_pos/features/pos/checkout/payment_service.dart'
 import 'package:berkahtigaputeri_pos/features/pos/checkout/sqlite_sale_repository.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
+import 'package:path/path.dart' as p;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../helpers/test_database.dart';
@@ -404,6 +408,180 @@ void main() {
       expect(await _count(database, 'outbox_events'), 0);
     });
 
+    test('outbox insert failure rolls back all prior checkout writes', () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final products = SqliteProductRepository(database);
+      await _seedProduct(
+        products,
+        id: 'P-ATOMIC',
+        sku: 'SKU-ATOMIC',
+        name: 'Produk Atomic',
+        price: 10000,
+        ppnExempt: true,
+        lots: <_LotSeed>[
+          _LotSeed(
+            id: 'LOT-ATOMIC',
+            quantity: 2,
+            unitCost: 4000,
+            acquiredAtUtc: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+      // Adding the opening lot creates one legitimate inventory receipt
+      // movement before checkout. The failed sale must preserve that baseline.
+      final initialInventoryMovementCount =
+          await _count(database, 'inventory_movements');
+      const transactionId = 'TRX-ATOMIC-FAIL';
+      await database.database.insert('outbox_events', <String, Object?>{
+        'id': 'outbox:sale:$transactionId',
+        'entity_type': 'test-sentinel',
+        'entity_id': 'sentinel',
+        'payload': '{}',
+        'status': 'pending',
+        'retry_count': 0,
+        'created_at_utc': DateTime.utc(2026, 9, 1).toIso8601String(),
+      });
+
+      await expectLater(
+        PaymentService(repository: SqliteSaleRepository(database)).process(
+          PaymentRequest(
+            transactionId: transactionId,
+            method: PaymentMethod.cash,
+            occurredAtUtc: DateTime.utc(2026, 9, 29, 16),
+            lines: const <PaymentLineInput>[
+              PaymentLineInput(productId: 'P-ATOMIC', quantity: 1),
+            ],
+          ),
+        ),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      expect((await products.findById('P-ATOMIC'))!.stockQty, 2);
+      expect((await database.database.query('inventory_lots')).single['on_hand_qty'], 2);
+      expect((await database.database.query('inventory_cost_layers')).single['remaining_qty'], 2);
+      for (final table in <String>[
+        'sales', 'sale_items', 'journals', 'journal_lines', 'stock_movements',
+      ]) {
+        expect(await _count(database, table), 0, reason: '$table must roll back');
+      }
+      expect(
+        await _count(database, 'inventory_movements'),
+        initialInventoryMovementCount,
+        reason: 'inventory movements must roll back to the pre-checkout baseline',
+      );
+      expect(await _count(database, 'outbox_events'), 1);
+      final sentinel = (await database.database.query('outbox_events')).single;
+      expect(sentinel['entity_id'], 'sentinel');
+      expect(sentinel['payload'], '{}');
+    });
+
+    test('two concurrent checkouts cannot sell the same last unit twice', () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final products = SqliteProductRepository(database);
+      await _seedProduct(
+        products,
+        id: 'P-RACE',
+        sku: 'SKU-RACE',
+        name: 'Produk Race',
+        price: 15000,
+        ppnExempt: true,
+        lots: <_LotSeed>[
+          _LotSeed(
+            id: 'LOT-RACE',
+            quantity: 1,
+            unitCost: 7000,
+            acquiredAtUtc: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+      final service = PaymentService(repository: SqliteSaleRepository(database));
+      PaymentRequest request(String id) => PaymentRequest(
+            transactionId: id,
+            method: PaymentMethod.cash,
+            occurredAtUtc: DateTime.utc(2026, 9, 29, 17),
+            lines: const <PaymentLineInput>[
+              PaymentLineInput(productId: 'P-RACE', quantity: 1),
+            ],
+          );
+
+      final results = await Future.wait<Object>(<Future<Object>>[
+        _capturePayment(service, request('TRX-RACE-A')),
+        _capturePayment(service, request('TRX-RACE-B')),
+      ]);
+      expect(results.whereType<PaymentResult>(), hasLength(1));
+      expect(results.whereType<InsufficientStockException>(), hasLength(1));
+      expect((await products.findById('P-RACE'))!.stockQty, 0);
+      expect((await database.database.query('inventory_lots')).single['on_hand_qty'], 0);
+      expect((await database.database.query('inventory_cost_layers')).single['remaining_qty'], 0);
+      expect(await _count(database, 'sales'), 1);
+      expect(await _count(database, 'sale_items'), 1);
+      expect(await _count(database, 'journals'), 1);
+      expect(await _count(database, 'outbox_events'), 1);
+    });
+
+    test('pending sale and outbox survive database close/reopen and local replay', () async {
+      sqfliteFfiInit();
+      final temporaryDirectory = await Directory.systemTemp.createTemp('berkah-pos-offline-');
+      PosDatabase? activeDatabase;
+      try {
+        final dbPath = p.join(temporaryDirectory.path, 'offline-checkout.db');
+        activeDatabase = await PosDatabase.openAt(dbPath, factory: databaseFactoryFfi);
+        final products = SqliteProductRepository(activeDatabase);
+        await _seedProduct(
+          products,
+          id: 'P-DURABLE',
+          sku: 'SKU-DURABLE',
+          name: 'Produk Durable',
+          price: 12000,
+          ppnExempt: true,
+          lots: <_LotSeed>[
+            _LotSeed(
+              id: 'LOT-DURABLE',
+              quantity: 2,
+              unitCost: 5000,
+              acquiredAtUtc: DateTime.utc(2026, 9, 1),
+            ),
+          ],
+        );
+        final request = PaymentRequest(
+          transactionId: 'TRX-DURABLE-001',
+          method: PaymentMethod.cash,
+          occurredAtUtc: DateTime.utc(2026, 9, 29, 18),
+          lines: const <PaymentLineInput>[
+            PaymentLineInput(productId: 'P-DURABLE', quantity: 1),
+          ],
+        );
+        final first = await PaymentService(
+          repository: SqliteSaleRepository(activeDatabase),
+        ).process(request);
+        expect(first.alreadyProcessed, isFalse);
+        final pendingBeforeClose = (await activeDatabase.database.query('outbox_events')).single;
+        expect(pendingBeforeClose['id'], 'outbox:sale:TRX-DURABLE-001');
+        expect(pendingBeforeClose['status'], 'pending');
+        await activeDatabase.close();
+        activeDatabase = null;
+
+        activeDatabase = await PosDatabase.openAt(dbPath, factory: databaseFactoryFfi);
+        final replay = await PaymentService(
+          repository: SqliteSaleRepository(activeDatabase),
+        ).process(request);
+        expect(replay.alreadyProcessed, isTrue);
+        expect(replay.saleId, first.saleId);
+        expect(await _count(activeDatabase, 'sales'), 1);
+        expect(await _count(activeDatabase, 'sale_items'), 1);
+        expect(await _count(activeDatabase, 'journals'), 1);
+        expect(await _count(activeDatabase, 'outbox_events'), 1);
+        final pendingAfterReopen = (await activeDatabase.database.query('outbox_events')).single;
+        expect(pendingAfterReopen['status'], 'pending');
+        expect((await activeDatabase.database.query('products')).single['stock_qty'], 1);
+      } finally {
+        await activeDatabase?.close();
+        await temporaryDirectory.delete(recursive: true);
+      }
+    });
+
     test('transaksi malam WIB disimpan pada businessDate Indonesia', () async {
       final database = await openTestDatabase();
       addTearDown(database.close);
@@ -450,6 +628,17 @@ JournalLine _line(PaymentResult result, String accountCode) {
   return result.journalEntry.lines.singleWhere(
     (line) => line.accountCode == accountCode,
   );
+}
+
+Future<Object> _capturePayment(
+  PaymentService service,
+  PaymentRequest request,
+) async {
+  try {
+    return await service.process(request);
+  } catch (error) {
+    return error;
+  }
 }
 
 Future<int> _count(PosDatabase database, String table) async {

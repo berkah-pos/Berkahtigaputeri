@@ -103,8 +103,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final next = (_cart[product.id] ?? 0) + delta;
     setState(() {
       if (next <= 0) {
+        _checkoutRequestFactory.reset();
         _cart.remove(product.id);
       } else if (next <= product.stockQty) {
+        _checkoutRequestFactory.reset();
         _cart[product.id] = next;
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -119,70 +121,121 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
+  final StableCheckoutRequestFactory _checkoutRequestFactory =
+      StableCheckoutRequestFactory();
+
+  Future<void> _cancelCart() async {
+    if (_cart.isEmpty || _processing) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Batalkan keranjang?'),
+        content: const Text(
+          'Item dalam keranjang akan dihapus. Belum ada transaksi lokal yang disimpan.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Kembali'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Batalkan keranjang'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    _checkoutRequestFactory.reset();
+    setState(() => _cart.clear());
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Keranjang dibatalkan; belum ada transaksi disimpan.'),
+      ),
+    );
+  }
+
   Future<void> _checkout() async {
     if (_cart.isEmpty || _processing) return;
     setState(() => _processing = true);
-    final transactionId =
-        'TRX-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+
+    late final PaymentResult result;
     try {
-      final result = await widget.paymentService.process(
-        PaymentRequest(
-          transactionId: transactionId,
-          method: _method,
-          occurredAtUtc: DateTime.now().toUtc(),
-          lines: _cart.entries
-              .map(
-                (entry) => PaymentLineInput(
-                  productId: entry.key,
-                  quantity: entry.value,
-                ),
-              )
-              .toList(growable: false),
-        ),
-      );
-      if (!mounted) return;
-      setState(() {
-        _cart.clear();
-        _processing = false;
-      });
-      await _reload();
-      widget.onSaleSaved();
-      if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Transaksi tersimpan'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Icon(Icons.check_circle, color: Colors.green, size: 44),
-              const SizedBox(height: 12),
-              Text('ID: ' + result.saleId),
-              Text('Total: ' + _money(result.grandTotal)),
-              Text('PPN: ' + _money(result.ppnAmount)),
-              const SizedBox(height: 12),
-              const Text(
-                'Tersimpan di perangkat. Sinkronisasi cloud belum aktif '
-                'pada build ini; transaksi menunggu di antrean lokal.',
+      final request = _checkoutRequestFactory.create(
+        method: _method,
+        lines: _cart.entries
+            .map(
+              (entry) => PaymentLineInput(
+                productId: entry.key,
+                quantity: entry.value,
               ),
-            ],
-          ),
-          actions: <Widget>[
-            FilledButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Selesai'),
-            ),
-          ],
-        ),
+            )
+            .toList(growable: false),
       );
+      result = await widget.paymentService.process(request);
     } catch (error) {
       if (!mounted) return;
       setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Checkout gagal; transaksi tidak dikonfirmasi: $error')),
+        SnackBar(
+          content: Text(
+            'Checkout lokal gagal; periksa transaksi sebelum mencoba ulang: $error',
+          ),
+        ),
       );
+      return;
     }
+
+    // process() returned only after the SQLite transaction completed. From
+    // here onward, UI refresh/callback failures must never be presented as a
+    // failed checkout because that could encourage the operator to resell.
+    if (!mounted) return;
+    _checkoutRequestFactory.reset();
+    setState(() {
+      _cart.clear();
+      _processing = false;
+    });
+    await _reload();
+    var refreshWarning = false;
+    try {
+      widget.onSaleSaved();
+    } catch (_) {
+      refreshWarning = true;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Transaksi tersimpan lokal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Icon(Icons.check_circle, color: Colors.green, size: 44),
+            const SizedBox(height: 12),
+            Text('ID: ' + result.saleId),
+            Text('Total: ' + _money(result.grandTotal)),
+            Text('PPN: ' + _money(result.ppnAmount)),
+            const SizedBox(height: 12),
+            const Text(
+              'Tersimpan di perangkat dan menunggu di antrean lokal. Transaksi belum diterima server; sinkronisasi cloud belum aktif pada build ini.',
+            ),
+            if (refreshWarning) ...<Widget>[
+              const SizedBox(height: 8),
+              const Text(
+                'Transaksi tetap tersimpan lokal, tetapi ringkasan layar lain belum berhasil diperbarui.',
+              ),
+            ],
+          ],
+        ),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Selesai'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _money(int amount) {
@@ -296,6 +349,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   ? null
                                   : (value) {
                                       if (value != null) {
+                                        _checkoutRequestFactory.reset();
                                         setState(() => _method = value);
                                       }
                                     },
@@ -337,6 +391,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     : 'Selesaikan checkout'),
                               ),
                             ),
+                            if (_cart.isNotEmpty)
+                              Align(
+                                alignment: Alignment.center,
+                                child: TextButton.icon(
+                                  onPressed: _processing ? null : _cancelCart,
+                                  icon: const Icon(Icons.cancel_outlined),
+                                  label: const Text('Batalkan keranjang'),
+                                ),
+                              ),
                           ],
                         ),
                       ),
