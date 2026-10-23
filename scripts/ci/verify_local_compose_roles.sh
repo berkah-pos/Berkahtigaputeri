@@ -88,24 +88,16 @@ assert app["depends_on"]["postgres"]["condition"] == "service_healthy"
 assert bootstrap_env["PGUSER"] == pg_env["POSTGRES_USER"]
 assert bootstrap_env["PGPASSWORD"] == pg_env["POSTGRES_PASSWORD"]
 assert bootstrap_env["PGDATABASE"] == pg_env["POSTGRES_DB"]
-bootstrap_command = bootstrap.get("command", "")
-if isinstance(bootstrap_command, list):
-    bootstrap_command = "\\n".join(bootstrap_command)
-assert 'if [ -z "$LOCAL_CENTRAL_RUNTIME_PASSWORD" ]; then' in bootstrap_command, (
-    "runtime password shell variable was lost to Compose interpolation"
-)
-assert 'if [ "$LOCAL_CENTRAL_RUNTIME_PASSWORD" = "$PGPASSWORD" ]; then' in bootstrap_command, (
-    "bootstrap/runtime password equality check was lost to Compose interpolation"
-)
-assert 'if [ "$LOCAL_CENTRAL_RUNTIME_ROLE" = "$PGUSER" ]; then' in bootstrap_command, (
-    "bootstrap/runtime role equality check was lost to Compose interpolation"
+assert bootstrap.get("entrypoint") == ["/bin/sh", "/bootstrap-local.sh"], (
+    "db-bootstrap must run the isolated, file-based bootstrap script"
 )
 assert "ports" not in bootstrap, "db-bootstrap must not expose a public/listening port"
 assert bootstrap.get("restart") == "no"
-assert any(
-    volume.get("target") == "/bootstrap-local.sql" and volume.get("read_only") is True
-    for volume in bootstrap.get("volumes", [])
-), "bootstrap SQL must be mounted read-only"
+for required_target in ("/bootstrap-local.sql", "/bootstrap-local.sh"):
+    assert any(
+        volume.get("target") == required_target and volume.get("read_only") is True
+        for volume in bootstrap.get("volumes", [])
+    ), f"{required_target} must be mounted read-only"
 
 assert "tools" in migrate.get("profiles", []), "elevated migration helper must be opt-in"
 assert migrate_env["CENTRAL_DB_USERNAME"] == pg_env["POSTGRES_USER"]
@@ -139,12 +131,18 @@ existing_role="$(admin_psql postgres -At -c \
 admin_psql postgres -c "CREATE DATABASE $smoke_database" >/dev/null
 database_created=1
 
-admin_psql "$smoke_database" \
-  -v bootstrap_role=postgres \
-  -v central_database="$smoke_database" \
-  -v runtime_role="$smoke_role" \
-  -v runtime_password="$smoke_password" \
-  -f docker/postgres/bootstrap-local.sql >/dev/null
+sh -n docker/postgres/bootstrap-local.sh
+docker run --rm --network host \
+  --env PGHOST=127.0.0.1 \
+  --env PGPORT=5432 \
+  --env PGDATABASE="$smoke_database" \
+  --env PGUSER=postgres \
+  --env PGPASSWORD=postgres \
+  --env LOCAL_CENTRAL_RUNTIME_ROLE="$smoke_role" \
+  --env LOCAL_CENTRAL_RUNTIME_PASSWORD="$smoke_password" \
+  -v "$PWD/docker/postgres/bootstrap-local.sql:/bootstrap-local.sql:ro" \
+  -v "$PWD/docker/postgres/bootstrap-local.sh:/bootstrap-local.sh:ro" \
+  postgres:17 /bin/sh /bootstrap-local.sh >/dev/null
 
 role_flags="$(admin_psql postgres -At -c \
   "SELECT rolcanlogin::int || '|' || rolsuper::int || '|' || rolcreatedb::int || '|' || rolcreaterole::int || '|' || rolreplication::int || '|' || rolbypassrls::int FROM pg_roles WHERE rolname = '$smoke_role'")"
