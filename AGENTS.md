@@ -6,6 +6,7 @@
 
 1. `docs/permanent/DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — authoritative five-layer configuration and canonical workbook contract.
 2. `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — current owner decision for Hostinger KVM2, Coolify, Laravel, PostgreSQL 17, future scaling, and the prohibition on Supabase products.
+2a. `docs/permanent/ADR-2026-10-23-OPENBAO-KVM2-SECRET-PERSISTENCE.md` — supplementary secret-store/persistence decision only; it must not override the current platform ADR.
 3. `docs/permanent/ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier platform decision, subordinate to the 2026-10-17 no-Supabase decision where they conflict.
 4. `docs/permanent/DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed PostgreSQL 17 / Laravel target architecture and implementation acceptance gates, subordinate to the newest owner ADR.
 5. `docs/permanent/DOC_00_MASTER_ROADMAP.md` — execution phases and acceptance gates.
@@ -33,6 +34,7 @@ Do not claim to have read or verified a file that was not actually accessible.
 
 - **Configuration behavior:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns `GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE`, merge precedence, the canonical workbook and exact 352-entry inventory.
 - **Current platform and product-usage policy:** `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` selects Hostinger KVM2 + Coolify, Laravel/PHP 8.4, PostgreSQL 17, separate central/tenant databases, environment separation, and prohibits all Supabase product usage. It supersedes conflicting source-access/migration wording in the 2026-10-16 ADR.
+- **Secret store/persistence supplement:** `ADR-2026-10-23-OPENBAO-KVM2-SECRET-PERSISTENCE.md` selects private OpenBao and persistent Raft storage as a supplementary secret-store target. It does not replace PostgreSQL, alter the no-Supabase decision, or assert live deployment/Coolify compatibility.
 - **Detailed target implementation:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` translates that decision into the API, tenancy, security, migration and operational gates. It may not select a conflicting platform/engine.
 - **Execution order:** `DOC_00_MASTER_ROADMAP.md` governs phase gates.
 - **Implementation status:** current repository sources, executed CI, staging observations, tests and production evidence determine what is actually delivered. Documentation alone is not runtime proof.
@@ -48,6 +50,7 @@ The selected target is recorded in the owner ADR:
 - Hostinger KVM2 workload node (2 vCPU, 8 GB RAM, 100 GB NVMe), Ubuntu 24.04 LTS, Docker and Coolify. This is a single-node MVP target, not HA.
 - Target stack: PHP 8.4, Laravel 13.x, Filament 5.x, Sanctum, and Composer-locked/tested `stancl/tenancy` v3.10.1 as the initial candidate.
 - Database: PostgreSQL 17, on one private database service hosting the central DB plus one database and restricted runtime role per tenant.
+- Secret store: private self-hosted OpenBao with a dedicated persistent Raft volume, a runtime-only read identity, and an isolated provisioning-worker identity; follow the supplementary ADR and runbook, and do not claim production acceptance until backup/restore and exact Coolify compatibility tests pass.
 - A shared application image serves standard tenants. No app container or database server per standard tenant.
 - Laravel Central API is the only approved cloud API boundary for identity, tenant/device authorization, entitlement, effective configuration and authenticated transaction sync. No Supabase Auth/Data API/RPC/Storage/Edge Functions/Realtime product may be used, including as a temporary runtime dependency.
 - PostgreSQL provisioning must use a reviewed broker and tenant-scoped owners/runtime/migrator roles. Do not infer safe permissions from application-side name validation or tenancy package presence.

@@ -38,6 +38,7 @@ The owner ADR selects the target; DOC_14 details the implementation:
 - A shared application image serves standard tenants; there is no app container or database server per standard tenant.
 - Laravel Central API for effective configuration, enrollment, entitlement checks, and authenticated transaction sync.
 - Private object storage, encrypted off-host backup, durable offline outbox, and measured capacity/recovery checks.
+- Supplementary secret-storage decision: private OpenBao on the existing Hostinger KVM2 + Coolify host with a dedicated persistent Raft volume, distinct runtime/provisioner policies, encrypted off-host snapshots and a tested restore path (see the 2026-10-23 OpenBao ADR/runbook).
 
 Because Coolify and all workloads on one 2-vCPU/8-GB machine share resources, this is a constrained initial single-node deployment. Keep local development and CI separate from production, and isolate staging with its own database, hostname and secrets. Build immutable container images on GitHub-hosted `ubuntu-24.04` runners. Scale from measured evidence: vertical upgrade first, then separate PostgreSQL to a private larger host and add replaceable Laravel replicas only after connection, queue, state and isolation behavior are tested. No high-availability or tenant-capacity claim is allowed without measured evidence.
 
@@ -94,6 +95,7 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 - Implement database-per-tenant with generated immutable tenant IDs, distinct database names, and a distinct restricted database user for every tenant.
 - Put CREATE DATABASE/CREATE USER/GRANT credentials only in a private provisioning worker; normal web and queue workers must not receive them.
 - Implement idempotent provisioning states, domain validation, tenant migrations/seeds, failure/retry/resume, suspension, and controlled data retention.
+- Store only canonical OpenBao references in the central tenant database registry; keep runtime and migrator passwords in KV v2 and only expose provisioning secrets to the isolated worker.
 - Verify tenant DB users cannot read/write central tables or another tenant DB.
 
 **Acceptance:** automated tests create two tenants in PostgreSQL 17, prove different DBs and restricted roles, inspect actual role attributes and grants, exercise failure/retry, and show fail-closed host routing. Report in `docs/reports/FASE_3_TENANT_PROVISIONING.md`.
@@ -126,6 +128,7 @@ Keep the PR titles, test results and dated reports historically intact. Use cano
 - Test restore of central state and selected tenant databases, including single-tenant restoration that does not overwrite others.
 - Load-test with realistic products, sales, devices, reports, sync batches and job queues. Measure CPU, RAM, database connections, latency, disk growth and queue age. Record unsupported load levels.
 - Harden Coolify, SSH, firewall, secrets, TLS, logging, health checks, monitoring and rollback.
+- Persist OpenBao Raft data outside the container writable layer, keep seal shares separate, encrypt snapshots off-host, and prove clean restore/unseal plus denied-policy behavior before production acceptance.
 
 **Acceptance:** all required checks execute and pass on the candidate revision; evidence for hostile tenant isolation, measured workload, and successful restore; `docs/reports/FASE_6_SECURITY_CI_CAPACITY_RECOVERY.md`.
 

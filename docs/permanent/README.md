@@ -7,19 +7,21 @@ This directory records durable configuration contracts, platform decisions, secu
 1. Root `AGENTS.md` — agent workflow, protected invariants, and evidence rules.
 2. `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` — sole authority for five-layer configuration inheritance and the canonical 352-entry workbook contract.
 3. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` — latest owner decision: Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17, environment separation, reasonable growth path, and no Supabase product use.
-4. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier Laravel/PostgreSQL decision, now subordinate where it conflicts with the latest no-Supabase policy.
-5. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to both ADRs.
-6. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
-7. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original platform choice is superseded by the latest owner ADR.
-8. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of old implementation and known gaps; it does not define the new platform target.
-9. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
-10. `scripts/sync_excel_to_supabase.py` — prohibited legacy mutation-capable code. Never execute it and never supply Supabase credentials.
-11. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
+4. `ADR-2026-10-23-OPENBAO-KVM2-SECRET-PERSISTENCE.md` — supplementary secret-store choice, persistent Raft volume, runtime/provisioner policies, and OpenBao recovery gates; target selection is not deployment evidence.
+5. `ADR-2026-10-16-OWNER-ARCHITECTURE-DECISION.md` — earlier Laravel/PostgreSQL decision, now subordinate where it conflicts with the latest no-Supabase policy.
+6. `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` — detailed target implementation and evidence gates, subordinate to both owner ADRs.
+7. `DOC_00_MASTER_ROADMAP.md` — ordered phases and acceptance gates.
+8. `DOC_12_SAAS_DATABASE_OFFLINE_ARCHITECTURE_AND_AGENT_PROTOCOL.md` — offline-first transactions, idempotency, accounting invariants, and execution/evidence rules; its original platform choice is superseded by the latest owner ADR.
+9. `DOC_13_UNIFIED_POS_APP_INTEGRATION_REPORT.md` — a snapshot of old implementation and known gaps; it does not define the new platform target.
+10. `DOC_01_3_LAYER_CONFIG.md` — legacy filename; five-layer configuration behavior and workbook source contract.
+11. `scripts/sync_excel_to_supabase.py` — prohibited legacy mutation-capable code. Never execute it and never supply Supabase credentials.
+12. Relevant scoped contracts, SQL/migration files, source code, tests, and workflow files.
 
 ## Authority boundaries
 
 - **Inheritance + workbook:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md`.
 - **Current platform/usage decision:** `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` supersedes conflicting platform-use and source-access instructions. The 2026-10-16 ADR is historical for compatible Laravel/PostgreSQL selection only.
+- **Secret-store supplement:** `ADR-2026-10-23-OPENBAO-KVM2-SECRET-PERSISTENCE.md` selects the OpenBao target and describes its persistence/recovery requirements. It does not override the selected hosting/database stack and does not prove OpenBao or Coolify integration is deployed.
 - **Detailed target implementation / tenant isolation / runtime storage / deployment:** `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md`, subordinate to the owner ADR.
 - **Execution:** `DOC_00_MASTER_ROADMAP.md`.
 - **Current implementation status:** current source and actual test/CI/staging/production evidence only. A document claim or historical run never proves current runtime behavior.
@@ -69,6 +71,7 @@ Exact export inventory: 1 global + 3 templates (BASIC, PRO, ENTERPRISE) + 100 te
 - Laravel Central API for all auth, effective configuration and cloud operations. Supabase is prohibited—not a runtime, fallback, or data-source platform.
 - Flutter retains SQLite local-first checkout and durable idempotent sync outbox.
 - Central and every tenant database must be included in encrypted off-host backups, with restore tests.
+- OpenBao is selected as a private secrets service with a dedicated persistent Raft volume and independent encrypted off-host snapshots; volume persistence, Coolify compatibility and restoration remain unverified until tested.
 
 ## Legacy Supabase material
 

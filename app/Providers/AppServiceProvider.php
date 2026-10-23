@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\Central\PersonalAccessToken;
+use App\Services\OpenBaoKvV2Client;
+use App\Services\OpenBaoTenantRuntimeCredentialResolver;
 use App\Services\TenantRuntimeCredentialResolver;
 use App\Services\UnconfiguredTenantRuntimeCredentialResolver;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -16,12 +18,22 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Production must provide an approved secret-manager adapter. Until then,
-        // tenant sync fails closed instead of storing credentials in central DB.
-        $this->app->bind(
-            TenantRuntimeCredentialResolver::class,
-            UnconfiguredTenantRuntimeCredentialResolver::class
-        );
+        // OpenBao is used only when its private HTTPS endpoint and read-only runtime
+        // token are explicitly configured. Otherwise the existing fail-closed adapter
+        // remains active; tenant passwords are never stored in the central database.
+        $this->app->bind(TenantRuntimeCredentialResolver::class, function ($app): TenantRuntimeCredentialResolver {
+            $address = config('openbao.address');
+            $token = config('openbao.runtime_token');
+
+            if (! is_string($address) || trim($address) === ''
+                || ! is_string($token) || trim($token) === '') {
+                return new UnconfiguredTenantRuntimeCredentialResolver();
+            }
+
+            return new OpenBaoTenantRuntimeCredentialResolver(
+                $app->make(OpenBaoKvV2Client::class)
+            );
+        });
     }
 
     public function boot(): void
