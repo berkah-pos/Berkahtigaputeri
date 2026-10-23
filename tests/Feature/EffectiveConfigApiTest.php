@@ -153,7 +153,9 @@ class EffectiveConfigApiTest extends TestCase
             'device_id' => $deviceId,
             'device_secret' => $deviceSecret,
             'tenant_id' => $tenantId,
-        ])->assertStatus(200, 'Effective-config fixture login failed: ' . $login->getContent())->assertJsonPath('device_status', 'active');
+        ]);
+        $this->assertSame(200, $login->getStatusCode(), 'Effective-config fixture login failed: ' . $login->getContent());
+        $login->assertJsonPath('device_status', 'active');
 
         $this->bearerToken = (string) $login->json('access_token');
     }
