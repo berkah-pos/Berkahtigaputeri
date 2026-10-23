@@ -40,8 +40,15 @@ final class TenantDatabaseRunner
         $username = (string) $record->runtime_username;
         $tenantConnection = (array) config('database.connections.tenant', []);
 
-        $productionNamesValid = preg_match('/^berkahpos_t_[0-7][0-9a-hjkmnp-tv-z]{25}$/', $database) === 1
-            && preg_match('/^berkah_t_[0-7][0-9a-hjkmnp-tv-z]{25}_runtime$/', $username) === 1;
+        $tenantSuffix = strtolower($tenantId);
+        $canonicalTenantId = preg_match('/^[0-7][0-9a-hjkmnp-tv-z]{25}$/', $tenantSuffix) === 1;
+        $expectedDatabase = 'berkahpos_t_'.$tenantSuffix;
+        $expectedUsername = 'berkah_t_'.$tenantSuffix.'_runtime';
+        // Names must match the authenticated tenant, not merely look like some
+        // other canonical tenant's database and runtime role.
+        $productionNamesValid = $canonicalTenantId
+            && hash_equals($expectedDatabase, $database)
+            && hash_equals($expectedUsername, $username);
         // The CI baseline uses one fixed disposable tenant database and superuser.
         // This exception is APP_ENV=testing-only and requires exact configured
         // database/role matches; it is not available in staging or production.

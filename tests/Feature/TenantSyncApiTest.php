@@ -189,6 +189,45 @@ class TenantSyncApiTest extends TestCase
         $this->assertDatabaseMissing('sync_receipts', ['event_id' => $receiptEventId], 'tenant');
     }
 
+    public function test_registry_cannot_redirect_a_tenant_to_another_tenants_database_or_role(): void
+    {
+        [$tenantId, , , $bearer] = $this->identityFixture(true);
+        $otherTenantId = strtolower((string) Str::ulid());
+        DB::connection('central')->table('tenant_database_registry')
+            ->where('tenant_id', $tenantId)
+            ->update([
+                'database_name' => 'berkahpos_t_'.$otherTenantId,
+                'runtime_username' => 'berkah_t_'.$otherTenantId.'_runtime',
+            ]);
+
+        $productId = 'cross-tenant-registry-'.Str::lower(Str::ulid());
+        $eventId = 'outbox:product:'.Str::lower(Str::ulid());
+        $response = $this->withHeader('Authorization', 'Bearer '.$bearer)->postJson('/api/v1/sync', [
+            'events' => [[
+                'event_id' => $eventId,
+                'entity_type' => 'product',
+                'entity_id' => $productId,
+                'payload' => [
+                    'event_id' => $eventId,
+                    'event_type' => 'product',
+                    'payload_version' => 1,
+                    'entity_id' => $productId,
+                    'product' => [
+                        'id' => $productId,
+                        'sku' => 'SKU-CROSS-TENANT',
+                        'name_id' => 'Must remain uncommitted',
+                        'price' => 100,
+                        'ppn_exempt' => false,
+                    ],
+                ],
+            ]],
+        ]);
+
+        $response->assertStatus(503)
+            ->assertJsonPath('error.code', 'tenant_database_registry_invalid');
+        $this->assertDatabaseMissing('products', ['id' => $productId], 'tenant');
+    }
+
     public function test_sync_fails_closed_until_a_tenant_runtime_connection_is_registered(): void
     {
         [, , , $bearer] = $this->identityFixture(false);
