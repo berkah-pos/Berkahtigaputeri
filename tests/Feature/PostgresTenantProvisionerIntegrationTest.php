@@ -672,6 +672,25 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         );
         $runtimeA->insert('INSERT INTO public."' . $table . '" (payload) VALUES (?)', ['created-by-runtime']);
         $this->assertSame(2, (int) $runtimeA->scalar('SELECT COUNT(*) FROM public."' . $table . '"'));
+
+        $sequence = 'public."' . $table . '_id_seq"';
+        $sequencePrivileges = $runtimeA->selectOne(
+            "SELECT has_sequence_privilege(current_user, '" . $sequence . "', 'USAGE')::int AS sequence_usage,
+                    has_sequence_privilege(current_user, '" . $sequence . "', 'SELECT')::int AS sequence_select,
+                    has_sequence_privilege(current_user, '" . $sequence . "', 'UPDATE')::int AS sequence_update"
+        );
+        $this->assertNotNull($sequencePrivileges);
+        $this->assertSame(1, (int) $sequencePrivileges->sequence_usage, 'Runtime inserts must be able to call nextval().');
+        $this->assertSame(1, (int) $sequencePrivileges->sequence_select, 'Runtime may inspect sequence state if needed.');
+        $this->assertSame(0, (int) $sequencePrivileges->sequence_update, 'Runtime must not be allowed to change sequence state with setval().');
+
+        try {
+            $runtimeA->scalar('SELECT setval(?::regclass, 999)', [$sequence]);
+            $this->fail('Tenant runtime must not be able to call setval() on its application sequences.');
+        } catch (QueryException $exception) {
+            $this->assertStringContainsString('permission denied', strtolower($exception->getMessage()));
+        }
+
         $this->assertSame(
             1,
             $runtimeA->update('UPDATE public."' . $table . '" SET payload = ? WHERE payload = ?', [
