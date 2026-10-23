@@ -26,9 +26,9 @@ class TenantFeatures {
   Map<String, dynamic> toJson() => <String, dynamic>{'pos': pos, 'akuntansi': akuntansi};
 }
 
-/// Pure fixture helper only. This does not perform network calls and is not a
-/// cloud configuration client. The Laravel effective-config endpoint/client
-/// contract is not implemented yet.
+/// Pure local helper for fixtures and offline-only behavior. Authenticated
+/// cloud configuration is fetched and validated by LaravelAuthService; this
+/// helper is not a substitute for server authorization or sync.
 class EffectiveConfigResolver {
   static Map<String, dynamic> mergeLayers(Iterable<Map<String, dynamic>> layers) {
     final merged = <String, dynamic>{};
