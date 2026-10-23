@@ -14,9 +14,9 @@ use Throwable;
  * from a separately isolated provisioning worker whose PROVISIONER_* credentials
  * are not present in web or ordinary queue containers.
  *
- * Credential callback must persist each generated credential in the approved
- * secret manager and return a non-secret reference. If persistence fails, no
- * database or login role is created.
+ * Credential callbacks persist each generated credential and return a non-secret
+ * reference. The delete callback must idempotently remove a secret by stable key.
+ * If either write fails, both keys are compensated before database resources exist.
  */
 final class PostgresTenantProvisioner
 {
@@ -26,9 +26,11 @@ final class PostgresTenantProvisioner
      *
      * @param Closure(string, string): string $storeCredential Receives a stable
      *        secret key and password; returns a secret-manager reference.
+     * @param Closure(string): void $deleteCredential Idempotently deletes a secret
+     *        by stable key, including when a preceding write timed out ambiguously.
      * @return array{tenant_id:string,database:string,runtime_role:string,migrator_role:string,owner_role:string,credential_refs:array{runtime:string,migrator:string}}
      */
-    public function provision(string $tenantId, Closure $storeCredential): array
+    public function provision(string $tenantId, Closure $storeCredential, Closure $deleteCredential): array
     {
         $tenant = $this->normalizeTenantId($tenantId);
         $database = 'berkahpos_t_' . strtolower($tenant);
@@ -77,12 +79,45 @@ final class PostgresTenantProvisioner
             }
 
             // Check resource collision before writing credentials to the secret manager.
+            // Stable keys let compensation clean up even if a remote write timed out
+            // after persisting a secret but before returning its reference.
+            $runtimeKey = 'tenant/' . $tenant . '/runtime';
+            $migratorKey = 'tenant/' . $tenant . '/migrator';
             $runtimePassword = bin2hex(random_bytes(32));
             $migratorPassword = bin2hex(random_bytes(32));
-            $runtimeRef = $storeCredential('tenant/' . $tenant . '/runtime', $runtimePassword);
-            $migratorRef = $storeCredential('tenant/' . $tenant . '/migrator', $migratorPassword);
-            if (! is_string($runtimeRef) || $runtimeRef === '' || ! is_string($migratorRef) || $migratorRef === '') {
-                throw new RuntimeException('Secret manager did not return valid credential references.');
+            $runtimeRef = null;
+            $migratorRef = null;
+
+            try {
+                $runtimeRef = $storeCredential($runtimeKey, $runtimePassword);
+                if (! is_string($runtimeRef) || $runtimeRef === '') {
+                    throw new RuntimeException('Secret manager did not return a valid runtime credential reference.');
+                }
+
+                $migratorRef = $storeCredential($migratorKey, $migratorPassword);
+                if (! is_string($migratorRef) || $migratorRef === '') {
+                    throw new RuntimeException('Secret manager did not return a valid migrator credential reference.');
+                }
+            } catch (Throwable $storeException) {
+                $cleanupFailures = [];
+
+                foreach ([$runtimeKey, $migratorKey] as $secretKey) {
+                    try {
+                        $deleteCredential($secretKey);
+                    } catch (Throwable $cleanupException) {
+                        $cleanupFailures[] = $secretKey . ': ' . $cleanupException->getMessage();
+                    }
+                }
+
+                if ($cleanupFailures !== []) {
+                    throw new RuntimeException(
+                        'Credential persistence failed and secret cleanup is incomplete; manual secret-manager verification is required. '
+                        . implode('; ', $cleanupFailures),
+                        previous: $storeException
+                    );
+                }
+
+                throw $storeException;
             }
 
             $connection->statement(
