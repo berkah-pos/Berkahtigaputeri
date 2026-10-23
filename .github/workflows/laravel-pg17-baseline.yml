@@ -179,6 +179,10 @@ jobs:
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
             -c "REVOKE ALL ON DATABASE berkahpos_central_ci FROM PUBLIC; GRANT CONNECT ON DATABASE berkahpos_central_ci TO berkahpos_central_runtime_ci"
 
+      - name: Verify local Compose runtime-role boundary on disposable PostgreSQL 17
+        shell: bash
+        run: bash scripts/ci/verify_local_compose_runtime_boundary.sh
+
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
         run: |
