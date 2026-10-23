@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Central\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -12,7 +11,24 @@ use Tests\TestCase;
 
 class TenantSyncApiTest extends TestCase
 {
-    use RefreshDatabase;
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->assertSame('pgsql', DB::connection('central')->getDriverName());
+        // CI migrations have already created disposable central and tenant schemas.
+        // The refresh trait would drop the central schema and break later API tests.
+        DB::connection('central')->beginTransaction();
+    }
+
+    protected function tearDown(): void
+    {
+        $connection = DB::connection('central');
+        if ($connection->transactionLevel() > 0) {
+            $connection->rollBack();
+        }
+        parent::tearDown();
+    }
+
 
     public function test_authenticated_device_sync_is_server_bound_idempotent_and_conflict_safe(): void
     {

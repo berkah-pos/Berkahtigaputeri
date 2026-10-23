@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:math' as math;
-
 import 'package:sqflite/sqflite.dart';
 
 import '../auth/laravel_auth_service.dart';
@@ -299,7 +297,8 @@ class OutboxSyncService {
     String error,
   ) async {
     final exponent = retryCount >= 8 ? 8 : (retryCount < 0 ? 0 : retryCount);
-    final delaySeconds = math.min(900, 5 * (1 << exponent));
+    final computedDelay = 5 * (1 << exponent);
+    final delaySeconds = computedDelay > 900 ? 900 : computedDelay;
     final nextRetry = DateTime.now()
         .toUtc()
         .add(Duration(seconds: delaySeconds))
