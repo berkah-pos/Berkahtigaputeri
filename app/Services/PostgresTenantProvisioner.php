@@ -39,34 +39,7 @@ final class PostgresTenantProvisioner
         $runtimeRole = 'berkah_t_' . $suffix . '_runtime';
         $migratorRole = 'berkah_t_' . $suffix . '_migrator';
 
-        $broker = config('database.connections.provisioner');
-        $central = config('database.connections.central');
-
-        if (! is_array($broker)
-            || ! is_array($central)
-            || ($broker['driver'] ?? null) !== 'pgsql') {
-            throw new RuntimeException('Dedicated PostgreSQL provisioner connection is not configured.');
-        }
-
-        // Laravel's PostgreSQL URL settings take precedence over the sibling
-        // host/database/username/password values. Compare the effective values,
-        // otherwise a stale but distinct username/database field can bypass this
-        // guard while the URL still connects as the central role or to central DB.
-        $centralDatabase = $this->effectiveConnectionSetting($central, 'database');
-        $brokerDatabase = $this->effectiveConnectionSetting($broker, 'database');
-        $centralUsername = $this->effectiveConnectionSetting($central, 'username');
-        $brokerUsername = $this->effectiveConnectionSetting($broker, 'username');
-        $brokerPassword = $this->effectiveConnectionSetting($broker, 'password');
-
-        if ($centralDatabase === null
-            || $brokerDatabase === null
-            || $centralUsername === null
-            || $brokerUsername === null
-            || $brokerPassword === null
-            || strcasecmp($brokerDatabase, $centralDatabase) === 0
-            || strcasecmp($brokerUsername, $centralUsername) === 0) {
-            throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
-        }
+        $broker = $this->validatedBrokerConfig();
 
         $connection = DB::connection('provisioner');
         $connection->getPdo();
@@ -267,6 +240,109 @@ final class PostgresTenantProvisioner
                 $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
             }
         }
+    }
+
+    /**
+     * Retire the temporary tenant migrator after schema migrations succeed.
+     *
+     * The role remains as a non-login object owner for any migration-created
+     * objects, but it loses LOGIN, its password verifier, owner-role membership,
+     * and the OpenBao credential. It must not be reused for a future migration
+     * without a separately reviewed reactivation flow.
+     *
+     * @param Closure(string): void $deleteCredential Deletes a secret by stable key.
+     */
+    public function retireMigratorCredential(string $tenantId, Closure $deleteCredential): void
+    {
+        $tenant = $this->normalizeTenantId($tenantId);
+        $database = 'berkahpos_t_' . strtolower($tenant);
+        $suffix = strtolower($tenant);
+        $ownerRole = 'berkah_t_' . $suffix . '_owner';
+        $migratorRole = 'berkah_t_' . $suffix . '_migrator';
+
+        // Repeat the critical central/broker separation check at the privilege
+        // retirement boundary instead of relying only on the earlier provision call.
+        $this->validatedBrokerConfig();
+        $connection = DB::connection('provisioner');
+
+        $databaseOwner = $connection->scalar(
+            'SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = ?',
+            [$database]
+        );
+        $migrator = $connection->selectOne(
+            'SELECT rolcanlogin::int AS rolcanlogin FROM pg_roles WHERE rolname = ?',
+            [$migratorRole]
+        );
+
+        if ($databaseOwner !== $ownerRole || $migrator === null) {
+            throw new RuntimeException('Tenant database or migrator role could not be verified; refusing credential retirement.');
+        }
+
+        // PASSWORD NULL removes the stored password verifier without placing a
+        // newly generated credential into SQL text or PostgreSQL statement logs.
+        $connection->statement(
+            'ALTER ROLE ' . $this->identifier($migratorRole) . ' NOLOGIN PASSWORD NULL'
+        );
+        $connection->statement(
+            'REVOKE ' . $this->identifier($ownerRole) . ' FROM ' . $this->identifier($migratorRole)
+        );
+
+        $retiredRole = $connection->selectOne(
+            'SELECT rolcanlogin::int AS rolcanlogin FROM pg_roles WHERE rolname = ?',
+            [$migratorRole]
+        );
+        $ownerMembership = $connection->selectOne(
+            'SELECT 1
+             FROM pg_auth_members AS membership
+             JOIN pg_roles AS granted ON granted.oid = membership.roleid
+             JOIN pg_roles AS member ON member.oid = membership.member
+             WHERE granted.rolname = ? AND member.rolname = ?',
+            [$ownerRole, $migratorRole]
+        );
+
+        if ($retiredRole === null || (int) $retiredRole->rolcanlogin !== 0 || $ownerMembership !== null) {
+            throw new RuntimeException('Tenant migrator could not be securely retired; provisioning remains incomplete.');
+        }
+
+        // The database role is already unable to authenticate before the secret
+        // is deleted. If OpenBao is unavailable, command activation must fail closed.
+        $deleteCredential('tenant/' . $tenant . '/migrator');
+    }
+
+    /**
+     * Validate sensitive effective PostgreSQL settings after honoring Laravel URL
+     * precedence. Return the dedicated broker config for dynamic tenant connections.
+     *
+     * @return array<string, mixed>
+     */
+    private function validatedBrokerConfig(): array
+    {
+        $broker = config('database.connections.provisioner');
+        $central = config('database.connections.central');
+
+        if (! is_array($broker)
+            || ! is_array($central)
+            || ($broker['driver'] ?? null) !== 'pgsql') {
+            throw new RuntimeException('Dedicated PostgreSQL provisioner connection is not configured.');
+        }
+
+        $centralDatabase = $this->effectiveConnectionSetting($central, 'database');
+        $brokerDatabase = $this->effectiveConnectionSetting($broker, 'database');
+        $centralUsername = $this->effectiveConnectionSetting($central, 'username');
+        $brokerUsername = $this->effectiveConnectionSetting($broker, 'username');
+        $brokerPassword = $this->effectiveConnectionSetting($broker, 'password');
+
+        if ($centralDatabase === null
+            || $brokerDatabase === null
+            || $centralUsername === null
+            || $brokerUsername === null
+            || $brokerPassword === null
+            || strcasecmp($brokerDatabase, $centralDatabase) === 0
+            || strcasecmp($brokerUsername, $centralUsername) === 0) {
+            throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
+        }
+
+        return $broker;
     }
 
     /**
