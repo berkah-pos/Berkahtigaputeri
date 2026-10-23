@@ -111,6 +111,9 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                 $storedPasswords[$key] = $password;
 
                 return 'ci-secret-ref://' . $key;
+            },
+            function (string $key) use (&$storedPasswords): void {
+                unset($storedPasswords[$key]);
             }
         );
 
@@ -139,7 +142,8 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     $retryCredentialCalls++;
 
                     return 'ci-secret-ref://' . $key;
-                }
+                },
+                static function (string $key): void {}
             );
             $this->fail('A retry without verified provisioning ownership must fail closed.');
         } catch (\RuntimeException $exception) {
@@ -371,7 +375,8 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                         $credentialStoreCalls++;
 
                         return 'ci-secret-ref://' . $key;
-                    }
+                    },
+                    static function (string $key): void {}
                 );
                 $this->fail('Provisioning must refuse to adopt any existing tenant database or role.');
             } catch (\RuntimeException $exception) {
@@ -412,7 +417,8 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                 function (string $key, string $password) use (&$storeCalls): string {
                     $storeCalls++;
                     throw new \RuntimeException('simulated secret-store outage');
-                }
+                },
+                static function (string $key): void {}
             );
             $this->fail('Provisioning must stop if the secret store fails.');
         } catch (\RuntimeException $exception) {
@@ -425,6 +431,50 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         }
 
         $this->assertSame(1, $storeCalls, 'The first failed secret write must stop provisioning immediately.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
+    public function test_second_secret_write_failure_compensates_both_stable_keys_before_database_creation(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $secrets = [];
+        $storeCalls = [];
+        $deleteCalls = [];
+
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function (string $key, string $password) use (&$secrets, &$storeCalls): string {
+                    $storeCalls[] = $key;
+                    if (str_ends_with($key, '/migrator')) {
+                        // Simulate a failed remote write after the runtime secret was stored.
+                        throw new \RuntimeException('simulated migrator secret-store outage');
+                    }
+
+                    $secrets[$key] = $password;
+
+                    return 'ci-secret-ref://' . $key;
+                },
+                function (string $key) use (&$secrets, &$deleteCalls): void {
+                    $deleteCalls[] = $key;
+                    unset($secrets[$key]);
+                }
+            );
+            $this->fail('Provisioning must stop when the second secret write fails.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame(
+                'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
+                $exception->getMessage()
+            );
+            $this->assertNotNull($exception->getPrevious());
+            $this->assertSame('simulated migrator secret-store outage', $exception->getPrevious()->getMessage());
+        }
+
+        $runtimeKey = 'tenant/' . $tenantId . '/runtime';
+        $migratorKey = 'tenant/' . $tenantId . '/migrator';
+        $this->assertSame([$runtimeKey, $migratorKey], $storeCalls);
+        $this->assertSame([$runtimeKey, $migratorKey], $deleteCalls);
+        $this->assertSame([], $secrets, 'No orphaned credential should remain after successful compensation.');
         $this->assertNoTenantResources($tenantId);
     }
 
@@ -446,10 +496,13 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
 
             return 'ci-secret-ref://' . $key;
         };
+        $deleteCredential = function (string $key): void {
+            unset($this->credentials[$key]);
+        };
 
         $provisioner = new PostgresTenantProvisioner();
-        $tenantA = $provisioner->provision($this->tenantIds[0], $storeCredential);
-        $tenantB = $provisioner->provision($this->tenantIds[1], $storeCredential);
+        $tenantA = $provisioner->provision($this->tenantIds[0], $storeCredential, $deleteCredential);
+        $tenantB = $provisioner->provision($this->tenantIds[1], $storeCredential, $deleteCredential);
 
         $this->assertNotSame($tenantA['database'], $tenantB['database']);
         $this->assertNotSame($tenantA['runtime_role'], $tenantB['runtime_role']);
