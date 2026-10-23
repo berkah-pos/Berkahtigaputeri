@@ -186,7 +186,12 @@ class LegacyTrialImporter {
         for (final old in oldSaleItems) {
           final itemId = _requiredInteger(old['id'], 'sale_item.id');
           final saleId = _requiredInteger(old['sale_id'], 'sale_item.sale_id');
-          if (!archivedSaleIds.contains(saleId)) continue;
+          if (!archivedSaleIds.contains(saleId)) {
+            throw const FormatException(
+              'Legacy import stopped: a sale item has no matching legacy sale. '
+              'The source file was not changed and the import was rolled back.',
+            );
+          }
 
           final oldProductId =
               _requiredInteger(old['product_id'], 'sale_item.product_id');
