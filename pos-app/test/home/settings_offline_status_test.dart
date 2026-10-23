@@ -118,7 +118,7 @@ void main() {
       await _settle(tester, 'configured API login');
       expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
 
-      await tester.tap(find.text('Lanjutkan sebagai kasir lokal'));
+      await tester.tap(find.text('Lanjutkan lokal tanpa akun cloud'));
       await _settle(tester, 'local-only mode');
       expect(find.text('Beranda'), findsOneWidget);
 
@@ -133,7 +133,7 @@ void main() {
       await _settle(tester, 'return to cloud login');
 
       expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
-      expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
+      expect(find.text('Lanjutkan lokal tanpa akun cloud'), findsOneWidget);
       expect(find.text('Beranda'), findsNothing);
     },
     timeout: const Timeout(Duration(seconds: 60)),

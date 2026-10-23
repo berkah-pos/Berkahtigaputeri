@@ -88,6 +88,7 @@ The active main branch already uses a Laravel Central API client, not the former
 - Kept `authService: null` and outbox sync disabled while local-only mode is active; navigation does not restore or imply cloud authentication.
 - Distinguished “API not configured” from “API configured but cloud session inactive” in settings.
 - Added a widget regression covering login → local-only → settings → cloud login, asserting configuration loading and sync are still disabled in local mode.
+- The first CI attempt (#39967505961) failed before exercising navigation because the test used the unconfigured-build button label; corrected the test to match the actual configured-login label, then reran CI.
 
 **Cross-specialist boundary:** Prompt 02 owns authentication/session semantics; this change only navigates back to its existing login gate. It does not create a session or bypass server device approval. No owner decision is required.
 
