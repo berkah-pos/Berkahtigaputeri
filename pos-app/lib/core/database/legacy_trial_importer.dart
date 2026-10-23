@@ -114,7 +114,7 @@ class LegacyTrialImporter {
           }
           mappedProductIds[originalId] = productId;
 
-        final originalSku = old['sku']?.toString().trim() ?? '';
+          final originalSku = old['sku']?.toString().trim() ?? '';
           final baseSku = originalSku.isEmpty
               ? 'LEGACY-$originalId'
               : originalSku;
@@ -146,7 +146,7 @@ class LegacyTrialImporter {
               'requires_review': 1,
             },
           );
-        counts['products'] = counts['products']! + 1;
+          counts['products'] = counts['products']! + 1;
 
           final stockRows = await transaction.query(
             'legacy_product_stock_archive',
