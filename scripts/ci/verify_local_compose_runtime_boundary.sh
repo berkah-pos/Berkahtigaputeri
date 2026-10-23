@@ -28,6 +28,7 @@ assert app_env.get("CENTRAL_DB_USERNAME"), "app lacks a central runtime username
 assert app_env["CENTRAL_DB_USERNAME"] != postgres_env.get("POSTGRES_USER"), "app uses the PostgreSQL bootstrap account"
 assert app_env["CENTRAL_DB_USERNAME"] == bootstrap_env.get("LOCAL_CENTRAL_RUNTIME_ROLE"), "bootstrap role and app runtime role do not match"
 assert app_env.get("CENTRAL_DB_PASSWORD") == bootstrap_env.get("LOCAL_CENTRAL_RUNTIME_PASSWORD"), "bootstrap role and app runtime password do not match"
+assert app_env.get("CENTRAL_DB_PASSWORD") != postgres_env.get("POSTGRES_PASSWORD"), "app runtime password must differ from PostgreSQL bootstrap password"
 
 forbidden_prefixes = ("POSTGRES_BOOTSTRAP_", "PROVISIONER_DB_", "LOCAL_CENTRAL_RUNTIME_")
 forbidden_names = {"PGUSER", "PGPASSWORD"}
