@@ -53,6 +53,13 @@ class SyncController extends Controller
             'events.*.payload.sale.request_fingerprint' => ['sometimes', 'string', 'max:65536'],
         ])->validate();
 
+        // Laravel's validated() projection can omit nested fields that do not
+        // have their own validation rules (for example product/receipt payloads).
+        // The bounded request body and envelope are validated above; business
+        // payloads must retain their full shape for canonical hashing and the
+        // stricter entity-specific server-side validators below.
+        $input['events'] = $request->input('events');
+
         $user = $request->user();
         $actorId = (int) $request->attributes->get('identity.user_id', 0);
         $tenantId = trim((string) $request->attributes->get('identity.tenant_id', ''));
