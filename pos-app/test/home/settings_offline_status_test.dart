@@ -37,7 +37,7 @@ Future<void> _settle(WidgetTester tester, String checkpoint) async {
 }
 
 void main() {
-  testWidgets('settings clearly reports that effective config and cloud sync are unavailable',
+  testWidgets('local settings clearly reports cloud configuration and sync boundaries',
       (tester) async {
     sqfliteFfiInit();
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -72,14 +72,16 @@ void main() {
     await tester.tap(find.byTooltip('Pengaturan tenant dan cloud'));
     await _settle(tester, 'settings screen');
 
-    expect(find.text('Konfigurasi cloud belum aktif'), findsOneWidget);
+    expect(find.text('API cloud belum dikonfigurasi'), findsOneWidget);
     expect(
-      find.textContaining('Tidak ada permintaan cloud konfigurasi yang dikirim.'),
+      find.textContaining('Data penjualan lokal tetap tersimpan di SQLite'),
       findsOneWidget,
     );
     expect(
-      find.textContaining('sinkronisasi penjualan/outbox'),
+      find.textContaining('Sinkronisasi transaksi'),
       findsOneWidget,
     );
+    expect(find.text('Muat POS'), findsNothing);
+    expect(find.text('Muat Akuntansi'), findsNothing);
   }, timeout: const Timeout(Duration(seconds: 60)));
 }

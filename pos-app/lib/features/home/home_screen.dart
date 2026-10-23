@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/auth/laravel_auth_service.dart';
 import '../../core/config/app_identity_store.dart';
 import '../../core/database/pos_database.dart';
 import '../inventory/inventory_screen.dart';
@@ -25,11 +26,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.database,
     required this.identityStore,
+    this.authService,
     this.onSignOut,
   });
 
   final PosDatabase database;
   final AppIdentityStore identityStore;
+  final LaravelAuthService? authService;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -140,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute<void>(
                 builder: (_) => _ConfigurationScreen(
                   identityStore: widget.identityStore,
+                  authService: widget.authService,
                   onSignOut: widget.onSignOut,
                 ),
               ),
@@ -448,10 +452,12 @@ class _DashboardMetric extends StatelessWidget {
 class _ConfigurationScreen extends StatefulWidget {
   const _ConfigurationScreen({
     required this.identityStore,
+    this.authService,
     this.onSignOut,
   });
 
   final AppIdentityStore identityStore;
+  final LaravelAuthService? authService;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -459,6 +465,49 @@ class _ConfigurationScreen extends StatefulWidget {
 }
 
 class _ConfigurationScreenState extends State<_ConfigurationScreen> {
+  bool _configLoading = false;
+  String? _configError;
+  EffectiveConfigSnapshot? _cloudConfiguration;
+
+  Future<void> _refreshCloudConfiguration(String service) async {
+    final authService = widget.authService;
+    if (authService == null) return;
+
+    setState(() {
+      _configLoading = true;
+      _configError = null;
+      _cloudConfiguration = null;
+    });
+
+    try {
+      final snapshot = await authService.fetchEffectiveConfig(service: service);
+      if (snapshot.tenantId != widget.identityStore.tenantId ||
+          snapshot.deviceId != widget.identityStore.deviceId) {
+        throw const AuthFailure(
+          message: 'Identitas konfigurasi server tidak cocok dengan perangkat ini.',
+          code: 'identity_mismatch',
+          statusCode: 403,
+        );
+      }
+      if (!mounted) return;
+      setState(() => _cloudConfiguration = snapshot);
+    } on AuthFailure catch (failure) {
+      if (!mounted) return;
+      setState(() {
+        _cloudConfiguration = null;
+        _configError = '${failure.code}: ${failure.message}';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _cloudConfiguration = null;
+        _configError = 'Konfigurasi server tidak dapat diverifikasi saat ini.';
+      });
+    } finally {
+      if (mounted) setState(() => _configLoading = false);
+    }
+  }
+
   Future<void> _openExternal(String url) async {
     try {
       final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -525,21 +574,73 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                   Text('Konfigurasi cloud', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 8),
                   const Text(
-                    'Kontrak konfigurasi tetap GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. '
-                    'Namun endpoint efektif Laravel dan client Flutter untuk konfigurasi '
-                    'belum diimplementasikan. Tidak ada permintaan cloud konfigurasi yang dikirim.',
+                    'Kontrak konfigurasi menggunakan GLOBAL → TEMPLATE → TENANT → SERVICE → DEVICE. '
+                    'Permintaan konfigurasi mengambil satu layanan dari API Laravel yang memverifikasi '
+                    'sesi, tenant, perangkat, langganan, dan versi konfigurasi. Sinkronisasi transaksi '
+                    'dan laporan lintas perangkat tetap merupakan workstream terpisah.',
                   ),
                   const SizedBox(height: 12),
-                  const ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.cloud_off_outlined),
-                    title: Text('Konfigurasi cloud belum aktif'),
-                    subtitle: Text(
-                      'Login Laravel/device trust adalah workstream terpisah. '
-                      'Konfigurasi efektif, sinkronisasi penjualan/outbox, dan laporan lintas perangkat '
-                      'belum tersedia. Penjualan lokal tetap tersimpan di SQLite.',
+                  if (widget.authService?.isConfigured == true) ...<Widget>[
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _configLoading
+                                ? null
+                                : () => _refreshCloudConfiguration('pos'),
+                            icon: const Icon(Icons.point_of_sale_outlined),
+                            label: const Text('Muat POS'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _configLoading
+                                ? null
+                                : () => _refreshCloudConfiguration('akuntansi'),
+                            icon: const Icon(Icons.account_balance_outlined),
+                            label: const Text('Muat Akuntansi'),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    if (_configLoading) ...<Widget>[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(),
+                    ],
+                    if (_configError != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.cloud_off_outlined),
+                        title: const Text('Konfigurasi belum diterima'),
+                        subtitle: Text(_configError!),
+                      ),
+                    ],
+                    if (_cloudConfiguration != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.verified_outlined),
+                        title: Text('Konfigurasi ${_cloudConfiguration!.service.toUpperCase()} diterima'),
+                        subtitle: Text(
+                          'Versi: ${_cloudConfiguration!.version}\n'
+                          'Tenant: ${_cloudConfiguration!.tenantId}\n'
+                          'Perangkat: ${_cloudConfiguration!.deviceId}',
+                        ),
+                      ),
+                      SelectableText('SHA-256: ${_cloudConfiguration!.hash}'),
+                    ],
+                  ] else
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.cloud_off_outlined),
+                      title: Text('API cloud belum dikonfigurasi'),
+                      subtitle: Text(
+                        'Bangun aplikasi dengan BERKAH_API_BASE_URL HTTPS. '
+                        'Data penjualan lokal tetap tersimpan di SQLite dan tidak otomatis tersinkron.',
+                      ),
+                    ),
                 ],
               ),
             ),

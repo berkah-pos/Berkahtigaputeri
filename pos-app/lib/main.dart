@@ -148,7 +148,8 @@ class _AppGateState extends State<_AppGate> {
     return HomeScreen(
       database: widget.database,
       identityStore: widget.identityStore,
-      // Configuration/sync parity is a separate gate: identity alone must
+      authService: localOnly ? null : widget.authService,
+      // Cloud config is now fetchable through Laravel; transaction sync remains separate.
       onSignOut: !localOnly && _session?.deviceIsActive == true ? _signOut : null,
     );
   }

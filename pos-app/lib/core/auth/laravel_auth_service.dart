@@ -66,6 +66,74 @@ class AuthSession {
       deviceStatus == 'pending' || deviceStatus == 'unregistered';
 }
 
+class EffectiveConfigSnapshot {
+  const EffectiveConfigSnapshot({
+    required this.tenantId,
+    required this.deviceId,
+    required this.service,
+    required this.version,
+    required this.versions,
+    required this.hash,
+    required this.config,
+  });
+
+  static const List<String> _layerOrder = <String>[
+    'global', 'template', 'tenant', 'service', 'device',
+  ];
+
+  final String tenantId;
+  final String deviceId;
+  final String service;
+  final int version;
+  final Map<String, int> versions;
+  final String hash;
+  final Map<String, dynamic> config;
+
+  factory EffectiveConfigSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    required String expectedService,
+  }) {
+    final tenantId = json['tenant_id'];
+    final deviceId = json['device_id'];
+    final service = json['service'];
+    final version = json['version'];
+    final hash = json['hash'];
+    final rawVersions = json['versions'];
+    final rawConfig = json['config'];
+
+    if (tenantId is! String || tenantId.isEmpty ||
+        deviceId is! String || deviceId.isEmpty ||
+        service != expectedService ||
+        version is! int || version < 1 ||
+        hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash) ||
+        rawVersions is! Map || rawConfig is! Map) {
+      throw const FormatException('Effective configuration response is malformed.');
+    }
+
+    if (rawVersions.length != _layerOrder.length) {
+      throw const FormatException('Effective configuration version vector is incomplete.');
+    }
+    final versions = <String, int>{};
+    for (final layer in _layerOrder) {
+      final layerVersion = rawVersions[layer];
+      if (layerVersion is! int || layerVersion < 1) {
+        throw const FormatException('Effective configuration version vector is invalid.');
+      }
+      versions[layer] = layerVersion;
+    }
+
+    return EffectiveConfigSnapshot(
+      tenantId: tenantId,
+      deviceId: deviceId,
+      service: service as String,
+      version: version,
+      versions: versions,
+      hash: hash,
+      config: Map<String, dynamic>.from(rawConfig),
+    );
+  }
+}
+
 class AuthFailure implements Exception {
   const AuthFailure({
     required this.message,
@@ -243,6 +311,58 @@ class LaravelAuthService {
     }
   }
 
+  /// Fetches one service configuration through the authenticated Laravel API.
+  /// Tenant and device context are derived by the server from the bearer token;
+  /// this client deliberately does not send a client-selected tenant identifier.
+  Future<EffectiveConfigSnapshot> fetchEffectiveConfig({
+    required String service,
+  }) async {
+    final normalizedService = service.trim().toLowerCase();
+    if (normalizedService != 'pos' && normalizedService != 'akuntansi') {
+      throw const AuthFailure(
+        message: 'Layanan konfigurasi tidak valid.',
+        code: 'invalid_service',
+        statusCode: 422,
+      );
+    }
+
+    final token = await _vault.read(_tokenKey);
+    if (token == null || token.isEmpty) {
+      throw const AuthFailure(
+        message: 'Sesi cloud tidak tersedia. Masuk kembali untuk melanjutkan.',
+        code: 'session_missing',
+        statusCode: 401,
+      );
+    }
+
+    final response = await _request(
+      'GET',
+      'config/$normalizedService',
+      token: token,
+    );
+    final rawSnapshot = response.data['data'];
+    if (rawSnapshot is! Map) {
+      throw const AuthFailure(
+        message: 'Server tidak mengembalikan konfigurasi efektif yang valid.',
+        code: 'invalid_config_response',
+        statusCode: 502,
+      );
+    }
+
+    try {
+      return EffectiveConfigSnapshot.fromJson(
+        Map<String, dynamic>.from(rawSnapshot),
+        expectedService: normalizedService,
+      );
+    } on FormatException {
+      throw const AuthFailure(
+        message: 'Konfigurasi server tidak dapat diverifikasi.',
+        code: 'invalid_config_response',
+        statusCode: 502,
+      );
+    }
+  }
+
   /// Restores only a server-verified session. Network errors never enable
   /// cloud mode and do not erase the token, allowing a retry when back online.
   Future<AuthSession?> restoreSession() async {
@@ -366,6 +486,16 @@ class LaravelAuthService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final rawError = data['error'];
+      final errorBody = rawError is Map
+          ? Map<String, dynamic>.from(rawError)
+          : const <String, dynamic>{};
+      final message = data['message'] is String
+          ? data['message'] as String
+          : errorBody['message'] as String?;
+      final code = data['code'] is String
+          ? data['code'] as String
+          : errorBody['code'] as String?;
       final membershipsRaw = data['memberships'];
       final memberships = membershipsRaw is List
           ? membershipsRaw
@@ -375,8 +505,8 @@ class LaravelAuthService {
               .toList(growable: false)
           : const <TenantChoice>[];
       throw AuthFailure(
-        message: data['message'] as String? ?? 'Permintaan autentikasi ditolak.',
-        code: data['code'] as String? ?? 'http_' + response.statusCode.toString(),
+        message: message ?? 'Permintaan API ditolak.',
+        code: code ?? 'http_' + response.statusCode.toString(),
         memberships: memberships,
         statusCode: response.statusCode,
       );

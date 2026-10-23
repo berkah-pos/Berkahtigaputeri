@@ -94,13 +94,26 @@ class IdentityController extends Controller
                     'code' => 'device_revoked',
                 ], 403);
             }
-            if (! $device->device_secret_hash || ! hash_equals($device->device_secret_hash, $deviceSecretHash)) {
+
+            // Workbook device rows are configuration placeholders, not trusted
+            // registrations. A row without an owner and registration proof must
+            // enter enrollment; it never receives active token abilities.
+            $placeholder = $device->owner_user_id === null
+                && $device->registered_at === null
+                && in_array($device->status, ['active', 'pending'], true);
+
+            if ($placeholder && $device->device_secret_hash === null) {
+                $deviceStatus = 'unregistered';
+            } elseif ($placeholder && is_string($device->device_secret_hash)
+                && hash_equals($device->device_secret_hash, $deviceSecretHash)) {
+                $deviceStatus = 'pending';
+            } elseif (! $device->device_secret_hash
+                || ! hash_equals($device->device_secret_hash, $deviceSecretHash)) {
                 return response()->json([
                     'message' => 'Bukti kepemilikan perangkat tidak valid.',
                     'code' => 'device_proof_invalid',
                 ], 403);
-            }
-            if ($device->owner_user_id === null || $device->status === 'pending') {
+            } elseif ($device->status === 'pending') {
                 $deviceStatus = 'pending';
             } elseif ($device->status === 'active') {
                 $deviceStatus = 'active';
@@ -278,36 +291,117 @@ class IdentityController extends Controller
         $secretHash = hash('sha256', $validated['device_secret']);
         $now = now();
 
-        DB::connection('central')->table('device_registry')->insertOrIgnore([
-            'device_id' => $deviceId,
-            'tenant_id' => $tenantId,
-            'owner_user_id' => $user->getAuthIdentifier(),
-            'status' => 'pending',
-            'registered_at' => null,
-            'device_name' => $validated['device_name'] ?? null,
-            'platform' => $validated['platform'] ?? null,
-            'device_secret_hash' => $secretHash,
-            'revoked_at' => null,
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $result = DB::connection('central')->transaction(function () use (
+            $user, $tenantId, $deviceId, $secretHash, $validated, $now
+        ): array {
+            $device = DeviceRegistry::query()->whereKey($deviceId)->lockForUpdate()->first();
 
-        $device = DeviceRegistry::query()->find($deviceId);
-        if (! $device || $device->tenant_id !== $tenantId ||
-            (int) $device->owner_user_id !== (int) $user->getAuthIdentifier() ||
-            ! $device->device_secret_hash || ! hash_equals($device->device_secret_hash, $secretHash)) {
-            return response()->json(['message' => 'Perangkat sudah terikat pada identitas lain.', 'code' => 'device_identity_conflict'], 409);
-        }
-        if ($device->status === 'revoked' || $device->revoked_at !== null) {
-            return response()->json(['message' => 'Perangkat yang dicabut tidak dapat didaftarkan ulang dengan ID yang sama.', 'code' => 'device_revoked'], 409);
-        }
-        if ($device->status === 'active') {
-            return response()->json(['message' => 'Perangkat sudah disetujui. Login ulang untuk mendapatkan sesi aktif.', 'code' => 'device_approval_requires_signin'], 409);
-        }
+            if ($device === null) {
+                DB::connection('central')->table('device_registry')->insert([
+                    'device_id' => $deviceId,
+                    'tenant_id' => $tenantId,
+                    'owner_user_id' => $user->getAuthIdentifier(),
+                    'status' => 'pending',
+                    'registered_at' => null,
+                    'device_name' => $validated['device_name'] ?? null,
+                    'platform' => $validated['platform'] ?? null,
+                    'device_secret_hash' => $secretHash,
+                    'revoked_at' => null,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $device = DeviceRegistry::query()->whereKey($deviceId)->lockForUpdate()->first();
+            }
 
-        $this->audit((int) $user->getAuthIdentifier(), $tenantId, 'device', $deviceId, 'device.enrollment_requested', [
-            'platform' => $validated['platform'] ?? null,
-        ]);
+            if (! $device || $device->tenant_id !== $tenantId ||
+                ($device->owner_user_id !== null &&
+                    (int) $device->owner_user_id !== (int) $user->getAuthIdentifier())) {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_identity_conflict',
+                    'message' => 'Perangkat sudah terikat pada identitas lain.',
+                ];
+            }
+            if ($device->status === 'revoked' || $device->revoked_at !== null) {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_revoked',
+                    'message' => 'Perangkat yang dicabut tidak dapat didaftarkan ulang dengan ID yang sama.',
+                ];
+            }
+
+            $placeholder = $device->owner_user_id === null
+                && $device->registered_at === null
+                && in_array($device->status, ['active', 'pending'], true);
+            if ($placeholder) {
+                if ($device->device_secret_hash !== null &&
+                    ! hash_equals($device->device_secret_hash, $secretHash)) {
+                    return [
+                        'http_status' => 403,
+                        'code' => 'device_proof_invalid',
+                        'message' => 'Bukti kepemilikan perangkat tidak valid.',
+                    ];
+                }
+
+                $device->forceFill([
+                    'owner_user_id' => $user->getAuthIdentifier(),
+                    'status' => 'pending',
+                    'device_secret_hash' => $secretHash,
+                    'device_name' => $validated['device_name'] ?? $device->device_name,
+                    'platform' => $validated['platform'] ?? $device->platform,
+                    'updated_at' => $now,
+                ])->save();
+            } elseif (! $device->device_secret_hash ||
+                ! hash_equals($device->device_secret_hash, $secretHash)) {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_identity_conflict',
+                    'message' => 'Perangkat sudah terikat pada identitas lain.',
+                ];
+            } elseif ((int) $device->owner_user_id !== (int) $user->getAuthIdentifier()) {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_identity_conflict',
+                    'message' => 'Perangkat sudah terikat pada identitas lain.',
+                ];
+            } elseif ($device->status === 'active') {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_approval_requires_signin',
+                    'message' => 'Perangkat sudah disetujui. Login ulang untuk mendapatkan sesi aktif.',
+                ];
+            } elseif ($device->status !== 'pending') {
+                return [
+                    'http_status' => 409,
+                    'code' => 'device_not_usable',
+                    'message' => 'Status perangkat tidak mengizinkan enrollment.',
+                ];
+            }
+
+            // New dynamic devices receive an empty device override in central
+            // config. Existing workbook overrides are preserved via insert-or-ignore.
+            DB::connection('central')->table('device_configs')->insertOrIgnore([
+                'tenant_id' => $tenantId,
+                'device_id' => $deviceId,
+                'config' => json_encode((object) [], JSON_THROW_ON_ERROR),
+                'version' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            $this->audit((int) $user->getAuthIdentifier(), $tenantId, 'device', $deviceId, 'device.enrollment_requested', [
+                'platform' => $validated['platform'] ?? null,
+            ]);
+
+            return ['http_status' => 202, 'status' => 'pending'];
+        });
+
+        if ($result['http_status'] !== 202) {
+            return response()->json([
+                'message' => $result['message'],
+                'code' => $result['code'],
+            ], $result['http_status']);
+        }
 
         return response()->json([
             'status' => 'pending',
