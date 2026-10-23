@@ -143,6 +143,9 @@ jobs:
             exit 1
           fi
 
+      - name: Enforce minimum Android runtime permissions
+        run: python3 tool/verify_android_permissions.py
+
       - name: Resolve Flutter packages
         run: flutter pub get
 
