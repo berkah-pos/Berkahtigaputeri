@@ -3,17 +3,57 @@ services:
     image: postgres:17
     environment:
       POSTGRES_DB: ${CENTRAL_DB_DATABASE:-berkahpos_central}
-      POSTGRES_USER: ${CENTRAL_DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      POSTGRES_USER: ${POSTGRES_BOOTSTRAP_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:-local-only-bootstrap-change-me}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres17_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CENTRAL_DB_USERNAME:-postgres} -d ${CENTRAL_DB_DATABASE:-berkahpos_central}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_BOOTSTRAP_USERNAME:-postgres} -d ${CENTRAL_DB_DATABASE:-berkahpos_central}"]
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # One-shot local-only privilege setup. The bootstrap credential is confined to
+  # this service and never passed into the normal web/queue application service.
+  db-bootstrap:
+    image: postgres:17
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      PGUSER: ${POSTGRES_BOOTSTRAP_USERNAME:-postgres}
+      PGPASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:-local-only-bootstrap-change-me}
+      LOCAL_CENTRAL_RUNTIME_ROLE: ${CENTRAL_DB_USERNAME:-berkahpos_central_runtime}
+      LOCAL_CENTRAL_RUNTIME_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-runtime-change-me}
+    volumes:
+      - ./docker/postgres/bootstrap-local.sql:/bootstrap-local.sql:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command: |
+      if ! printf '%s' "$$LOCAL_CENTRAL_RUNTIME_ROLE" | grep -Eq '^[a-z_][a-z0-9_]{0,62}$$'; then
+        echo "Invalid local central runtime role identifier." >&2
+        exit 2
+      fi
+      if [ -z "$$LOCAL_CENTRAL_RUNTIME_PASSWORD" ]; then
+        echo "Local central runtime password must not be empty." >&2
+        exit 2
+      fi
+      if [ "$$LOCAL_CENTRAL_RUNTIME_ROLE" = "$$PGUSER" ]; then
+        echo "Local runtime role must differ from the PostgreSQL bootstrap account." >&2
+        exit 2
+      fi
+      psql -X --no-psqlrc -v ON_ERROR_STOP=1 \
+        --set=bootstrap_role="$$PGUSER" \
+        --set=central_database="$$PGDATABASE" \
+        --set=runtime_role="$$LOCAL_CENTRAL_RUNTIME_ROLE" \
+        --set=runtime_password="$$LOCAL_CENTRAL_RUNTIME_PASSWORD" \
+        --file=/bootstrap-local.sql
+    restart: "no"
+
   app:
     build:
       context: .
@@ -21,6 +61,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
     environment:
       APP_NAME: "Berkah POS"
       APP_ENV: local
@@ -32,10 +74,10 @@ services:
       CENTRAL_DB_HOST: postgres
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
-      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
-      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-berkahpos_central_runtime}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-runtime-change-me}
       CENTRAL_DB_SSLMODE: disable
-      # A tenant login/database must be provisioned explicitly. Do not reuse central credentials.
+      # Per-tenant credentials are provisioned separately; never inherit central credentials.
       TENANT_DB_HOST: postgres
       TENANT_DB_PORT: "5432"
       TENANT_DB_SSLMODE: disable
@@ -45,5 +87,40 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+  # Opt-in one-shot tool. Elevated local credentials are for migrations only;
+  # this service is not part of the ordinary default Compose stack.
+  dev-migrate:
+    profiles: ["tools"]
+    build:
+      context: .
+      target: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      APP_NAME: "Berkah POS"
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: postgres
+      CENTRAL_DB_PORT: "5432"
+      CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      CENTRAL_DB_USERNAME: ${POSTGRES_BOOTSTRAP_USERNAME:-postgres}
+      CENTRAL_DB_PASSWORD: ${POSTGRES_BOOTSTRAP_PASSWORD:-local-only-bootstrap-change-me}
+      CENTRAL_DB_SSLMODE: disable
+      TENANT_DB_HOST: postgres
+      TENANT_DB_PORT: "5432"
+      TENANT_DB_SSLMODE: disable
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+    command: ["php", "artisan", "migrate", "--database=central", "--path=database/migrations/central", "--force"]
+    restart: "no"
+
 volumes:
   postgres17_data:
