@@ -16,7 +16,7 @@ class PosDatabase {
 
   String? get legacyImportError => _legacyImportError;
 
-  static const int schemaVersion = 3;
+  static const int schemaVersion = 4;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
@@ -134,11 +134,39 @@ class PosDatabase {
       current = 3;
     }
 
+    if (current < 4) {
+      await _migrateV3ToV4(database);
+      current = 4;
+    }
+
     if (current != newVersion) {
       throw StateError(
         'Unsupported database migration: $oldVersion -> $newVersion.',
       );
     }
+  }
+
+
+  static Future<void> _migrateV3ToV4(Database database) async {
+    final columns = (await database.rawQuery('PRAGMA table_info(outbox_events)'))
+        .map((row) => row['name'] as String)
+        .toSet();
+    const additions = <String, String>{
+      'last_error': 'TEXT',
+      'next_retry_at_utc': 'TEXT',
+      'acked_at_utc': 'TEXT',
+      'server_receipt_id': 'TEXT',
+    };
+    for (final entry in additions.entries) {
+      if (!columns.contains(entry.key)) {
+        await database.execute(
+          'ALTER TABLE outbox_events ADD COLUMN ${entry.key} ${entry.value}',
+        );
+      }
+    }
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_outbox_retry ON outbox_events(status, next_retry_at_utc, created_at_utc)',
+    );
   }
 
   static Future<void> _migrateV1ToV2(Database database) async {
@@ -488,13 +516,21 @@ class PosDatabase {
         payload TEXT NOT NULL,
         status TEXT NOT NULL,
         retry_count INTEGER NOT NULL DEFAULT 0,
-        created_at_utc TEXT NOT NULL
+        created_at_utc TEXT NOT NULL,
+        last_error TEXT,
+        next_retry_at_utc TEXT,
+        acked_at_utc TEXT,
+        server_receipt_id TEXT
       )
     ''');
 
     await database.execute('''
       CREATE INDEX idx_outbox_status
       ON outbox_events(status, created_at_utc)
+    ''');
+    await database.execute('''
+      CREATE INDEX idx_outbox_retry
+      ON outbox_events(status, next_retry_at_utc, created_at_utc)
     ''');
   }
 
