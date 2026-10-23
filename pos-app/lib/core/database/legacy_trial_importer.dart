@@ -94,50 +94,59 @@ class LegacyTrialImporter {
 
         for (final old in oldProducts) {
           final originalId = _requiredInteger(old['id'], 'product.id');
-          final productId = 'legacy-product-$originalId';
-          mappedProductIds[originalId] = productId;
+          final baseProductId = 'legacy-product-$originalId';
+          var productId = baseProductId;
+          var productIdSuffix = 1;
 
-          final exists = await transaction.query(
+          // Never reuse an existing active product merely because its ID
+          // matches our legacy namespace. It may be an unrelated catalog row.
+          // Choose a deterministic free ID so all archive references point to
+          // the product created for this source record.
+          while ((await transaction.query(
             'products',
+            columns: <String>['id'],
             where: 'id = ?',
             whereArgs: <Object?>[productId],
             limit: 1,
-          );
-          if (exists.isEmpty) {
-            final originalSku = old['sku']?.toString().trim() ?? '';
-            final baseSku = originalSku.isEmpty
-                ? 'LEGACY-$originalId'
-                : originalSku;
-            var sku = baseSku;
-            var suffix = 1;
-            while (usedSkus.contains(sku)) {
-              sku = '$baseSku-LEGACY-$originalId-$suffix';
-              suffix++;
-            }
-            usedSkus.add(sku);
-
-            final originalName = old['name']?.toString().trim() ?? '';
-            await transaction.insert(
-              'products',
-              <String, Object?>{
-                'id': productId,
-                'sku': sku,
-                'barcode': null,
-                'name_id': originalName.isEmpty
-                    ? 'Produk trial $originalId'
-                    : originalName,
-                'price': _nonNegativeInteger(old['price'], 'product.price'),
-                // Legacy records did not carry tax classification. Keep the
-                // product blocked until the owner explicitly reviews it.
-                'ppn_exempt': 0,
-                'stock_qty': 0,
-                'track_expiry': 0,
-                'min_shelf_life_days': 0,
-                'requires_review': 1,
-              },
-            );
-            counts['products'] = counts['products']! + 1;
+          )).isNotEmpty) {
+            productId = '$baseProductId-legacy-$productIdSuffix';
+            productIdSuffix++;
           }
+          mappedProductIds[originalId] = productId;
+
+        final originalSku = old['sku']?.toString().trim() ?? '';
+          final baseSku = originalSku.isEmpty
+              ? 'LEGACY-$originalId'
+              : originalSku;
+          var sku = baseSku;
+          var suffix = 1;
+          while (usedSkus.contains(sku)) {
+            sku = '$baseSku-LEGACY-$originalId-$suffix';
+            suffix++;
+          }
+          usedSkus.add(sku);
+
+          final originalName = old['name']?.toString().trim() ?? '';
+          await transaction.insert(
+            'products',
+            <String, Object?>{
+              'id': productId,
+              'sku': sku,
+              'barcode': null,
+              'name_id': originalName.isEmpty
+                  ? 'Produk trial $originalId'
+                  : originalName,
+              'price': _nonNegativeInteger(old['price'], 'product.price'),
+              // Legacy records did not carry tax classification. Keep the
+              // product blocked until the owner explicitly reviews it.
+              'ppn_exempt': 0,
+              'stock_qty': 0,
+              'track_expiry': 0,
+              'min_shelf_life_days': 0,
+              'requires_review': 1,
+            },
+          );
+        counts['products'] = counts['products']! + 1;
 
           final stockRows = await transaction.query(
             'legacy_product_stock_archive',
