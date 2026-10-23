@@ -31,12 +31,16 @@ class HomeScreen extends StatefulWidget {
     required this.identityStore,
     this.authService,
     this.onSignOut,
+    this.onReturnToCloudLogin,
+    this.cloudApiConfigured = false,
   });
 
   final PosDatabase database;
   final AppIdentityStore identityStore;
   final LaravelAuthService? authService;
   final Future<void> Function()? onSignOut;
+  final VoidCallback? onReturnToCloudLogin;
+  final bool cloudApiConfigured;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -187,6 +191,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   identityStore: widget.identityStore,
                   authService: widget.authService,
                   onSignOut: widget.onSignOut,
+                  onReturnToCloudLogin: widget.onReturnToCloudLogin,
+                  cloudApiConfigured: widget.cloudApiConfigured,
                 ),
               ),
             ),
@@ -535,11 +541,15 @@ class _ConfigurationScreen extends StatefulWidget {
     required this.identityStore,
     this.authService,
     this.onSignOut,
+    this.onReturnToCloudLogin,
+    this.cloudApiConfigured = false,
   });
 
   final AppIdentityStore identityStore;
   final LaravelAuthService? authService;
   final Future<void> Function()? onSignOut;
+  final VoidCallback? onReturnToCloudLogin;
+  final bool cloudApiConfigured;
 
   @override
   State<_ConfigurationScreen> createState() => _ConfigurationScreenState();
@@ -712,7 +722,18 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                       ),
                       SelectableText('SHA-256: ${_cloudConfiguration!.hash}'),
                     ],
-                  ] else
+                  ] else if (widget.cloudApiConfigured)
+                    const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.cloud_off_outlined),
+                      title: Text('Mode lokal aktif; sesi cloud tidak aktif'),
+                      subtitle: Text(
+                        'API cloud sudah dikonfigurasi, tetapi akses cloud dinonaktifkan '
+                        'dalam mode ini. Kembali ke login cloud untuk memulihkan sesi. '
+                        'Penjualan tetap tersimpan lokal dan tidak otomatis tersinkron.',
+                      ),
+                    )
+                  else
                     const ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(Icons.cloud_off_outlined),
@@ -774,6 +795,24 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
                   final signOut = widget.onSignOut;
                   Navigator.of(context).pop();
                   if (signOut != null) await signOut();
+                },
+              ),
+            ),
+          ],
+          if (widget.onReturnToCloudLogin != null) ...<Widget>[
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.login),
+                title: const Text('Kembali ke login cloud'),
+                subtitle: const Text(
+                  'Keluar dari mode lokal untuk membuka kembali login. '
+                  'Akses cloud hanya aktif setelah sesi diverifikasi server.',
+                ),
+                onTap: () {
+                  final returnToLogin = widget.onReturnToCloudLogin;
+                  Navigator.of(context).pop();
+                  returnToLogin?.call();
                 },
               ),
             ),

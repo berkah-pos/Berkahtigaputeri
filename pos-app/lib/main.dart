@@ -340,6 +340,11 @@ class _AppGateState extends State<_AppGate> {
     setState(() => _localOnly = true);
   }
 
+  void _returnToCloudLogin() {
+    if (!mounted) return;
+    setState(() => _localOnly = false);
+  }
+
   Future<void> _authenticated(AuthSession session) async {
     if (!session.deviceIsActive) return;
     await widget.identityStore.setTenantId(session.tenantId);
@@ -444,6 +449,11 @@ class _AppGateState extends State<_AppGate> {
       database: widget.database,
       identityStore: widget.identityStore,
       authService: localOnly ? null : widget.authService,
+      cloudApiConfigured: widget.authService.isConfigured,
+      // Cloud sync stays disabled in local-only mode; navigation does not authenticate.
+      onReturnToCloudLogin: localOnly && widget.authService.isConfigured
+          ? _returnToCloudLogin
+          : null,
       // Cloud config is now fetchable through Laravel; transaction sync remains separate.
       onSignOut: _sessionCleanupPending || (!localOnly && _session?.deviceIsActive == true)
           ? _signOut
