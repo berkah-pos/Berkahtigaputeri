@@ -100,9 +100,9 @@ A snapshot file on disk is not restore evidence; the restored service and its al
 
 ## 9. Tenant provisioning safety
 
-The Laravel command is php artisan tenants:provision-database <ULID>. It runs only in an isolated non-public worker with OPENBAO_PROVISIONER_MODE=true. It reserves the central registry row, stores runtime and migrator credentials in OpenBao, creates the isolated PostgreSQL database and roles, migrates under the migrator role and activates the registry only after migration success. It stores no password centrally and clears the transient migrator password from the connection config.
+The Laravel command is php artisan tenants:provision-database <ULID>. It runs only in an isolated non-public worker with OPENBAO_PROVISIONER_MODE=true. It reserves the central registry row, stores runtime and migrator credentials in OpenBao, creates the isolated PostgreSQL database and roles, and runs migrations under the tenant-scoped migrator role. Before registry activation, it closes the migration connection, sets the migrator to NOLOGIN with PASSWORD NULL, revokes its membership in the no-login owner role, verifies those state changes, and deletes the migrator secret from OpenBao. Only the runtime credential remains in OpenBao after successful activation. It stores no password centrally and scrubs the temporary migration password from Laravel connection config.
 
-On failure, the command marks the registry failed when possible and never auto-drops a database or role. Inspect OpenBao, PostgreSQL and the central registry together. Do not delete the failed row or rerun blindly; reconcile all resources through an owner-reviewed recovery procedure.
+If retirement or secret deletion fails, the command must not activate the tenant. The role is disabled before the OpenBao delete is attempted, so a failed delete remains a manual secret-reconciliation task rather than a valid database login. On any failure, the command marks the registry failed when possible and never auto-drops a database or role. Inspect OpenBao, PostgreSQL and the central registry together. Do not delete the failed row or rerun blindly; reconcile all resources through an owner-reviewed recovery procedure.
 
 ## 10. Production gate
 
