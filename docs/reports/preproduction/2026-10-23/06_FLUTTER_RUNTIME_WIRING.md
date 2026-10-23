@@ -35,19 +35,27 @@ The active main branch already uses a Laravel Central API client, not the former
 
 ## Case 4 — fresh pending-device login cannot immediately clear its stored session
 
-**Finding — SOURCE-VERIFIED:** after login returns an unregistered/pending device, the auth service stores a bearer token and requests device enrollment. The login screen contains “Hapus sesi perangkat tertunda”, but `main.dart` supplied a null `onSignOut` callback whenever the app gate had no active/restored session. Cleanup was therefore unavailable immediately after fresh pending-device login; a restart was needed before the root gate supplied a session cleanup callback.
+**Finding — SOURCE-VERIFIED:** after login returns an unregistered/pending device, the auth service stores a bearer token and requests device enrollment. `main.dart` originally supplied a null `onSignOut` callback when the app gate did not own an active/restored session, preventing immediate cleanup of a just-created pending session.
 
-**Implemented in current branch (validation pending):**
-- Always wire the app-gate cleanup callback into `LoginScreen`; the UI still shows it only while the device/session is pending or cleanup is required.
-- Clear the screen-local pending message after a successful cleanup action. Failed cleanup retains the retry path.
-- Add a gate-level regression test: login on a new device, verify pending enrollment and token storage, invoke cleanup, verify server logout carries the bearer token and both local token and cleanup latch are cleared.
+**Implemented:** always wire cleanup to `LoginScreen`; clear the screen-local pending message only after the cleanup action returns; added a gate-level regression covering login → pending enrollment → stored token → cleanup request with bearer token → local token and pending-cleanup latch cleared.
+
+**TEST-EXECUTED / CI-OBSERVED:** canonical POS CI passed for exact commit `dcb5345b8685979404c993a76252c355564371da` in [run #39959444302](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39959444302). Analyzer, Flutter tests including the pending-device cleanup regression, Android host preparation, debug AAB compilation and artifact upload passed.
+
+## Case 5 — sync error UI must not echo raw exception/server details
+
+**Finding — SOURCE-VERIFIED:** the dashboard caught a synchronization exception but appended `error.toString()` to a user-facing message. The exception can contain raw API/server response text or transport diagnostics. Local sales/outbox data is retained, but the error display should be stable and sanitized.
+
+**Implemented in the current branch (validation pending):**
+- Added `safeSyncFailureMessage`, which maps known API-not-configured, HTTP 401 and HTTP 403 conditions to approved guidance and uses generic recoverable copy for other failures.
+- Updated the dashboard to show sanitized text rather than concatenating the original exception.
+- Added five tests proving internal hostnames, raw server messages, token-like strings and stack/customer details are not reflected in visible error copy.
 
 ## Evidence boundary
 
-- **TEST-EXECUTED:** cases 1, 2 and 3 each passed full canonical CI on their named exact commits.
-- **PENDING:** combined case-4 exact-head CI, physical-device behavior, staging and production behavior.
-- **NOT CLAIMED:** publisher-signed release or live staging/production authentication/session verification.
+- **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
+- **PENDING:** combined case-5 exact-head CI, physical-device behavior, staging and production behavior.
+- **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the current branch head. Fix any guard, analyzer, widget-test, or debug AAB failure before selecting another Prompt 06 case.
+Run canonical POS Flutter CI on the combined current head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case.
