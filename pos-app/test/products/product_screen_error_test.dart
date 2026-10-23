@@ -9,8 +9,11 @@ void main() {
   testWidgets(
     'product load failure shows safe guidance instead of SQLite details',
     (tester) async {
-      final database = await openTestDatabase();
-      addTearDown(database.close);
+      // Database FFI uses a real isolate; open/close it outside FakeAsync.
+      final database = (await tester.runAsync(openTestDatabase))!;
+      addTearDown(() async {
+        await tester.runAsync(database.close);
+      });
 
       // A controlled missing-table failure provides realistic SQLite exception
       // detail without involving network services or changing application data.
