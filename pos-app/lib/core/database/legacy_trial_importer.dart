@@ -36,10 +36,10 @@ class LegacyTrialImporter {
     final legacy = await selectedFactory.openDatabase(
       legacyPath,
       options: OpenDatabaseOptions(
+        // The source is archival input only: it must never be migrated or
+        // changed as a side effect of opening it for import.
+        readOnly: true,
         singleInstance: false,
-        onConfigure: (database) async {
-          await database.execute('PRAGMA foreign_keys = ON');
-        },
       ),
     );
 

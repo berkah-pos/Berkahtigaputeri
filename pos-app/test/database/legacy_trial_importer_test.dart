@@ -74,6 +74,7 @@ void main() {
       'subtotal': 50000.0,
     });
     await oldDb.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
 
     final target = await PosDatabase.openAt(
       p.join(directory.path, 'berkahtigaputeri_pos.db'),
@@ -121,8 +122,12 @@ void main() {
     expect(await target.database.query('sales'), isEmpty);
     expect(await target.database.query('journals'), isEmpty);
 
-    // The original file is deliberately retained and the import is idempotent.
+    // Opening the source read-only must preserve the database byte-for-byte.
     expect(await File(legacyPath).exists(), isTrue);
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
     final rerun = await LegacyTrialImporter.importIfPresent(
       target: target.database,
       legacyPath: legacyPath,
