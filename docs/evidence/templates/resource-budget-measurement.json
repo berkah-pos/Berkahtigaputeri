@@ -1,0 +1,159 @@
+{
+  "schema_version": "1.0",
+  "status": "NOT_RUN",
+  "decision": "NO_GO",
+  "report_date": "2026-10-16",
+  "timezone": "Asia/Jakarta",
+  "repository": "berkah-pos/Berkahtigaputeri",
+  "repository_head_sha": null,
+  "workflow_run_id": null,
+  "workflow_url": null,
+  "owner_approval_reference": null,
+  "staging_environment_reference": null,
+  "staging_data_class": "synthetic_only_required",
+  "candidate": {
+    "image_digest": null,
+    "dockerfile_sha256": null,
+    "compose_file_sha256": null,
+    "k6_binary_version": null,
+    "k6_script_sha256": null,
+    "workload_config_sha256": null
+  },
+  "host": {
+    "provider_sku_target": "Hostinger KVM2 (target only; not observed)",
+    "os_target": "Ubuntu 24.04 LTS (target only; not observed)",
+    "measured_at_utc": null,
+    "vcpu_count": null,
+    "mem_total_bytes": null,
+    "mem_available_before_bytes": null,
+    "mem_available_min_during_test_bytes": null,
+    "swap_total_bytes": null,
+    "swap_used_peak_bytes": null,
+    "disk_total_bytes": null,
+    "docker_engine_version": null,
+    "docker_compose_version": null,
+    "runner_os": null,
+    "runner_image_os": null,
+    "runner_image_version": null,
+    "kernel_version": null,
+    "host_capture_artifact_uri": null
+  },
+  "budget": {
+    "unit": "GiB (binary)",
+    "os_coolify_proxy_reserve_gib": 1.2,
+    "postgresql_17_service_cap_gib": 3.5,
+    "laravel_web_api_cap_gib": 1,
+    "queue_workers_aggregate_cap_gib": 0.5,
+    "redis_cap_gib": 0.25,
+    "burst_backup_restore_headroom_min_gib": 0.5,
+    "proposed_total_envelope_gib": 6.95,
+    "arithmetic": "1.20 + 3.50 + 1.00 + 0.50 + 0.25 + 0.50 = 6.95 GiB",
+    "measured_vs_budget": "NOT_RUN"
+  },
+  "window": {
+    "start_utc": null,
+    "end_utc": null,
+    "sample_interval_seconds": 1,
+    "scenarios": [],
+    "approved_thresholds_reference": null,
+    "repeated_run_count": null
+  },
+  "metrics": {
+    "cpu": {
+      "host_peak_percent": null,
+      "load_average_peak": null,
+      "cgroup_throttled_periods": null,
+      "cgroup_throttled_seconds": null,
+      "io_wait_peak_percent": null,
+      "oom_kill_count": null
+    },
+    "memory": {
+      "container_peak_bytes_by_service": {},
+      "host_mem_available_min_bytes": null,
+      "host_rss_peak_bytes": null,
+      "memory_pressure_events": null,
+      "swap_used_peak_bytes": null,
+      "available_headroom_min_gib": null,
+      "meets_0_50_gib_headroom": false
+    },
+    "postgresql": {
+      "server_version": null,
+      "configured_max_connections": null,
+      "connections_peak": null,
+      "active_connections_peak": null,
+      "connection_errors": null,
+      "lock_wait_count": null,
+      "lock_wait_duration_ms_total": null,
+      "deadlock_count": null,
+      "transaction_rate_peak_per_second": null,
+      "database_growth_bytes": {},
+      "wal_growth_bytes": null,
+      "data_integrity_checks": "NOT_RUN",
+      "tenant_a_to_b_denial": "NOT_RUN"
+    },
+    "redis": {
+      "used_memory_peak_bytes": null,
+      "configured_maxmemory_bytes": null,
+      "evictions": null,
+      "connected_clients_peak": null,
+      "lock_contention_observations": null
+    },
+    "queue": {
+      "queue_depth_peak": null,
+      "oldest_job_age_seconds_peak": null,
+      "throughput_jobs_per_second": null,
+      "execution_latency_p95_ms": null,
+      "retry_count": null,
+      "failure_count": null,
+      "worker_heartbeat_check": "NOT_RUN"
+    },
+    "disk": {
+      "filesystem_bytes_before": {},
+      "filesystem_bytes_after": {},
+      "volume_bytes_before": {},
+      "volume_bytes_after": {},
+      "data_growth_bytes": {},
+      "wal_growth_bytes": null,
+      "docker_layer_growth_bytes": null,
+      "log_growth_bytes": null,
+      "peak_disk_used_percent": null
+    },
+    "http_api": {
+      "request_count": null,
+      "error_count": null,
+      "error_rate_percent": null,
+      "timeout_count": null,
+      "latency_p50_ms": null,
+      "latency_p95_ms": null,
+      "latency_p99_ms": null,
+      "offline_sync_batch_p95_ms": null,
+      "duplicate_idempotency_writes": null,
+      "unexpected_conflicts": null
+    }
+  },
+  "integrity": {
+    "synthetic_sales_submitted": null,
+    "durable_acknowledgements": null,
+    "duplicate_receipts": null,
+    "missing_receipts": null,
+    "tenant_a_integrity": "NOT_RUN",
+    "tenant_b_canary_integrity": "NOT_RUN",
+    "unexpected_cross_tenant_access": "NOT_RUN"
+  },
+  "acceptance": {
+    "topology_matches_intended_staging": false,
+    "metrics_share_same_time_window": false,
+    "raw_k6_output_uri": null,
+    "k6_summary_uri": null,
+    "host_metrics_uri": null,
+    "database_metrics_uri": null,
+    "backup_restore_evidence_uri": null,
+    "thresholds_approved_before_run": false,
+    "repeated_run_consistent": false,
+    "missing_metrics": [],
+    "deviations": [],
+    "independent_reviewer_reference": null,
+    "decision": "NO_GO"
+  },
+  "safety_note": "Template only. Never place passwords, connection strings, environment values, private keys, APP_KEY, customer data or production data here. Use synthetic tenant A/B, non-secret artifact URIs and exact candidate commit/image digest. Set status to executed only after the work was run and all linked raw artifacts exist."
+}
