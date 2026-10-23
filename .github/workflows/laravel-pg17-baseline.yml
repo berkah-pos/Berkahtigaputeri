@@ -355,7 +355,7 @@ jobs:
           docker run --rm --network host \
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env CENTRAL_DB_USERNAME=postgres --env CENTRAL_DB_PASSWORD=postgres \
             --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT --env PROVISIONER_DB_DATABASE \
             --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD --env PROVISIONER_DB_SSLMODE \
             --env RUN_POSTGRES_TENANT_PROVISIONER_INTEGRATION=1 \
