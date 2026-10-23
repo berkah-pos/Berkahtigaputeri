@@ -124,13 +124,16 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** the dashboard rendered `PosDatabase.legacyImportError` directly after a legacy-trial import failure. The database wrapper assigns `error.toString()` to this field, so the warning could expose SQLite/import implementation details on the cashier-facing screen.
 
-**Implemented (exact-head CI pending):**
+**Implemented and validated (exact-head CI green):**
 - Added `safeLegacyImportFailureMessage()` to provide fixed Indonesian recovery guidance without reflecting the stored exception string.
 - Updated the dashboard warning to use the safe helper; kept the existing retry action and source-database preservation warning.
 - Added unit regression coverage for missing-table names, local database paths, stack-like details, and token-looking text to ensure none of the exception content is returned.
 - Left `PosDatabase.retryLegacyTrialImport()`, importer mapping, schema, retry behavior, and data-retention semantics unchanged.
 
 **Cross-specialist boundary:** this is presentation sanitization only. Prompt 07 retains ownership of SQLite/legacy-import diagnosis and import semantics; no importer behavior or financial/inventory data is changed.
+
+**TEST-EXECUTED / CI-OBSERVED:** exact PR head `abd548e347a8616a4fd4c51ccea0c404e8ef3f27` passed Canonical POS App CI in [run #39991260242](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39991260242). PR [#156](https://github.com/berkah-pos/Berkahtigaputeri/pull/156) merged as `62dc3b129ff6b69fb3db27e6133c766012824123`.
+
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
@@ -141,9 +144,11 @@ The active main branch already uses a Laravel Central API client, not the former
 - **TEST-EXECUTED / CI-OBSERVED:** case 9 passed on exact PR head `b88fc9af981ee2d4785ade677b60c07a6d93e464` in [run #39985407418](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39985407418); PR #153 merged as `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
 - **TEST-EXECUTED / CI-OBSERVED:** post-merge Canonical POS CI [run #39986174414](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174414) and post-merge AAB build [run #39986174638](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174638) both passed on merge commit `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
 - **TEST-EXECUTED / CI-OBSERVED:** case 10 passed on exact PR head `62f7c3d53d7291d6d633e85dd604cb80ad9121b7` in [run #39989676679](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39989676679); PR #155 merged as `277230cc2b7b1ca0cd6c0620377992119bffdb4b`.
-- **PENDING:** post-merge Canonical POS CI [run #39990847108](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39990847108) and post-merge AAB build [run #39990848851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39990848851) (running at last inspection), case-11 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** post-merge Canonical POS CI [run #39990847108](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39990847108) and post-merge AAB build [run #39990848851](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39990848851) both passed on merge commit `277230cc2b7b1ca0cd6c0620377992119bffdb4b`.
+- **TEST-EXECUTED / CI-OBSERVED:** case 11 passed on exact PR head `abd548e347a8616a4fd4c51ccea0c404e8ef3f27` in [run #39991260242](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39991260242); PR #156 merged as `62dc3b129ff6b69fb3db27e6133c766012824123`.
+- **PENDING:** post-merge Canonical POS CI [run #39999466221](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39999466221) and post-merge AAB build [run #39999466341](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39999466341) (still running at report update), physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the case-11 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
+Prompt 06 case 11 has passed exact-head CI. The remaining raw `error.toString()` paths in product, checkout, inventory, and report screens are specialist-owned (Prompts 07, 08, 09, and 13) and should be handled through one coordinated owner task with separate per-screen tasks and regression tests. Do not fold those business-feature screens into Prompt 06. Confirm the post-merge CI/AAB runs above before treating the merged runtime branch as fully green.
