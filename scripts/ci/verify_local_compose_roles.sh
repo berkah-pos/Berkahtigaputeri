@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+bash -n "$0"
+
 readonly smoke_database="berkahpos_local_compose_ci"
 readonly smoke_role="berkahpos_local_compose_runtime_ci"
 readonly smoke_password="local-compose-runtime-ci-only-password"
