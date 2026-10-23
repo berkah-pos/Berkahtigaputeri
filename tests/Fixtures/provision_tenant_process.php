@@ -48,7 +48,8 @@ try {
 
             // Disposable test reference only; never persist the generated password.
             return 'ci-secret-ref://' . hash('sha256', $key);
-        }
+        },
+        static function (string $key): void {}
     );
 
     fwrite(STDOUT, 'PROVISION_RESULT:' . json_encode([
