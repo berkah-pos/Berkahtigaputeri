@@ -38,6 +38,28 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             strtoupper((string) Str::ulid()),
         ];
         $this->assertNotSame($this->tenantIds[0], $this->tenantIds[1]);
+
+        // These tests run only on the isolated disposable PostgreSQL 17 CI service.
+        // Seed authoritative central registry rows so the provisioner must verify them.
+        $central = DB::connection('central');
+        $now = now();
+        $central->table('templates')->insertOrIgnore([
+            'id' => 'BASIC',
+            'config' => '{}',
+            'version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        foreach ($this->tenantIds as $tenantId) {
+            $central->table('tenants')->insert([
+                'id' => $tenantId,
+                'template_id' => 'BASIC',
+                'status' => 'pending',
+                'data' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
     }
 
     protected function tearDown(): void
@@ -120,9 +142,53 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     fwrite(STDERR, "Disposable PG17 role cleanup warning: " . $exception->getMessage() . PHP_EOL);
                 }
             }
+
+            // Remove only the synthetic registry rows created by this integration case.
+            $central->table('tenants')->whereIn('id', $this->tenantIds)->delete();
         }
 
         parent::tearDown();
+    }
+
+    public function test_provisioning_rejects_unregistered_and_non_pending_tenants_before_broker_or_secret_access(): void
+    {
+        $unregisteredTenantId = strtoupper((string) Str::ulid());
+        $activeTenantId = $this->tenantIds[0];
+
+        DB::connection('central')->table('tenants')
+            ->where('id', $activeTenantId)
+            ->update(['status' => 'active']);
+
+        $cases = [
+            [$unregisteredTenantId, 'Tenant must exist in the central registry before provisioning.'],
+            [$activeTenantId, 'Only tenants with pending status may be provisioned.'],
+        ];
+
+        foreach ($cases as [$tenantId, $expectedMessage]) {
+            $storeCalls = 0;
+            $deleteCalls = 0;
+
+            try {
+                (new PostgresTenantProvisioner())->provision(
+                    $tenantId,
+                    function (string $key, string $password) use (&$storeCalls): string {
+                        $storeCalls++;
+
+                        return 'ci-secret-ref://' . $key;
+                    },
+                    function (string $key) use (&$deleteCalls): void {
+                        $deleteCalls++;
+                    }
+                );
+                $this->fail('Unregistered or non-pending tenants must not be provisioned.');
+            } catch (\\RuntimeException $exception) {
+                $this->assertSame($expectedMessage, $exception->getMessage());
+            }
+
+            $this->assertSame(0, $storeCalls, 'Eligibility rejection must occur before secret storage.');
+            $this->assertSame(0, $deleteCalls, 'Eligibility rejection must occur before secret cleanup is needed.');
+            $this->assertNoTenantResources($tenantId);
+        }
     }
 
     public function test_retry_after_success_fails_closed_without_changing_existing_tenant_data(): void
