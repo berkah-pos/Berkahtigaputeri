@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Central\User;
+use App\Services\TenantDatabaseRunner;
 use App\Services\TenantRuntimeCredentialResolver;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -226,6 +228,40 @@ class TenantSyncApiTest extends TestCase
         $response->assertStatus(503)
             ->assertJsonPath('error.code', 'tenant_database_registry_invalid');
         $this->assertDatabaseMissing('products', ['id' => $productId], 'tenant');
+    }
+
+    public function test_secret_provider_exception_details_are_redacted_from_logs(): void
+    {
+        [$tenantId] = $this->identityFixture(true);
+
+        $this->app->instance(
+            TenantRuntimeCredentialResolver::class,
+            new class implements TenantRuntimeCredentialResolver {
+                public function resolve(string $tenantId, string $secretReference): string
+                {
+                    throw new \\RuntimeException('provider-token=never-log-this-value');
+                }
+            }
+        );
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->with(
+                'Tenant runtime credential resolution failed.',
+                \\Mockery::on(static function (array $context) use ($tenantId): bool {
+                    return ($context['tenant_id'] ?? null) === $tenantId
+                        && ($context['exception_class'] ?? null) === \\RuntimeException::class
+                        && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-token=never-log-this-value');
+                })
+            );
+
+        try {
+            app(TenantDatabaseRunner::class)->run($tenantId, static fn (): null => null);
+            $this->fail('Credential resolution failure should block tenant database access.');
+        } catch (\\RuntimeException $exception) {
+            $this->assertSame('tenant_database_credentials_unavailable', $exception->getMessage());
+            $this->assertStringNotContainsString('provider-token=never-log-this-value', $exception->getMessage());
+        }
     }
 
     public function test_sync_fails_closed_until_a_tenant_runtime_connection_is_registered(): void
