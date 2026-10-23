@@ -99,6 +99,98 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_retry_after_success_fails_closed_without_changing_existing_tenant_data(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $storedPasswords = [];
+        $provisioner = new PostgresTenantProvisioner();
+
+        $tenant = $provisioner->provision(
+            $tenantId,
+            function (string $key, string $password) use (&$storedPasswords): string {
+                $storedPasswords[$key] = $password;
+
+                return 'ci-secret-ref://' . $key;
+            }
+        );
+
+        $this->assertCount(2, $storedPasswords);
+        $suffix = strtolower($tenantId);
+        $table = 'provisioner_retry_guard_' . strtolower(substr($tenantId, 0, 8));
+        $migrator = $this->connectionAs(
+            'provisioner_migrator_' . $suffix,
+            $tenant['database'],
+            $tenant['migrator_role'],
+            $storedPasswords['tenant/' . $tenantId . '/migrator']
+        );
+        $migrator->statement(
+            'CREATE TABLE public."' . $table . '" (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)'
+        );
+        $migrator->insert(
+            'INSERT INTO public."' . $table . '" (id, payload) VALUES (?, ?)',
+            [1, 'preserve-existing-tenant-data']
+        );
+
+        $retryCredentialCalls = 0;
+        try {
+            $provisioner->provision(
+                $tenantId,
+                function (string $key, string $password) use (&$retryCredentialCalls): string {
+                    $retryCredentialCalls++;
+
+                    return 'ci-secret-ref://' . $key;
+                }
+            );
+            $this->fail('A retry without verified provisioning ownership must fail closed.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame(
+                'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
+                $exception->getMessage()
+            );
+            $this->assertNotNull($exception->getPrevious());
+            $this->assertSame(
+                'Tenant database or role already exists; refusing to adopt or modify unverified resources.',
+                $exception->getPrevious()->getMessage()
+            );
+        }
+
+        $this->assertSame(0, $retryCredentialCalls, 'A refused retry must not write or rotate credentials.');
+        $central = DB::connection('central');
+        $this->assertSame(
+            1,
+            (int) $central->scalar(
+                'SELECT COUNT(*) FROM pg_database WHERE datname = ?',
+                [$tenant['database']]
+            )
+        );
+        $this->assertSame(
+            3,
+            (int) $central->scalar(
+                'SELECT COUNT(*) FROM pg_roles WHERE rolname IN (?, ?, ?)',
+                [$tenant['owner_role'], $tenant['runtime_role'], $tenant['migrator_role']]
+            )
+        );
+        $this->assertSame(
+            $tenant['owner_role'],
+            $central->scalar(
+                'SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = ?',
+                [$tenant['database']]
+            )
+        );
+
+        $runtime = $this->connectionAs(
+            'provisioner_runtime_' . $suffix,
+            $tenant['database'],
+            $tenant['runtime_role'],
+            $storedPasswords['tenant/' . $tenantId . '/runtime']
+        );
+        $this->assertSame(
+            'preserve-existing-tenant-data',
+            $runtime->scalar('SELECT payload FROM public."' . $table . '" WHERE id = 1')
+        );
+        $this->assertSame(1, (int) $runtime->scalar('SELECT COUNT(*) FROM public."' . $table . '"'));
+    }
+
     public function test_concurrent_provisioning_serializes_competing_attempts_for_the_same_tenant(): void
     {
         if (! function_exists('proc_open')) {
