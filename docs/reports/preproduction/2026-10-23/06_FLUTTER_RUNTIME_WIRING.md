@@ -97,13 +97,14 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** the bootstrap recovery view displayed `error.runtimeType` in its visible message (for example, `StateError`). The technical type does not help a cashier recover the app, while implementation details should remain in diagnostic logs rather than the UI.
 
-**Implemented (exact-head CI pending):**
+**Implemented and validated (exact-head CI green):**
 - Replaced the visible exception-class string with stable Indonesian recovery guidance: existing local data was not deleted; check device storage and retry.
 - Removed the instruction to copy an internal-looking error from the visible screen; users are directed to support if retry fails.
 - Extended `app_startup_recovery_test.dart` to assert the stable recovery copy is shown and neither `StateError` nor the simulated exception message appears in the UI.
 - Preserved the retry path and did not change database opening, cleanup, migration, authentication, or data-retention behavior.
 
 **Cross-specialist boundary:** this is Flutter bootstrap presentation only. It does not change SQLite migration/import behavior or business rules; no owner decision is required.
+**TEST-EXECUTED / CI-OBSERVED:** exact PR head `b88fc9af981ee2d4785ade677b60c07a6d93e464` passed Canonical POS App CI in [run #39985407418](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39985407418). PR [#153](https://github.com/berkah-pos/Berkahtigaputeri/pull/153) merged as `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
 
 ## Evidence boundary
 
@@ -112,7 +113,8 @@ The active main branch already uses a Laravel Central API client, not the former
 - **TEST-EXECUTED / CI-OBSERVED:** case 6 passed on exact commit `14d81d9e60740cad4b4de31f367c30bb5036509b` in [run #39962184139](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962184139) and duplicate run [#39962177055](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962177055).
 - **TEST-EXECUTED / CI-OBSERVED:** case 7 passed on exact commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` in run [#39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126); final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed in [run #39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866).
 - **TEST-EXECUTED / CI-OBSERVED:** case 8 passed on exact PR head `602fd25eeba5c596609309dc2e94e36f3f520892` in [run #39970772867](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39970772867); PR #152 is merged.
-- **PENDING:** case-9 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** case 9 passed on exact PR head `b88fc9af981ee2d4785ade677b60c07a6d93e464` in [run #39985407418](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39985407418); PR #153 merged as `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
+- **PENDING:** post-merge Canonical POS CI [run #39986174414](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174414), post-merge AAB build [run #39986174638](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174638) (both running at last inspection), physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
