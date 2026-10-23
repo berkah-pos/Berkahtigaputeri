@@ -23,7 +23,7 @@ final class ProvisionTenantDatabase extends Command
         OpenBaoTenantCredentialStore $secrets
     ): int {
         if (! $this->provisionerEnvironmentReady()) {
-            $this->error('Provisioning is disabled or its isolated-worker credentials are incomplete.');
+            $this->error('Provisioning is disabled or its isolated-worker configuration is incomplete or inconsistent.');
 
             return self::FAILURE;
         }
@@ -181,14 +181,69 @@ final class ProvisionTenantDatabase extends Command
             return false;
         }
 
+        $central = (array) config('database.connections.central', []);
         $provisioner = (array) config('database.connections.provisioner', []);
         $tenant = (array) config('database.connections.tenant', []);
 
-        return ($provisioner['driver'] ?? null) === 'pgsql'
-            && trim((string) ($provisioner['username'] ?? '')) !== ''
-            && trim((string) ($provisioner['password'] ?? '')) !== ''
-            && (trim((string) ($provisioner['host'] ?? '')) !== '' || trim((string) ($provisioner['url'] ?? '')) !== '')
-            && trim((string) ($tenant['host'] ?? '')) !== ''
-            && trim((string) ($tenant['port'] ?? '')) !== '';
+        if (($provisioner['driver'] ?? null) !== 'pgsql'
+            || trim((string) ($provisioner['username'] ?? '')) === ''
+            || trim((string) ($provisioner['password'] ?? '')) === ''
+            || (trim((string) ($provisioner['host'] ?? '')) === '' && trim((string) ($provisioner['url'] ?? '')) === '')
+            || trim((string) ($tenant['host'] ?? '')) === ''
+            || trim((string) ($tenant['port'] ?? '')) === '') {
+            return false;
+        }
+
+        // This architecture keeps the central registry, database broker and
+        // tenant database on one PostgreSQL service. The tenant migration path
+        // explicitly clears its URL and uses host/port, so compare that effective
+        // endpoint rather than a URL that will not be used for migrations.
+        $centralEndpoint = $this->postgresEndpoint($central, true);
+        $provisionerEndpoint = $this->postgresEndpoint($provisioner, true);
+        $tenantEndpoint = $this->postgresEndpoint($tenant, false);
+
+        return $centralEndpoint !== null
+            && $provisionerEndpoint !== null
+            && $tenantEndpoint !== null
+            && $centralEndpoint === $provisionerEndpoint
+            && $provisionerEndpoint === $tenantEndpoint;
+    }
+
+    /**
+     * Return the effective PostgreSQL host/port. URL config takes precedence
+     * for central and broker connections; tenant migrations intentionally null
+     * the URL and therefore use the configured host/port pair.
+     *
+     * @param array<string, mixed> $connection
+     */
+    private function postgresEndpoint(array $connection, bool $honorUrl): ?string
+    {
+        $url = $honorUrl ? ($connection['url'] ?? null) : null;
+        if (is_string($url) && trim($url) !== '') {
+            $parts = parse_url(trim($url));
+            if (! is_array($parts)
+                || ! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['postgres', 'postgresql', 'pgsql'], true)
+                || ! is_string($parts['host'] ?? null)
+                || trim($parts['host']) === '') {
+                return null;
+            }
+
+            $host = $parts['host'];
+            $port = $parts['port'] ?? 5432;
+        } else {
+            $host = $connection['host'] ?? null;
+            $port = $connection['port'] ?? 5432;
+        }
+
+        if (! is_string($host) || trim($host) === '') {
+            return null;
+        }
+
+        $validatedPort = filter_var($port, FILTER_VALIDATE_INT);
+        if ($validatedPort === false || $validatedPort < 1 || $validatedPort > 65535) {
+            return null;
+        }
+
+        return strtolower(rtrim(trim($host), '.')).':'.$validatedPort;
     }
 }

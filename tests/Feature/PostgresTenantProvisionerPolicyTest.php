@@ -23,7 +23,71 @@ class PostgresTenantProvisionerPolicyTest extends TestCase
 
         $this->assertSame(1, $exitCode);
         $this->assertStringContainsString(
-            'Provisioning is disabled or its isolated-worker credentials are incomplete.',
+            'Provisioning is disabled or its isolated-worker configuration is incomplete or inconsistent.',
+            Artisan::output()
+        );
+    }
+
+    public function test_provision_command_fails_closed_when_central_and_provisioner_urls_target_different_servers(): void
+    {
+        config([
+            'openbao.provisioner_mode' => true,
+            'openbao.provisioner_token' => 'synthetic-provisioner-token',
+            'openbao.address' => 'https://openbao.test.internal',
+            'database.connections.central.url' => 'postgresql://central@central-db.internal:5432/berkahpos_central',
+            // A stale host field must not hide the URL host that Laravel will use.
+            'database.connections.central.host' => 'shared-db.internal',
+            'database.connections.central.port' => '5432',
+            'database.connections.provisioner.driver' => 'pgsql',
+            'database.connections.provisioner.url' => null,
+            'database.connections.provisioner.host' => 'shared-db.internal',
+            'database.connections.provisioner.port' => '5432',
+            'database.connections.provisioner.username' => 'synthetic-provisioner',
+            'database.connections.provisioner.password' => 'synthetic-provisioner-password',
+            'database.connections.tenant.url' => null,
+            'database.connections.tenant.host' => 'shared-db.internal',
+            'database.connections.tenant.port' => '5432',
+        ]);
+
+        $exitCode = Artisan::call('tenants:provision-database', [
+            'tenantId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString(
+            'Provisioning is disabled or its isolated-worker configuration is incomplete or inconsistent.',
+            Artisan::output()
+        );
+    }
+
+    public function test_provision_command_fails_closed_when_tenant_migration_endpoint_differs(): void
+    {
+        config([
+            'openbao.provisioner_mode' => true,
+            'openbao.provisioner_token' => 'synthetic-provisioner-token',
+            'openbao.address' => 'https://openbao.test.internal',
+            'database.connections.central.url' => null,
+            'database.connections.central.host' => 'shared-db.internal',
+            'database.connections.central.port' => '5432',
+            'database.connections.provisioner.driver' => 'pgsql',
+            'database.connections.provisioner.url' => 'postgresql://synthetic-provisioner@shared-db.internal:5432/postgres',
+            'database.connections.provisioner.host' => 'stale-host-that-must-be-ignored.internal',
+            'database.connections.provisioner.port' => '5432',
+            'database.connections.provisioner.username' => 'synthetic-provisioner',
+            'database.connections.provisioner.password' => 'synthetic-provisioner-password',
+            // ProvisionTenantDatabase sets url=null before migrations, so host/port are authoritative here.
+            'database.connections.tenant.url' => 'postgresql://tenant@shared-db.internal:5432/ignored',
+            'database.connections.tenant.host' => 'different-tenant-db.internal',
+            'database.connections.tenant.port' => '5432',
+        ]);
+
+        $exitCode = Artisan::call('tenants:provision-database', [
+            'tenantId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString(
+            'Provisioning is disabled or its isolated-worker configuration is incomplete or inconsistent.',
             Artisan::output()
         );
     }
