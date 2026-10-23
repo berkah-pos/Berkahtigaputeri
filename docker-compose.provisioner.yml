@@ -1,0 +1,50 @@
+# One-shot, opt-in worker profile. This service has no published ports and
+# must receive the provisioner-only variables through a private local env file.
+# Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.provisioner.yml \
+#     --profile provisioning run --rm provisioner
+services:
+  provisioner:
+    profiles: ["provisioning"]
+    build:
+      context: .
+      target: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APP_NAME: "Berkah POS"
+      APP_ENV: local
+      APP_DEBUG: "false"
+      APP_KEY: ${APP_KEY:-base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+      APP_URL: http://localhost
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: central
+      CENTRAL_DB_HOST: postgres
+      CENTRAL_DB_PORT: "5432"
+      CENTRAL_DB_DATABASE: ${CENTRAL_DB_DATABASE:-berkahpos_central}
+      CENTRAL_DB_USERNAME: ${CENTRAL_DB_USERNAME:-postgres}
+      CENTRAL_DB_PASSWORD: ${CENTRAL_DB_PASSWORD:-local-only-change-this}
+      CENTRAL_DB_SSLMODE: disable
+      TENANT_DB_HOST: postgres
+      TENANT_DB_PORT: "5432"
+      TENANT_DB_SSLMODE: disable
+      CACHE_STORE: file
+      SESSION_DRIVER: file
+      QUEUE_CONNECTION: sync
+      TENANT_ULID: ${TENANT_ULID:-}
+      OPENBAO_ADDR: ${OPENBAO_ADDR:-}
+      OPENBAO_KV_MOUNT: ${OPENBAO_KV_MOUNT:-secret}
+      OPENBAO_PROVISIONER_MODE: "true"
+      OPENBAO_PROVISIONER_TOKEN: ${OPENBAO_PROVISIONER_TOKEN:-}
+      PROVISIONER_DB_HOST: ${PROVISIONER_DB_HOST:-postgres}
+      PROVISIONER_DB_PORT: ${PROVISIONER_DB_PORT:-5432}
+      PROVISIONER_DB_DATABASE: ${PROVISIONER_DB_DATABASE:-postgres}
+      PROVISIONER_DB_USERNAME: ${PROVISIONER_DB_USERNAME:-}
+      PROVISIONER_DB_PASSWORD: ${PROVISIONER_DB_PASSWORD:-}
+      PROVISIONER_DB_SSLMODE: ${PROVISIONER_DB_SSLMODE:-disable}
+    command:
+      - sh
+      - -lc
+      - 'if [ -z "$${TENANT_ULID}" ]; then echo "TENANT_ULID is required" >&2; exit 2; fi; exec php artisan tenants:provision-database "$${TENANT_ULID}"'
+    restart: "no"
