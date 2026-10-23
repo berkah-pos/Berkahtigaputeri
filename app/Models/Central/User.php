@@ -16,7 +16,7 @@ class User extends Authenticatable implements FilamentUser
     protected $connection = 'central';
 
     protected $fillable = [
-        'name', 'email', 'password', 'tenant_id', 'is_super_admin', 'is_active',
+        'name', 'email', 'password',
     ];
 
     protected $hidden = ['password', 'remember_token'];

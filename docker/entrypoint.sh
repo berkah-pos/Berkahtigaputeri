@@ -1,6 +1,9 @@
 #!/usr/bin/env sh
 set -eu
 
+# Validate production secrets before migrations or server processes can start.
+sh /var/www/berkah-pos/docker/validate-production-env.sh
+
 mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 
