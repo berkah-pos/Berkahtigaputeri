@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'models/product.dart';
+import 'product_failure_message.dart';
 import 'repositories/sqlite_product_repository.dart';
 
 /// Product catalogue backed by the canonical local-first repository.
@@ -46,7 +47,10 @@ class _ProductScreenState extends State<ProductScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = safeProductFailureMessage(
+          error,
+          operation: ProductFailureOperation.load,
+        );
         _loading = false;
       });
     }
@@ -62,7 +66,12 @@ class _ProductScreenState extends State<ProductScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Riwayat lot produk tidak dapat diverifikasi: $error'),
+            content: Text(
+              safeProductFailureMessage(
+                error,
+                operation: ProductFailureOperation.verifyHistory,
+              ),
+            ),
           ),
         );
         return;
@@ -94,7 +103,14 @@ class _ProductScreenState extends State<ProductScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Produk gagal disimpan: $error')),
+        SnackBar(
+          content: Text(
+            safeProductFailureMessage(
+              error,
+              operation: ProductFailureOperation.save,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -128,7 +144,14 @@ class _ProductScreenState extends State<ProductScreen> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Produk tidak dihapus: $error')),
+        SnackBar(
+          content: Text(
+            safeProductFailureMessage(
+              error,
+              operation: ProductFailureOperation.delete,
+            ),
+          ),
+        ),
       );
     }
   }
