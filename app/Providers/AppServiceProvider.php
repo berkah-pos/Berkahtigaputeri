@@ -28,5 +28,12 @@ class AppServiceProvider extends ServiceProvider
                 Limit::perMinute(5)->by('login-email:'.$email),
             ];
         });
+
+        RateLimiter::for('config-read', function (Request $request): Limit {
+            $userId = (string) ($request->user()?->getAuthIdentifier() ?? $request->ip());
+            $tenantId = (string) ($request->attributes->get('identity.tenant_id') ?? 'unresolved');
+
+            return Limit::perMinute(60)->by('config-read:' . $userId . ':' . $tenantId);
+        });
     }
 }

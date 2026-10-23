@@ -3,19 +3,20 @@
 namespace App\Console\Commands;
 
 use App\Models\Central\DeviceRegistry;
+use App\Models\Central\DeviceConfig;
 use App\Models\Central\GlobalConfig;
 use App\Models\Central\Subscription;
 use App\Models\Central\Tenant;
 use App\Models\Central\TenantConfig;
 use App\Models\Central\Template;
+use App\Services\Configuration\CanonicalWorkbookManifestValidator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Stancl\Tenancy\Facades\Tenancy;
 
 class ImportCanonicalWorkbook extends Command
 {
     protected $signature = 'config:import-workbook {file : JSON manifest produced by scripts/export_workbook_for_laravel.py}';
-    protected $description = 'Idempotently import the validated 352-key workbook manifest into the central and tenant databases.';
+    protected $description = 'Idempotently import the validated 352-key workbook manifest into the central database.';
 
     public function handle(): int
     {
@@ -31,34 +32,19 @@ class ImportCanonicalWorkbook extends Command
             $this->info('Manifest checks passed. Import is resumable; existing versions are never reset to 1.');
 
             $this->importCentral($manifest);
-            $this->importDevices($manifest);
-            $this->info('Imported central configuration, tenant records, device mappings, and per-tenant device config.');
+            $this->info('Imported central configuration, tenant records, service enablement, device mappings, and device overrides atomically.');
             return self::SUCCESS;
         } catch (\Throwable $exception) {
             report($exception);
             $this->error($exception->getMessage());
-            $this->warn('Import may be partially complete. Re-run the same command after correcting the cause; writes are idempotent.');
+            $this->warn('The central transaction is rolled back on a write failure. Correct the cause, then rerun the same validated manifest.');
             return self::FAILURE;
         }
     }
 
-    private function validateManifest(array $manifest): void
+    private function validateManifest(mixed $manifest): void
     {
-        if (($manifest['schema_version'] ?? null) !== 1 ||
-            ($manifest['keyset_md5'] ?? null) !== '1fd3d64219ecc7c333453c20da80e295') {
-            throw new \InvalidArgumentException('Manifest schema version or canonical keyset hash is invalid.');
-        }
-        $expected = ['global' => 1, 'template' => 3, 'tenant' => 100, 'service' => 140, 'device' => 108];
-        if (($manifest['counts'] ?? null) !== $expected ||
-            count($manifest['templates'] ?? []) !== 3 ||
-            count($manifest['tenants'] ?? []) !== 100 ||
-            count($manifest['services'] ?? []) !== 140 ||
-            count($manifest['devices'] ?? []) !== 108) {
-            throw new \InvalidArgumentException('Manifest must contain exactly the validated 352-key inventory.');
-        }
-        if (! is_array($manifest['global_config'] ?? null)) {
-            throw new \InvalidArgumentException('Global configuration is not an object.');
-        }
+        (new CanonicalWorkbookManifestValidator())->validate($manifest);
     }
 
     private function importCentral(array $manifest): void
@@ -100,6 +86,7 @@ class ImportCanonicalWorkbook extends Command
                 }
             }
 
+            $tenantServiceRows = [];
             foreach ($manifest['services'] as $row) {
                 $config = TenantConfig::query()->firstOrNew([
                     'tenant_id' => $row['tenant_id'],
@@ -109,45 +96,96 @@ class ImportCanonicalWorkbook extends Command
                 $config->config = $this->nextConfig($config->exists ? $config->config : null, $row['config'], (int) ($config->version ?? 0));
                 $config->version = (int) ($config->config['version'] ?? 1);
                 $config->save();
+
+                // Service availability is a separate authorization input, not just config data.
+                $tenantServiceRows[] = [
+                    'tenant_id' => $row['tenant_id'],
+                    'service' => $row['service'],
+                    'enabled' => $row['enabled'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
+
+            DB::connection('central')->table('tenant_services')->upsert(
+                $tenantServiceRows,
+                ['tenant_id', 'service'],
+                ['enabled', 'updated_at'],
+            );
+
+            // All configuration scopes live centrally and commit or roll back together.
+            $this->importDevices($manifest);
         }, 3);
     }
 
     private function importDevices(array $manifest): void
     {
-        foreach ($manifest['devices'] as $row) {
-            $tenant = Tenant::query()->findOrFail($row['tenant_id']);
-            DeviceRegistry::query()->updateOrCreate(
-                ['device_id' => $row['device_id']],
-                [
-                    'tenant_id' => $row['tenant_id'],
-                    'status' => $row['active'] ? 'active' : 'suspended',
-                    'registered_at' => $row['active'] ? now() : null,
-                ]
-            );
+        // Device configuration is centrally owned configuration, not tenant operational data.
+        // Keep the registry and override in one central transaction and never switch tenant DBs here.
+        DB::connection('central')->transaction(function () use ($manifest): void {
+            foreach ($manifest['devices'] as $row) {
+                $device = DeviceRegistry::query()
+                    ->where('device_id', $row['device_id'])
+                    ->lockForUpdate()
+                    ->first();
 
-            Tenancy::initialize($tenant);
-            try {
-                $existing = DB::connection('tenant')->table('device_configs')
-                    ->where('device_id', $row['device_id'])->first();
-                $existingConfig = $existing?->config;
+                if ($device !== null && $device->tenant_id !== $row['tenant_id']) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Refusing to reassign existing device %s from tenant %s to tenant %s.',
+                        $row['device_id'],
+                        $device->tenant_id,
+                        $row['tenant_id'],
+                    ));
+                }
+
+                if ($device === null) {
+                    $device = new DeviceRegistry();
+                    $device->device_id = $row['device_id'];
+                    $device->tenant_id = $row['tenant_id'];
+                }
+
+                $device->status = $row['active'] ? 'active' : 'suspended';
+                if ($row['active'] && $device->registered_at === null) {
+                    $device->registered_at = now();
+                }
+                $device->save();
+
+                $deviceConfig = DeviceConfig::query()
+                    ->where('device_id', $row['device_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($deviceConfig !== null && $deviceConfig->tenant_id !== $row['tenant_id']) {
+                    throw new \InvalidArgumentException(sprintf(
+                        'Refusing to reassign configuration for device %s from tenant %s to tenant %s.',
+                        $row['device_id'],
+                        $deviceConfig->tenant_id,
+                        $row['tenant_id'],
+                    ));
+                }
+
+                $existingConfig = $deviceConfig?->config;
                 if (is_string($existingConfig)) {
                     $existingConfig = json_decode($existingConfig, true, 512, JSON_THROW_ON_ERROR);
                 }
-                $next = $this->nextConfig(is_array($existingConfig) ? $existingConfig : null, $row['config'], (int) ($existing->version ?? 0));
-                DB::connection('tenant')->table('device_configs')->updateOrInsert(
-                    ['device_id' => $row['device_id']],
-                    [
-                        'config' => json_encode($next, JSON_THROW_ON_ERROR),
-                        'version' => (int) ($next['version'] ?? 1),
-                        'updated_at' => now(),
-                        'created_at' => $existing?->created_at ?? now(),
-                    ]
+
+                $next = $this->nextConfig(
+                    is_array($existingConfig) ? $existingConfig : null,
+                    $row['config'],
+                    (int) ($deviceConfig?->version ?? 0),
                 );
-            } finally {
-                Tenancy::end();
+
+                if ($deviceConfig === null) {
+                    $deviceConfig = new DeviceConfig();
+                    $deviceConfig->device_id = $row['device_id'];
+                    $deviceConfig->tenant_id = $row['tenant_id'];
+                }
+
+                $deviceConfig->config = $next;
+                $deviceConfig->version = (int) ($next['version'] ?? 1);
+                $deviceConfig->save();
             }
-        }
+        }, 3);
     }
 
     private function nextConfig(?array $existing, array $incoming, int $currentVersion): array
