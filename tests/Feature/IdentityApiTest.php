@@ -90,8 +90,49 @@ class IdentityApiTest extends TestCase
         $this->assertSame('pending', $device->status);
         $this->assertSame((int) $user->id, (int) $device->owner_user_id);
         $this->assertSame(hash('sha256', $secret), $device->device_secret_hash);
+        $deviceConfig = DB::connection('central')->table('device_configs')
+            ->where('tenant_id', $tenant)
+            ->where('device_id', $deviceId)
+            ->first();
+        $this->assertNotNull($deviceConfig, 'Enrollment must create a central device configuration row.');
+        $this->assertSame([], json_decode($deviceConfig->config, true, flags: JSON_THROW_ON_ERROR));
         $this->withToken($token)->getJson('/api/v1/identity/context')
             ->assertForbidden()->assertJsonPath('code', 'identity_context_denied');
+    }
+
+    public function test_workbook_device_placeholder_must_enroll_before_receiving_active_identity(): void
+    {
+        $tenant = $this->createTenant('tenant-identity-placeholder', 'active');
+        $user = $this->createUser('placeholder@example.test', $tenant);
+        $deviceId = $this->deviceId('placeholder');
+        $secret = $this->deviceSecret('placeholder');
+
+        DeviceRegistry::query()->create([
+            'device_id' => $deviceId,
+            'tenant_id' => $tenant,
+            'owner_user_id' => null,
+            'status' => 'active',
+            'registered_at' => null,
+            'device_secret_hash' => null,
+            'revoked_at' => null,
+        ]);
+
+        $login = $this->postJson('/api/v1/auth/login', $this->credentials($user, 'correct-password', 'placeholder'))
+            ->assertOk()->assertJsonPath('device_status', 'unregistered');
+        $token = $login->json('access_token');
+
+        $this->withToken($token)->postJson('/api/v1/devices/enroll', [
+            'device_secret' => $secret,
+            'device_name' => 'Workbook placeholder device',
+            'platform' => 'android',
+        ])->assertAccepted()->assertJsonPath('status', 'pending');
+
+        $device = DeviceRegistry::query()->findOrFail($deviceId);
+        $this->assertSame('pending', $device->status);
+        $this->assertSame((int) $user->id, (int) $device->owner_user_id);
+        $this->assertSame(hash('sha256', $secret), $device->device_secret_hash);
+        $this->assertNotNull(DB::connection('central')->table('device_configs')
+            ->where('tenant_id', $tenant)->where('device_id', $deviceId)->first());
     }
 
     public function test_device_secret_is_required_for_registered_devices_and_identity_is_server_derived(): void
