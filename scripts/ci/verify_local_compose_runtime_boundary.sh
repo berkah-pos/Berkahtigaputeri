@@ -8,7 +8,7 @@ die() {
 
 # Inspect the rendered Compose model without printing the resolved environment
 # (which can include locally configured credentials).
-docker compose -f docker-compose.yml config --format json | python3 -c '
+docker compose --profile tools -f docker-compose.yml config --format json | python3 -c '
 import json
 import sys
 
