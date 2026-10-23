@@ -8,7 +8,7 @@ services:
     profiles: ["provisioning"]
     build:
       context: .
-      target: development
+      target: production
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,8 +43,7 @@ services:
       PROVISIONER_DB_USERNAME: ${PROVISIONER_DB_USERNAME:-}
       PROVISIONER_DB_PASSWORD: ${PROVISIONER_DB_PASSWORD:-}
       PROVISIONER_DB_SSLMODE: ${PROVISIONER_DB_SSLMODE:-disable}
-    command:
-      - sh
-      - -lc
-      - 'if [ -z "$${TENANT_ULID}" ]; then echo "TENANT_ULID is required" >&2; exit 2; fi; exec php artisan tenants:provision-database "$${TENANT_ULID}"'
+    # TENANT_ULID is required at Compose interpolation time; no shell wrapper.
+    # The production image's entrypoint prepares writable Laravel paths then execs this.
+    command: ["php", "artisan", "tenants:provision-database", "${TENANT_ULID:?TENANT_ULID is required}"]
     restart: "no"
