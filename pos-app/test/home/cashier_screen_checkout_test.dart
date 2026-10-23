@@ -1,3 +1,4 @@
+import 'package:berkahtigaputeri_pos/core/auth/laravel_auth_service.dart';
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
@@ -7,6 +8,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../helpers/test_database.dart';
+
+class _MemorySecureVault implements SecureVault {
+  final Map<String, String> _values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
+}
 
 Future<void> _settle(WidgetTester tester, String checkpoint) async {
   debugPrint('PUMP_BEGIN:$checkpoint');
@@ -39,6 +57,8 @@ void main() {
     (tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
       final preferences = await SharedPreferences.getInstance();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
       final database = (await tester.runAsync(openTestDatabase))!;
       addTearDown(() async {
         await tester.runAsync(database.close);
@@ -70,7 +90,12 @@ void main() {
       await tester.pumpWidget(
         BerkahTigaPuteriApp(
           database: database,
-          identityStore: AppIdentityStore(preferences),
+          authService: LaravelAuthService(
+            baseUrl: '',
+            vault: _MemorySecureVault(),
+          ),
+          identityStore: identityStore,
+          deviceId: deviceId,
         ),
       );
       await _settle(tester, 'initial app');

@@ -2,9 +2,9 @@ import 'package:berkahtigaputeri_pos/core/config/config_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('ConfigService merge order', () {
+  group('EffectiveConfigResolver merge order', () {
     test('GLOBAL -> TEMPLATE -> TENANT -> SERVICE -> DEVICE', () {
-      final merged = ConfigService.mergeLayers(<Map<String, dynamic>>[
+      final merged = EffectiveConfigResolver.mergeLayers(<Map<String, dynamic>>[
         <String, dynamic>{'mdr': 0.1, 'theme': 'global', 'printer': 'none'},
         <String, dynamic>{'mdr': 0.15, 'theme': 'template'},
         <String, dynamic>{'mdr': 0.2, 'theme': 'tenant'},
@@ -19,13 +19,13 @@ void main() {
     });
 
     test('tenant-scoped POS MDR values do not collide', () {
-      final clientA = ConfigService.mergeLayers(<Map<String, dynamic>>[
+      final clientA = EffectiveConfigResolver.mergeLayers(<Map<String, dynamic>>[
         <String, dynamic>{'mdr': 0.1},
         <String, dynamic>{'tenant_id': 'clientA'},
         <String, dynamic>{'mdr': 0.5},
         const <String, dynamic>{},
       ]);
-      final clientB = ConfigService.mergeLayers(<Map<String, dynamic>>[
+      final clientB = EffectiveConfigResolver.mergeLayers(<Map<String, dynamic>>[
         <String, dynamic>{'mdr': 0.1},
         <String, dynamic>{'tenant_id': 'clientB'},
         <String, dynamic>{'mdr': 0.7},

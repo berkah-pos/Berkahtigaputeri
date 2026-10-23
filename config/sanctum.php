@@ -7,7 +7,8 @@ use Illuminate\Session\Middleware\AuthenticateSession;
 return [
     'stateful' => [],
     'guard' => ['web'],
-    'expiration' => null,
+    // Bearer tokens expire by default; logout/device revocation also deletes them.
+    'expiration' => (int) env('SANCTUM_EXPIRATION', 10080),
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
     'middleware' => [
         'authenticate_session' => AuthenticateSession::class,

@@ -1,3 +1,4 @@
+import 'package:berkahtigaputeri_pos/core/auth/laravel_auth_service.dart';
 import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 import 'package:berkahtigaputeri_pos/core/database/pos_database.dart';
 import 'package:berkahtigaputeri_pos/main.dart';
@@ -5,6 +6,23 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+class _MemorySecureVault implements SecureVault {
+  final Map<String, String> _values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    _values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    _values.remove(key);
+  }
+}
 
 Future<void> _settle(WidgetTester tester, String checkpoint) async {
   debugPrint('PUMP_BEGIN:$checkpoint');
@@ -37,6 +55,8 @@ void main() {
     sqfliteFfiInit();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final preferences = await SharedPreferences.getInstance();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
     final database = (await tester.runAsync(
       () => PosDatabase.openAt(
         inMemoryDatabasePath,
@@ -50,13 +70,17 @@ void main() {
     await tester.pumpWidget(
       BerkahTigaPuteriApp(
         database: database,
-        identityStore: AppIdentityStore(preferences),
+        authService: LaravelAuthService(
+          baseUrl: '',
+          vault: _MemorySecureVault(),
+        ),
+        identityStore: identityStore,
+        deviceId: deviceId,
       ),
     );
     await _settle(tester, 'initial app');
 
-    // No Supabase client is injected in this test, so enter explicit local-only
-    // mode rather than implying the cloud account is authenticated.
+    // An unconfigured Laravel API must preserve the explicit local-only path.
     expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
     await _tap(tester, find.text('Lanjutkan sebagai kasir lokal'), 'tap-2');
     await _settle(tester, 'local mode');
