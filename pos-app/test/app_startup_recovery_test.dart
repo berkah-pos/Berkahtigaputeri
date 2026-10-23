@@ -43,28 +43,25 @@ void main() {
       SharedPreferences.setMockInitialValues(<String, Object>{});
 
       var attempts = 0;
-      PosDatabase? openedDatabase;
+      final openedDatabase = (await tester.runAsync(
+        () => PosDatabase.openAt(
+          inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
 
       Future<PosDatabase> openDatabase() async {
         attempts++;
         if (attempts == 1) {
           throw StateError('simulated database unavailable');
         }
-        final database = await tester.runAsync(
-          () => PosDatabase.openAt(
-            inMemoryDatabasePath,
-            factory: databaseFactoryFfi,
-          ),
-        );
-        openedDatabase = database;
-        return database!;
+        // The real disposable database is opened before widget initialization,
+        // so this retry does not nest WidgetTester.runAsync calls.
+        return openedDatabase;
       }
 
       addTearDown(() async {
-        final database = openedDatabase;
-        if (database != null) {
-          await tester.runAsync(database.close);
-        }
+        await tester.runAsync(openedDatabase.close);
       });
 
       await tester.pumpWidget(
