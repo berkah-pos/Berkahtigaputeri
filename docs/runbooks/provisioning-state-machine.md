@@ -78,8 +78,9 @@ In addition, persist an append-only provisioning audit record for each privilege
 
 ## Security Checks
 
-- Web container env dump must NOT contain `PROVISIONER_` vars — add to CI.
-- Provisioner service has no ingress, only private network to DB.
+- CI checks the rendered repository-managed Compose config and the production smoke container's runtime environment; web/ordinary-worker services must not receive `PROVISIONER_*` or `MIGRATOR_*` variables, and runtime services must not use bulk `env_file` injection.
+- This CI assertion does **not** prove the live Coolify deployment state. Before production, verify and retain sanitized evidence that only a private provisioning worker receives `PROVISIONER_*`, web/normal queue services receive none, migrator credentials are short-lived and isolated, and the provisioning service has no public domain/ingress or published ports. Never include credential values in the evidence.
+- Provisioner service must have only private network access to PostgreSQL.
 - Audit log table `provisioning_audit` records every CREATE/DROP with who, when, IP.
 
 ## Tests Required
