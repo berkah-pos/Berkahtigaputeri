@@ -27,6 +27,32 @@ runtime_psql() {
     -v ON_ERROR_STOP=1 "$@"
 }
 
+run_bootstrap() {
+  local runtime_role="$1"
+  local runtime_password="$2"
+  docker run --rm --network host \
+    --env PGHOST=127.0.0.1 \
+    --env PGPORT=5432 \
+    --env PGDATABASE="$smoke_database" \
+    --env PGUSER=postgres \
+    --env PGPASSWORD=postgres \
+    --env LOCAL_CENTRAL_RUNTIME_ROLE="$runtime_role" \
+    --env LOCAL_CENTRAL_RUNTIME_PASSWORD="$runtime_password" \
+    -v "$PWD/docker/postgres/bootstrap-local.sql:/bootstrap-local.sql:ro" \
+    -v "$PWD/docker/postgres/bootstrap-local.sh:/bootstrap-local.sh:ro" \
+    postgres:17 /bin/sh /bootstrap-local.sh
+}
+
+assert_bootstrap_rejected() {
+  local runtime_role="$1"
+  local runtime_password="$2"
+  local scenario="$3"
+  if run_bootstrap "$runtime_role" "$runtime_password" >/dev/null 2>&1; then
+    echo "Local bootstrap accepted an invalid credential scenario: $scenario" >&2
+    exit 1
+  fi
+}
+
 cleanup() {
   if [[ "$database_created" == "1" ]]; then
     admin_psql postgres -c "DROP DATABASE IF EXISTS $smoke_database" >/dev/null 2>&1 || true
@@ -132,17 +158,10 @@ admin_psql postgres -c "CREATE DATABASE $smoke_database" >/dev/null
 database_created=1
 
 sh -n docker/postgres/bootstrap-local.sh
-docker run --rm --network host \
-  --env PGHOST=127.0.0.1 \
-  --env PGPORT=5432 \
-  --env PGDATABASE="$smoke_database" \
-  --env PGUSER=postgres \
-  --env PGPASSWORD=postgres \
-  --env LOCAL_CENTRAL_RUNTIME_ROLE="$smoke_role" \
-  --env LOCAL_CENTRAL_RUNTIME_PASSWORD="$smoke_password" \
-  -v "$PWD/docker/postgres/bootstrap-local.sql:/bootstrap-local.sql:ro" \
-  -v "$PWD/docker/postgres/bootstrap-local.sh:/bootstrap-local.sh:ro" \
-  postgres:17 /bin/sh /bootstrap-local.sh >/dev/null
+run_bootstrap "$smoke_role" "$smoke_password" >/dev/null
+assert_bootstrap_rejected "invalid-role-name" "another-password" "invalid role name"
+assert_bootstrap_rejected "berkahpos_should_not_exist" "postgres" "same runtime/bootstrap password"
+assert_bootstrap_rejected "postgres" "different-password" "same runtime/bootstrap role"
 
 role_flags="$(admin_psql postgres -At -c \
   "SELECT rolcanlogin::int || '|' || rolsuper::int || '|' || rolcreatedb::int || '|' || rolcreaterole::int || '|' || rolreplication::int || '|' || rolbypassrls::int FROM pg_roles WHERE rolname = '$smoke_role'")"
