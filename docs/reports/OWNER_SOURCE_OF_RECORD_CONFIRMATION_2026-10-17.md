@@ -1,3 +1,7 @@
+> **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** This report records a past owner source-designation decision only. The later 2026-10-17 owner ADR prohibits Supabase access/use, including read-only. Do not follow its inventory/export/reconciliation requests and do not treat project identifiers or the earlier “OWNER-CONFIRMED” status as current authorization. Current authority: [owner ADR](../permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md); see [authority/supersession map](ARCHITECTURE_AUTHORITY_SUPERSESSION_MAP_2026-10-17.md).
+
+---
+
 # Owner Source-of-Record Confirmation — 2026-10-17
 
 > **Historical decision notice — 2026-10-17:** This report records the owner's earlier source designation at that time. The later same-day owner ADR `docs/permanent/ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` supersedes it for current project operations. It must not be used to authorize connecting to either Supabase project, including read-only access, or to initiate inventory, export, migration, mutation, or cutover. This historical record is retained so the decision history is transparent.

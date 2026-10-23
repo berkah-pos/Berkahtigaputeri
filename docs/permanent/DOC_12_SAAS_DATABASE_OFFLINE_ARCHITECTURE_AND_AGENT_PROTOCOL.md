@@ -1,7 +1,7 @@
 # Aab Berkah POS — SaaS Architecture, Data Persistence, and Agent Execution Protocol
 
 
-> **Current owner decision — 2026-10-17:** Follow `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`. The project targets Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17 and separate central/tenant databases. No Supabase product may be used or accessed, including read-only. Older platform/source-designation statements below are historical only; do not follow them as instructions to connect to Supabase or use it as a data source. This document remains authoritative only for compatible offline-first SQLite/outbox, accounting/business invariants and general engineering/evidence rules.
+> **CURRENT PLATFORM OVERRIDE — 2026-10-17:** Follow `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md`. The project targets Hostinger KVM2 + Coolify, Laravel/PHP 8.4, private PostgreSQL 17 and separate central/tenant databases. No Supabase product may be used or accessed, including read-only. Older platform/source-designation statements below are historical only; do not follow them as instructions to connect to Supabase or use it as a data source. This document remains authoritative only for compatible offline-first SQLite/outbox, accounting/business invariants and general engineering/evidence rules.
 
 ---
 
@@ -55,7 +55,7 @@ The existing 352-key configuration contract, service-specific resolution, MDR in
 
 The following observations were found during a source/document inspection of the repository tree at the 2026-10-12 baseline. Re-check the current branch and files before relying on these observations in a later task; code and deployments may change.
 
-> **Current implementation update — 2026-10-17:** The root PHP 8.4/Laravel 13/Filament 5/Sanctum/locked tenancy baseline and starter PostgreSQL 17 central/tenant migrations were later merged to `main` at `aab154f87342f2a02a1319e1d370ce831dbef522`. Exact-head [CI run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed locked install, validation/platform checks/audit, Laravel boot/routes, disposable PG17 central/tenant migration smoke, and production-image smoke. These baseline results do not prove a complete business API, tenant provisioning privileges/isolation, Flutter migration away from Supabase, production deployment, or recovery acceptance.
+> **Historical implementation update — 2026-10-17:** The root PHP 8.4/Laravel 13/Filament 5/Sanctum/locked tenancy baseline and starter PostgreSQL 17 central/tenant migrations were later recorded at implementation commit `aab154f87342f2a02a1319e1d370ce831dbef522` (not a live-`main` pointer). Exact-head [CI run 39005405149](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39005405149) passed locked install, validation/platform checks/audit, Laravel boot/routes, disposable PG17 central/tenant migration smoke, and production-image smoke. These baseline results do not prove a complete business API, tenant provisioning privileges/isolation, Flutter migration away from Supabase, production deployment, or recovery acceptance.
 
 ### Source evidence found
 
@@ -134,7 +134,7 @@ The initial goal is a shared PostgreSQL database for a small initial SaaS custom
 5. Define least-privilege database roles. For every Laravel route, enforce server-derived tenant authorization regardless of the database isolation model. Ordinary runtime credentials must be restricted to the authorized tenant DB; never expose a database owner, tenant migrator, or provisioning credential to Flutter or browser JavaScript. No Supabase service-role key or Supabase endpoint is permitted.
 6. Choose and document one primary authentication authority for app users/devices and how Laravel verifies identity. Do not assume a stored tenant/device ID is authentication. A publishable/anonymous key alone is not a user session.
 7. Separate platform super-admin powers from tenant owner/manager/cashier roles. Privileged operations require explicit authorization and audit trails.
-8. Do not create a separate database for each tenant by default. Re-evaluate schema-per-tenant or database-per-tenant only for measured scaling, contractual isolation, regulatory or enterprise requirements.
+8. **Historical recommendation — superseded by the 2026-10-17 owner ADR:** the former shared-database preference is not current topology authority. The accepted target is one central PostgreSQL 17 database plus a separate database and restricted runtime role per tenant on a private service. Do not use this older paragraph to select shared-table/shared-database tenancy. Provisioning and actual-grant isolation remain NOT VERIFIED until disposable PostgreSQL 17 tests pass.
 
 ### Mandatory tenant-isolation acceptance test
 

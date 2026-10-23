@@ -2,6 +2,7 @@
 
 > **Legacy filename:** The historical filename says “3_LAYER”; the active contract is five layers.  
 > **Authority:** `DOC_00_CANONICAL_ARCHITECTURE_DECISION.md` owns inheritance and workbook semantics. `ADR-2026-10-17-OWNER-KVM2-LARAVEL-POSTGRESQL-NO-SUPABASE.md` owns the current platform/no-Supabase decision; `DOC_14_KVM2_ISOLATED_TENANT_ARCHITECTURE.md` details implementation gates. Historical Supabase schema/RPC references below are archive-only and do not authorize use or access.
+> **Storage supersession:** only the five-layer/workbook semantics remain active from this legacy-named contract. Supabase table, RPC, auth, migration and executable instructions below are historical; do not execute them. Use the accepted Laravel/PostgreSQL 17 contract.
 
 ## Canonical inheritance
 

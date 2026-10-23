@@ -13,6 +13,8 @@ Must cover:
 
 Do not assume Coolify's selected backup feature supports PostgreSQL WAL/PITR or includes every tenant database. Verify the exact engine/version and feature support, then reconcile each backup result against the central tenant registry and PostgreSQL database catalog. A job configured or marked successful is not proof of complete backup coverage.
 
+> **RETIRED PROCEDURE NOTICE:** The MariaDB 11.4 option below is retained for historical comparison only. **HISTORICAL / SUPERSEDED — DO NOT EXECUTE — NOT CURRENT ACCEPTANCE.** Do not copy or run its commands. PostgreSQL 17 is the only selected target engine; this entire runbook remains a template until disposable restore evidence is captured.
+
 ## Engine-specific strategy — PostgreSQL 17 selected by owner ADR
 
 ### Rejected alternative — MariaDB 11.4 (comparison only; not the target)
