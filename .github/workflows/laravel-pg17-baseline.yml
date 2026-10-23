@@ -160,16 +160,22 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
-      - name: Create restricted non-superuser provisioning role in disposable PostgreSQL
+      - name: Create isolated restricted runtime and provisioning roles in disposable PostgreSQL
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE berkahpos_provisioner_ci LOGIN PASSWORD 'provisioner-ci-only-password' CREATEDB CREATEROLE NOSUPERUSER NOREPLICATION NOBYPASSRLS"
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_central_runtime_ci LOGIN PASSWORD 'central-runtime-ci-only-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_tenant_runtime_ci LOGIN PASSWORD 'tenant-runtime-ci-only-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
-            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC"
+            -c "REVOKE ALL ON DATABASE berkahpos_central_ci FROM PUBLIC; GRANT CONNECT ON DATABASE berkahpos_central_ci TO berkahpos_central_runtime_ci"
 
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
