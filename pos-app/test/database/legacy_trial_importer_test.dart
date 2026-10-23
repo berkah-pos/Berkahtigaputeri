@@ -347,4 +347,145 @@ void main() {
     expect(await source.query('sale_items'), hasLength(2));
     await source.close();
   });
+
+  
+  test('legacy product ID collision does not reuse an unrelated target product',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-id-collision-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final sourceProductId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Sumber',
+      'sku': 'SRC-01',
+      'price': 12000.0,
+      'stock': 3,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 12000.0,
+      'item_count': 1,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': sourceProductId,
+      'name': 'Produk Sumber',
+      'qty': 1,
+      'price': 12000.0,
+      'subtotal': 12000.0,
+    });
+    await oldDb.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await target.database.insert('products', <String, Object?>{
+      'id': 'legacy-product-$sourceProductId',
+      'sku': 'TARGET-COLLISION',
+      'barcode': null,
+      'name_id': 'Produk Target Tidak Terkait',
+      'price': 99000,
+      'ppn_exempt': 1,
+      'stock_qty': 0,
+      'track_expiry': 0,
+      'min_shelf_life_days': 0,
+      'requires_review': 0,
+    });
+
+    final result = await LegacyTrialImporter.importIfPresent(
+      target: target.database,
+      legacyPath: legacyPath,
+      factory: databaseFactoryFfi,
+    );
+    expect(result, <String, int>{
+      'products': 1,
+      'sales': 1,
+      'saleItems': 1,
+    });
+
+    final products = await target.database.query('products', orderBy: 'id');
+    expect(products, hasLength(2));
+    final existingProduct = products.singleWhere(
+      (row) => row['sku'] == 'TARGET-COLLISION',
+    );
+    expect(existingProduct['id'], 'legacy-product-$sourceProductId');
+    expect(existingProduct['name_id'], 'Produk Target Tidak Terkait');
+    expect(existingProduct['price'], 99000);
+    expect(existingProduct['requires_review'], 0);
+
+    final importedProduct = products.singleWhere(
+      (row) => row['sku'] == 'SRC-01',
+    );
+    expect(
+      importedProduct['id'],
+      'legacy-product-$sourceProductId-legacy-1',
+    );
+    expect(importedProduct['name_id'], 'Produk Sumber');
+    expect(importedProduct['price'], 12000);
+    expect(importedProduct['stock_qty'], 0);
+    expect(importedProduct['requires_review'], 1);
+
+    final archivedStock =
+        (await target.database.query('legacy_product_stock_archive')).single;
+    expect(archivedStock['product_id'], importedProduct['id']);
+    expect(archivedStock['original_product_id'], sourceProductId);
+    expect(archivedStock['original_quantity'], 3);
+
+    final archivedItem =
+        (await target.database.query('legacy_sale_items_archive')).single;
+    expect(archivedItem['product_id'], importedProduct['id']);
+    expect(archivedItem['product_name'], 'Produk Sumber');
+    expect(await target.database.query('sales'), isEmpty);
+    expect(await target.database.query('journals'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
+  });
+
 }
