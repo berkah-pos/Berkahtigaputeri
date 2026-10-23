@@ -88,6 +88,18 @@ assert app["depends_on"]["postgres"]["condition"] == "service_healthy"
 assert bootstrap_env["PGUSER"] == pg_env["POSTGRES_USER"]
 assert bootstrap_env["PGPASSWORD"] == pg_env["POSTGRES_PASSWORD"]
 assert bootstrap_env["PGDATABASE"] == pg_env["POSTGRES_DB"]
+bootstrap_command = bootstrap.get("command", "")
+if isinstance(bootstrap_command, list):
+    bootstrap_command = "\\n".join(bootstrap_command)
+assert 'if [ -z "$LOCAL_CENTRAL_RUNTIME_PASSWORD" ]; then' in bootstrap_command, (
+    "runtime password shell variable was lost to Compose interpolation"
+)
+assert 'if [ "$LOCAL_CENTRAL_RUNTIME_PASSWORD" = "$PGPASSWORD" ]; then' in bootstrap_command, (
+    "bootstrap/runtime password equality check was lost to Compose interpolation"
+)
+assert 'if [ "$LOCAL_CENTRAL_RUNTIME_ROLE" = "$PGUSER" ]; then' in bootstrap_command, (
+    "bootstrap/runtime role equality check was lost to Compose interpolation"
+)
 assert "ports" not in bootstrap, "db-bootstrap must not expose a public/listening port"
 assert bootstrap.get("restart") == "no"
 assert any(
