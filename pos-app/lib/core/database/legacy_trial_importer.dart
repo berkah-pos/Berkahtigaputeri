@@ -80,7 +80,17 @@ class LegacyTrialImporter {
           whereArgs: <Object?>[migrationKey],
           limit: 1,
         );
-        if (existingRun.isNotEmpty) return;
+        if (existingRun.isNotEmpty) {
+          // Another retry may have completed after the initial marker check
+          // above. Return its committed counts instead of a misleading
+          // all-zero result; the marker remains the source of truth.
+          final completedRun = existingRun.single;
+          counts['products'] = completedRun['imported_products']! as int;
+          counts['sales'] = completedRun['archived_sales']! as int;
+          counts['saleItems'] = completedRun['archived_sale_items']! as int;
+          counts['alreadyImported'] = 1;
+          return;
+        }
 
         final skuRows = await transaction.query(
           'products',
