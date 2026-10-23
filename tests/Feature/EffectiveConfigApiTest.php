@@ -37,7 +37,8 @@ class EffectiveConfigApiTest extends TestCase
         DB::connection('central')->beginTransaction();
 
         $tenantId = 'api_test_' . str_replace('-', '', (string) Str::uuid());
-        $deviceId = 'api_device_' . str_replace('-', '', (string) Str::uuid());
+        $deviceId = hash('sha256', 'device:' . (string) Str::uuid());
+        $deviceSecret = hash('sha256', 'device-secret:' . (string) Str::uuid());
 
         $this->tenant = Tenant::query()->create([
             'id' => $tenantId,
@@ -124,7 +125,7 @@ class EffectiveConfigApiTest extends TestCase
             'owner_user_id' => $this->user->getKey(),
             'status' => 'active',
             'registered_at' => now(),
-            'device_secret_hash' => hash('sha256', 'config-api-test-device-secret'),
+            'device_secret_hash' => hash('sha256', $deviceSecret),
             'revoked_at' => null,
         ]);
 
@@ -138,13 +139,17 @@ class EffectiveConfigApiTest extends TestCase
             'version' => 15,
         ]);
 
-        $issued = $this->user->createToken('config-api-test:' . $deviceId, ['*']);
-        $issued->accessToken->forceFill([
+        // Use the same public login path as a real device so the regression test
+        // covers the actual Sanctum token model, tenant/device claims and expiry.
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email' => $this->user->email,
+            'password' => 'test-password-not-for-production',
             'device_id' => $deviceId,
+            'device_secret' => $deviceSecret,
             'tenant_id' => $tenantId,
-            'expires_at' => now()->addHour(),
-        ])->save();
-        $this->bearerToken = $issued->plainTextToken;
+        ])->assertOk()->assertJsonPath('device_status', 'active');
+
+        $this->bearerToken = (string) $login->json('access_token');
     }
 
     private function authenticate(): void
