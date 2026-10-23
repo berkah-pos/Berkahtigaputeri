@@ -1,21 +1,24 @@
 # Prompt 05 — PostgreSQL Tenant Provisioning, Roles, Grants & Isolation
 
 **Execution date:** 2026-10-23  
-**Report status:** PARTIAL — cases P05-01 and P05-02 are fixed and CI-verified; the full Prompt 05 release gate remains OPEN.  
+**Report status:** PARTIAL — cases P05-01, P05-02 and P05-03 are implemented and CI-verified; the full Prompt 05 release gate remains OPEN.  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Base:** `main` at `8dc29d9ee909ab71645b1d6cbff1281d426c103f`  
-**Parent implementation PR:** [#134 — gate tenant provisioning on central pending status](https://github.com/berkah-pos/Berkahtigaputeri/pull/134), verified on `7da149ecb0567662b242854fe5887feb3a1bf38c`.  
-**Follow-up implementation PR:** [#135 — validate effective PostgreSQL connection identity](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), verified on `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.  
-**Follow-up branch:** `fix/p05-effective-connection-identity-2026-10-23`  
-**CI evidence:** [Laravel PostgreSQL 17 Baseline, run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882) and [run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759) — both **SUCCESS** (24 successful steps, zero failed steps each).
+**Case P05-01 PR:** [#134 — gate tenant provisioning on central pending status](https://github.com/berkah-pos/Berkahtigaputeri/pull/134), verified on `7da149ecb0567662b242854fe5887feb3a1bf38c`.  
+**Case P05-02 PR:** [#135 — validate effective PostgreSQL connection identity](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), verified on `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.  
+**Case P05-03 PR:** [#136 — reject superuser provisioning broker identities](https://github.com/berkah-pos/Berkahtigaputeri/pull/136), verified on `28c681c3627459d3d3342244f10a8735dd261c62`.  
+**Current follow-up branch:** `fix/p05-enforce-non-superuser-broker-2026-10-23`  
+**CI evidence:** [run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882), [run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759), and [run #980](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39928524367) — all **SUCCESS** (24 successful steps, zero failed steps each).
 
 ## Executive result
 
-One concrete provisioning authorization flaw was implemented and fixed. Before this change, the provisioner accepted any syntactically valid ULID and could proceed without checking whether the central tenant registry contained that tenant or whether the tenant was eligible for initial provisioning.
+Three concrete provisioning boundary cases have been implemented and verified in the dedicated PostgreSQL 17 CI workflow:
 
-The provisioner now requires a central registry row with `status = 'pending'`. The guard runs after side-effect-free connection configuration validation but before `DB::connection('provisioner')`, secret storage, role creation or database creation. Unknown and non-pending identities fail closed.
+1. A central tenant registry row with `status = 'pending'` is required before the broker connection or credential callbacks.
+2. Effective PostgreSQL identity is checked through live `current_database()` and `current_user` values, so URL-resolved connection details cannot silently overlap the central DB/role.
+3. The broker must authenticate directly as its effective role and that role must be a non-superuser with the provisioning capabilities `LOGIN`, `CREATEDB`, and `CREATEROLE`; replication and RLS-bypass attributes are rejected.
 
-This does **not** certify all Prompt 05 controls, does not authorize a production rollout, and does not alter the owner’s accepted architecture. No live database and no Supabase project were accessed. CI used its disposable PostgreSQL 17 service.
+These are code-level defenses with real disposable PostgreSQL 17 regression coverage. This does **not** certify all Prompt 05 controls, authorize a production rollout, or change the owner’s accepted architecture. No live database and no Supabase project were accessed.
 
 ## 1. Authority and implementation evidence
 
@@ -46,7 +49,7 @@ An earlier draft ran the registry lookup before side-effect-free connection pref
 | Concurrent duplicate provision | Only one competing worker creates resources; losing attempt fails closed | Disposable two-process advisory-lock test passed |
 | Secret-store partial failure | Attempt compensation for both stable keys; surface incomplete cleanup | Failure and compensation integration tests passed |
 
-The tests also verify that the broker used by the disposable integration job is not a PostgreSQL superuser and that tenant roles are separate from the broker.
+The service now independently verifies the connected broker's catalog attributes before resource creation. The dedicated PG17 integration case creates a temporary alternate superuser with a distinct identity and proves the provisioner rejects it before secret storage. Tenant roles remain distinct from the broker.
 
 ## 3. Negative-test matrix
 
@@ -68,11 +71,13 @@ The tests also verify that the broker used by the disposable integration job is 
 
 ## 4. Remaining findings — Prompt 05 is not fully complete
 
-### P1 — Enforce broker role capability inside the provisioner (next active case P05-03)
+### Closed — Enforce broker role capability inside the provisioner (P05-03)
 
-The provisioner reads the broker's effective role name but does not independently inspect and enforce the corresponding `pg_roles` attributes before proceeding. A privileged URL-resolved connection can be distinct from central and pass the identity-overlap check. The integration test checks that the **CI broker identity** is a non-superuser with `CREATEDB` and `CREATEROLE`, but that assertion is evidence about test setup—not an enforcement guarantee in production code.
+The provisioner now queries `pg_roles` for the connected broker and rejects it unless it can log in, is not a superuser, has `CREATEDB` and `CREATEROLE`, and has neither `REPLICATION` nor `BYPASSRLS`. It also requires `session_user = current_user` to disallow role-switched broker sessions. Rejection purges the broker connection and occurs before advisory locking, secret callbacks, or role/database operations.
 
-Add a source-level fail-closed check using the connected broker identity against `pg_roles`. Require `rolsuper = false`, `rolcreatedb = true`, and `rolcreaterole = true`; reject unexpected identities before the advisory lock, secret callbacks or resource changes. Exercise an alternate test-only superuser through the disposable PostgreSQL 17 integration service. No production role changes are allowed.
+The new `test_superuser_broker_is_rejected_before_secret_storage_or_resource_creation` creates a temporary, distinct superuser inside disposable PG17 CI, points only the test broker URL at it, then proves rejection, zero credential callbacks, and no tenant database/roles. The test restores the connection configuration and drops the temporary role.
+
+**Evidence:** [PR #136](https://github.com/berkah-pos/Berkahtigaputeri/pull/136), code/test commit `28c681c3627459d3d3342244f10a8735dd261c62`, [CI run #980](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39928524367) — full workflow succeeded. Case P05-03 is closed for this implementation revision; PR #136 remains an unmerged draft stacked on #135.
 
 ### Closed on the follow-up branch — Effective connection identity (P05-02)
 
@@ -96,8 +101,10 @@ Current code safely refuses to adopt pre-existing/unverified resources and avoid
 
 ## 5. Acceptance decision
 
-**Case P05-01: CLOSED for this implementation revision.** The central-registry eligibility check and regression tests passed the full disposable PostgreSQL 17 workflow and production-image smoke stage on commit `7da149ecb0567662b242854fe5887feb3a1bf38c`, run #970.
+**Case P05-01: CLOSED.** Central registry eligibility is required and verified by run #970 on commit `7da149ecb0567662b242854fe5887feb3a1bf38c`.
 
-**Case P05-02: CLOSED for this implementation revision.** The effective-connection identity guard and adversarial URL/config regression passed the full workflow on commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`, run #975.
+**Case P05-02: CLOSED.** Effective URL-resolved PostgreSQL identity overlap is rejected and verified by run #975 on commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.
 
-**Prompt 05 overall: OPEN / NOT CERTIFIED.** The next in-scope case is to enforce the broker's effective role capability at runtime: reject superuser broker identities and require only the specific broker attributes needed for tenant provisioning (`CREATEDB` and `CREATEROLE`). Current integration checks confirm the disposable CI broker has expected attributes, but the service itself has not yet proven that a misconfigured deployment cannot use a superuser. Continue deployment-secret separation and identity/worker-context tests as explicit blockers. Do not merge or deploy based on this report alone.
+**Case P05-03: CLOSED.** Superuser, role-switched and otherwise noncompliant broker roles fail closed; the adversarial PostgreSQL 17 regression and complete workflow passed in run #980 on commit `28c681c3627459d3d3342244f10a8735dd261c62`.
+
+**Prompt 05 overall: OPEN / NOT CERTIFIED.** The next case is deployment-level privilege separation: prove, using the actual Coolify/service definition and redacted environment assignment evidence, that only a private provisioning worker receives `PROVISIONER_*` credentials, normal web/queue processes receive none, and the broker has no public ingress. This cannot be established from a source-code comment or the disposable CI setup; if deployment configuration is managed outside this repository, the owner must provide or assign access to that sanitized evidence. Host/X-Forwarded-Host, identity/device/subscription, long-running-worker context reset, and interruption/recovery cases also remain release blockers. Do not merge or deploy based on this report alone.
