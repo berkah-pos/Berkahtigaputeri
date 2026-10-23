@@ -90,6 +90,51 @@ def main() -> int:
             return sorted(str(item).split("=", 1)[0] for item in environment)
         return []
 
+    def environment_map(service: dict[str, Any]) -> dict[str, str]:
+        environment = service.get("environment") or {}
+        if isinstance(environment, dict):
+            return {str(name): "" if value is None else str(value) for name, value in environment.items()}
+        if isinstance(environment, list):
+            pairs = [str(item).split("=", 1) for item in environment]
+            return {pair[0]: pair[1] if len(pair) > 1 else "" for pair in pairs}
+        return {}
+
+    # Require dedicated source variables instead of accidentally inheriting the
+    # application's default CENTRAL_DB_USERNAME=postgres / CENTRAL_DB_PASSWORD.
+    overlay = (ROOT / "docker-compose.provisioner.yml").read_text(encoding="utf-8")
+    required_overlay_mappings = {
+        "username": "CENTRAL_DB_USERNAME: ${WORKER_CENTRAL_DB_USERNAME:-}",
+        "password": "CENTRAL_DB_PASSWORD: ${WORKER_CENTRAL_DB_PASSWORD:-}",
+    }
+    overlay_lines = {line.strip() for line in overlay.splitlines()}
+    for setting, mapping in required_overlay_mappings.items():
+        if mapping not in overlay_lines:
+            return fail(
+                "Provisioner central DB " + setting
+                + " must map to its dedicated WORKER_CENTRAL_DB_" + setting.upper() + " input."
+            )
+
+    app_environment = environment_map(app)
+    worker_environment = environment_map(provisioner)
+    app_central_username = app_environment.get("CENTRAL_DB_USERNAME", "")
+    app_central_password = app_environment.get("CENTRAL_DB_PASSWORD", "")
+    worker_central_username = worker_environment.get("CENTRAL_DB_USERNAME", "")
+    worker_central_password = worker_environment.get("CENTRAL_DB_PASSWORD", "")
+    broker_username = worker_environment.get("PROVISIONER_DB_USERNAME", "")
+    broker_password = worker_environment.get("PROVISIONER_DB_PASSWORD", "")
+    if (
+        not worker_central_username.strip()
+        or not worker_central_password
+        or worker_central_username == app_central_username
+        or worker_central_password == app_central_password
+        or worker_central_username == broker_username
+        or worker_central_password == broker_password
+    ):
+        return fail(
+            "Provisioner central DB identity must be non-empty and distinct from both the app "
+            "central identity and the PostgreSQL broker identity; credential values are withheld."
+        )
+
     privileged_services: list[str] = []
     service_report: dict[str, Any] = {}
 
@@ -166,6 +211,9 @@ def main() -> int:
             "provisioner_has_no_published_ports": True,
             "provisioner_does_not_use_host_networking": True,
             "provisioner_is_not_privileged": True,
+            "worker_central_identity_uses_dedicated_inputs": True,
+            "worker_central_identity_differs_from_app_identity": True,
+            "worker_central_identity_differs_from_broker_identity": True,
             "secret_values_included": False,
         },
         "services": service_report,
