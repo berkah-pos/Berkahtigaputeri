@@ -22,7 +22,7 @@
         <env name="CENTRAL_DB_HOST" value="127.0.0.1" force="true"/>
         <env name="CENTRAL_DB_PORT" value="5432" force="true"/>
         <env name="CENTRAL_DB_DATABASE" value="berkahpos_central_ci" force="true"/>
-        <env name="CENTRAL_DB_USERNAME" value="postgres" force="true"/>
-        <env name="CENTRAL_DB_PASSWORD" value="postgres" force="true"/>
+        <env name="CENTRAL_DB_USERNAME" value="berkahpos_central_runtime_ci"/>
+        <env name="CENTRAL_DB_PASSWORD" value="central-runtime-ci-only-password"/>
     </php>
 </phpunit>

@@ -11,6 +11,7 @@ on:
       - "routes/**"
       - "public/**"
       - "tests/**"
+      - "scripts/ci/**"
       - "composer.json"
       - "composer.lock"
       - "Dockerfile"
@@ -33,6 +34,7 @@ on:
       - "routes/**"
       - "public/**"
       - "tests/**"
+      - "scripts/ci/**"
       - "composer.json"
       - "composer.lock"
       - "Dockerfile"
@@ -78,13 +80,13 @@ jobs:
       CENTRAL_DB_HOST: 127.0.0.1
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: berkahpos_central_ci
-      CENTRAL_DB_USERNAME: postgres
-      CENTRAL_DB_PASSWORD: postgres
+      CENTRAL_DB_USERNAME: berkahpos_central_runtime_ci
+      CENTRAL_DB_PASSWORD: central-runtime-ci-only-password
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
-      TENANT_DB_USERNAME: postgres
-      TENANT_DB_PASSWORD: postgres
+      TENANT_DB_USERNAME: berkahpos_tenant_runtime_ci
+      TENANT_DB_PASSWORD: tenant-runtime-ci-only-password
       TENANT_DB_SSLMODE: disable
       PROVISIONER_DB_HOST: 127.0.0.1
       PROVISIONER_DB_PORT: "5432"
@@ -160,16 +162,22 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
 
-      - name: Create restricted non-superuser provisioning role in disposable PostgreSQL
+      - name: Create isolated restricted runtime and provisioning roles in disposable PostgreSQL
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE berkahpos_provisioner_ci LOGIN PASSWORD 'provisioner-ci-only-password' CREATEDB CREATEROLE NOSUPERUSER NOREPLICATION NOBYPASSRLS"
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_central_runtime_ci LOGIN PASSWORD 'central-runtime-ci-only-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_tenant_runtime_ci LOGIN PASSWORD 'tenant-runtime-ci-only-password' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
-            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC"
+            -c "REVOKE ALL ON DATABASE berkahpos_central_ci FROM PUBLIC; GRANT CONNECT ON DATABASE berkahpos_central_ci TO berkahpos_central_runtime_ci"
 
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
@@ -186,9 +194,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE berkahpos_tenant_ci"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "REVOKE ALL ON DATABASE berkahpos_tenant_ci FROM PUBLIC; GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO berkahpos_tenant_runtime_ci"
 
       - name: Migrate fresh central database on disposable PostgreSQL 17
         shell: bash
@@ -196,8 +207,16 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            --env CENTRAL_DB_USERNAME=postgres --env CENTRAL_DB_PASSWORD=postgres "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
+
+      - name: Grant central runtime only DML and sequence privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT USAGE ON SCHEMA public TO berkahpos_central_runtime_ci; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO berkahpos_central_runtime_ci; GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO berkahpos_central_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO berkahpos_central_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO berkahpos_central_runtime_ci"
 
       - name: Export validated canonical workbook manifest offline
         shell: bash
@@ -293,8 +312,20 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE "$CI_IMAGE" \
+            --env TENANT_DB_USERNAME=postgres --env TENANT_DB_PASSWORD=postgres --env TENANT_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
+
+      - name: Grant tenant runtime only DML and sequence privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT USAGE ON SCHEMA public TO berkahpos_tenant_runtime_ci; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO berkahpos_tenant_runtime_ci; GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO berkahpos_tenant_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO berkahpos_tenant_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO berkahpos_tenant_runtime_ci"
+
+      - name: Assert real PostgreSQL runtime role privileges and cross-database denial
+        shell: bash
+        run: bash scripts/ci/verify_pg_runtime_role_boundary.sh
 
       - name: Run Laravel feature and PostgreSQL schema-integrity tests on migrated PostgreSQL 17 schemas
         shell: bash
@@ -326,7 +357,7 @@ jobs:
           docker run --rm --network host \
             --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env CENTRAL_DB_USERNAME=postgres --env CENTRAL_DB_PASSWORD=postgres \
             --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT --env PROVISIONER_DB_DATABASE \
             --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD --env PROVISIONER_DB_SSLMODE \
             --env RUN_POSTGRES_TENANT_PROVISIONER_INTEGRATION=1 \
