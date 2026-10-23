@@ -10,6 +10,7 @@ class LoginScreen extends StatefulWidget {
     required this.onAuthenticated,
     required this.onContinueLocal,
     this.initialDeviceStatus,
+    this.initialRestoreMessage,
     this.onSignOut,
   });
 
@@ -18,6 +19,7 @@ class LoginScreen extends StatefulWidget {
   final Future<void> Function(AuthSession session) onAuthenticated;
   final VoidCallback onContinueLocal;
   final String? initialDeviceStatus;
+  final String? initialRestoreMessage;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -116,6 +118,15 @@ class _LoginScreenState extends State<LoginScreen> {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 12),
+            if (widget.initialRestoreMessage != null) ...<Widget>[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(widget.initialRestoreMessage!),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             if (!configured) ...<Widget>[
               const Text('Mode cloud belum tersedia pada build ini'),
               const SizedBox(height: 8),

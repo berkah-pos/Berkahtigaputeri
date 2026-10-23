@@ -9,26 +9,217 @@ import 'features/home/home_screen.dart';
 
 const String _laravelApiBaseUrl = String.fromEnvironment('BERKAH_API_BASE_URL');
 
-Future<void> main() async {
+typedef PreferencesLoader = Future<SharedPreferences> Function();
+typedef PosDatabaseLoader = Future<PosDatabase> Function();
+
+Future<SharedPreferences> _loadPreferences() => SharedPreferences.getInstance();
+
+Future<PosDatabase> _openDefaultDatabase() => PosDatabase.openDefault();
+
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const BerkahTigaPuteriBootstrapApp());
+}
 
-  final preferences = await SharedPreferences.getInstance();
-  final database = await PosDatabase.openDefault();
-  final identityStore = AppIdentityStore(preferences);
-  final deviceId = await identityStore.ensureDeviceId();
-  final authService = LaravelAuthService(
-    baseUrl: _laravelApiBaseUrl,
-    vault: const FlutterSecureVault(),
-  );
+/// Keeps initialization failures inside the UI so a locked, unavailable, or
+/// otherwise unhealthy local database does not terminate the app before it can
+/// explain the problem or offer a retry. Business data is never deleted here.
+class BerkahTigaPuteriBootstrapApp extends StatefulWidget {
+  const BerkahTigaPuteriBootstrapApp({
+    super.key,
+    this.loadPreferences = _loadPreferences,
+    this.openDatabase = _openDefaultDatabase,
+    this.apiBaseUrl = _laravelApiBaseUrl,
+  });
 
-  runApp(
-    BerkahTigaPuteriApp(
-      database: database,
-      authService: authService,
-      identityStore: identityStore,
-      deviceId: deviceId,
-    ),
-  );
+  final PreferencesLoader loadPreferences;
+  final PosDatabaseLoader openDatabase;
+  final String apiBaseUrl;
+
+  @override
+  State<BerkahTigaPuteriBootstrapApp> createState() =>
+      _BerkahTigaPuteriBootstrapAppState();
+}
+
+class _BerkahTigaPuteriBootstrapAppState
+    extends State<BerkahTigaPuteriBootstrapApp> {
+  bool _loading = true;
+  String? _error;
+  PosDatabase? _database;
+  LaravelAuthService? _authService;
+  AppIdentityStore? _identityStore;
+  String? _deviceId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    PosDatabase? openedDatabase;
+    try {
+      final preferences = await widget.loadPreferences();
+      openedDatabase = await widget.openDatabase();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
+      final authService = LaravelAuthService(
+        baseUrl: widget.apiBaseUrl,
+        vault: const FlutterSecureVault(),
+      );
+
+      if (!mounted) {
+        await openedDatabase.close();
+        return;
+      }
+
+      setState(() {
+        _database = openedDatabase;
+        _identityStore = identityStore;
+        _deviceId = deviceId;
+        _authService = authService;
+        _loading = false;
+        _error = null;
+      });
+    } catch (error, stackTrace) {
+      if (openedDatabase != null) {
+        try {
+          await openedDatabase.close();
+        } catch (_) {
+          // Keep the original startup failure visible.
+        }
+      }
+      debugPrint(
+        'Berkah POS startup failed (' + error.runtimeType.toString() + '): ' +
+            stackTrace.toString(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _database = null;
+        _identityStore = null;
+        _deviceId = null;
+        _authService = null;
+        _loading = false;
+        _error = 'Startup failed (' + error.runtimeType.toString() + '). '
+            'Your existing local data was not deleted by this recovery flow. '
+            'Check device storage, then retry.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final database = _database;
+    final authService = _authService;
+    final identityStore = _identityStore;
+    final deviceId = _deviceId;
+
+    if (database != null &&
+        authService != null &&
+        identityStore != null &&
+        deviceId != null) {
+      return BerkahTigaPuteriApp(
+        database: database,
+        authService: authService,
+        identityStore: identityStore,
+        deviceId: deviceId,
+      );
+    }
+
+    return MaterialApp(
+      title: 'Berkah Tiga Puteri POS',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        colorSchemeSeed: const Color(0xFF137A4B),
+        useMaterial3: true,
+      ),
+      home: _loading
+          ? const Scaffold(
+              body: SafeArea(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Menyiapkan data lokal Berkah POS...'),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          : _BootstrapFailureScreen(
+              message: _error ?? 'Aplikasi belum dapat dimulai.',
+              onRetry: _initialize,
+            ),
+    );
+  }
+}
+
+class _BootstrapFailureScreen extends StatelessWidget {
+  const _BootstrapFailureScreen({
+    required this.message,
+    required this.onRetry,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Berkah POS')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  const Icon(
+                    Icons.storage_rounded,
+                    size: 56,
+                    color: Color(0xFF137A4B),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Data lokal belum siap',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 20),
+                  FilledButton.icon(
+                    onPressed: onRetry,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Coba lagi'),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Jangan hapus data aplikasi untuk mengatasi masalah ini. '
+                    'Jika percobaan ulang gagal, catat pesan kesalahan dan '
+                    'hubungi dukungan.',
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class BerkahTigaPuteriApp extends StatelessWidget {
@@ -94,6 +285,7 @@ class _AppGateState extends State<_AppGate> {
   bool _localOnly = false;
   bool _restoring = true;
   AuthSession? _session;
+  String? _restoreError;
 
   @override
   void initState() {
@@ -102,14 +294,32 @@ class _AppGateState extends State<_AppGate> {
   }
 
   Future<void> _restoreSession() async {
-    final session = await widget.authService.restoreSession();
-    if (!mounted) return;
-    if (session != null && session.tenantId.isNotEmpty) {
-      await widget.identityStore.setTenantId(session.tenantId);
+    AuthSession? session;
+    String? restoreError;
+    try {
+      session = await widget.authService.restoreSession();
+      if (session != null && session.tenantId.isNotEmpty) {
+        await widget.identityStore.setTenantId(session.tenantId);
+      }
+    } catch (error, stackTrace) {
+      // A secure-storage/platform exception must not strand the UI on the
+      // restoring spinner. Fail closed for cloud access but preserve local POS.
+      debugPrint(
+        'Berkah POS session restore failed (' +
+            error.runtimeType.toString() +
+            '): ' +
+            stackTrace.toString(),
+      );
+      session = null;
+      restoreError = 'Sesi cloud tidak dapat dipulihkan dari penyimpanan '
+          'perangkat. Data lokal tetap tersedia. Coba masuk kembali atau '
+          'lanjutkan dalam mode lokal.';
     }
+
     if (!mounted) return;
     setState(() {
       _session = session;
+      _restoreError = restoreError;
       _restoring = false;
     });
   }
@@ -132,7 +342,7 @@ class _AppGateState extends State<_AppGate> {
     try {
       await widget.authService.logout();
     } catch (_) {
-      // Local token deletion still happens in logout's finally block.
+      // Local credential cleanup is owned by the auth service.
     } finally {
       if (mounted) {
         setState(() {
@@ -171,6 +381,7 @@ class _AppGateState extends State<_AppGate> {
       authService: widget.authService,
       deviceId: widget.deviceId,
       initialDeviceStatus: session?.deviceStatus,
+      initialRestoreMessage: _restoreError,
       onAuthenticated: _authenticated,
       onContinueLocal: _continueLocalOnly,
       onSignOut: session == null ? null : _signOut,
