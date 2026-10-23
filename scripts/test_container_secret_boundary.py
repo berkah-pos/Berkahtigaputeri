@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -103,12 +102,13 @@ def main() -> int:
     # Require dedicated source variables instead of accidentally inheriting the
     # application's default CENTRAL_DB_USERNAME=postgres / CENTRAL_DB_PASSWORD.
     overlay = (ROOT / "docker-compose.provisioner.yml").read_text(encoding="utf-8")
-    dedicated_mapping_patterns = {
-        "username": r"(?m)^\\s*CENTRAL_DB_USERNAME:\\s*\\$\\{WORKER_CENTRAL_DB_USERNAME:-\\}\\s*$",
-        "password": r"(?m)^\\s*CENTRAL_DB_PASSWORD:\\s*\\$\\{WORKER_CENTRAL_DB_PASSWORD:-\\}\\s*$",
+    required_overlay_mappings = {
+        "username": "CENTRAL_DB_USERNAME: ${WORKER_CENTRAL_DB_USERNAME:-}",
+        "password": "CENTRAL_DB_PASSWORD: ${WORKER_CENTRAL_DB_PASSWORD:-}",
     }
-    for setting, pattern in dedicated_mapping_patterns.items():
-        if re.search(pattern, overlay) is None:
+    overlay_lines = {line.strip() for line in overlay.splitlines()}
+    for setting, mapping in required_overlay_mappings.items():
+        if mapping not in overlay_lines:
             return fail(
                 "Provisioner central DB " + setting
                 + " must map to its dedicated WORKER_CENTRAL_DB_" + setting.upper() + " input."
