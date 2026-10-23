@@ -125,6 +125,8 @@ void main() {
       await tester.tap(find.byTooltip('Pengaturan tenant dan cloud'));
       await _settle(tester, 'local-only settings');
       expect(find.text('Mode lokal aktif; sesi cloud tidak aktif'), findsOneWidget);
+      await tester.drag(find.byType(ListView).last, const Offset(0, -1200));
+      await _settle(tester, 'scroll to cloud login return action');
       expect(find.text('Kembali ke login cloud'), findsOneWidget);
       expect(find.text('Muat POS'), findsNothing);
       expect(find.text('Muat Akuntansi'), findsNothing);
