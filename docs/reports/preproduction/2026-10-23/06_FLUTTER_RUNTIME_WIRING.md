@@ -57,7 +57,7 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** `_refreshCloudConfiguration()` rendered `AuthFailure.code` and `AuthFailure.message` directly in the configuration screen. These values can originate from an HTTP error response and may expose server diagnostics or internal details.
 
-**Implemented (exact-head CI pending):**
+**Implemented:**
 - Added `safeConfigFailureMessage()`, mapping known authentication, authorization, invalid-response, missing-configuration, and service errors to fixed user-facing guidance.
 - Changed the configuration screen to use that helper without interpolating the remote message or internal error code.
 - Added five unit tests for unknown server errors, 401, 403, malformed configuration responses, and missing API configuration. Test fixtures assert that sensitive-looking server text is not reflected.
@@ -70,21 +70,36 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** `LoginScreen._signIn()` displayed `AuthFailure.message` directly. Laravel identity errors can include per-request messages, while generic HTTP/validation errors can include server-generated validation text. The screen must present stable guidance and keep tenant selection behavior intact without reflecting server text.
 
-**Implemented (exact-head CI pending):**
+**Implemented:**
 - Added `safeAuthFailureMessage()` with fixed guidance for known credentials, membership, device, timeout, throttling and validation states, plus a generic fallback.
 - Replaced direct message rendering in the login error path; tenant-choice handling continues to use the structured membership list.
 - Added seven unit tests, including checks that internal-looking host, token and validation details are not reflected.
 
 **Cross-specialist boundary:** Prompt 03 owns Laravel's authentication/error response contract. This Flutter change avoids exposing untrusted response copy while preserving the current response codes and membership-selection behavior. No owner decision is needed unless the API's semantic error codes change.
 
+**TEST-EXECUTED / CI-OBSERVED:** Prompt 06 commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` passed Canonical POS CI in [run #39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126). The final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed Canonical POS App CI in [run #39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866); PR #149 is merged.
+
+## Case 8 — return from local-only mode to cloud login
+
+**Finding — SOURCE-VERIFIED:** selecting “Lanjutkan sebagai kasir lokal” set `_localOnly = true` and mounted a `HomeScreen` with `authService: null` to disable cloud operations. The settings screen then had no path back to the login gate; users had to restart the app to leave local-only mode. It also described the API as unconfigured even when the app was built with a valid HTTPS API URL.
+
+**Implemented (exact-head CI pending):**
+- Added a separate navigation callback from the local-only home/settings screen back to the login gate, but only when the configured Laravel API is available.
+- Kept `authService: null` and outbox sync disabled while local-only mode is active; navigation does not restore or imply cloud authentication.
+- Distinguished “API not configured” from “API configured but cloud session inactive” in settings.
+- Added a widget regression covering login → local-only → settings → cloud login, asserting configuration loading and sync are still disabled in local mode.
+
+**Cross-specialist boundary:** Prompt 02 owns authentication/session semantics; this change only navigates back to its existing login gate. It does not create a session or bypass server device approval. No owner decision is required.
+
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
 - **TEST-EXECUTED / CI-OBSERVED:** combined cases 1–5 passed on exact head `c349efc4745981e832c8edcd59aaa28bb2338cba` in run [#39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319).
 - **TEST-EXECUTED / CI-OBSERVED:** case 6 passed on exact commit `14d81d9e60740cad4b4de31f367c30bb5036509b` in [run #39962184139](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962184139) and duplicate run [#39962177055](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962177055).
-- **PENDING:** case-7 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** case 7 passed on exact commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` in run [#39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126); the final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed in run [#39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866).
+- **PENDING:** case-8 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the combined case-7 head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
+Run canonical POS Flutter CI on the case-8 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.

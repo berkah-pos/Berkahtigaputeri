@@ -84,4 +84,58 @@ void main() {
     expect(find.text('Muat POS'), findsNothing);
     expect(find.text('Muat Akuntansi'), findsNothing);
   }, timeout: const Timeout(Duration(seconds: 60)));
+
+  testWidgets(
+    'local-only mode can return to cloud login when the API is configured',
+    (tester) async {
+      sqfliteFfiInit();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final preferences = await SharedPreferences.getInstance();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
+      final database = (await tester.runAsync(
+        () => PosDatabase.openAt(
+          inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
+
+      addTearDown(() async {
+        await tester.runAsync(database.close);
+      });
+
+      await tester.pumpWidget(
+        BerkahTigaPuteriApp(
+          database: database,
+          authService: LaravelAuthService(
+            baseUrl: 'https://api.example.test',
+            vault: _MemorySecureVault(),
+          ),
+          identityStore: identityStore,
+          deviceId: deviceId,
+        ),
+      );
+      await _settle(tester, 'configured API login');
+      expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
+
+      await tester.tap(find.text('Lanjutkan sebagai kasir lokal'));
+      await _settle(tester, 'local-only mode');
+      expect(find.text('Beranda'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Pengaturan tenant dan cloud'));
+      await _settle(tester, 'local-only settings');
+      expect(find.text('Mode lokal aktif; sesi cloud tidak aktif'), findsOneWidget);
+      expect(find.text('Kembali ke login cloud'), findsOneWidget);
+      expect(find.text('Muat POS'), findsNothing);
+      expect(find.text('Muat Akuntansi'), findsNothing);
+
+      await tester.tap(find.text('Kembali ke login cloud'));
+      await _settle(tester, 'return to cloud login');
+
+      expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
+      expect(find.text('Lanjutkan sebagai kasir lokal'), findsOneWidget);
+      expect(find.text('Beranda'), findsNothing);
+    },
+    timeout: const Timeout(Duration(seconds: 60)),
+  );
 }
