@@ -53,6 +53,11 @@ final class PostgresTenantProvisioner
             throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
         }
 
+        // Configuration errors must fail without a database connection. Once the
+        // connection definitions are safe, verify eligibility in the central registry
+        // before connecting to the privileged broker or writing any credentials.
+        $this->assertTenantIsEligibleForProvisioning($tenant);
+
         $connection = DB::connection('provisioner');
         $connection->getPdo();
         $brokerRole = (string) $connection->scalar('SELECT current_user');
@@ -251,6 +256,27 @@ final class PostgresTenantProvisioner
         }
 
         return $tenant;
+    }
+
+    /**
+     * Provisioning eligibility is authoritative only in the central tenant registry.
+     * The broker connection is intentionally never used to establish tenant existence.
+     */
+    private function assertTenantIsEligibleForProvisioning(string $tenant): void
+    {
+        $record = DB::connection('central')
+            ->table('tenants')
+            ->select('status')
+            ->where('id', $tenant)
+            ->first();
+
+        if ($record === null) {
+            throw new RuntimeException('Tenant must exist in the central registry before provisioning.');
+        }
+
+        if (($record->status ?? null) !== 'pending') {
+            throw new RuntimeException('Only tenants with pending status may be provisioned.');
+        }
     }
 
     private function advisoryLockKey(string $tenant): int
