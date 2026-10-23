@@ -24,15 +24,9 @@ class AppIdentityStore {
   /// matching device secret, tenant membership, and administrator approval.
   Future<String> ensureDeviceId() async {
     final current = deviceId;
-    if (RegExp(r'^[a-f0-9]{64}  Future<void> setTenantId(String tenantId) async {
-    await _preferences.setString(_tenantKey, tenantId);
-  }
-
-  Future<void> setDeviceId(String deviceId) async {
-    await _preferences.setString(_deviceKey, deviceId);
-  }
-}
-).hasMatch(current)) return current;
+    if (RegExp(r'^[a-f0-9]{64}$').hasMatch(current)) {
+      return current;
+    }
 
     final random = Random.secure();
     final generated = List<int>.generate(32, (_) => random.nextInt(256))
