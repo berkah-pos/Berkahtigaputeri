@@ -239,7 +239,7 @@ class TenantSyncApiTest extends TestCase
             new class implements TenantRuntimeCredentialResolver {
                 public function resolve(string $tenantId, string $secretReference): string
                 {
-                    throw new \\RuntimeException('provider-token=never-log-this-value');
+                    throw new \RuntimeException('provider-token=never-log-this-value');
                 }
             }
         );
@@ -248,9 +248,9 @@ class TenantSyncApiTest extends TestCase
             ->once()
             ->with(
                 'Tenant runtime credential resolution failed.',
-                \\Mockery::on(static function (array $context) use ($tenantId): bool {
+                \Mockery::on(static function (array $context) use ($tenantId): bool {
                     return ($context['tenant_id'] ?? null) === $tenantId
-                        && ($context['exception_class'] ?? null) === \\RuntimeException::class
+                        && ($context['exception_class'] ?? null) === \RuntimeException::class
                         && ! str_contains(json_encode($context, JSON_THROW_ON_ERROR), 'provider-token=never-log-this-value');
                 })
             );
@@ -258,7 +258,7 @@ class TenantSyncApiTest extends TestCase
         try {
             app(TenantDatabaseRunner::class)->run($tenantId, static fn (): null => null);
             $this->fail('Credential resolution failure should block tenant database access.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $this->assertSame('tenant_database_credentials_unavailable', $exception->getMessage());
             $this->assertStringNotContainsString('provider-token=never-log-this-value', $exception->getMessage());
         }
