@@ -200,6 +200,92 @@ jobs:
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
 
+      - name: Export validated canonical workbook manifest offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/berkah-workbook-venv"
+          "$RUNNER_TEMP/berkah-workbook-venv/bin/python" -m pip install --disable-pip-version-check openpyxl
+          mkdir -p build/import-e2e
+          "$RUNNER_TEMP/berkah-workbook-venv/bin/python" scripts/export_workbook_for_laravel.py \
+            --output "$PWD/build/import-e2e/canonical-manifest.json"
+
+      - name: Import real 352-entry manifest into disposable central PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$PWD/build/import-e2e/canonical-manifest.json:/tmp/canonical-manifest.json:ro" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            "$CI_IMAGE" php artisan config:import-workbook /tmp/canonical-manifest.json
+
+      - name: Verify real import counts and enabled service projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_enabled="$(python3 -c 'import json; m=json.load(open("build/import-e2e/canonical-manifest.json")); print(sum(1 for row in m["services"] if row["enabled"]))')"
+          expected_active_devices="$(python3 -c 'import json; m=json.load(open("build/import-e2e/canonical-manifest.json")); print(sum(1 for row in m["devices"] if row["active"]))')"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
+            -c "DO \$\$ BEGIN
+              IF (SELECT count(*) FROM global_configs) <> 1 THEN RAISE EXCEPTION 'global_configs count mismatch'; END IF;
+              IF (SELECT count(*) FROM templates) <> 3 THEN RAISE EXCEPTION 'templates count mismatch'; END IF;
+              IF (SELECT count(*) FROM tenants) <> 100 THEN RAISE EXCEPTION 'tenants count mismatch'; END IF;
+              IF (SELECT count(*) FROM tenant_configs WHERE service_scope = '__base__') <> 100 THEN RAISE EXCEPTION 'base tenant config count mismatch'; END IF;
+              IF (SELECT count(*) FROM tenant_configs WHERE service_scope IN ('pos','akuntansi')) <> 140 THEN RAISE EXCEPTION 'service config count mismatch'; END IF;
+              IF (SELECT count(*) FROM tenant_services) <> 140 THEN RAISE EXCEPTION 'tenant service projection count mismatch'; END IF;
+              IF (SELECT count(*) FROM device_registry) <> 108 THEN RAISE EXCEPTION 'device registry count mismatch'; END IF;
+              IF (SELECT count(*) FROM device_configs) <> 108 THEN RAISE EXCEPTION 'device config count mismatch'; END IF;
+              IF (SELECT count(*) FROM subscriptions) <> 100 THEN RAISE EXCEPTION 'subscription count mismatch'; END IF;
+            END \$\$"
+          actual_enabled="$(docker run --rm --network host --env PGPASSWORD=postgres postgres:17 psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT count(*) FROM tenant_services WHERE enabled")"
+          actual_active_devices="$(docker run --rm --network host --env PGPASSWORD=postgres postgres:17 psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT count(*) FROM device_registry WHERE status = 'active'")"
+          test "$actual_enabled" = "$expected_enabled"
+          test "$actual_active_devices" = "$expected_active_devices"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT 'global:' || key || ':' || version FROM global_configs UNION ALL SELECT 'template:' || id || ':' || version FROM templates UNION ALL SELECT 'tenant-config:' || tenant_id || ':' || service_scope || ':' || version FROM tenant_configs UNION ALL SELECT 'device-config:' || device_id || ':' || version FROM device_configs ORDER BY 1" > build/import-e2e/versions-before-invalid.txt
+
+      - name: Reject malformed manifest without partial database writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("build/import-e2e/canonical-manifest.json").read_text(encoding="utf-8"))
+          manifest["devices"][1]["device_id"] = manifest["devices"][0]["device_id"]
+          Path("build/import-e2e/invalid-manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          if docker run --rm --network host \
+            -v "$PWD/build/import-e2e/invalid-manifest.json:/tmp/invalid-manifest.json:ro" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            "$CI_IMAGE" php artisan config:import-workbook /tmp/invalid-manifest.json; then
+            echo "Invalid manifest was unexpectedly accepted" >&2
+            exit 1
+          fi
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT 'global:' || key || ':' || version FROM global_configs UNION ALL SELECT 'template:' || id || ':' || version FROM templates UNION ALL SELECT 'tenant-config:' || tenant_id || ':' || service_scope || ':' || version FROM tenant_configs UNION ALL SELECT 'device-config:' || device_id || ':' || version FROM device_configs ORDER BY 1" > build/import-e2e/versions-after-invalid.txt
+          diff -u build/import-e2e/versions-before-invalid.txt build/import-e2e/versions-after-invalid.txt
+
+      - name: Prove repeated canonical import is idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -v "$PWD/build/import-e2e/canonical-manifest.json:/tmp/canonical-manifest.json:ro" \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            "$CI_IMAGE" php artisan config:import-workbook /tmp/canonical-manifest.json
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -At -c "SELECT 'global:' || key || ':' || version FROM global_configs UNION ALL SELECT 'template:' || id || ':' || version FROM templates UNION ALL SELECT 'tenant-config:' || tenant_id || ':' || service_scope || ':' || version FROM tenant_configs UNION ALL SELECT 'device-config:' || device_id || ':' || version FROM device_configs ORDER BY 1" > build/import-e2e/versions-after-repeat.txt
+          diff -u build/import-e2e/versions-before-invalid.txt build/import-e2e/versions-after-repeat.txt
+
       - name: Migrate fresh tenant database on disposable PostgreSQL 17
         shell: bash
         run: |
@@ -217,7 +303,7 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
-            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','tenant_configs') ORDER BY table_name"
+            -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('tenants','domains','device_registry','device_configs','tenant_configs','tenant_services') ORDER BY table_name"
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
