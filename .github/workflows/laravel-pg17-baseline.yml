@@ -393,7 +393,7 @@ jobs:
             --env CENTRAL_DB_DATABASE --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$PROD_IMAGE"
            forbidden_names="$(docker exec "$container" sh -c 'env | cut -d= -f1 | grep -E "^(PROVISIONER_|MIGRATOR_)" || true')"
            if [[ -n "$forbidden_names" ]]; then
-             printf 'Production smoke container has forbidden privileged environment names:\\n%s\\n' "$forbidden_names" >&2
+             printf '%s\n' 'Production smoke container has forbidden privileged environment names:' "$forbidden_names" >&2
              exit 1
            fi
            echo "PASS: production smoke container has no PROVISIONER_/MIGRATOR_ environment variable names."
