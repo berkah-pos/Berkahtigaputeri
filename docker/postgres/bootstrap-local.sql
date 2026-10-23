@@ -54,9 +54,6 @@ COMMENT ON ROLE :"runtime_role" IS 'berkahpos-local-compose-runtime-v1';
 
 -- Refuse to adopt roles with inherited/SET ROLE memberships, unexpected
 -- database grants, or ownership of existing database/application objects.
--- Existing roles are not silently trusted: refuse to continue if the runtime
--- identity has inherited/SET ROLE memberships or owns database/application
--- objects already present in this local PostgreSQL cluster.
 SELECT EXISTS (
     SELECT 1
     FROM pg_auth_members
