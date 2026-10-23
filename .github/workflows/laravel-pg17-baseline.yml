@@ -183,6 +183,10 @@ jobs:
         shell: bash
         run: bash scripts/ci/verify_local_compose_runtime_boundary.sh
 
+      - name: Verify local Compose runtime-role boundary on disposable PostgreSQL 17
+        shell: bash
+        run: bash scripts/ci/verify_local_compose_runtime_boundary.sh
+
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
         run: |
