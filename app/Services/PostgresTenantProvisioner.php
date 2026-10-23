@@ -42,14 +42,29 @@ final class PostgresTenantProvisioner
         $broker = config('database.connections.provisioner');
         $central = config('database.connections.central');
 
-        if (! is_array($broker) || ($broker['driver'] ?? null) !== 'pgsql') {
+        if (! is_array($broker)
+            || ! is_array($central)
+            || ($broker['driver'] ?? null) !== 'pgsql') {
             throw new RuntimeException('Dedicated PostgreSQL provisioner connection is not configured.');
         }
 
-        if (($broker['database'] ?? null) === ($central['database'] ?? null)
-            || ($broker['username'] ?? null) === ($central['username'] ?? null)
-            || empty($broker['username'])
-            || empty($broker['password'])) {
+        // Laravel's PostgreSQL URL settings take precedence over the sibling
+        // host/database/username/password values. Compare the effective values,
+        // otherwise a stale but distinct username/database field can bypass this
+        // guard while the URL still connects as the central role or to central DB.
+        $centralDatabase = $this->effectiveConnectionSetting($central, 'database');
+        $brokerDatabase = $this->effectiveConnectionSetting($broker, 'database');
+        $centralUsername = $this->effectiveConnectionSetting($central, 'username');
+        $brokerUsername = $this->effectiveConnectionSetting($broker, 'username');
+        $brokerPassword = $this->effectiveConnectionSetting($broker, 'password');
+
+        if ($centralDatabase === null
+            || $brokerDatabase === null
+            || $centralUsername === null
+            || $brokerUsername === null
+            || $brokerPassword === null
+            || strcasecmp($brokerDatabase, $centralDatabase) === 0
+            || strcasecmp($brokerUsername, $centralUsername) === 0) {
             throw new RuntimeException('Provisioner credentials must be non-empty and distinct from central runtime credentials.');
         }
 
@@ -252,6 +267,43 @@ final class PostgresTenantProvisioner
                 $connection->select('SELECT pg_advisory_unlock(?)', [$lockKey]);
             }
         }
+    }
+
+    /**
+     * Resolve a sensitive PostgreSQL connection setting with Laravel URL precedence.
+     * Return null for incomplete/malformed URL configs so provisioning fails closed.
+     */
+    private function effectiveConnectionSetting(array $connection, string $setting): ?string
+    {
+        if (! in_array($setting, ['database', 'username', 'password'], true)) {
+            return null;
+        }
+
+        $url = $connection['url'] ?? null;
+        if (is_string($url) && trim($url) !== '') {
+            $parts = parse_url(trim($url));
+            if (! is_array($parts)
+                || ! in_array(strtolower((string) ($parts['scheme'] ?? '')), ['postgres', 'postgresql', 'pgsql'], true)
+                || ! is_string($parts['host'] ?? null)
+                || trim($parts['host']) === '') {
+                return null;
+            }
+
+            if ($setting === 'database') {
+                $value = rawurldecode(trim((string) ($parts['path'] ?? ''), '/'));
+            } else {
+                $value = isset($parts[$setting]) ? rawurldecode((string) $parts[$setting]) : '';
+            }
+        } else {
+            $value = $connection[$setting] ?? null;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        // PostgreSQL's unquoted role/database identifiers are case-insensitive.
+        return $setting === 'password' ? $value : strtolower(trim($value));
     }
 
     public function normalizeTenantId(string $tenantId): string
