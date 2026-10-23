@@ -82,6 +82,14 @@ def main() -> int:
     if not isinstance(app, dict) or not isinstance(provisioner, dict):
         return fail("Expected app and opt-in provisioner services are both required.")
 
+    build = provisioner.get("build") or {}
+    if not isinstance(build, dict) or build.get("target") != "production":
+        return fail("Provisioner must use the reviewed production image target, not the development image.")
+
+    entrypoint = provisioner.get("entrypoint")
+    if entrypoint:
+        return fail("Provisioner must preserve the production image entrypoint for safe Laravel path preparation.")
+
     def environment_names(service: dict[str, Any]) -> list[str]:
         environment = service.get("environment") or {}
         if isinstance(environment, dict):
@@ -144,9 +152,10 @@ def main() -> int:
     if bool(provisioner.get("privileged", False)):
         return fail("Provisioner container must not run in privileged mode.")
     raw_command = provisioner.get("command") or []
-    command_text = raw_command if isinstance(raw_command, str) else " ".join(str(part) for part in raw_command)
-    if "tenants:provision-database" not in command_text:
-        return fail("Provisioner service must run the tenant database provisioning command.")
+    if not isinstance(raw_command, list) or raw_command[:3] != ["php", "artisan", "tenants:provision-database"]:
+        return fail("Provisioner must directly invoke the tenant provisioning Artisan command without a shell wrapper.")
+    if len(raw_command) != 4 or not str(raw_command[3]).strip():
+        return fail("Provisioner must receive exactly one non-empty tenant ULID argument.")
 
     if privileged_services != ["provisioner"]:
         return fail("Only the isolated provisioner service may receive elevated environment-variable names.")
@@ -166,6 +175,8 @@ def main() -> int:
             "provisioner_has_no_published_ports": True,
             "provisioner_does_not_use_host_networking": True,
             "provisioner_is_not_privileged": True,
+            "provisioner_uses_production_image": True,
+            "provisioner_invokes_artisan_without_shell_wrapper": True,
             "secret_values_included": False,
         },
         "services": service_report,
