@@ -63,10 +63,32 @@ class ImportCanonicalWorkbook extends Command
             }
 
             foreach ($manifest['tenants'] as $row) {
-                $tenant = Tenant::query()->firstOrNew(['id' => $row['tenant_id']]);
-                $isNew = ! $tenant->exists;
-                $tenant->template_id = $row['template_id'];
-                $tenant->save(); // stancl/tenancy provisions the isolated database on tenant creation.
+                $tenantRecord = DB::connection('central')->table('tenants')
+                    ->where('id', $row['tenant_id'])
+                    ->lockForUpdate()
+                    ->first();
+                $isNew = $tenantRecord === null;
+
+                if ($isNew) {
+                    // Workbook import writes central metadata only. Tenant DBs and
+                    // restricted roles are created later by the audited PostgreSQL
+                    // provisioning workflow, never by Eloquent tenancy lifecycle hooks.
+                    DB::connection('central')->table('tenants')->insert([
+                        'id' => $row['tenant_id'],
+                        'template_id' => $row['template_id'],
+                        'status' => 'pending',
+                        'data' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                } elseif ($tenantRecord->template_id !== $row['template_id']) {
+                    DB::connection('central')->table('tenants')
+                        ->where('id', $row['tenant_id'])
+                        ->update([
+                            'template_id' => $row['template_id'],
+                            'updated_at' => now(),
+                        ]);
+                }
 
                 $base = TenantConfig::query()->firstOrNew([
                     'tenant_id' => $row['tenant_id'],
@@ -142,13 +164,17 @@ class ImportCanonicalWorkbook extends Command
                     $device = new DeviceRegistry();
                     $device->device_id = $row['device_id'];
                     $device->tenant_id = $row['tenant_id'];
+                    $device->status = $row['active'] ? 'active' : 'suspended';
+                    // A workbook row is not evidence of device possession or owner approval.
+                    // Keep owner_user_id, secret hash and registered_at unset until enrollment.
+                    $device->save();
+                } elseif (! $row['active'] && $device->status !== 'revoked' && $device->revoked_at === null) {
+                    // Configuration import may disable an existing device, but a
+                    // later workbook "active" row must never reactivate a manually
+                    // suspended/revoked device or rewrite its trusted owner/secret.
+                    $device->status = 'suspended';
+                    $device->save();
                 }
-
-                $device->status = $row['active'] ? 'active' : 'suspended';
-                if ($row['active'] && $device->registered_at === null) {
-                    $device->registered_at = now();
-                }
-                $device->save();
 
                 $deviceConfig = DeviceConfig::query()
                     ->where('device_id', $row['device_id'])
