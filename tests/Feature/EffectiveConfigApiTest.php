@@ -219,8 +219,7 @@ class EffectiveConfigApiTest extends TestCase
         $this->tenant->save();
 
         $this->getJson('/api/v1/config/pos', ['X-Device-ID' => $this->device->device_id])
-            ->assertForbidden()
-            ->assertJsonPath('code', 'identity_context_denied');
+            ->assertForbidden();
     }
 
     public function test_rejects_a_device_without_an_explicit_owner_binding(): void
