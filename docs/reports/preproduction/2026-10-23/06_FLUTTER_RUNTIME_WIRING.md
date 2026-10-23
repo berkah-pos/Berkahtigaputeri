@@ -45,17 +45,31 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** the dashboard caught a synchronization exception but appended `error.toString()` to a user-facing message. The exception can contain raw API/server response text or transport diagnostics. Local sales/outbox data is retained, but the error display should be stable and sanitized.
 
-**Implemented in the current branch (validation pending):**
+**Implemented:**
 - Added `safeSyncFailureMessage`, which maps known API-not-configured, HTTP 401 and HTTP 403 conditions to approved guidance and uses generic recoverable copy for other failures.
 - Updated the dashboard to show sanitized text rather than concatenating the original exception.
 - Added five tests proving internal hostnames, raw server messages, token-like strings and stack/customer details are not reflected in visible error copy.
 
+
+**TEST-EXECUTED / CI-OBSERVED:** the combined cases 1–5 head `c349efc4745981e832c8edcd59aaa28bb2338cba` passed Canonical POS App CI in [run #39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319). Migration/config and no-Supabase guards, Android permission contract, Dart analysis, Flutter tests, Android host preparation, debug AAB compilation, and artifact upload passed. The artifact is a debug compile-check only; release signing, device, staging, and production remain unverified.
+
+## Case 6 — configuration UI must not echo server errors
+
+**Finding — SOURCE-VERIFIED:** `_refreshCloudConfiguration()` rendered `AuthFailure.code` and `AuthFailure.message` directly in the configuration screen. These values can originate from an HTTP error response and may expose server diagnostics or internal details.
+
+**Implemented (exact-head CI pending):**
+- Added `safeConfigFailureMessage()`, mapping known authentication, authorization, invalid-response, missing-configuration, and service errors to fixed user-facing guidance.
+- Changed the configuration screen to use that helper without interpolating the remote message or internal error code.
+- Added five unit tests for unknown server errors, 401, 403, malformed configuration responses, and missing API configuration. Test fixtures assert that sensitive-looking server text is not reflected.
+
+**Cross-specialist boundary:** Prompt 03 owns the server-side API error contract; its responses should remain structured and safe. This client fix is deliberately defensive and does not substitute for API-side review. No separate owner decision is required for this scoped client correction.
+
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
-- **PENDING:** combined case-5 exact-head CI, physical-device behavior, staging and production behavior.
+- **TEST-EXECUTED / CI-OBSERVED:** combined cases 1–5 passed on exact head `c349efc4745981e832c8edcd59aaa28bb2338cba` in run [#39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319).\n- **PENDING:** case-6 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the combined current head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case.
+Run canonical POS Flutter CI on the combined case-6 head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.

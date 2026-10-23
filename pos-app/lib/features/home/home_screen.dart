@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/laravel_auth_service.dart';
 import '../../core/config/app_identity_store.dart';
+import '../../core/config/config_failure_message.dart';
 import '../../core/database/pos_database.dart';
 import '../../core/sync/outbox_sync_service.dart';
 import '../../core/sync/sync_failure_message.dart';
@@ -575,7 +576,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
       if (!mounted) return;
       setState(() {
         _cloudConfiguration = null;
-        _configError = '${failure.code}: ${failure.message}';
+        _configError = safeConfigFailureMessage(failure);
       });
     } catch (_) {
       if (!mounted) return;
