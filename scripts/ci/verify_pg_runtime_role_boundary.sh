@@ -39,8 +39,10 @@ assert_runtime_role_flags() {
   if [[ ! "$role" =~ ^[a-z_][a-z0-9_]{0,62}$ ]]; then
     die "Runtime database role has an unsafe identifier: $role"
   fi
-  flags="$(admin_psql postgres -At -v role="$role" -c \
-    "SELECT rolcanlogin::int || '|' || rolsuper::int || '|' || rolcreatedb::int || '|' || rolcreaterole::int || '|' || rolreplication::int || '|' || rolbypassrls::int FROM pg_roles WHERE rolname = :'role'")"
+  # The identifier was strictly allowlisted above, so embedding this role name
+  # as a SQL string is safe. psql variable expansion is not applied to -c input.
+  flags="$(admin_psql postgres -At -c \
+    "SELECT rolcanlogin::int || '|' || rolsuper::int || '|' || rolcreatedb::int || '|' || rolcreaterole::int || '|' || rolreplication::int || '|' || rolbypassrls::int FROM pg_roles WHERE rolname = '$role'")"
   [[ "$flags" == "1|0|0|0|0|0" ]] || die "$role must be LOGIN, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION and NOBYPASSRLS; observed flags=$flags"
   printf 'PASS: role attributes least-privilege verified for %s\n' "$role"
 }
