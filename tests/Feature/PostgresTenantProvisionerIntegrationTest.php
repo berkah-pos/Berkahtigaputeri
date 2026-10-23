@@ -191,6 +191,74 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         }
     }
 
+    public function test_superuser_broker_is_rejected_before_secret_storage_or_resource_creation(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $central = DB::connection('central');
+        $superuser = 'provisioner_superuser_ci';
+        $password = bin2hex(random_bytes(32));
+        $host = (string) $central->getConfig('host');
+        if (str_contains($host, ':') && ! str_starts_with($host, '[')) {
+            $host = '[' . $host . ']';
+        }
+
+        // Disposable CI only: create an alternate superuser so the effective
+        // identity does not equal central and reaches the broker-capability guard.
+        $central->statement(
+            'CREATE ROLE "provisioner_superuser_ci" LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD '
+            . "'" . $password . "'"
+        );
+
+        $superuserUrl = sprintf(
+            'pgsql://%s:%s@%s:%s/%s',
+            rawurlencode($superuser),
+            rawurlencode($password),
+            $host,
+            (string) $central->getConfig('port'),
+            'postgres'
+        );
+
+        $originalProvisionerConfig = config('database.connections.provisioner');
+        $overriddenProvisionerConfig = $originalProvisionerConfig;
+        $overriddenProvisionerConfig['url'] = $superuserUrl;
+        $overriddenProvisionerConfig['sslmode'] = $central->getConfig('sslmode');
+        $storeCalls = 0;
+        $deleteCalls = 0;
+        $caught = null;
+
+        DB::purge('provisioner');
+        config(['database.connections.provisioner' => $overriddenProvisionerConfig]);
+
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function (string $key, string $secret) use (&$storeCalls): string {
+                    $storeCalls++;
+                    throw new \\RuntimeException('Credential storage must not be reached for a superuser broker.');
+                },
+                function (string $key) use (&$deleteCalls): void {
+                    $deleteCalls++;
+                }
+            );
+            $this->fail('A PostgreSQL superuser must not be accepted as the provisioning broker.');
+        } catch (\\RuntimeException $exception) {
+            $caught = $exception;
+        } finally {
+            config(['database.connections.provisioner' => $originalProvisionerConfig]);
+            DB::purge('provisioner');
+            $central->statement('DROP ROLE IF EXISTS "provisioner_superuser_ci"');
+        }
+
+        $this->assertNotNull($caught);
+        $this->assertSame(
+            'Provisioner role must LOGIN, be a non-superuser, have CREATEDB and CREATEROLE, and have neither REPLICATION nor BYPASSRLS; refusing provisioning.',
+            $caught->getMessage()
+        );
+        $this->assertSame(0, $storeCalls, 'Broker capability validation must precede secret storage.');
+        $this->assertSame(0, $deleteCalls, 'No secret compensation is necessary when broker validation fails.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
     public function test_url_resolved_broker_identity_cannot_match_central_database_or_role(): void
     {
         $tenantId = $this->tenantIds[0];
