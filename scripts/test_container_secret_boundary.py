@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Verify Compose separates provisioning secrets without printing secret values.
+
+The report contains environment-variable NAMES only. Never log Compose's rendered
+configuration because it contains interpolated secret values.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+INFRASTRUCTURE_SERVICES = {"postgres", "redis", "openbao"}
+ELEVATED_NAME_MARKERS = (
+    "PROVISIONER_",
+    "OPENBAO_PROVISIONER_",
+    "MIGRATOR",
+    "VAULT_ROOT",
+    "OPENBAO_ROOT",
+    "ROOT_DB_",
+    "DB_ROOT_",
+    "DB_SUPERUSER_",
+    "DB_ADMIN_",
+    "ROOT_TOKEN",
+)
+
+
+def has_elevated_name(name: str) -> bool:
+    normalized = name.upper()
+    return any(marker in normalized for marker in ELEVATED_NAME_MARKERS)
+
+
+def fail(message: str) -> int:
+    print(f"FAIL: {message}", file=sys.stderr)
+    return 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--report", required=True, type=Path)
+    args = parser.parse_args()
+
+    command = [
+        "docker", "compose",
+        "-f", "docker-compose.yml",
+        "-f", "docker-compose.provisioner.yml",
+        "--profile", "provisioning",
+        "config", "--format", "json",
+    ]
+    try:
+        rendered = subprocess.run(
+            command,
+            cwd=ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except OSError:
+        return fail("Docker Compose could not be invoked; no credential-boundary evidence produced.")
+
+    if rendered.returncode != 0:
+        # Do not echo captured output: Compose errors may contain interpolated values.
+        return fail("Compose configuration is invalid; captured output withheld to avoid secret disclosure.")
+
+    try:
+        config: dict[str, Any] = json.loads(rendered.stdout)
+    except json.JSONDecodeError:
+        return fail("Compose did not return valid JSON; rendered output withheld.")
+
+    services = config.get("services")
+    if not isinstance(services, dict):
+        return fail("Resolved Compose configuration has no services mapping.")
+
+    app = services.get("app")
+    provisioner = services.get("provisioner")
+    if not isinstance(app, dict) or not isinstance(provisioner, dict):
+        return fail("Expected app and opt-in provisioner services are both required.")
+
+    def environment_names(service: dict[str, Any]) -> list[str]:
+        environment = service.get("environment") or {}
+        if isinstance(environment, dict):
+            return sorted(str(name) for name in environment)
+        if isinstance(environment, list):
+            return sorted(str(item).split("=", 1)[0] for item in environment)
+        return []
+
+    privileged_services: list[str] = []
+    service_report: dict[str, Any] = {}
+
+    for service_name, definition in services.items():
+        if not isinstance(definition, dict):
+            return fail(f"Service definition '{service_name}' is invalid.")
+
+        names = environment_names(definition)
+        privileged_names = sorted(name for name in names if has_elevated_name(name))
+        is_provisioner = service_name == "provisioner"
+
+        if privileged_names:
+            privileged_services.append(service_name)
+        if privileged_names and not is_provisioner:
+            return fail(
+                "Privileged environment-variable names appear outside the isolated provisioner service: "
+                + ", ".join(privileged_names)
+            )
+
+        service_report[service_name] = {
+            "classification": (
+                "isolated-provisioner" if is_provisioner
+                else "infrastructure" if service_name in INFRASTRUCTURE_SERVICES
+                else "application-runtime"
+            ),
+            "environment_names": names,
+            "elevated_environment_names": privileged_names,
+            "has_published_ports": bool(definition.get("ports")),
+            "profiles": sorted(definition.get("profiles") or []),
+            "network_mode": definition.get("network_mode") or "compose-private-network",
+            "privileged_container": bool(definition.get("privileged", False)),
+        }
+
+    provisioner_names = set(environment_names(provisioner))
+    required = {
+        "OPENBAO_PROVISIONER_MODE",
+        "OPENBAO_PROVISIONER_TOKEN",
+        "PROVISIONER_DB_USERNAME",
+        "PROVISIONER_DB_PASSWORD",
+    }
+    missing = sorted(required - provisioner_names)
+    if missing:
+        return fail("Isolated provisioner service is missing required environment-variable names: " + ", ".join(missing))
+
+    profiles = set(provisioner.get("profiles") or [])
+    if "provisioning" not in profiles:
+        return fail("Provisioner must be gated behind the explicit 'provisioning' Compose profile.")
+    if provisioner.get("ports"):
+        return fail("Provisioner publishes ports; privileged worker ingress must remain private.")
+    if (provisioner.get("network_mode") or "").lower() == "host":
+        return fail("Provisioner must not use host networking.")
+    if bool(provisioner.get("privileged", False)):
+        return fail("Provisioner container must not run in privileged mode.")
+    command_text = " ".join(str(part) for part in (provisioner.get("command") or []))
+    if "tenants:provision-database" not in command_text:
+        return fail("Provisioner service must run the tenant database provisioning command.")
+
+    if privileged_services != ["provisioner"]:
+        return fail("Only the isolated provisioner service may receive elevated environment-variable names.")
+
+    report = {
+        "schema_version": 1,
+        "scope": "resolved Docker Compose environment-variable names; never values",
+        "checks": {
+            "app_has_no_elevated_environment_names": not any(
+                has_elevated_name(name) for name in environment_names(app)
+            ),
+            "only_provisioner_has_elevated_environment_names": privileged_services == ["provisioner"],
+            "provisioner_is_profile_gated": True,
+            "provisioner_has_no_published_ports": True,
+            "provisioner_does_not_use_host_networking": True,
+            "provisioner_is_not_privileged": True,
+            "secret_values_included": False,
+        },
+        "services": service_report,
+        "note": (
+            "This verifies repository Compose configuration only. It does not establish "
+            "that the live Coolify deployment has the same service environment or networking."
+        ),
+    }
+
+    args.report.parent.mkdir(parents=True, exist_ok=True)
+    args.report.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print("PASS: provisioning-only variables are isolated to the profile-gated, non-public worker.")
+    print("PASS: redacted environment-name report written; no secret values were printed or stored.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
