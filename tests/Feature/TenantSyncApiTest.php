@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Central\User;
-use Illuminate\Support\Facades\Crypt;
+use App\Services\TenantRuntimeCredentialResolver;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -18,6 +18,21 @@ class TenantSyncApiTest extends TestCase
         // CI migrations have already created disposable central and tenant schemas.
         // The refresh trait would drop the central schema and break later API tests.
         DB::connection('central')->beginTransaction();
+        // The test provider resolves only the explicit fixture reference to the
+        // current disposable tenant DB password. No real secret store is used.
+        $this->app->instance(
+            TenantRuntimeCredentialResolver::class,
+            new class implements TenantRuntimeCredentialResolver {
+                public function resolve(string $tenantId, string $secretReference): string
+                {
+                    if ($secretReference !== 'ci-secret-ref://tenant/'.$tenantId.'/runtime') {
+                        throw new \RuntimeException('Unexpected disposable test secret reference.');
+                    }
+
+                    return (string) config('database.connections.tenant.password');
+                }
+            }
+        );
     }
 
     protected function tearDown(): void
@@ -275,7 +290,7 @@ class TenantSyncApiTest extends TestCase
                 'tenant_id' => $tenantId,
                 'database_name' => $tenantConnection['database'],
                 'runtime_username' => $tenantConnection['username'],
-                'runtime_password_encrypted' => Crypt::encryptString((string) $tenantConnection['password']),
+                'runtime_secret_ref' => 'ci-secret-ref://tenant/'.$tenantId.'/runtime',
                 'status' => 'active',
                 'provisioned_at' => $now,
                 'created_at' => $now,

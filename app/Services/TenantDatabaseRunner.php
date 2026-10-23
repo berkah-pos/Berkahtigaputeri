@@ -5,7 +5,6 @@ namespace App\Services;
 use Closure;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -16,6 +15,11 @@ use Throwable;
  */
 final class TenantDatabaseRunner
 {
+    public function __construct(
+        private readonly TenantRuntimeCredentialResolver $credentialResolver
+    ) {
+    }
+
     public function run(string $tenantId, Closure $operation): mixed
     {
         if (trim($tenantId) === '') {
@@ -51,11 +55,19 @@ final class TenantDatabaseRunner
             throw new RuntimeException('tenant_database_registry_invalid');
         }
 
+        $secretReference = (string) $record->runtime_secret_ref;
+        if ($secretReference === '') {
+            throw new RuntimeException('tenant_database_credentials_unavailable');
+        }
+
         try {
-            $password = Crypt::decryptString((string) $record->runtime_password_encrypted);
+            $password = $this->credentialResolver->resolve($tenantId, $secretReference);
         } catch (Throwable $exception) {
             report($exception);
-            throw new RuntimeException('tenant_database_credentials_unavailable');
+            throw new RuntimeException(
+                'tenant_database_credentials_unavailable',
+                previous: $exception
+            );
         }
 
         if ($password === '') {

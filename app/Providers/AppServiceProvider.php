@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\Central\PersonalAccessToken;
+use App\Services\TenantRuntimeCredentialResolver;
+use App\Services\UnconfiguredTenantRuntimeCredentialResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -14,6 +16,12 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Production must provide an approved secret-manager adapter. Until then,
+        // tenant sync fails closed instead of storing credentials in central DB.
+        $this->app->bind(
+            TenantRuntimeCredentialResolver::class,
+            UnconfiguredTenantRuntimeCredentialResolver::class
+        );
     }
 
     public function boot(): void

@@ -19,9 +19,9 @@ return new class extends Migration
             $table->string('tenant_id')->primary();
             $table->string('database_name', 63)->unique();
             $table->string('runtime_username', 63)->unique();
-            // This stores only an encrypted per-tenant runtime-role password.
-            // Provisioner/broker credentials are never stored in this registry.
-            $table->text('runtime_password_encrypted');
+            // This stores only a non-secret reference returned by the external secret manager.
+            // Neither passwords nor provisioner/migrator credentials are stored centrally.
+            $table->text('runtime_secret_ref');
             $table->string('status', 24)->default('provisioning')->index();
             $table->timestampTz('provisioned_at')->nullable();
             $table->timestampsTz();
@@ -32,8 +32,8 @@ return new class extends Migration
 ALTER TABLE tenant_database_registry
     ADD CONSTRAINT tenant_database_registry_status_check
         CHECK (status IN ('provisioning', 'active', 'failed', 'disabled')),
-    ADD CONSTRAINT tenant_database_registry_runtime_password_check
-        CHECK (length(runtime_password_encrypted) > 0);
+    ADD CONSTRAINT tenant_database_registry_runtime_secret_ref_check
+        CHECK (length(runtime_secret_ref) > 0);
 SQL);
     }
 
