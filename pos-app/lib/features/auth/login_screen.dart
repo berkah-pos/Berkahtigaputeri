@@ -93,12 +93,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signOutPending() async {
     if (_loading || widget.onSignOut == null) return;
     setState(() => _loading = true);
+    var completed = false;
     try {
       await widget.onSignOut!();
+      completed = true;
     } catch (_) {
-      // Local credential cleanup is owned by the auth service.
+      // Keep the pending state visible so cleanup can be retried.
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          if (completed) _pendingMessage = null;
+        });
+      }
     }
   }
 

@@ -472,7 +472,8 @@ class _AppGateState extends State<_AppGate> {
       sessionCleanupPending: _sessionCleanupPending,
       onAuthenticated: _authenticated,
       onContinueLocal: _continueLocalOnly,
-      onSignOut: session == null && !_sessionCleanupPending ? null : _signOut,
+      // Pending-device cleanup must work before the app gate owns an active session.
+      onSignOut: _signOut,
     );
   }
 }

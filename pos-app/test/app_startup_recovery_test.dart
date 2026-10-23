@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -32,6 +33,23 @@ class _FailingReadVault implements SecureVault {
     if (failDelete) {
       throw StateError('simulated secure storage delete failure');
     }
+  }
+}
+
+class _MemoryVault implements SecureVault {
+  final Map<String, String> values = <String, String>{};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
   }
 }
 
@@ -158,6 +176,104 @@ void main() {
 
       expect(identityStore.sessionCleanupPending, isFalse);
       expect(find.text('Coba bersihkan sesi cloud lagi'), findsNothing);
+      expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
+    },
+    timeout: const Timeout(Duration(seconds: 30)),
+  );
+
+  testWidgets(
+    'new pending device can immediately clear its stored cloud session',
+    (tester) async {
+      sqfliteFfiInit();
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final preferences = await SharedPreferences.getInstance();
+      final identityStore = AppIdentityStore(preferences);
+      final deviceId = await identityStore.ensureDeviceId();
+      final database = (await tester.runAsync(
+        () => PosDatabase.openAt(
+          inMemoryDatabasePath,
+          factory: databaseFactoryFfi,
+        ),
+      ))!;
+      final vault = _MemoryVault();
+      final requests = <String>[];
+      final httpClient = MockClient((request) async {
+        requests.add(request.method + ' ' + request.url.path);
+        if (request.url.path.endsWith('/api/v1/auth/login')) {
+          return http.Response(jsonEncode(<String, dynamic>{
+            'access_token': '1|pending-token',
+            'tenant_id': 'tenant-a',
+            'device_id': deviceId,
+            'device_status': 'unregistered',
+            'user': <String, dynamic>{
+              'id': 7,
+              'name': 'Cashier',
+              'email': 'cashier@example.test',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/api/v1/devices/enroll')) {
+          expect(request.headers['authorization'], 'Bearer 1|pending-token');
+          return http.Response(jsonEncode(<String, dynamic>{
+            'status': 'pending',
+            'device_id': deviceId,
+          }), 202);
+        }
+        if (request.url.path.endsWith('/api/v1/auth/logout')) {
+          expect(request.headers['authorization'], 'Bearer 1|pending-token');
+          return http.Response(
+            jsonEncode(<String, dynamic>{'status': 'signed_out'}),
+            200,
+          );
+        }
+        return http.Response(jsonEncode(<String, dynamic>{
+          'message': 'Unexpected test request',
+          'code': 'unexpected_test_request',
+        }), 404);
+      });
+
+      addTearDown(() async {
+        await tester.runAsync(database.close);
+        httpClient.close();
+      });
+
+      await tester.pumpWidget(
+        BerkahTigaPuteriApp(
+          database: database,
+          authService: LaravelAuthService(
+            baseUrl: 'https://api.example.test',
+            vault: vault,
+            client: httpClient,
+          ),
+          identityStore: identityStore,
+          deviceId: deviceId,
+        ),
+      );
+      await _settle(tester);
+
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'cashier@example.test',
+      );
+      await tester.enterText(
+        find.byType(TextFormField).at(1),
+        'correct-password',
+      );
+      await tester.tap(find.text('Masuk'));
+      await _settle(tester);
+
+      expect(find.textContaining('belum disetujui administrator'), findsOneWidget);
+      expect(find.text('Hapus sesi perangkat tertunda'), findsOneWidget);
+      expect(vault.values['berkah.auth.laravel.access_token'], '1|pending-token');
+      expect(requests, contains('POST /api/v1/devices/enroll'));
+
+      await tester.tap(find.text('Hapus sesi perangkat tertunda'));
+      await _settle(tester);
+
+      expect(requests, contains('POST /api/v1/auth/logout'));
+      expect(vault.values['berkah.auth.laravel.access_token'], isNull);
+      expect(identityStore.sessionCleanupPending, isFalse);
+      expect(find.text('Hapus sesi perangkat tertunda'), findsNothing);
       expect(find.text('Masuk ke akun Berkah POS'), findsOneWidget);
     },
     timeout: const Timeout(Duration(seconds: 30)),
