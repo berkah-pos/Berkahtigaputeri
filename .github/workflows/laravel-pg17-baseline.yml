@@ -310,8 +310,20 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE "$CI_IMAGE" \
+            --env TENANT_DB_USERNAME=postgres --env TENANT_DB_PASSWORD=postgres --env TENANT_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
+
+      - name: Grant tenant runtime only DML and sequence privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT USAGE ON SCHEMA public TO berkahpos_tenant_runtime_ci; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO berkahpos_tenant_runtime_ci; GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO berkahpos_tenant_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO berkahpos_tenant_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO berkahpos_tenant_runtime_ci"
+
+      - name: Assert real PostgreSQL runtime role privileges and cross-database denial
+        shell: bash
+        run: bash scripts/ci/verify_pg_runtime_role_boundary.sh
 
       - name: Run Laravel feature and PostgreSQL schema-integrity tests on migrated PostgreSQL 17 schemas
         shell: bash
