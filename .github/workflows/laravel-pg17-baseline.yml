@@ -202,8 +202,16 @@ jobs:
           set -euo pipefail
           docker run --rm --network host --env APP_ENV --env APP_KEY --env DB_CONNECTION \
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
-            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD "$CI_IMAGE" \
+            --env CENTRAL_DB_USERNAME=postgres --env CENTRAL_DB_PASSWORD=postgres "$CI_IMAGE" \
             php artisan migrate --database=central --path=database/migrations/central --force
+
+      - name: Grant central runtime only DML and sequence privileges
+        shell: bash
+        run: |
+          set -euo pipefail
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
+            -c "GRANT USAGE ON SCHEMA public TO berkahpos_central_runtime_ci; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO berkahpos_central_runtime_ci; GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO berkahpos_central_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO berkahpos_central_runtime_ci; ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO berkahpos_central_runtime_ci"
 
       - name: Export validated canonical workbook manifest offline
         shell: bash
