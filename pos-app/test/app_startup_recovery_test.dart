@@ -13,7 +13,7 @@ import 'package:berkahtigaputeri_pos/main.dart';
 class _FailingReadVault implements SecureVault {
   _FailingReadVault({this.failDelete = false});
 
-  final bool failDelete;
+  bool failDelete;
   int readAttempts = 0;
   bool deleteCalled = false;
 
