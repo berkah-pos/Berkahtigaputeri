@@ -191,6 +191,67 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         }
     }
 
+    public function test_url_resolved_broker_identity_cannot_match_central_database_or_role(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $central = DB::connection('central');
+
+        // Laravel's URL parser overlays URL fields over the raw database config.
+        // Keep the raw provisioner database/user values distinct but point its URL
+        // at the effective central identity to exercise that mismatch on real PG17.
+        $host = (string) $central->getConfig('host');
+        if (str_contains($host, ':') && ! str_starts_with($host, '[')) {
+            $host = '[' . $host . ']';
+        }
+
+        $centralUrl = sprintf(
+            'pgsql://%s:%s@%s:%s/%s',
+            rawurlencode((string) $central->getConfig('username')),
+            rawurlencode((string) $central->getConfig('password')),
+            $host,
+            (string) $central->getConfig('port'),
+            rawurlencode((string) $central->getConfig('database'))
+        );
+
+        $originalProvisionerConfig = config('database.connections.provisioner');
+        $overriddenProvisionerConfig = $originalProvisionerConfig;
+        $overriddenProvisionerConfig['url'] = $centralUrl;
+        $storeCalls = 0;
+        $deleteCalls = 0;
+        $caught = null;
+
+        DB::purge('provisioner');
+        config(['database.connections.provisioner' => $overriddenProvisionerConfig]);
+
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function (string $key, string $password) use (&$storeCalls): string {
+                    $storeCalls++;
+                    throw new \RuntimeException('Credential storage must not be reached.');
+                },
+                function (string $key) use (&$deleteCalls): void {
+                    $deleteCalls++;
+                }
+            );
+            $this->fail('A broker URL resolving to the central database/role must be rejected.');
+        } catch (\RuntimeException $exception) {
+            $caught = $exception;
+        } finally {
+            config(['database.connections.provisioner' => $originalProvisionerConfig]);
+            DB::purge('provisioner');
+        }
+
+        $this->assertNotNull($caught);
+        $this->assertSame(
+            'Provisioner connection resolves to the central database or role; refusing provisioning.',
+            $caught->getMessage()
+        );
+        $this->assertSame(0, $storeCalls, 'Effective connection identity must be checked before credential storage.');
+        $this->assertSame(0, $deleteCalls, 'No secret compensation is needed when identity validation fails.');
+        $this->assertNoTenantResources($tenantId);
+    }
+
     public function test_retry_after_success_fails_closed_without_changing_existing_tenant_data(): void
     {
         $tenantId = $this->tenantIds[0];

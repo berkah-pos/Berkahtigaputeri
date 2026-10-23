@@ -56,11 +56,25 @@ final class PostgresTenantProvisioner
         // Configuration errors must fail without a database connection. Once the
         // connection definitions are safe, verify eligibility in the central registry
         // before connecting to the privileged broker or writing any credentials.
-        $this->assertTenantIsEligibleForProvisioning($tenant);
+        $centralIdentity = $this->assertTenantIsEligibleForProvisioning($tenant);
 
         $connection = DB::connection('provisioner');
         $connection->getPdo();
-        $brokerRole = (string) $connection->scalar('SELECT current_user');
+        $brokerIdentity = $connection->selectOne(
+            'SELECT current_database() AS database_name, current_user AS role_name'
+        );
+
+        if ($brokerIdentity === null
+            || $centralIdentity['database'] === (string) $brokerIdentity->database_name
+            || $centralIdentity['username'] === (string) $brokerIdentity->role_name) {
+            // Avoid retaining a connection that resolved to the central identity.
+            DB::purge('provisioner');
+            throw new RuntimeException(
+                'Provisioner connection resolves to the central database or role; refusing provisioning.'
+            );
+        }
+
+        $brokerRole = (string) $brokerIdentity->role_name;
         $brokerIdentifier = $this->identifier($brokerRole);
 
         // Session-level lock serializes concurrent attempts for this tenant. It is
@@ -259,12 +273,16 @@ final class PostgresTenantProvisioner
     }
 
     /**
-     * Provisioning eligibility is authoritative only in the central tenant registry.
-     * The broker connection is intentionally never used to establish tenant existence.
+     * Check tenant eligibility in the authoritative central registry and return
+     * the identity actually used by the central PDO connection. The broker must
+     * later prove it resolves to a different database and role.
+     *
+     * @return array{database:string,username:string}
      */
-    private function assertTenantIsEligibleForProvisioning(string $tenant): void
+    private function assertTenantIsEligibleForProvisioning(string $tenant): array
     {
-        $record = DB::connection('central')
+        $central = DB::connection('central');
+        $record = $central
             ->table('tenants')
             ->select('status')
             ->where('id', $tenant)
@@ -277,6 +295,19 @@ final class PostgresTenantProvisioner
         if (($record->status ?? null) !== 'pending') {
             throw new RuntimeException('Only tenants with pending status may be provisioned.');
         }
+
+        $identity = $central->selectOne(
+            'SELECT current_database() AS database_name, current_user AS role_name'
+        );
+
+        if ($identity === null) {
+            throw new RuntimeException('Unable to verify the effective central PostgreSQL identity.');
+        }
+
+        return [
+            'database' => (string) $identity->database_name,
+            'username' => (string) $identity->role_name,
+        ];
     }
 
     private function advisoryLockKey(string $tenant): int
