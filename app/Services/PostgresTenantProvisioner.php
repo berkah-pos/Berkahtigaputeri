@@ -61,7 +61,7 @@ final class PostgresTenantProvisioner
         $connection = DB::connection('provisioner');
         $connection->getPdo();
         $brokerIdentity = $connection->selectOne(
-            'SELECT current_database() AS database_name, current_user AS role_name'
+            'SELECT current_database() AS database_name, current_user AS role_name, session_user AS session_role_name'
         );
 
         if ($brokerIdentity === null
@@ -74,7 +74,34 @@ final class PostgresTenantProvisioner
             );
         }
 
+        if ((string) $brokerIdentity->session_role_name !== (string) $brokerIdentity->role_name) {
+            DB::purge('provisioner');
+            throw new RuntimeException(
+                'Provisioner connection must authenticate directly as its effective role; role switching is not allowed.'
+            );
+        }
+
         $brokerRole = (string) $brokerIdentity->role_name;
+        $brokerPrivileges = $connection->selectOne(
+            'SELECT rolcanlogin::int AS can_login, rolsuper::int AS is_superuser,
+                    rolcreatedb::int AS can_create_database, rolcreaterole::int AS can_create_role,
+                    rolreplication::int AS can_replicate, rolbypassrls::int AS bypasses_rls
+             FROM pg_roles WHERE rolname = current_user'
+        );
+
+        if ($brokerPrivileges === null
+            || (int) $brokerPrivileges->can_login !== 1
+            || (int) $brokerPrivileges->is_superuser !== 0
+            || (int) $brokerPrivileges->can_create_database !== 1
+            || (int) $brokerPrivileges->can_create_role !== 1
+            || (int) $brokerPrivileges->can_replicate !== 0
+            || (int) $brokerPrivileges->bypasses_rls !== 0) {
+            DB::purge('provisioner');
+            throw new RuntimeException(
+                'Provisioner role must LOGIN, be a non-superuser, have CREATEDB and CREATEROLE, and have neither REPLICATION nor BYPASSRLS; refusing provisioning.'
+            );
+        }
+
         $brokerIdentifier = $this->identifier($brokerRole);
 
         // Session-level lock serializes concurrent attempts for this tenant. It is
