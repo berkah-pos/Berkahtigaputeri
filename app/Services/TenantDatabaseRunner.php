@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -70,7 +71,12 @@ final class TenantDatabaseRunner
         try {
             $password = $this->credentialResolver->resolve($tenantId, $secretReference);
         } catch (Throwable $exception) {
-            report($exception);
+            // Secret-provider exceptions can include response bodies or sensitive
+            // diagnostics. Keep logs useful without serializing the exception.
+            Log::warning('Tenant runtime credential resolution failed.', [
+                'tenant_id' => $tenantId,
+                'exception_class' => $exception::class,
+            ]);
             throw new RuntimeException(
                 'tenant_database_credentials_unavailable',
                 previous: $exception
