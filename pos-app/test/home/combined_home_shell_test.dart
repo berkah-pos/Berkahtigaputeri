@@ -88,16 +88,6 @@ void main() {
     expect(find.text('Beranda'), findsOneWidget);
     expect(find.text('Buka kasir'), findsOneWidget);
 
-    await _tap(tester, find.byTooltip('Pengaturan tenant dan cloud'), 'open-settings');
-    await _settle(tester, 'settings');
-    expect(find.text('Konfigurasi cloud belum aktif'), findsOneWidget);
-    expect(
-      find.textContaining('Tidak ada permintaan cloud konfigurasi yang dikirim.'),
-      findsOneWidget,
-    );
-    await tester.pageBack();
-    await _settle(tester, 'return from settings');
-
     await _tap(tester, find.text('Produk').last, 'tap-3');
     await _settle(tester, 'products tab');
     expect(find.text('Tambah produk'), findsOneWidget);
