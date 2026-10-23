@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/database/pos_database.dart';
+import '../../../core/sync/outbox_event_writer.dart';
 import '../../../core/time/business_date.dart';
 import '../../accounting/exceptions/accounting_exceptions.dart';
 import '../../accounting/models/coa_account.dart';
@@ -303,27 +304,90 @@ class SqliteSaleRepository implements SaleRepository {
         ),
       );
 
-      await transaction.insert(
-        'outbox_events',
-        <String, Object?>{
-          'id': 'outbox:sale:$transactionId',
-          'entity_type': 'sale',
-          'entity_id': saleId,
-          'payload': jsonEncode(
-            <String, Object?>{
-              'saleId': saleId,
-              'transactionId': transactionId,
-              'businessDate': businessDate,
-              'grandTotal': calculation.grandTotal,
-              'ppnAmount': calculation.ppnAmount,
-              'paymentMethod': request.method.name,
+      await enqueueOutboxEvent(
+        transaction,
+        eventId: 'outbox:sale:$transactionId',
+        entityType: 'sale',
+        entityId: saleId,
+        createdAtUtc: createdAtUtc,
+        eventPayload: <String, Object?>{
+          'transaction_id': transactionId,
+          'sale': <String, Object?>{
+            'id': saleId,
+            'transaction_id': transactionId,
+            'occurred_at_utc': occurredAtUtc.toIso8601String(),
+            'business_date': businessDate,
+            'timezone': request.timezone,
+            'request_fingerprint': fingerprint,
+            'payment_method': request.method.name,
+            'gross_amount': calculation.grossAmount,
+            'item_discount_amount': calculation.itemDiscountAmount,
+            'transaction_discount_amount': calculation.transactionDiscountAmount,
+            'discount_amount': calculation.discountAmount,
+            'taxable_dpp': calculation.taxableDpp,
+            'exempt_dpp': calculation.exemptDpp,
+            'dpp': calculation.dpp,
+            'ppn_amount': calculation.ppnAmount,
+            'grand_total': calculation.grandTotal,
+            'cogs_amount': totalCogs,
+          },
+          'items': List<Map<String, Object?>>.generate(
+            calculation.lines.length,
+            (index) {
+              final line = calculation.lines[index];
+              final lineId = '$saleId:item:$index';
+              final allocations = physicalAllocationsByLine[index];
+              final consumptions = costResultsByLine[index].consumptions;
+              return <String, Object?>{
+                'id': lineId,
+                'sale_id': saleId,
+                'line_no': index,
+                'product_id': line.source.productId,
+                'quantity': line.source.quantity,
+                'unit_price': line.source.unitPrice,
+                'gross_amount': line.grossAmount,
+                'item_discount_amount': line.itemDiscountAmount,
+                'transaction_discount_amount': line.transactionDiscountAmount,
+                'discount_amount': line.discountAmount,
+                'dpp': line.dpp,
+                'ppn_exempt': line.source.ppnExempt,
+                'cogs_amount': cogsByLine[index],
+                'allocations': List<Map<String, Object?>>.generate(
+                  allocations.length,
+                  (allocationIndex) => <String, Object?>{
+                    'allocation_no': allocationIndex,
+                    'lot_id': allocations[allocationIndex].lotId,
+                    'quantity': allocations[allocationIndex].quantity,
+                  },
+                ),
+                'cost_consumptions': List<Map<String, Object?>>.generate(
+                  consumptions.length,
+                  (consumptionIndex) => <String, Object?>{
+                    'consumption_no': consumptionIndex,
+                    'cost_layer_id': consumptions[consumptionIndex].costLayerId,
+                    'quantity': consumptions[consumptionIndex].quantity,
+                    'unit_cost': consumptions[consumptionIndex].unitCost,
+                    'total_cost': consumptions[consumptionIndex].totalCost,
+                  },
+                ),
+              };
             },
           ),
-          'status': 'pending',
-          'retry_count': 0,
-          'created_at_utc': createdAtUtc,
+          'journal': <String, Object?>{
+            'id': journal.id,
+            'transaction_id': transactionId,
+            'business_date': businessDate,
+            'lines': List<Map<String, Object?>>.generate(
+              journal.lines.length,
+              (index) => <String, Object?>{
+                'line_no': index,
+                'account_code': journal.lines[index].accountCode,
+                'debit': journal.lines[index].debit,
+                'credit': journal.lines[index].credit,
+              },
+            ),
+          },
         },
-        conflictAlgorithm: ConflictAlgorithm.abort,
       );
 
       return PaymentResult(

@@ -9,7 +9,7 @@ import '../database/pos_database.dart';
 /// Bounded, manually-triggered synchronization of the durable local outbox.
 /// Local records are never deleted after a server response.
 class OutboxSyncService {
-  const OutboxSyncService({
+  OutboxSyncService({
     required PosDatabase database,
     required LaravelAuthService authService,
     this.appVersion = 'unknown',
@@ -35,14 +35,10 @@ class OutboxSyncService {
 
       // Recover records left in-flight by an interrupted process. Re-delivery
       // is safe because the server binds a payload hash to the event ID.
-      await db.update(
-        'outbox_events',
-        <String, Object?>{
-          'status': 'retry',
-          'last_error': 'Recovered after interrupted synchronization.',
-          'next_retry_at_utc': now,
-        },
-        where: "status = 'in_flight'",
+      await db.rawUpdate(
+        "UPDATE outbox_events SET status = 'retry', retry_count = retry_count + 1, "
+        "last_error = ?, next_retry_at_utc = ? WHERE status = 'in_flight'",
+        <Object?>['Recovered after interrupted synchronization.', now],
       );
 
       final limit = maxEventsPerRun < 1
