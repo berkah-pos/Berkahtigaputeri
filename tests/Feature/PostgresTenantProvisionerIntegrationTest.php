@@ -79,10 +79,36 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     $existingNames = array_map(static fn (object $row): string => $row->rolname, $existingRoles);
 
                     if (in_array($ownerRole, $existingNames, true) && in_array($migratorRole, $existingNames, true)) {
-                        $central->statement('REVOKE "' . $ownerRole . '" FROM "' . $migratorRole . '"');
+                        $membership = $central->selectOne(
+                            'SELECT 1 FROM pg_auth_members m
+                             JOIN pg_roles granted ON granted.oid = m.roleid
+                             JOIN pg_roles member ON member.oid = m.member
+                             JOIN pg_roles grantor ON grantor.oid = m.grantor
+                             WHERE granted.rolname = ? AND member.rolname = ? AND grantor.rolname = ?',
+                            [$ownerRole, $migratorRole, $brokerRole]
+                        );
+                        if ($membership !== null) {
+                            $central->statement(
+                                'REVOKE "' . $ownerRole . '" FROM "' . $migratorRole
+                                . '" GRANTED BY "' . $brokerRole . '"'
+                            );
+                        }
                     }
                     if (in_array($ownerRole, $existingNames, true)) {
-                        $central->statement('REVOKE "' . $ownerRole . '" FROM "' . $brokerRole . '"');
+                        $membership = $central->selectOne(
+                            'SELECT 1 FROM pg_auth_members m
+                             JOIN pg_roles granted ON granted.oid = m.roleid
+                             JOIN pg_roles member ON member.oid = m.member
+                             JOIN pg_roles grantor ON grantor.oid = m.grantor
+                             WHERE granted.rolname = ? AND member.rolname = ? AND grantor.rolname = ?',
+                            [$ownerRole, $brokerRole, $brokerRole]
+                        );
+                        if ($membership !== null) {
+                            $central->statement(
+                                'REVOKE "' . $ownerRole . '" FROM "' . $brokerRole
+                                . '" GRANTED BY "' . $brokerRole . '"'
+                            );
+                        }
                     }
 
                     foreach ([$migratorRole, $runtimeRole, $ownerRole] as $role) {
