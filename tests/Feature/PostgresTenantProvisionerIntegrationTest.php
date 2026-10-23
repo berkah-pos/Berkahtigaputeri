@@ -234,14 +234,14 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                 $tenantId,
                 function (string $key, string $secret) use (&$storeCalls): string {
                     $storeCalls++;
-                    throw new \\RuntimeException('Credential storage must not be reached for a superuser broker.');
+                    throw new \RuntimeException('Credential storage must not be reached for a superuser broker.');
                 },
                 function (string $key) use (&$deleteCalls): void {
                     $deleteCalls++;
                 }
             );
             $this->fail('A PostgreSQL superuser must not be accepted as the provisioning broker.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $caught = $exception;
         } finally {
             config(['database.connections.provisioner' => $originalProvisionerConfig]);
