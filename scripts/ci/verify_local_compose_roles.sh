@@ -183,6 +183,9 @@ docker run --rm --network host \
   --env CENTRAL_DB_PASSWORD=postgres \
   "$CI_IMAGE" php artisan migrate --database=central --path=database/migrations/central --force >/dev/null
 
+# Re-run bootstrap after schema creation to prove grants reconcile idempotently.
+run_bootstrap "$smoke_role" "$smoke_password" >/dev/null
+
 admin_psql "$smoke_database" -c \
   "CREATE TABLE public.prompt05_compose_dml_probe (id BIGSERIAL PRIMARY KEY, value TEXT NOT NULL)" >/dev/null
 
