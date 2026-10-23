@@ -33,6 +33,9 @@ final class PostgresTenantProvisioner
     public function provision(string $tenantId, Closure $storeCredential, Closure $deleteCredential): array
     {
         $tenant = $this->normalizeTenantId($tenantId);
+        // Fail closed before touching the broker or writing credentials: only a
+        // centrally registered tenant waiting for its first provisioning may proceed.
+        $this->assertTenantIsEligibleForProvisioning($tenant);
         $database = 'berkahpos_t_' . strtolower($tenant);
         $suffix = strtolower($tenant);
         $ownerRole = 'berkah_t_' . $suffix . '_owner';
@@ -251,6 +254,27 @@ final class PostgresTenantProvisioner
         }
 
         return $tenant;
+    }
+
+    /**
+     * Provisioning eligibility is authoritative only in the central tenant registry.
+     * The broker connection is intentionally never used to establish tenant existence.
+     */
+    private function assertTenantIsEligibleForProvisioning(string $tenant): void
+    {
+        $record = DB::connection('central')
+            ->table('tenants')
+            ->select('status')
+            ->where('id', $tenant)
+            ->first();
+
+        if ($record === null) {
+            throw new RuntimeException('Tenant must exist in the central registry before provisioning.');
+        }
+
+        if (($record->status ?? null) !== 'pending') {
+            throw new RuntimeException('Only tenants with pending status may be provisioned.');
+        }
     }
 
     private function advisoryLockKey(string $tenant): int
