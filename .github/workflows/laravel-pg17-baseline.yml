@@ -85,6 +85,13 @@ jobs:
       TENANT_DB_DATABASE: berkahpos_tenant_ci
       TENANT_DB_USERNAME: postgres
       TENANT_DB_PASSWORD: postgres
+      TENANT_DB_SSLMODE: disable
+      PROVISIONER_DB_HOST: 127.0.0.1
+      PROVISIONER_DB_PORT: "5432"
+      PROVISIONER_DB_DATABASE: postgres
+      PROVISIONER_DB_USERNAME: berkahpos_provisioner_ci
+      PROVISIONER_DB_PASSWORD: provisioner-ci-only-password
+      PROVISIONER_DB_SSLMODE: disable
       APP_ENV: testing
       APP_KEY: "base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
       DB_CONNECTION: central
@@ -118,6 +125,15 @@ jobs:
           db_config = Path("config/database.php").read_text()
           assert "'default' => env('DB_CONNECTION', 'central')" in db_config
           assert "'driver' => 'pgsql'" in db_config
+          tenant_config_start = db_config.index("'tenant' => [")
+          tenant_config_end = db_config.index("\n        ],", tenant_config_start)
+          tenant_config = db_config[tenant_config_start:tenant_config_end]
+          for forbidden in ["env('CENTRAL_DB_USERNAME'", "env('CENTRAL_DB_PASSWORD'", "env('DB_USERNAME'", "env('DB_PASSWORD'"]:
+              assert forbidden not in tenant_config, f"tenant connection must not inherit central credentials: {forbidden}"
+          assert "'database' => env('PROVISIONER_DB_DATABASE', 'postgres')" in db_config
+          compose = Path("docker-compose.yml").read_text()
+          assert "TENANT_DB_USERNAME: ${CENTRAL_DB_USERNAME" not in compose
+          assert "TENANT_DB_PASSWORD: ${CENTRAL_DB_PASSWORD" not in compose
           for active_path in ["Dockerfile", ".env.example", "docker-compose.yml"]:
               active = Path(active_path).read_text().lower()
               assert "mariadb" not in active, active_path
@@ -143,6 +159,17 @@ jobs:
           docker run --rm "$CI_IMAGE" composer show --locked filament/filament
           docker run --rm "$CI_IMAGE" composer show --locked laravel/sanctum
           docker run --rm "$CI_IMAGE" composer show --locked stancl/tenancy
+
+      - name: Create restricted non-superuser provisioning role in disposable PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "CREATE ROLE berkahpos_provisioner_ci LOGIN PASSWORD 'provisioner-ci-only-password' CREATEDB CREATEROLE NOSUPERUSER NOREPLICATION NOBYPASSRLS"
+          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d berkahpos_central_ci -v ON_ERROR_STOP=1 \
+            -c "REVOKE CONNECT ON DATABASE berkahpos_central_ci FROM PUBLIC"
 
       - name: Verify Laravel boot, API routes and feature smoke tests
         shell: bash
@@ -181,7 +208,7 @@ jobs:
             --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
             --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
             --env TENANT_DB_HOST --env TENANT_DB_PORT --env TENANT_DB_DATABASE \
-            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD "$CI_IMAGE" \
+            --env TENANT_DB_USERNAME --env TENANT_DB_PASSWORD --env TENANT_DB_SSLMODE "$CI_IMAGE" \
             php artisan migrate --database=tenant --path=database/migrations/tenant --force
 
       - name: Verify central and tenant tables exist on PostgreSQL 17
@@ -194,6 +221,19 @@ jobs:
           docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
             psql -h 127.0.0.1 -U postgres -d berkahpos_tenant_ci -v ON_ERROR_STOP=1 \
             -c "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_name IN ('products','sales','sale_items','journal_entries','sync_receipts') ORDER BY table_name"
+
+      - name: Execute PostgreSQL 17 non-superuser tenant provisioning and isolation tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            --env APP_ENV --env APP_KEY --env DB_CONNECTION \
+            --env CENTRAL_DB_HOST --env CENTRAL_DB_PORT --env CENTRAL_DB_DATABASE \
+            --env CENTRAL_DB_USERNAME --env CENTRAL_DB_PASSWORD \
+            --env PROVISIONER_DB_HOST --env PROVISIONER_DB_PORT --env PROVISIONER_DB_DATABASE \
+            --env PROVISIONER_DB_USERNAME --env PROVISIONER_DB_PASSWORD --env PROVISIONER_DB_SSLMODE \
+            --env RUN_POSTGRES_TENANT_PROVISIONER_INTEGRATION=1 \
+            "$CI_IMAGE" php artisan test --filter=PostgresTenantProvisionerIntegrationTest
 
       - name: Build production image from the committed lock
         run: docker build --pull --target production --tag "$PROD_IMAGE" .
