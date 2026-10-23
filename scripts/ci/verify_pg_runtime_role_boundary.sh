@@ -54,12 +54,23 @@ assert_no_schema_create() {
     "SELECT has_schema_privilege(current_user, 'public', 'USAGE')::int || '|' || has_schema_privilege(current_user, 'public', 'CREATE')::int")"
   [[ "$schema_flags" == "1|0" ]] || die "$username must have public-schema USAGE but not CREATE; observed flags=$schema_flags"
 
+  local database_create
+  database_create="$(runtime_psql "$username" "$password" "$database" -At -c \
+    "SELECT has_database_privilege(current_user, current_database(), 'CREATE')::int")"
+  [[ "$database_create" == "0" ]] || die "$username must not have database CREATE privilege on $database"
+
+  if runtime_psql "$username" "$password" "$database" -c \
+    'CREATE SCHEMA prompt05_runtime_schema_probe' >/dev/null 2>&1; then
+    admin_psql "$database" -c 'DROP SCHEMA IF EXISTS prompt05_runtime_schema_probe CASCADE' >/dev/null
+    die "$username unexpectedly created a schema in $database"
+  fi
+
   if runtime_psql "$username" "$password" "$database" -c \
     'CREATE TABLE public.prompt05_runtime_ddl_probe (id integer)' >/dev/null 2>&1; then
     admin_psql "$database" -c 'DROP TABLE IF EXISTS public.prompt05_runtime_ddl_probe' >/dev/null
     die "$username unexpectedly created a table in $database"
   fi
-  printf 'PASS: runtime DDL denied for %s on %s\n' "$username" "$database"
+  printf 'PASS: runtime database/schema/table DDL denied for %s on %s\n' "$username" "$database"
 }
 
 assert_table_dml() {
