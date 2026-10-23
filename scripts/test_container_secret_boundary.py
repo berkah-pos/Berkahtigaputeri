@@ -143,7 +143,8 @@ def main() -> int:
         return fail("Provisioner must not use host networking.")
     if bool(provisioner.get("privileged", False)):
         return fail("Provisioner container must not run in privileged mode.")
-    command_text = " ".join(str(part) for part in (provisioner.get("command") or []))
+    raw_command = provisioner.get("command") or []
+    command_text = raw_command if isinstance(raw_command, str) else " ".join(str(part) for part in raw_command)
     if "tenants:provision-database" not in command_text:
         return fail("Provisioner service must run the tenant database provisioning command.")
 
@@ -152,7 +153,10 @@ def main() -> int:
 
     report = {
         "schema_version": 1,
-        "scope": "resolved Docker Compose environment-variable names; never values",
+        "scope": (
+            "resolved Compose environment-variable names and worker exposure only; "
+            "never credential values or PostgreSQL role attributes/privileges"
+        ),
         "checks": {
             "app_has_no_elevated_environment_names": not any(
                 has_elevated_name(name) for name in environment_names(app)
@@ -167,7 +171,8 @@ def main() -> int:
         "services": service_report,
         "note": (
             "This verifies repository Compose configuration only. It does not establish "
-            "that the live Coolify deployment has the same service environment or networking."
+            "that the live Coolify deployment has the same service environment or networking, "
+            "and it does not prove the PostgreSQL privileges of configured DB identities."
         ),
     }
 
