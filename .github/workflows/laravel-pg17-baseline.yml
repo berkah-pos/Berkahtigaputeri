@@ -18,6 +18,8 @@ on:
       - ".gitignore"
       - ".env.example"
       - "docker-compose.yml"
+      - "docker-compose.provisioner.yml"
+      - "scripts/test_container_secret_boundary.py"
       - "docker/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
@@ -40,6 +42,8 @@ on:
       - ".gitignore"
       - ".env.example"
       - "docker-compose.yml"
+      - "docker-compose.provisioner.yml"
+      - "scripts/test_container_secret_boundary.py"
       - "docker/**"
       - "phpunit.xml"
       - ".github/workflows/laravel-pg17-baseline.yml"
@@ -142,6 +146,27 @@ jobs:
               assert "SUPABASE_" not in Path(active_path).read_text(), active_path
           print("PHP/Laravel/Filament/Sanctum/tenancy constraints and PostgreSQL-only active runtime contract: PASS")
           PY
+
+      - name: Verify isolated provisioning worker credential boundary
+        shell: bash
+        env:
+          OPENBAO_ADDR: https://openbao.ci.internal
+          OPENBAO_PROVISIONER_TOKEN: synthetic-provisioner-token
+          PROVISIONER_DB_USERNAME: berkahpos_provisioner_ci
+          PROVISIONER_DB_PASSWORD: synthetic-provisioner-password
+          TENANT_ULID: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+        run: |
+          set -euo pipefail
+          python3 scripts/test_container_secret_boundary.py \
+            --report build/security/container-environment-boundary.json
+
+      - name: Upload redacted container credential-boundary report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: container-environment-boundary-${{ github.sha }}
+          path: build/security/container-environment-boundary.json
+          if-no-files-found: warn
 
       - name: Build PHP 8.4 CI image and install locked dependencies cleanly
         run: docker build --pull --target development --tag "$CI_IMAGE" .
