@@ -228,14 +228,14 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                 $tenantId,
                 function (string $key, string $password) use (&$storeCalls): string {
                     $storeCalls++;
-                    throw new \\RuntimeException('Credential storage must not be reached.');
+                    throw new \RuntimeException('Credential storage must not be reached.');
                 },
                 function (string $key) use (&$deleteCalls): void {
                     $deleteCalls++;
                 }
             );
             $this->fail('A broker URL resolving to the central database/role must be rejected.');
-        } catch (\\RuntimeException $exception) {
+        } catch (\RuntimeException $exception) {
             $caught = $exception;
         } finally {
             config(['database.connections.provisioner' => $originalProvisionerConfig]);
