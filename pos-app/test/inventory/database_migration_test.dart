@@ -117,4 +117,101 @@ void main() {
     expect(await migrated.database.query('legacy_import_runs'), isEmpty);
     expect(await migrated.database.query('legacy_sales_archive'), isEmpty);
   });
+
+
+  test('schema v3 upgrades an existing outbox without losing queued events',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkahtigaputeri-outbox-v3-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final path = p.join(directory.path, 'legacy-v3.db');
+    final versionThree = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: (database, version) async {
+          // Version 3's original durable outbox did not yet have the v4
+          // error/retry scheduling and server acknowledgement columns.
+          await database.execute('''
+            CREATE TABLE outbox_events (
+              id TEXT PRIMARY KEY,
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              status TEXT NOT NULL,
+              retry_count INTEGER NOT NULL DEFAULT 0,
+              created_at_utc TEXT NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+
+    await versionThree.insert('outbox_events', <String, Object?>{
+      'id': 'outbox:product:P-V3',
+      'entity_type': 'product',
+      'entity_id': 'P-V3',
+      'payload': '{"product":{"id":"P-V3"}}',
+      'status': 'retry',
+      'retry_count': 3,
+      'created_at_utc': '2026-10-20T10:00:00.000Z',
+    });
+    await versionThree.close();
+
+    final migrated = await PosDatabase.openAt(
+      path,
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(migrated.close);
+
+    final version = await migrated.database.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], PosDatabase.schemaVersion);
+
+    final rows = await migrated.database.query('outbox_events');
+    expect(rows, hasLength(1));
+    final row = rows.single;
+    expect(row['id'], 'outbox:product:P-V3');
+    expect(row['entity_type'], 'product');
+    expect(row['entity_id'], 'P-V3');
+    expect(row['payload'], '{"product":{"id":"P-V3"}}');
+    expect(row['status'], 'retry');
+    expect(row['retry_count'], 3);
+    expect(row['created_at_utc'], '2026-10-20T10:00:00.000Z');
+    expect(row['last_error'], isNull);
+    expect(row['next_retry_at_utc'], isNull);
+    expect(row['acked_at_utc'], isNull);
+    expect(row['server_receipt_id'], isNull);
+
+    final columns = (await migrated.database.rawQuery(
+      'PRAGMA table_info(outbox_events)',
+    ))
+        .map((column) => column['name'] as String)
+        .toSet();
+    expect(
+      columns,
+      containsAll(<String>{
+        'id',
+        'entity_type',
+        'entity_id',
+        'payload',
+        'status',
+        'retry_count',
+        'created_at_utc',
+        'last_error',
+        'next_retry_at_utc',
+        'acked_at_utc',
+        'server_receipt_id',
+      }),
+    );
+
+    final indexes = (await migrated.database.rawQuery(
+      "PRAGMA index_list('outbox_events')",
+    ))
+        .map((index) => index['name'] as String)
+        .toSet();
+    expect(indexes, contains('idx_outbox_status'));
+    expect(indexes, contains('idx_outbox_retry'));
+  });
 }
