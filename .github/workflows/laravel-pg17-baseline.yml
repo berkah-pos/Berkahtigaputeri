@@ -327,6 +327,10 @@ jobs:
         shell: bash
         run: bash scripts/ci/verify_pg_runtime_role_boundary.sh
 
+      - name: Verify local Compose bootstrap/runtime separation against PostgreSQL 17
+        shell: bash
+        run: bash scripts/ci/verify_local_compose_roles.sh
+
       - name: Run Laravel feature and PostgreSQL schema-integrity tests on migrated PostgreSQL 17 schemas
         shell: bash
         run: |
