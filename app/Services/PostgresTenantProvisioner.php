@@ -196,7 +196,7 @@ final class PostgresTenantProvisioner
             );
             $target->statement(
                 'ALTER DEFAULT PRIVILEGES FOR ROLE ' . $this->identifier($ownerRole)
-                . ' IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO '
+                . ' IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO '
                 . $this->identifier($runtimeRole)
             );
 
@@ -208,7 +208,7 @@ final class PostgresTenantProvisioner
             );
             $target->statement(
                 'ALTER DEFAULT PRIVILEGES FOR ROLE ' . $this->identifier($migratorRole)
-                . ' IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO '
+                . ' IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO '
                 . $this->identifier($runtimeRole)
             );
 
