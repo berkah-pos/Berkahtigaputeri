@@ -30,9 +30,15 @@ class PostgresTenantProvisionerPolicyTest extends TestCase
             '01ARZ3NDEKTSV4RRFFQ69G5FAV-extra',
         ] as $invalid) {
             try {
-                $provisioner->provision($invalid, function (): string {
-                    $this->fail('Credential storage must not run for an invalid tenant ID.');
-                });
+                $provisioner->provision(
+                    $invalid,
+                    function (): string {
+                        $this->fail('Credential storage must not run for an invalid tenant ID.');
+                    },
+                    function (): void {
+                        $this->fail('Credential cleanup must not run for an invalid tenant ID.');
+                    }
+                );
                 $this->fail('Expected invalid tenant ID to be rejected.');
             } catch (RuntimeException $exception) {
                 $this->assertSame('Tenant ID must be a canonical ULID.', $exception->getMessage());
@@ -60,7 +66,8 @@ class PostgresTenantProvisionerPolicyTest extends TestCase
                     $stored = true;
 
                     return 'test-secret-reference';
-                }
+                },
+                static function (string $key): void {}
             );
             $this->fail('Expected shared broker/runtime credentials to be rejected.');
         } catch (RuntimeException $exception) {
