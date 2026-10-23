@@ -78,13 +78,13 @@ jobs:
       CENTRAL_DB_HOST: 127.0.0.1
       CENTRAL_DB_PORT: "5432"
       CENTRAL_DB_DATABASE: berkahpos_central_ci
-      CENTRAL_DB_USERNAME: postgres
-      CENTRAL_DB_PASSWORD: postgres
+      CENTRAL_DB_USERNAME: berkahpos_central_runtime_ci
+      CENTRAL_DB_PASSWORD: central-runtime-ci-only-password
       TENANT_DB_HOST: 127.0.0.1
       TENANT_DB_PORT: "5432"
       TENANT_DB_DATABASE: berkahpos_tenant_ci
-      TENANT_DB_USERNAME: postgres
-      TENANT_DB_PASSWORD: postgres
+      TENANT_DB_USERNAME: berkahpos_tenant_runtime_ci
+      TENANT_DB_PASSWORD: tenant-runtime-ci-only-password
       TENANT_DB_SSLMODE: disable
       PROVISIONER_DB_HOST: 127.0.0.1
       PROVISIONER_DB_PORT: "5432"
