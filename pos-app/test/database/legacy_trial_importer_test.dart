@@ -132,4 +132,104 @@ void main() {
     expect(await target.database.query('legacy_sales_archive'), hasLength(1));
     expect(await target.database.query('products'), hasLength(1));
   });
+
+  test('rejects fractional legacy amounts without rounding or partial import',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-fractional-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final productId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Trial',
+      'sku': 'TRIAL-01',
+      'price': 25000.0,
+      'stock': 5,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 50000.5,
+      'item_count': 2,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': productId,
+      'name': 'Produk Trial',
+      'qty': 2,
+      'price': 25000.0,
+      'subtotal': 50000.0,
+    });
+    await oldDb.close();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+
+    // Validation runs inside one target transaction; no product, archive row,
+    // or completion marker is left behind after a malformed amount.
+    expect(await target.database.query('products'), isEmpty);
+    expect(await target.database.query('legacy_product_stock_archive'), isEmpty);
+    expect(await target.database.query('legacy_sales_archive'), isEmpty);
+    expect(await target.database.query('legacy_sale_items_archive'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), isEmpty);
+
+    // The old database remains available with the exact original amount.
+    expect(await File(legacyPath).exists(), isTrue);
+    final source = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(version: 1, singleInstance: false),
+    );
+    expect((await source.query('sales')).single['total'], 50000.5);
+    await source.close();
+  });
 }
