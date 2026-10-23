@@ -40,12 +40,18 @@ class EffectiveConfigApiTest extends TestCase
         $deviceId = hash('sha256', 'device:' . (string) Str::uuid());
         $deviceSecret = hash('sha256', 'device-secret:' . (string) Str::uuid());
 
-        $this->tenant = Tenant::query()->create([
+        // Write fixture metadata directly to the central connection: creating a
+        // Stancl tenant model fires tenant-database lifecycle hooks, which this
+        // config-API test must not use to provision tenant databases.
+        DB::connection('central')->table('tenants')->insert([
             'id' => $tenantId,
             'template_id' => 'BASIC',
             'status' => 'active',
-            'data' => ['test_fixture' => true],
+            'data' => json_encode(['name' => $tenantId, 'test_fixture' => true], JSON_THROW_ON_ERROR),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
+        $this->tenant = Tenant::query()->findOrFail($tenantId);
 
         $this->user = User::query()->create([
             'name' => 'API contract test',
