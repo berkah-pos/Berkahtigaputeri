@@ -95,6 +95,59 @@ void main() {
     expect(row['next_retry_at_utc'], isNull);
   });
 
+  test('authentication or entitlement failure keeps the event retryable', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+    final vault = _MemoryVault()..values['berkah.auth.laravel.access_token'] = 'test-bearer';
+    final client = MockClient((request) async => Response(
+          jsonEncode(<String, Object?>{
+            'error': <String, Object?>{
+              'code': 'tenant_not_entitled',
+              'message': 'Subscription is not entitled.',
+            },
+          }),
+          403,
+          headers: <String, String>{'content-type': 'application/json'},
+        ));
+    addTearDown(client.close);
+    final auth = LaravelAuthService(
+      baseUrl: 'https://api.example.test',
+      vault: vault,
+      client: client,
+    );
+
+    await database.transaction<void>((transaction) async {
+      await enqueueOutboxEvent(
+        transaction,
+        entityType: 'product',
+        entityId: 'P-AUTH-RETRY',
+        createdAtUtc: DateTime.now().toUtc().toIso8601String(),
+        eventPayload: <String, Object?>{
+          'product': <String, Object?>{
+            'id': 'P-AUTH-RETRY',
+            'sku': 'SKU-AUTH-RETRY',
+            'name_id': 'Entitlement retry test',
+            'price': 5000,
+            'ppn_exempt': false,
+          },
+        },
+      );
+    });
+
+    final report = await OutboxSyncService(
+      database: database,
+      authService: auth,
+    ).syncPending();
+
+    final row = (await database.database.query('outbox_events')).single;
+    expect(report.retryScheduled, 1);
+    expect(report.attentionRequired, 0);
+    expect(row['status'], 'retry');
+    expect(row['retry_count'], 1);
+    expect(row['next_retry_at_utc'], isNotNull);
+    expect(row['acked_at_utc'], isNull);
+  });
+
   test('transient server failure retains the event and schedules retry', () async {
     final database = await openTestDatabase();
     addTearDown(database.close);

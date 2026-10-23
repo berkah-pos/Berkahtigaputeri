@@ -174,9 +174,10 @@ class OutboxSyncService {
             retryScheduled++;
           }
         } on AuthFailure catch (failure) {
-          final terminal = failure.statusCode == 401 ||
-              failure.statusCode == 403 ||
-              failure.statusCode == 409 ||
+          // Authentication/device/subscription state can be repaired without
+          // changing the event. Keep the durable event retryable after re-login
+          // or re-authorization; only event-level HTTP conflicts are terminal.
+          final terminal = failure.statusCode == 409 ||
               failure.statusCode == 413 ||
               failure.statusCode == 422;
           if (terminal) {
