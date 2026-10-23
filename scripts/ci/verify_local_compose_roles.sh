@@ -72,7 +72,7 @@ trap cleanup EXIT
 
 # Parse the actual Compose model, not raw YAML, so invalid interpolation and
 # unsupported Compose fields fail the check before the SQL integration test.
-docker compose config --format json > "$compose_json"
+docker compose --profile tools config --format json > "$compose_json"
 python3 - "$compose_json" <<'PY'
 import json
 import sys
@@ -95,11 +95,19 @@ assert pg_env["POSTGRES_PASSWORD"], "PostgreSQL bootstrap password is missing"
 assert app_env["CENTRAL_DB_USERNAME"] != pg_env["POSTGRES_USER"], (
     "web app must use a different role from the PostgreSQL bootstrap account"
 )
+assert app_env["CENTRAL_DB_USERNAME"] == bootstrap_env["LOCAL_CENTRAL_RUNTIME_ROLE"], (
+    "bootstrap role and app runtime role do not match"
+)
+assert app_env["CENTRAL_DB_PASSWORD"] == bootstrap_env["LOCAL_CENTRAL_RUNTIME_PASSWORD"], (
+    "bootstrap runtime password and app runtime password do not match"
+)
 assert app_env["CENTRAL_DB_PASSWORD"] != pg_env["POSTGRES_PASSWORD"], (
     "web app runtime password must differ from the bootstrap password"
 )
+forbidden_prefixes = ("POSTGRES_BOOTSTRAP_", "PROVISIONER_", "MIGRATOR_", "LOCAL_CENTRAL_RUNTIME_")
+forbidden_names = {"PGUSER", "PGPASSWORD"}
 for key in app_env:
-    assert not key.startswith(("POSTGRES_BOOTSTRAP_", "PROVISIONER_", "MIGRATOR_")), (
+    assert key not in forbidden_names and not key.startswith(forbidden_prefixes), (
         f"privileged credential family leaked into app environment: {key}"
     )
 assert app_env["CENTRAL_DB_USERNAME"] != "postgres", (
@@ -133,6 +141,9 @@ assert migrate.get("restart") == "no"
 for service_name, expected_port in (("postgres", "5432"), ("app", "8000")):
     ports = services[service_name].get("ports", [])
     assert ports, f"{service_name} must declare its intended local port binding"
+    assert any(str(p.get("target")) == expected_port for p in ports), (
+        f"{service_name} is missing its expected container port {expected_port}"
+    )
     assert all(p.get("host_ip") == "127.0.0.1" for p in ports), (
         f"{service_name} port must bind loopback only"
     )
