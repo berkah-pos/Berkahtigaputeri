@@ -391,13 +391,31 @@ class LaravelAuthService {
   }
 
   Future<void> logout() async {
-    final token = await _vault.read(_tokenKey);
+    String? token;
     try {
-      if (isConfigured && token != null && token.isNotEmpty) {
+      token = await _vault.read(_tokenKey);
+    } catch (_) {
+      // Continue to local deletion even when the secure-storage read fails.
+    }
+
+    // Server revocation is best-effort during logout. An offline API must not
+    // prevent local logout once the bearer credential has been deleted.
+    if (isConfigured && token != null && token.isNotEmpty) {
+      try {
         await _request('POST', 'auth/logout', token: token);
+      } catch (_) {
+        // The local credential is the immediate client-side access boundary.
       }
-    } finally {
+    }
+
+    try {
       await _vault.delete(_tokenKey);
+    } catch (_) {
+      throw const AuthFailure(
+        message: 'Sesi lokal belum dapat dihapus dari penyimpanan aman. '
+            'Akses cloud tetap dikunci; coba bersihkan sesi lagi.',
+        code: 'local_session_cleanup_failed',
+      );
     }
   }
 

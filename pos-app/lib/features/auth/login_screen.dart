@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/laravel_auth_service.dart';
+import '../../core/auth/auth_failure_message.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -10,6 +11,8 @@ class LoginScreen extends StatefulWidget {
     required this.onAuthenticated,
     required this.onContinueLocal,
     this.initialDeviceStatus,
+    this.initialRestoreMessage,
+    this.sessionCleanupPending = false,
     this.onSignOut,
   });
 
@@ -18,6 +21,8 @@ class LoginScreen extends StatefulWidget {
   final Future<void> Function(AuthSession session) onAuthenticated;
   final VoidCallback onContinueLocal;
   final String? initialDeviceStatus;
+  final String? initialRestoreMessage;
+  final bool sessionCleanupPending;
   final Future<void> Function()? onSignOut;
 
   @override
@@ -69,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _error = failure.message;
+        _error = safeAuthFailureMessage(failure);
         if (failure.code == 'tenant_selection_required') {
           _tenantChoices = failure.memberships;
           if (_tenantId != null &&
@@ -89,12 +94,19 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signOutPending() async {
     if (_loading || widget.onSignOut == null) return;
     setState(() => _loading = true);
+    var completed = false;
     try {
       await widget.onSignOut!();
+      completed = true;
     } catch (_) {
-      // Local credential cleanup is owned by the auth service.
+      // Keep the pending state visible so cleanup can be retried.
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          if (completed) _pendingMessage = null;
+        });
+      }
     }
   }
 
@@ -116,7 +128,43 @@ class _LoginScreenState extends State<LoginScreen> {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 12),
-            if (!configured) ...<Widget>[
+            if (widget.initialRestoreMessage != null) ...<Widget>[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(widget.initialRestoreMessage!),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            if (widget.sessionCleanupPending) ...<Widget>[
+              const Text(
+                'Sesi cloud belum dapat dibersihkan. Akses cloud dinonaktifkan '
+                'sampai penghapusan sesi lokal berhasil dikonfirmasi.',
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _loading || widget.onSignOut == null
+                    ? null
+                    : _signOutPending,
+                icon: _loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.lock_reset),
+                label: Text(_loading
+                    ? 'Membersihkan sesi...'
+                    : 'Coba bersihkan sesi cloud lagi'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: widget.onContinueLocal,
+                icon: const Icon(Icons.point_of_sale),
+                label: const Text('Lanjutkan sebagai kasir lokal'),
+              ),
+            ] else if (!configured) ...<Widget>[
               const Text('Mode cloud belum tersedia pada build ini'),
               const SizedBox(height: 8),
               Text(widget.authService.configurationMessage ?? ''),

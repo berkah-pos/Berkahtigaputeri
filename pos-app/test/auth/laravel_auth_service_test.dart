@@ -23,6 +23,29 @@ class MemoryVault implements SecureVault {
   }
 }
 
+class _LogoutFailureVault implements SecureVault {
+  _LogoutFailureVault({this.failRead = false, this.failDelete = false});
+
+  final bool failRead;
+  final bool failDelete;
+  bool deleteCalled = false;
+
+  @override
+  Future<String?> read(String key) async {
+    if (failRead) throw StateError('simulated secure storage read failure');
+    return null;
+  }
+
+  @override
+  Future<void> write(String key, String value) async {}
+
+  @override
+  Future<void> delete(String key) async {
+    deleteCalled = true;
+    if (failDelete) throw StateError('simulated secure storage delete failure');
+  }
+}
+
 void main() {
   const deviceId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -90,6 +113,38 @@ void main() {
     expect(session.deviceIsActive, isFalse);
     expect(await vault.read('berkah.auth.laravel.access_token'), '1|opaque-token');
     expect(await vault.read('berkah.device.secret.$deviceId'), matches(RegExp(r'^[a-f0-9]{64}$')));
+  });
+
+  test('logout still attempts local token deletion when secure read throws', () async {
+    final vault = _LogoutFailureVault(failRead: true);
+    final service = LaravelAuthService(
+      baseUrl: '',
+      vault: vault,
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+
+    await service.logout();
+
+    expect(vault.deleteCalled, isTrue);
+  });
+
+  test('logout reports local token deletion failure so the app can lock cloud access', () async {
+    final vault = _LogoutFailureVault(failRead: true, failDelete: true);
+    final service = LaravelAuthService(
+      baseUrl: '',
+      vault: vault,
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+
+    await expectLater(
+      service.logout(),
+      throwsA(isA<AuthFailure>().having(
+        (failure) => failure.code,
+        'code',
+        'local_session_cleanup_failed',
+      )),
+    );
+    expect(vault.deleteCalled, isTrue);
   });
 
   test('restore rejects a revoked session and clears the local bearer token', () async {

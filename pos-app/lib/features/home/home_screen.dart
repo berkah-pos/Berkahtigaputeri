@@ -3,8 +3,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/auth/laravel_auth_service.dart';
 import '../../core/config/app_identity_store.dart';
+import '../../core/config/config_failure_message.dart';
 import '../../core/database/pos_database.dart';
 import '../../core/sync/outbox_sync_service.dart';
+import '../../core/sync/sync_failure_message.dart';
 import '../inventory/inventory_screen.dart';
 import '../pos/checkout/payment_service.dart';
 import '../pos/checkout/sqlite_sale_repository.dart';
@@ -83,8 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _syncMessage = report.summary);
     } catch (error) {
       if (mounted) {
-        setState(() => _syncMessage =
-            'Sinkronisasi belum berhasil. Data tetap tersimpan lokal. ' + error.toString());
+        setState(() => _syncMessage = safeSyncFailureMessage(error));
       }
     } finally {
       if (mounted) {
@@ -575,7 +576,7 @@ class _ConfigurationScreenState extends State<_ConfigurationScreen> {
       if (!mounted) return;
       setState(() {
         _cloudConfiguration = null;
-        _configError = '${failure.code}: ${failure.message}';
+        _configError = safeConfigFailureMessage(failure);
       });
     } catch (_) {
       if (!mounted) return;

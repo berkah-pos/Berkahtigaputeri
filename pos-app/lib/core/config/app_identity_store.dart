@@ -8,6 +8,7 @@ class AppIdentityStore {
 
   static const String _tenantKey = 'p6.tenant_id';
   static const String _deviceKey = 'p6.device_id';
+  static const String _sessionCleanupPendingKey = 'p6.session_cleanup_pending';
 
   final SharedPreferences _preferences;
 
@@ -18,6 +19,14 @@ class AppIdentityStore {
 
   String get deviceId =>
       _preferences.getString(_deviceKey) ?? defaultDeviceId;
+
+  /// A durable fail-closed latch used when local logout cannot confirm token deletion.
+  bool get sessionCleanupPending =>
+      _preferences.getBool(_sessionCleanupPendingKey) ?? false;
+
+  Future<void> setSessionCleanupPending(bool pending) async {
+    await _preferences.setBool(_sessionCleanupPendingKey, pending);
+  }
 
   /// Creates a per-install identifier accepted by the Laravel identity API.
   /// The identifier is not authentication; the server still verifies the
