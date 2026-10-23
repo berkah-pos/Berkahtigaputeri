@@ -19,7 +19,7 @@ void main() {
   });
 
   test('retains a previously valid device ID', () async {
-    const existing = 'a' * 64;
+    final existing = List<String>.filled(64, 'a').join();
     SharedPreferences.setMockInitialValues(<String, Object>{'p6.device_id': existing});
     final preferences = await SharedPreferences.getInstance();
     final store = AppIdentityStore(preferences);
