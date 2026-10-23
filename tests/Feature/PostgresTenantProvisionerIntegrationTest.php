@@ -796,7 +796,8 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
 
         /** @var array<string, string> $vaultSecrets */
         $vaultSecrets = [];
-        Http::fake(function (HttpRequest $request) use (&$vaultSecrets) {
+        $storedMigratorPassword = null;
+        Http::fake(function (HttpRequest $request) use (&$vaultSecrets, &$storedMigratorPassword) {
             $path = (string) parse_url($request->url(), PHP_URL_PATH);
 
             if ($request->method() === 'POST' && str_starts_with($path, '/v1/secret/data/tenant/')) {
@@ -805,6 +806,9 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     return Http::response(['errors' => ['invalid synthetic test payload']], 400);
                 }
                 $vaultSecrets[$path] = $password;
+                if (str_ends_with($path, '/migrator')) {
+                    $storedMigratorPassword = $password;
+                }
 
                 return Http::response(['data' => ['version' => 1]], 200);
             }
@@ -826,7 +830,10 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $output = Artisan::output();
 
         $this->assertSame(0, $exitCode, 'Provision command failed: '.$output);
-        $this->assertCount(2, $vaultSecrets, 'Runtime and migrator passwords must be persisted in OpenBao.');
+        $this->assertCount(1, $vaultSecrets, 'Only the runtime credential should remain in OpenBao after activation.');
+        $this->assertArrayHasKey('/v1/secret/data/tenant/'.$tenantId.'/runtime', $vaultSecrets);
+        $this->assertArrayNotHasKey('/v1/secret/data/tenant/'.$tenantId.'/migrator', $vaultSecrets);
+        $this->assertIsString($storedMigratorPassword, 'The temporary migrator password must have existed during migration.');
         $registry = DB::connection('central')->table('tenant_database_registry')
             ->where('tenant_id', $tenantId)
             ->first();
@@ -838,6 +845,39 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             'openbao:kv-v2:secret/tenant/'.$tenantId.'/runtime',
             $registry->runtime_secret_ref
         );
+
+        $migratorRole = 'berkah_t_'.strtolower($tenantId).'_migrator';
+        $ownerRole = 'berkah_t_'.strtolower($tenantId).'_owner';
+        $migratorState = DB::connection('central')->selectOne(
+            'SELECT rolcanlogin::int AS rolcanlogin FROM pg_roles WHERE rolname = ?',
+            [$migratorRole]
+        );
+        $this->assertNotNull($migratorState);
+        $this->assertSame(0, (int) $migratorState->rolcanlogin, 'The tenant migrator must be NOLOGIN after successful migrations.');
+        $this->assertFalse((bool) DB::connection('central')->scalar(
+            'SELECT EXISTS (
+                SELECT 1 FROM pg_auth_members
+                WHERE roleid = (SELECT oid FROM pg_roles WHERE rolname = ?)
+                  AND member = (SELECT oid FROM pg_roles WHERE rolname = ?)
+            )::int',
+            [$ownerRole, $migratorRole]
+        ), 'The temporary migrator must not retain membership in the no-login owner role.');
+
+        $migratorConnectionName = 'provisioner_migrator_retired_'.strtolower($tenantId);
+        $migratorConnection = $this->connectionAs(
+            $migratorConnectionName,
+            'berkahpos_t_'.strtolower($tenantId),
+            $migratorRole,
+            (string) $storedMigratorPassword
+        );
+        try {
+            $migratorConnection->getPdo();
+            $this->fail('A retired tenant migrator must reject its old password.');
+        } catch (PDOException $exception) {
+            $this->assertStringContainsString('not permitted to log in', strtolower($exception->getMessage()));
+        } finally {
+            DB::purge($migratorConnectionName);
+        }
 
         $runtimePassword = $vaultSecrets['/v1/secret/data/tenant/'.$tenantId.'/runtime'];
         $this->assertSame(
@@ -871,6 +911,12 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             $request->method() === 'GET'
             && str_ends_with($request->url(), '/v1/secret/data/tenant/'.$tenantId.'/runtime')
             && $request->header('X-Vault-Token') === ['synthetic-runtime-token']
+        );
+
+        Http::assertSent(static fn (HttpRequest $request): bool =>
+            $request->method() === 'DELETE'
+            && str_ends_with($request->url(), '/v1/secret/metadata/tenant/'.$tenantId.'/migrator')
+            && $request->header('X-Vault-Token') === ['synthetic-provisioner-token']
         );
     }
 
