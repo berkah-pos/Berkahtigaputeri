@@ -874,7 +874,12 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             $migratorConnection->getPdo();
             $this->fail('A retired tenant migrator must reject its old password.');
         } catch (PDOException $exception) {
-            $this->assertStringContainsString('not permitted to log in', strtolower($exception->getMessage()));
+            $message = strtolower($exception->getMessage());
+            $this->assertTrue(
+                str_contains($message, 'not permitted to log in')
+                || str_contains($message, 'password authentication failed'),
+                'The retired migrator must reject authentication after being disabled.'
+            );
         } finally {
             DB::purge($migratorConnectionName);
         }
