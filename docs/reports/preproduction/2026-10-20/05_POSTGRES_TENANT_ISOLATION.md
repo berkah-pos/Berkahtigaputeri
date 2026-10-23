@@ -1,24 +1,26 @@
 # Prompt 05 — PostgreSQL Tenant Provisioning, Roles, Grants & Isolation
 
 **Execution date:** 2026-10-23  
-**Report status:** PARTIAL — cases P05-01, P05-02 and P05-03 are implemented and CI-verified; the full Prompt 05 release gate remains OPEN.  
+**Report status:** PARTIAL — cases P05-01, P05-02, P05-03 and repository-managed case P05-04A are implemented and CI-verified; live Coolify privilege separation and the full Prompt 05 release gate remain OPEN.  
 **Repository:** `berkah-pos/Berkahtigaputeri`  
 **Base:** `main` at `8dc29d9ee909ab71645b1d6cbff1281d426c103f`  
 **Case P05-01 PR:** [#134 — gate tenant provisioning on central pending status](https://github.com/berkah-pos/Berkahtigaputeri/pull/134), verified on `7da149ecb0567662b242854fe5887feb3a1bf38c`.  
 **Case P05-02 PR:** [#135 — validate effective PostgreSQL connection identity](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), verified on `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.  
 **Case P05-03 PR:** [#136 — reject superuser provisioning broker identities](https://github.com/berkah-pos/Berkahtigaputeri/pull/136), verified on `28c681c3627459d3d3342244f10a8735dd261c62`.  
-**Current follow-up branch:** `fix/p05-enforce-non-superuser-broker-2026-10-23`  
-**CI evidence:** [run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882), [run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759), and [run #980](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39928524367) — all **SUCCESS** (24 successful steps, zero failed steps each).
+**Case P05-04A PR:** [#137 — guard web runtime from privileged provisioning credentials](https://github.com/berkah-pos/Berkahtigaputeri/pull/137), code/CI verified on `79d2aaae597daca5c378e080fd0f65a1025b2a5e`.  
+**Current follow-up branch:** `fix/p05-web-container-privilege-env-guard-2026-10-23`  
+**CI evidence:** [run #970](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39926787882), [run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759), [run #980](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39928524367), and [run #983](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39929444734) — all **SUCCESS** (24, 24, 24, and 25 successful steps respectively; zero failures).
 
 ## Executive result
 
-Three concrete provisioning boundary cases have been implemented and verified in the dedicated PostgreSQL 17 CI workflow:
+Four repository-side security checks have been implemented and verified in CI using a disposable PostgreSQL 17 service:
 
-1. A central tenant registry row with `status = 'pending'` is required before the broker connection or credential callbacks.
-2. Effective PostgreSQL identity is checked through live `current_database()` and `current_user` values, so URL-resolved connection details cannot silently overlap the central DB/role.
-3. The broker must authenticate directly as its effective role and that role must be a non-superuser with the provisioning capabilities `LOGIN`, `CREATEDB`, and `CREATEROLE`; replication and RLS-bypass attributes are rejected.
+1. A central tenant row with `status = 'pending'` is required before broker connection or credential callbacks.
+2. Effective PostgreSQL identity is checked using live `current_database()` and `current_user`, preventing a URL-resolved broker from overlapping the central DB/role.
+3. Broker role attributes are checked in PostgreSQL itself: it must authenticate directly, be a non-superuser, have `LOGIN`, `CREATEDB`, `CREATEROLE`, and have neither `REPLICATION` nor `BYPASSRLS`.
+4. CI audits the rendered repository-managed Compose runtime environment and the actual production smoke container, rejecting `PROVISIONER_*`/`MIGRATOR_*` variable names on web/ordinary-worker services and bulk `env_file` injection.
 
-These are code-level defenses with real disposable PostgreSQL 17 regression coverage. This does **not** certify all Prompt 05 controls, authorize a production rollout, or change the owner’s accepted architecture. No live database and no Supabase project were accessed.
+The fourth check proves only the checked-in deployment example and CI smoke image. It does **not** prove live Coolify service assignments, private networking or ingress. The owner-only audit prompt is `docs/reports/preproduction/2026-10-20/OWNER_TASK_P05_COOLIFY_PRIVILEGE_SEPARATION.md`. No live database, Coolify configuration or Supabase project was accessed.
 
 ## 1. Authority and implementation evidence
 
@@ -48,6 +50,8 @@ An earlier draft ran the registry lookup before side-effect-free connection pref
 | Existing database/role collision | Never adopt or overwrite unverified resources | Integration test confirms fail-closed behavior and preserves existing tenant data |
 | Concurrent duplicate provision | Only one competing worker creates resources; losing attempt fails closed | Disposable two-process advisory-lock test passed |
 | Secret-store partial failure | Attempt compensation for both stable keys; surface incomplete cleanup | Failure and compensation integration tests passed |
+| Web/ordinary queue environment | Must not contain `PROVISIONER_*`, `MIGRATOR_*`, or bulk secret environment injection | Rendered Compose assertion and production smoke-container variable-name check passed in run #983 |
+| Live Coolify runtime separation | Only private provisioning service receives broker credentials; no public ingress; runtime roles remain restricted | **Not verified** — requires owner-authorized, sanitized evidence from the actual deployment |
 
 The service now independently verifies the connected broker's catalog attributes before resource creation. The dedicated PG17 integration case creates a temporary alternate superuser with a distinct identity and proves the provisioner rejects it before secret storage. Tenant roles remain distinct from the broker.
 
@@ -87,9 +91,17 @@ The follow-up reads `current_database()` and `current_user` from the actual cent
 
 **Evidence:** [PR #135](https://github.com/berkah-pos/Berkahtigaputeri/pull/135), code/test commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`, [CI run #975](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39927780759) — full workflow succeeded. Case P05-02 is closed for this implementation revision; PR #135 is still unmerged and stacked on PR #134.
 
-### P1 — Prove deployment-level privilege separation
+### Closed — Repository-managed web/worker credential boundary (P05-04A)
 
-The existence of a `provisioner` connection and a comment about a separate worker do not prove the deployed web/normal queue containers lack `PROVISIONER_*`, migrator credentials or public ingress. Require redacted environment-name assertions and actual Coolify/private-service configuration evidence before deployment.
+The Laravel PostgreSQL 17 workflow now renders `docker-compose.yml` to JSON and rejects `PROVISIONER_*`/`MIGRATOR_*` variable names and bulk `env_file` injection on application/web/ordinary-worker services. If a `provisioner` service is later added to Compose, it is rejected if it publishes ports. The production image smoke test checks its actual running container environment by variable names only and fails if those privileged prefixes are present; it never prints secret values.
+
+**Evidence:** [PR #137](https://github.com/berkah-pos/Berkahtigaputeri/pull/137), CI-tested code/config commit `79d2aaae597daca5c378e080fd0f65a1025b2a5e`, [run #983](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39929444734) — 25 successful steps, zero failures. This closes the repository-managed check, not the live Coolify deployment audit.
+
+### OPEN — Verify live Coolify privilege separation (P05-04B)
+
+The repository does not contain authoritative live Coolify service/environment/network configuration. A successful CI smoke container cannot prove which variables are attached to the production web/queue/provisioning services, whether a provisioner domain or ingress exists, which PostgreSQL identities are actually in use, or whether the services share an inappropriate network.
+
+**Owner action:** open the read-only DevOps/SRE + PostgreSQL security task using `docs/reports/preproduction/2026-10-20/OWNER_TASK_P05_COOLIFY_PRIVILEGE_SEPARATION.md`. Require sanitized environment-name evidence and role-attribute query results only; never share secret values. Until that report is complete, live service separation remains a P1 release blocker.
 
 ### P1 — Complete identity and worker-context threat cases
 
@@ -105,6 +117,10 @@ Current code safely refuses to adopt pre-existing/unverified resources and avoid
 
 **Case P05-02: CLOSED.** Effective URL-resolved PostgreSQL identity overlap is rejected and verified by run #975 on commit `4b6ad2cb9c9f1d4f7c2af79530ea7194749dfa6f`.
 
-**Case P05-03: CLOSED.** Superuser, role-switched and otherwise noncompliant broker roles fail closed; the adversarial PostgreSQL 17 regression and complete workflow passed in run #980 on commit `28c681c3627459d3d3342244f10a8735dd261c62`.
+**Case P05-03: CLOSED.** Superuser, role-switched and otherwise noncompliant broker roles fail closed; the adversarial PG17 regression and full workflow passed in run #980 on commit `28c681c3627459d3d3342244f10a8735dd261c62`.
 
-**Prompt 05 overall: OPEN / NOT CERTIFIED.** The next case is deployment-level privilege separation: prove, using the actual Coolify/service definition and redacted environment assignment evidence, that only a private provisioning worker receives `PROVISIONER_*` credentials, normal web/queue processes receive none, and the broker has no public ingress. This cannot be established from a source-code comment or the disposable CI setup; if deployment configuration is managed outside this repository, the owner must provide or assign access to that sanitized evidence. Host/X-Forwarded-Host, identity/device/subscription, long-running-worker context reset, and interruption/recovery cases also remain release blockers. Do not merge or deploy based on this report alone.
+**Case P05-04A: CLOSED.** Repository-managed Compose and production smoke-container checks passed in run #983 on commit `79d2aaae597daca5c378e080fd0f65a1025b2a5e`.
+
+**Case P05-04B: OPEN — OWNER TASK.** The actual Coolify service/environment/network setup must be verified read-only using the prompt in `docs/reports/preproduction/2026-10-20/OWNER_TASK_P05_COOLIFY_PRIVILEGE_SEPARATION.md`. CI cannot substitute for that live evidence.
+
+**Prompt 05 overall: OPEN / NOT CERTIFIED.** Remaining release blockers include live Coolify privilege separation, Host/X-Forwarded-Host spoofing, identity/device/subscription lifecycle checks, long-running worker tenant-context reset, and provisioning interruption/recovery. Do not merge or deploy based on this report alone.
