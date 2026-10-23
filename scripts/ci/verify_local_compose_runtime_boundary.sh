@@ -98,11 +98,11 @@ TEST_DB_CREATED=1
 # Exercise the exact SQL used by Compose and repeat it to prove that bootstrap
 # is idempotent on a disposable PostgreSQL 17 database.
 for attempt in 1 2; do
-  PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+  PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD -v "$PWD/docker/postgres/bootstrap-local.sql:/bootstrap-local.sql:ro" postgres:17 \
     psql -X --no-psqlrc -h 127.0.0.1 -U postgres -d "$TEST_DB" -v ON_ERROR_STOP=1 \
     --set=bootstrap_role=postgres --set=central_database="$TEST_DB" \
     --set=runtime_role="$TEST_ROLE" --set=runtime_password="$TEST_PASSWORD" \
-    --file=docker/postgres/bootstrap-local.sql >/dev/null
+    --file=/bootstrap-local.sql >/dev/null
 done
 printf '%s\n' 'PASS: local PostgreSQL bootstrap SQL applies twice without widening privileges.'
 
