@@ -478,6 +478,74 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
         $this->assertNoTenantResources($tenantId);
     }
 
+    public function test_failed_secret_compensation_surfaces_manual_verification_and_attempts_both_deletes(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $runtimeKey = 'tenant/' . $tenantId . '/runtime';
+        $migratorKey = 'tenant/' . $tenantId . '/migrator';
+        $secrets = [];
+        $storeCalls = [];
+        $deleteCalls = [];
+
+        try {
+            (new PostgresTenantProvisioner())->provision(
+                $tenantId,
+                function (string $key, string $password) use (&$secrets, &$storeCalls, $migratorKey): string {
+                    $storeCalls[] = $key;
+                    if ($key === $migratorKey) {
+                        // Simulate a remote write failure after runtime was persisted.
+                        throw new \RuntimeException('simulated migrator secret-store outage');
+                    }
+
+                    $secrets[$key] = $password;
+
+                    return 'ci-secret-ref://' . $key;
+                },
+                function (string $key) use (&$secrets, &$deleteCalls, $runtimeKey): void {
+                    $deleteCalls[] = $key;
+                    if ($key === $runtimeKey) {
+                        // Leave one key orphaned to model an unavailable secret store.
+                        throw new \RuntimeException('simulated runtime secret-delete outage');
+                    }
+
+                    unset($secrets[$key]);
+                }
+            );
+            $this->fail('Provisioning must report incomplete secret cleanup.');
+        } catch (\RuntimeException $exception) {
+            $this->assertSame(
+                'Tenant provisioning failed; resources were not automatically removed. Manual verification is required.',
+                $exception->getMessage()
+            );
+            $this->assertNotNull($exception->getPrevious());
+            $this->assertStringContainsString(
+                'Credential persistence failed and secret cleanup is incomplete; manual secret-manager verification is required.',
+                $exception->getPrevious()->getMessage()
+            );
+            $this->assertStringContainsString(
+                'simulated runtime secret-delete outage',
+                $exception->getPrevious()->getMessage()
+            );
+            $this->assertSame(
+                'simulated migrator secret-store outage',
+                $exception->getPrevious()->getPrevious()?->getMessage()
+            );
+        }
+
+        $this->assertSame([$runtimeKey, $migratorKey], $storeCalls);
+        $this->assertSame(
+            [$runtimeKey, $migratorKey],
+            $deleteCalls,
+            'Cleanup of the second key must still be attempted after the first cleanup fails.'
+        );
+        $this->assertSame(
+            [$runtimeKey => 'non-empty'],
+            array_map(static fn (string $secret): string => 'non-empty', $secrets),
+            'The simulated unavailable secret must remain visible for manual reconciliation.'
+        );
+        $this->assertNoTenantResources($tenantId);
+    }
+
     public function test_non_superuser_broker_provisions_two_isolated_tenants_with_working_runtime_grants(): void
     {
         $broker = DB::connection('provisioner');
