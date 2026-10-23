@@ -192,9 +192,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          docker run --rm --network host --env PGPASSWORD=postgres postgres:17 \
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
             psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE berkahpos_tenant_ci"
+          PGPASSWORD=postgres docker run --rm --network host --env PGPASSWORD postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -c "REVOKE ALL ON DATABASE berkahpos_tenant_ci FROM PUBLIC; GRANT CONNECT ON DATABASE berkahpos_tenant_ci TO berkahpos_tenant_runtime_ci"
 
       - name: Migrate fresh central database on disposable PostgreSQL 17
         shell: bash
