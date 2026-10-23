@@ -401,6 +401,32 @@ class LaravelAuthService {
     }
   }
 
+  /// Sends one durable event using the current bearer token. Tenant and device
+  /// identity are intentionally derived by the Laravel middleware, not this body.
+  Future<Map<String, dynamic>> syncOutboxEvent({
+    required Map<String, dynamic> event,
+    String appVersion = 'unknown',
+  }) async {
+    final token = await _vault.read(_tokenKey);
+    if (token == null || token.isEmpty) {
+      throw const AuthFailure(
+        message: 'Sesi cloud tidak tersedia. Masuk kembali untuk melanjutkan.',
+        code: 'session_missing',
+        statusCode: 401,
+      );
+    }
+    final response = await _request(
+      'POST',
+      'sync',
+      token: token,
+      body: <String, dynamic>{
+        'app_version': appVersion,
+        'events': <Map<String, dynamic>>[event],
+      },
+    );
+    return response.data;
+  }
+
   AuthSession _sessionFrom(Map<String, dynamic> data, String token) {
     final rawUser = data['user'];
     final user = rawUser is Map

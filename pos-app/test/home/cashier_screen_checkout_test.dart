@@ -143,8 +143,12 @@ void main() {
       expect(journals, hasLength(1));
       expect(journalLines, isNotEmpty);
       expect(stockMovements, isNotEmpty);
-      expect(outbox, hasLength(1));
-      expect(outbox.single['status'], isNot('acknowledged'));
+      expect(outbox, hasLength(3));
+      expect(
+        outbox.map((row) => row['entity_type']),
+        containsAll(<String>['product', 'inventory_receipt', 'sale']),
+      );
+      expect(outbox.every((row) => row['status'] == 'pending'), isTrue);
       expect(product.stockQty, 2);
     },
     timeout: const Timeout(Duration(seconds: 60)),

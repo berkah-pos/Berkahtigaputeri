@@ -3,11 +3,31 @@
 namespace Tests\Feature;
 
 use App\Services\PostgresTenantProvisioner;
+use Illuminate\Support\Facades\Artisan;
 use RuntimeException;
 use Tests\TestCase;
 
 class PostgresTenantProvisionerPolicyTest extends TestCase
 {
+    public function test_provision_command_fails_closed_when_isolated_worker_mode_is_disabled(): void
+    {
+        config([
+            'openbao.provisioner_mode' => false,
+            'openbao.provisioner_token' => null,
+            'openbao.address' => null,
+        ]);
+
+        $exitCode = Artisan::call('tenants:provision-database', [
+            'tenantId' => '01ARZ3NDEKTSV4RRFFQ69G5FAV',
+        ]);
+
+        $this->assertSame(1, $exitCode);
+        $this->assertStringContainsString(
+            'Provisioning is disabled or its isolated-worker credentials are incomplete.',
+            Artisan::output()
+        );
+    }
+
     public function test_tenant_identifier_is_normalized_only_when_it_is_a_canonical_ulid(): void
     {
         $provisioner = new PostgresTenantProvisioner();

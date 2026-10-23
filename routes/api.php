@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\IdentityController;
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\EffectiveConfigController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/v1/config/{service}', EffectiveConfigController::class)
         ->middleware(['identity.context', 'throttle:config-read'])
         ->name('api.v1.config.show');
+
+    Route::post('/v1/sync', [SyncController::class, 'sync'])
+        ->middleware(['identity.context', 'throttle:30,1'])
+        ->name('api.v1.sync');
 
     Route::middleware(['identity.context', 'central.admin'])->prefix('/v1/admin')->group(function (): void {
         Route::post('/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/laravel_auth_service.dart';
 import '../../core/config/app_identity_store.dart';
 import '../../core/database/pos_database.dart';
+import '../../core/sync/outbox_sync_service.dart';
 import '../inventory/inventory_screen.dart';
 import '../pos/checkout/payment_service.dart';
 import '../pos/checkout/sqlite_sale_repository.dart';
@@ -45,6 +46,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   int _refreshCounter = 0;
   final Set<int> _visitedIndices = <int>{0};
+  OutboxSyncService? _syncService;
+  bool _syncing = false;
+  String? _syncMessage;
 
   static const _titles = <String>[
     'Beranda', 'Produk', 'Kasir', 'Stok', 'Laporan',
@@ -57,6 +61,39 @@ class _HomeScreenState extends State<HomeScreen> {
     _payments = PaymentService(
       repository: SqliteSaleRepository(widget.database),
     );
+    final authService = widget.authService;
+    if (authService != null) {
+      _syncService = OutboxSyncService(
+        database: widget.database,
+        authService: authService,
+        appVersion: const String.fromEnvironment('APP_VERSION', defaultValue: 'unknown'),
+      );
+    }
+  }
+
+  Future<void> _runOutboxSync() async {
+    final service = _syncService;
+    if (service == null || _syncing) return;
+    setState(() {
+      _syncing = true;
+      _syncMessage = null;
+    });
+    try {
+      final report = await service.syncPending();
+      if (mounted) setState(() => _syncMessage = report.summary);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _syncMessage =
+            'Sinkronisasi belum berhasil. Data tetap tersimpan lokal. ' + error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _syncing = false;
+          _refreshCounter++;
+        });
+      }
+    }
   }
 
   void _refreshLocalViews() {
@@ -87,6 +124,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onOpenCheckout: () => _selectTab(2),
             onOpenInventory: () => _selectTab(3),
             onOpenReports: () => _selectTab(4),
+            syncEnabled: _syncService != null,
+            isSyncing: _syncing,
+            syncMessage: _syncMessage,
+            onSync: _syncService == null ? null : _runOutboxSync,
           );
         case 1:
           return ProductScreen(
@@ -196,6 +237,10 @@ class _DashboardScreen extends StatefulWidget {
     required this.onOpenCheckout,
     required this.onOpenInventory,
     required this.onOpenReports,
+    required this.syncEnabled,
+    required this.isSyncing,
+    required this.onSync,
+    this.syncMessage,
   });
 
   final PosDatabase database;
@@ -203,6 +248,10 @@ class _DashboardScreen extends StatefulWidget {
   final VoidCallback onOpenCheckout;
   final VoidCallback onOpenInventory;
   final VoidCallback onOpenReports;
+  final bool syncEnabled;
+  final bool isSyncing;
+  final VoidCallback? onSync;
+  final String? syncMessage;
 
   @override
   State<_DashboardScreen> createState() => _DashboardScreenState();
@@ -303,9 +352,8 @@ class _DashboardScreenState extends State<_DashboardScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Kasir local-first. Penjualan dan perubahan stok '
-                    'tersimpan di perangkat ini; cloud sync menunggu layanan '
-                    'terautentikasi yang belum terpasang.',
+                    'Kasir local-first. Perubahan katalog, penerimaan stok, dan transaksi '
+                    'disimpan bersama antrean sinkronisasi di perangkat ini.',
                   ),
                   const SizedBox(height: 14),
                   Wrap(
@@ -391,14 +439,46 @@ class _DashboardScreenState extends State<_DashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.cloud_off_outlined),
-              title: Text('Cloud sync belum aktif'),
-              subtitle: Text(
-                'Data perangkat bukan laporan konsolidasi. API Laravel, '
-                'autentikasi dan sinkronisasi harus diuji sebelum SaaS '
-                'multi-tenant digunakan.',
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    widget.syncEnabled
+                        ? 'Sinkronisasi antrean lokal'
+                        : 'Sinkronisasi cloud belum aktif',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.syncEnabled
+                        ? 'Kirim perubahan melalui sesi Laravel yang terautentikasi. '
+                            'Event diakui hanya setelah server mengembalikan receipt; '
+                            'konflik memerlukan tinjauan.'
+                        : 'Data tetap tersimpan lokal. Masuk dengan akun cloud dan perangkat '
+                            'yang disetujui untuk mengirim antrean ke API Laravel.',
+                  ),
+                  if (widget.syncEnabled) ...<Widget>[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: widget.isSyncing ? null : widget.onSync,
+                      icon: widget.isSyncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.sync),
+                      label: Text(widget.isSyncing ? 'Menyinkronkan…' : 'Sinkronkan sekarang'),
+                    ),
+                  ],
+                  if (widget.syncMessage != null) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Text(widget.syncMessage!),
+                  ],
+                ],
               ),
             ),
           ),

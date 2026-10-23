@@ -3,9 +3,13 @@
 namespace Tests\Feature;
 
 use App\Services\PostgresTenantProvisioner;
+use App\Services\TenantRuntimeCredentialResolver;
 use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Client\Request as HttpRequest;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PDOException;
 use Tests\TestCase;
@@ -118,6 +122,14 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     // The workflow creates a fresh disposable PostgreSQL service per run.
                     // Preserve the original test failure; CI destroys the service after the job.
                     fwrite(STDERR, "Disposable PG17 role cleanup warning: " . $exception->getMessage() . PHP_EOL);
+                }
+
+                try {
+                    // The command acceptance test creates a central tenant and registry row.
+                    $central->table('tenant_database_registry')->where('tenant_id', $tenantId)->delete();
+                    $central->table('tenants')->where('id', $tenantId)->delete();
+                } catch (Throwable $exception) {
+                    fwrite(STDERR, "Disposable PG17 central-row cleanup warning: " . $exception->getMessage() . PHP_EOL);
                 }
             }
         }
@@ -746,6 +758,115 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
             'SELECT has_database_privilege(?, ?, \'CONNECT\')::int',
             [$tenantA['runtime_role'], config('database.connections.central.database')]
         ));
+    }
+
+    public function test_openbao_worker_command_provisions_database_and_migrates_before_registry_activation(): void
+    {
+        $tenantId = $this->tenantIds[0];
+        $now = now();
+
+        DB::connection('central')->table('tenants')->insert([
+            'id' => $tenantId,
+            'data' => json_encode(['name' => 'OpenBao provisioning integration'], JSON_THROW_ON_ERROR),
+            'template_id' => 'BASIC',
+            'status' => 'pending',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        config([
+            'openbao.address' => 'https://openbao.integration.test',
+            'openbao.kv_mount' => 'secret',
+            'openbao.runtime_token' => 'synthetic-runtime-token',
+            'openbao.provisioner_token' => 'synthetic-provisioner-token',
+            'openbao.ca_bundle' => null,
+            'openbao.connect_timeout_seconds' => 2,
+            'openbao.timeout_seconds' => 3,
+            'openbao.provisioner_mode' => true,
+            'database.connections.tenant.host' => config('database.connections.provisioner.host'),
+            'database.connections.tenant.port' => config('database.connections.provisioner.port'),
+            'database.connections.tenant.sslmode' => config('database.connections.provisioner.sslmode'),
+            'database.connections.tenant.url' => null,
+        ]);
+
+        /** @var array<string, string> $vaultSecrets */
+        $vaultSecrets = [];
+        Http::fake(function (HttpRequest $request) use (&$vaultSecrets) {
+            $path = (string) parse_url($request->url(), PHP_URL_PATH);
+
+            if ($request->method() === 'POST' && str_starts_with($path, '/v1/secret/data/tenant/')) {
+                $password = $request->data()['data']['password'] ?? null;
+                if (! is_string($password) || $password === '') {
+                    return Http::response(['errors' => ['invalid synthetic test payload']], 400);
+                }
+                $vaultSecrets[$path] = $password;
+
+                return Http::response(['data' => ['version' => 1]], 200);
+            }
+
+            if ($request->method() === 'GET' && array_key_exists($path, $vaultSecrets)) {
+                return Http::response(['data' => ['data' => ['password' => $vaultSecrets[$path]]]], 200);
+            }
+
+            if ($request->method() === 'DELETE' && str_starts_with($path, '/v1/secret/metadata/tenant/')) {
+                unset($vaultSecrets[str_replace('/metadata/', '/data/', $path)]);
+
+                return Http::response([], 204);
+            }
+
+            return Http::response(['errors' => ['synthetic path not found']], 404);
+        });
+
+        $exitCode = Artisan::call('tenants:provision-database', ['tenantId' => $tenantId]);
+        $output = Artisan::output();
+
+        $this->assertSame(0, $exitCode, 'Provision command failed: '.$output);
+        $this->assertCount(2, $vaultSecrets, 'Runtime and migrator passwords must be persisted in OpenBao.');
+        $registry = DB::connection('central')->table('tenant_database_registry')
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        $this->assertNotNull($registry);
+        $this->assertSame('active', $registry->status);
+        $this->assertNotNull($registry->provisioned_at);
+        $this->assertSame(
+            'openbao:kv-v2:secret/tenant/'.$tenantId.'/runtime',
+            $registry->runtime_secret_ref
+        );
+
+        $runtimePassword = $vaultSecrets['/v1/secret/data/tenant/'.$tenantId.'/runtime'];
+        $this->assertSame(
+            $runtimePassword,
+            app(TenantRuntimeCredentialResolver::class)->resolve(
+                $tenantId,
+                $registry->runtime_secret_ref
+            )
+        );
+
+        $connectionName = 'provisioner_runtime_verify_'.strtolower($tenantId);
+        $runtime = $this->connectionAs(
+            $connectionName,
+            'berkahpos_t_'.strtolower($tenantId),
+            'berkah_t_'.strtolower($tenantId).'_runtime',
+            $runtimePassword
+        );
+        $this->assertSame('products', $runtime->scalar("SELECT to_regclass('public.products')"));
+        $this->assertFalse((bool) DB::connection('central')->scalar(
+            'SELECT has_database_privilege(?, ?, \'CONNECT\')::int',
+            ['berkah_t_'.strtolower($tenantId).'_runtime', config('database.connections.central.database')]
+        ));
+        DB::purge($connectionName);
+
+        Http::assertSent(static fn (HttpRequest $request): bool =>
+            $request->method() === 'GET'
+            && str_ends_with($request->url(), '/v1/secret/data/tenant/'.$tenantId.'/migrator')
+            && $request->header('X-Vault-Token') === ['synthetic-provisioner-token']
+        );
+        Http::assertSent(static fn (HttpRequest $request): bool =>
+            $request->method() === 'GET'
+            && str_ends_with($request->url(), '/v1/secret/data/tenant/'.$tenantId.'/runtime')
+            && $request->header('X-Vault-Token') === ['synthetic-runtime-token']
+        );
     }
 
     private function assertNoTenantResources(

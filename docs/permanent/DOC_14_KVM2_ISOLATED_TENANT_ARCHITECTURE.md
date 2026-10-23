@@ -116,7 +116,13 @@ The initial locked versions have now been installed and smoke-tested on main SHA
 9. Add isolated Coolify staging and production environment definitions, immutable CI images, private service networks, encrypted off-host backups, real restore tests, monitoring, load/capacity evidence and rollback.
 10. Existing business data may be brought forward only from an already available owner-controlled offline file outside Supabase. If it is absent, do not claim data migration, parity with current hosted rows or production cutover readiness. No connection to Supabase is a permitted recovery path.
 
-## 9. Explicit evidence boundary
+## 9. Secret storage and persistence supplement
+
+The 2026-10-23 [OpenBao KVM2 secret persistence supplement](ADR-2026-10-23-OPENBAO-KVM2-SECRET-PERSISTENCE.md) selects a private OpenBao service with persistent Raft data on a dedicated Coolify volume. The companion [OpenBao persistence runbook](../runbooks/openbao-kvm2-persistence.md) covers TLS/networking, policy separation, seal shares, encrypted off-host snapshots and restore evidence. This supplement does not modify the central/tenant database contract and does not claim deployment readiness.
+
+Coolify's current docs name HashiCorp Vault, Infisical and Doppler, but do not separately name OpenBao. OpenBao's Vault API compatibility is therefore a compatibility hypothesis until verified against pinned versions. Laravel's dynamic tenant credential lookup uses the explicit OpenBao KV v2 adapter; Coolify environment substitution alone is not the runtime secret store. OpenBao persistence, provider compatibility, off-host snapshots and recovery remain NOT VERIFIED until executed.
+
+## 10. Explicit evidence boundary
 
 At this point, the backend stack upgrade, PostgreSQL target migrations/provisioner, any offline data-artifact validation, actual tenant A/B database isolation, API/outbox end-to-end sync, complete removal of Supabase runtime references, Coolify deployment, TLS, backups/restores, load/capacity, mobile-device rollout and production status are **NOT VERIFIED** unless later accompanied by current, scoped evidence. A document, test file, or unrelated green workflow is not proof.
 

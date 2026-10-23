@@ -3,6 +3,7 @@
 import 'package:sqflite/sqflite.dart';
 
 import '../../../core/database/pos_database.dart';
+import '../../../core/sync/outbox_event_writer.dart';
 import '../models/product.dart';
 
 /// SQLite-backed product repository and inventory receiving boundary.
@@ -82,6 +83,28 @@ class SqliteProductRepository {
           product.requiresReview ? 1 : 0,
         ],
       );
+
+      // Product masters synchronize without local stock: stock is ledger-owned.
+      await enqueueOutboxEvent(
+        transaction,
+        entityType: 'product',
+        entityId: product.id,
+        createdAtUtc: DateTime.now().toUtc().toIso8601String(),
+        eventPayload: <String, Object?>{
+          'product': <String, Object?>{
+            'id': product.id,
+            'sku': product.sku,
+            'barcode': product.barcode,
+            'name_id': product.nameId,
+            'price': product.price,
+            'ppn_exempt': product.ppnExempt,
+            'track_expiry': product.trackExpiry,
+            'min_shelf_life_days': product.minShelfLifeDays,
+            'requires_review': product.requiresReview,
+            'is_active': true,
+          },
+        },
+      );
     });
   }
 
@@ -120,6 +143,7 @@ class SqliteProductRepository {
     String? batchNo,
     DateTime? expiryDate,
     String? costLayerId,
+    String? counterAccountCode,
   }) async {
     if (id.trim().isEmpty) {
       throw const ProductValidationException('ID lot wajib diisi.');
@@ -205,6 +229,27 @@ class SqliteProductRepository {
         },
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+
+      await enqueueOutboxEvent(
+        transaction,
+        entityType: 'inventory_receipt',
+        entityId: normalizedProductId,
+        createdAtUtc: receivedAt,
+        eventPayload: <String, Object?>{
+          'receipt': <String, Object?>{
+            'product_id': normalizedProductId,
+            'lot_id': normalizedLotId,
+            'cost_layer_id': normalizedCostLayerId,
+            'quantity': quantity,
+            'unit_cost': unitCost,
+            'counter_account_code': counterAccountCode,
+            'batch_no': normalizedBatchNo,
+            'expiry_date': expiry,
+            'acquired_at_utc': receivedAt,
+            'timezone': 'Asia/Jakarta',
+          },
+        },
+      );
     });
   }
 
@@ -215,6 +260,7 @@ class SqliteProductRepository {
     required int quantity,
     required int unitCost,
     required DateTime acquiredAtUtc,
+    String? counterAccountCode,
   }) async {
     if (lotId.trim().isEmpty || costLayerId.trim().isEmpty) {
       throw const ProductValidationException(
@@ -284,6 +330,27 @@ class SqliteProductRepository {
           'occurred_at_utc': receivedAt,
         },
         conflictAlgorithm: ConflictAlgorithm.abort,
+      );
+
+      await enqueueOutboxEvent(
+        transaction,
+        entityType: 'inventory_receipt',
+        entityId: productId,
+        createdAtUtc: receivedAt,
+        eventPayload: <String, Object?>{
+          'receipt': <String, Object?>{
+            'product_id': productId,
+            'lot_id': normalizedLotId,
+            'cost_layer_id': normalizedCostLayerId,
+            'quantity': quantity,
+            'unit_cost': unitCost,
+            'counter_account_code': counterAccountCode,
+            'batch_no': (lot['batch_no'] as String?) ?? normalizedLotId,
+            'expiry_date': lot['expiry_date'] as String?,
+            'acquired_at_utc': receivedAt,
+            'timezone': 'Asia/Jakarta',
+          },
+        },
       );
     });
   }
@@ -432,6 +499,27 @@ class SqliteProductRepository {
           'melalui kebijakan katalog setelah status nonaktif tersedia.',
         );
       }
+
+      final queuedProductEvents = await transaction.query(
+        'outbox_events',
+        where: 'entity_id = ? AND entity_type = ?',
+        whereArgs: <Object?>[normalizedId, 'product'],
+      );
+      // Never discard an event that may already have reached the server.
+      final mayCancelUnsent = queuedProductEvents.every((event) =>
+          (event['status'] == 'pending' || event['status'] == 'retry') &&
+          (event['retry_count'] as int? ?? 0) == 0);
+      if (!mayCancelUnsent) {
+        throw const ProductValidationException(
+          'Produk sudah memiliki status sinkronisasi yang ambigu atau diterima server. '
+          'Penghapusan memerlukan alur penonaktifan server yang diaudit.',
+        );
+      }
+      await transaction.delete(
+        'outbox_events',
+        where: 'entity_id = ? AND entity_type = ? AND status IN (?, ?)',
+        whereArgs: <Object?>[normalizedId, 'product', 'pending', 'retry'],
+      );
 
       final changed = await transaction.delete(
         'products',
