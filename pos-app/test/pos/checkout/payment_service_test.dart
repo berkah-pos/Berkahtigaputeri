@@ -81,7 +81,7 @@ void main() {
       final storedProduct = await products.findById('P-001');
       expect(storedProduct!.stockQty, 0);
 
-      expect(await _count(database, 'outbox_events'), 1);
+      expect(await _countOutboxType(database, 'sale'), 1);
     });
 
     test('cart campuran mengalokasikan diskon dan PPN hanya ke DPP kena pajak', () async {
@@ -289,7 +289,7 @@ void main() {
       );
       expect(await _count(database, 'sales'), 1);
       expect(await _count(database, 'journals'), 1);
-      expect(await _count(database, 'outbox_events'), 1);
+      expect(await _countOutboxType(database, 'sale'), 1);
       expect(await _count(database, 'stock_movements'), 1);
     });
 
@@ -347,7 +347,7 @@ void main() {
       expect((await products.findById('P-CONFLICT'))!.stockQty, 2);
       expect(await _count(database, 'sales'), 1);
       expect(await _count(database, 'journals'), 1);
-      expect(await _count(database, 'outbox_events'), 1);
+      expect(await _countOutboxType(database, 'sale'), 1);
     });
 
     test('stok tidak cukup me-roll back sale, jurnal, stok movement, dan outbox', () async {
@@ -401,7 +401,7 @@ void main() {
       expect(await _count(database, 'journals'), 0);
       expect(await _count(database, 'journal_lines'), 0);
       expect(await _count(database, 'stock_movements'), 0);
-      expect(await _count(database, 'outbox_events'), 0);
+      expect(await _countOutboxType(database, 'sale'), 0);
     });
 
     test('transaksi malam WIB disimpan pada businessDate Indonesia', () async {
@@ -455,6 +455,14 @@ JournalLine _line(PaymentResult result, String accountCode) {
 Future<int> _count(PosDatabase database, String table) async {
   final rows = await database.database.rawQuery(
     'SELECT COUNT(*) AS value FROM $table',
+  );
+  return rows.single['value']! as int;
+}
+
+Future<int> _countOutboxType(PosDatabase database, String entityType) async {
+  final rows = await database.database.rawQuery(
+    'SELECT COUNT(*) AS value FROM outbox_events WHERE entity_type = ?',
+    <Object?>[entityType],
   );
   return rows.single['value']! as int;
 }

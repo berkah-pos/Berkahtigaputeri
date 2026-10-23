@@ -148,22 +148,49 @@ class PosDatabase {
 
 
   static Future<void> _migrateV3ToV4(Database database) async {
-    final columns = (await database.rawQuery('PRAGMA table_info(outbox_events)'))
-        .map((row) => row['name'] as String)
-        .toSet();
-    const additions = <String, String>{
-      'last_error': 'TEXT',
-      'next_retry_at_utc': 'TEXT',
-      'acked_at_utc': 'TEXT',
-      'server_receipt_id': 'TEXT',
-    };
-    for (final entry in additions.entries) {
-      if (!columns.contains(entry.key)) {
-        await database.execute(
-          'ALTER TABLE outbox_events ADD COLUMN ${entry.key} ${entry.value}',
-        );
+    // Older v1 databases may never have had an outbox table. Create the durable
+    // queue when absent; otherwise add the v4 acknowledgement/retry fields.
+    final existingTable = await database.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'outbox_events'",
+    );
+    if (existingTable.isEmpty) {
+      await database.execute('''
+        CREATE TABLE outbox_events (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT NOT NULL,
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          created_at_utc TEXT NOT NULL,
+          last_error TEXT,
+          next_retry_at_utc TEXT,
+          acked_at_utc TEXT,
+          server_receipt_id TEXT
+        )
+      ''');
+    } else {
+      final columns = (await database.rawQuery('PRAGMA table_info(outbox_events)'))
+          .map((row) => row['name'] as String)
+          .toSet();
+      const additions = <String, String>{
+        'last_error': 'TEXT',
+        'next_retry_at_utc': 'TEXT',
+        'acked_at_utc': 'TEXT',
+        'server_receipt_id': 'TEXT',
+      };
+      for (final entry in additions.entries) {
+        if (!columns.contains(entry.key)) {
+          await database.execute(
+            'ALTER TABLE outbox_events ADD COLUMN ${entry.key} ${entry.value}',
+          );
+        }
       }
     }
+
+    await database.execute(
+      'CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox_events(status, created_at_utc)',
+    );
     await database.execute(
       'CREATE INDEX IF NOT EXISTS idx_outbox_retry ON outbox_events(status, next_retry_at_utc, created_at_utc)',
     );
