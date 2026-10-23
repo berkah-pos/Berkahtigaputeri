@@ -10,23 +10,6 @@ import 'package:berkahtigaputeri_pos/core/config/app_identity_store.dart';
 import 'package:berkahtigaputeri_pos/core/database/pos_database.dart';
 import 'package:berkahtigaputeri_pos/main.dart';
 
-class _MemoryVault implements SecureVault {
-  final Map<String, String> values = <String, String>{};
-
-  @override
-  Future<String?> read(String key) async => values[key];
-
-  @override
-  Future<void> write(String key, String value) async {
-    values[key] = value;
-  }
-
-  @override
-  Future<void> delete(String key) async {
-    values.remove(key);
-  }
-}
-
 class _FailingReadVault implements SecureVault {
   @override
   Future<String?> read(String key) async {
