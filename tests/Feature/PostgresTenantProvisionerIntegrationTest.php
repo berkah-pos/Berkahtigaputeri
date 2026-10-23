@@ -784,7 +784,7 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
 CREATE FUNCTION btp_ci_fail_provision_success_audit()
 RETURNS trigger
 LANGUAGE plpgsql
-AS $
+AS $btp_ci_audit$
 BEGIN
     IF NEW.scope_type = 'tenant_provisioning'
        AND NEW.action = 'tenant_provisioning.database.create.succeeded' THEN
@@ -793,7 +793,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$
+$btp_ci_audit$
 SQL);
         $central->unprepared(<<<'SQL'
 CREATE TRIGGER btp_ci_fail_provision_success_audit_insert
@@ -815,7 +815,7 @@ SQL);
                     }
                 );
                 $this->fail('Provisioning must stop when a completed CREATE DATABASE action cannot be audited.');
-            } catch (\\RuntimeException $exception) {
+            } catch (\RuntimeException $exception) {
                 $this->assertStringContainsString('Tenant provisioning failed', $exception->getMessage());
                 $this->assertStringContainsString(
                     'completion audit could not be recorded',
