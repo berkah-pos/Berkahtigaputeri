@@ -225,6 +225,9 @@ final class PostgresTenantProvisioner
             // A non-superuser must be allowed to SET ROLE to the requested owner
             // before it can create a database owned by that role. This membership
             // exists only for CREATE DATABASE and is revoked immediately afterwards.
+            // Mark cleanup as required before attempting the grant: the grant may
+            // succeed even if recording its completion event subsequently fails.
+            $temporaryOwnerMembershipGranted = true;
             $this->runAuditedSql(
                 $tenant,
                 'role.membership.grant.broker_owner_temporary',
@@ -234,7 +237,6 @@ final class PostgresTenantProvisioner
                 $connection,
                 'GRANT ' . $this->identifier($ownerRole) . ' TO ' . $brokerIdentifier
             );
-            $temporaryOwnerMembershipGranted = true;
             $this->runAuditedSql(
                 $tenant,
                 'database.create',
