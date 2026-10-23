@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/auth/laravel_auth_service.dart';
+import '../../core/auth/auth_failure_message.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({
@@ -73,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } on AuthFailure catch (failure) {
       if (!mounted) return;
       setState(() {
-        _error = failure.message;
+        _error = safeAuthFailureMessage(failure);
         if (failure.code == 'tenant_selection_required') {
           _tenantChoices = failure.memberships;
           if (_tenantId != null &&

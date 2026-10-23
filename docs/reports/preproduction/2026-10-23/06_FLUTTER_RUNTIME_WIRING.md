@@ -64,12 +64,27 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Cross-specialist boundary:** Prompt 03 owns the server-side API error contract; its responses should remain structured and safe. This client fix is deliberately defensive and does not substitute for API-side review. No separate owner decision is required for this scoped client correction.
 
+**TEST-EXECUTED / CI-OBSERVED:** case 6 passed on exact commit `14d81d9e60740cad4b4de31f367c30bb5036509b` in [run #39962184139](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962184139) and duplicate run [#39962177055](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962177055). Both runs passed the runtime/migration guards, Dart analysis, Flutter tests, Android host preparation, debug AAB build, and artifact upload. These are debug compile-checks, not signed-release evidence.
+
+## Case 7 — login UI must not echo server failure messages
+
+**Finding — SOURCE-VERIFIED:** `LoginScreen._signIn()` displayed `AuthFailure.message` directly. Laravel identity errors can include per-request messages, while generic HTTP/validation errors can include server-generated validation text. The screen must present stable guidance and keep tenant selection behavior intact without reflecting server text.
+
+**Implemented (exact-head CI pending):**
+- Added `safeAuthFailureMessage()` with fixed guidance for known credentials, membership, device, timeout, throttling and validation states, plus a generic fallback.
+- Replaced direct message rendering in the login error path; tenant-choice handling continues to use the structured membership list.
+- Added seven unit tests, including checks that internal-looking host, token and validation details are not reflected.
+
+**Cross-specialist boundary:** Prompt 03 owns Laravel's authentication/error response contract. This Flutter change avoids exposing untrusted response copy while preserving the current response codes and membership-selection behavior. No owner decision is needed unless the API's semantic error codes change.
+
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
-- **TEST-EXECUTED / CI-OBSERVED:** combined cases 1–5 passed on exact head `c349efc4745981e832c8edcd59aaa28bb2338cba` in run [#39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319).\n- **PENDING:** case-6 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** combined cases 1–5 passed on exact head `c349efc4745981e832c8edcd59aaa28bb2338cba` in run [#39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319).
+- **TEST-EXECUTED / CI-OBSERVED:** case 6 passed on exact commit `14d81d9e60740cad4b4de31f367c30bb5036509b` in [run #39962184139](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962184139) and duplicate run [#39962177055](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962177055).
+- **PENDING:** case-7 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the combined case-6 head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
+Run canonical POS Flutter CI on the combined case-7 head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
