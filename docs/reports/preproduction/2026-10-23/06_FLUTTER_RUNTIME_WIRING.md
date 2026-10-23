@@ -106,6 +106,17 @@ The active main branch already uses a Laravel Central API client, not the former
 **Cross-specialist boundary:** this is Flutter bootstrap presentation only. It does not change SQLite migration/import behavior or business rules; no owner decision is required.
 **TEST-EXECUTED / CI-OBSERVED:** exact PR head `b88fc9af981ee2d4785ade677b60c07a6d93e464` passed Canonical POS App CI in [run #39985407418](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39985407418). PR [#153](https://github.com/berkah-pos/Berkahtigaputeri/pull/153) merged as `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
 
+## Case 10 — sanitize dashboard summary failures
+
+**Finding — SOURCE-VERIFIED:** `_DashboardScreen._reload()` interpolated `error.toString()` into its visible dashboard failure state. SQLite error details, missing-table names, or other implementation diagnostics could therefore be shown directly to a cashier.
+
+**Implemented (exact-head CI pending):**
+- Replaced the raw exception string with stable Indonesian guidance to check local device storage and retry.
+- Kept the existing dashboard retry action and loading-state recovery intact; no database, query, accounting, inventory, or sales behavior changed.
+- Added a widget regression that simulates a local database read failure and asserts that the guidance appears without exposing SQLite exception text.
+
+**Cross-specialist boundary:** this is dashboard-level failure presentation only. Product catalog, checkout, inventory/FEFO, and report-specific exception paths remain separate specialist-owned fixes; this case changes no business rules.
+
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
@@ -114,9 +125,10 @@ The active main branch already uses a Laravel Central API client, not the former
 - **TEST-EXECUTED / CI-OBSERVED:** case 7 passed on exact commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` in run [#39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126); final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed in [run #39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866).
 - **TEST-EXECUTED / CI-OBSERVED:** case 8 passed on exact PR head `602fd25eeba5c596609309dc2e94e36f3f520892` in [run #39970772867](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39970772867); PR #152 is merged.
 - **TEST-EXECUTED / CI-OBSERVED:** case 9 passed on exact PR head `b88fc9af981ee2d4785ade677b60c07a6d93e464` in [run #39985407418](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39985407418); PR #153 merged as `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
-- **PENDING:** post-merge Canonical POS CI [run #39986174414](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174414), post-merge AAB build [run #39986174638](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174638) (both running at last inspection), physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** post-merge Canonical POS CI [run #39986174414](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174414) and post-merge AAB build [run #39986174638](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39986174638) both passed on merge commit `edabae4c2130fcb80b6172a1fe4a181340bc8c97`.
+- **PENDING:** case-10 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the case-9 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
+Run canonical POS Flutter CI on the case-10 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.

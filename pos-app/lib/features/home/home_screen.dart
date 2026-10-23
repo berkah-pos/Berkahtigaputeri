@@ -301,7 +301,7 @@ class _DashboardScreenState extends State<_DashboardScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = 'Data lokal belum dapat dibaca. Periksa penyimpanan perangkat, lalu coba lagi.';
         _loading = false;
       });
     }
