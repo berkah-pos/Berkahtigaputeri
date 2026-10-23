@@ -347,4 +347,110 @@ void main() {
     expect(await source.query('sale_items'), hasLength(2));
     await source.close();
   });
+
+
+  test('archives legacy sale-item snapshot when its product was deleted',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-deleted-product-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+
+    await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Masih Ada',
+      'sku': 'ADA-01',
+      'price': 10000.0,
+      'stock': 2,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 15000.0,
+      'item_count': 2,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    // The old schema permits history to outlive a deleted product row. Its
+    // item name is a snapshot and must remain archived without a dangling FK.
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': 999,
+      'name': 'Produk yang Sudah Dihapus',
+      'qty': 2,
+      'price': 7500.0,
+      'subtotal': 15000.0,
+    });
+    await oldDb.close();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    final result = await LegacyTrialImporter.importIfPresent(
+      target: target.database,
+      legacyPath: legacyPath,
+      factory: databaseFactoryFfi,
+    );
+
+    expect(result, <String, int>{
+      'products': 1,
+      'sales': 1,
+      'saleItems': 1,
+    });
+
+    final archivedItem =
+        (await target.database.query('legacy_sale_items_archive')).single;
+    expect(archivedItem['original_sale_id'], saleId);
+    expect(archivedItem['product_id'], isNull);
+    expect(archivedItem['product_name'], 'Produk yang Sudah Dihapus');
+    expect(archivedItem['quantity'], 2);
+    expect(archivedItem['unit_price'], 7500);
+    expect(archivedItem['subtotal'], 15000);
+
+    final archivedSale =
+        (await target.database.query('legacy_sales_archive')).single;
+    expect(archivedSale['total_amount'], 15000);
+    expect(await target.database.query('sales'), isEmpty);
+    expect(await target.database.query('journals'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
+  });
 }
