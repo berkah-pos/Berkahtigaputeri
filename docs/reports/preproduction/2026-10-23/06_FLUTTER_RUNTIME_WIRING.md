@@ -83,24 +83,38 @@ The active main branch already uses a Laravel Central API client, not the former
 
 **Finding — SOURCE-VERIFIED:** selecting “Lanjutkan sebagai kasir lokal” set `_localOnly = true` and mounted a `HomeScreen` with `authService: null` to disable cloud operations. The settings screen then had no path back to the login gate; users had to restart the app to leave local-only mode. It also described the API as unconfigured even when the app was built with a valid HTTPS API URL.
 
-**Implemented (exact-head CI pending):**
-- Added a separate navigation callback from the local-only home/settings screen back to the login gate, but only when the configured Laravel API is available.
+**Implemented and validated:**
+- Added a separate navigation callback from local-only settings back to the login gate, but only when a valid configured Laravel API is available.
 - Kept `authService: null` and outbox sync disabled while local-only mode is active; navigation does not restore or imply cloud authentication.
 - Distinguished “API not configured” from “API configured but cloud session inactive” in settings.
-- Added a widget regression covering login → local-only → settings → cloud login, asserting configuration loading and sync are still disabled in local mode.
-- CI iteration 1 (#39967505961) failed before entering local mode because the test used the unconfigured-build button label; corrected it to the configured-login label. Iteration 2 (#39968005635) reached settings but checked a lazily built action before scrolling the settings list; the test now scrolls to the action before verifying the navigation. The next exact-head run is the acceptance attempt.
+- Added a widget regression covering login → local-only → settings → cloud login and asserting cloud configuration loading and sync remain disabled in local mode.
+- **TEST-EXECUTED / CI-OBSERVED:** exact PR head `602fd25eeba5c596609309dc2e94e36f3f520892` passed Canonical POS App CI in [run #39970772867](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39970772867). PR [#152](https://github.com/berkah-pos/Berkahtigaputeri/pull/152) merged as `fc55745bca2558341379c45e74763d428b79f266`.
+- Acceptance history: runs #39967505961 and #39968005635 exposed test-fixture issues (button copy and lazy-list scrolling); run #39968582240 failed at the previous branch head. The final corrected PR head is the one that passed above.
 
-**Cross-specialist boundary:** Prompt 02 owns authentication/session semantics; this change only navigates back to its existing login gate. It does not create a session or bypass server device approval. No owner decision is required.
+**Cross-specialist boundary:** Prompt 02 owns authentication/session semantics; this change only navigates back to the existing login gate. It does not create a session or bypass server device approval. No owner decision is required.
+
+## Case 9 — keep bootstrap exception details off the recovery screen
+
+**Finding — SOURCE-VERIFIED:** the bootstrap recovery view displayed `error.runtimeType` in its visible message (for example, `StateError`). The technical type does not help a cashier recover the app, while implementation details should remain in diagnostic logs rather than the UI.
+
+**Implemented (exact-head CI pending):**
+- Replaced the visible exception-class string with stable Indonesian recovery guidance: existing local data was not deleted; check device storage and retry.
+- Removed the instruction to copy an internal-looking error from the visible screen; users are directed to support if retry fails.
+- Extended `app_startup_recovery_test.dart` to assert the stable recovery copy is shown and neither `StateError` nor the simulated exception message appears in the UI.
+- Preserved the retry path and did not change database opening, cleanup, migration, authentication, or data-retention behavior.
+
+**Cross-specialist boundary:** this is Flutter bootstrap presentation only. It does not change SQLite migration/import behavior or business rules; no owner decision is required.
 
 ## Evidence boundary
 
 - **TEST-EXECUTED:** cases 1–4 each passed canonical POS CI on their named exact commits.
 - **TEST-EXECUTED / CI-OBSERVED:** combined cases 1–5 passed on exact head `c349efc4745981e832c8edcd59aaa28bb2338cba` in run [#39960763319](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39960763319).
 - **TEST-EXECUTED / CI-OBSERVED:** case 6 passed on exact commit `14d81d9e60740cad4b4de31f367c30bb5036509b` in [run #39962184139](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962184139) and duplicate run [#39962177055](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39962177055).
-- **TEST-EXECUTED / CI-OBSERVED:** case 7 passed on exact commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` in run [#39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126); the final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed in run [#39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866).
-- **PENDING:** case-8 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
+- **TEST-EXECUTED / CI-OBSERVED:** case 7 passed on exact commit `58920b64664f9d95d86b53ef81b478ffe1178dbc` in run [#39963314126](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39963314126); final PR #149 head `2550e3428047a76f9520424ac440ae58e984f556` passed in [run #39965272866](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39965272866).
+- **TEST-EXECUTED / CI-OBSERVED:** case 8 passed on exact PR head `602fd25eeba5c596609309dc2e94e36f3f520892` in [run #39970772867](https://github.com/berkah-pos/Berkahtigaputeri/actions/runs/39970772867); PR #152 is merged.
+- **PENDING:** case-9 exact-head CI, physical-device behavior, staging, production, and publisher-signed release validation.
 - **NOT CLAIMED:** publisher-signed release or live staging/production verification.
 
 ## Next action
 
-Run canonical POS Flutter CI on the case-8 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.
+Run canonical POS Flutter CI on the case-9 branch head; fix any guard, analyzer, unit/widget-test or debug AAB failure before selecting another Prompt 06 case. After CI passes, record the exact-SHA evidence and proceed to the next connected runtime/navigation defect.

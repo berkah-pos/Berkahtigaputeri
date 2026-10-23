@@ -107,9 +107,9 @@ class _BerkahTigaPuteriBootstrapAppState
         _deviceId = null;
         _authService = null;
         _loading = false;
-        _error = 'Startup failed (' + error.runtimeType.toString() + '). '
-            'Your existing local data was not deleted by this recovery flow. '
-            'Check device storage, then retry.';
+        _error = 'Aplikasi tidak dapat menyiapkan data lokal. '
+            'Data yang sudah tersimpan tidak dihapus. '
+            'Periksa ruang penyimpanan perangkat, lalu coba lagi.';
       });
     }
   }
@@ -208,8 +208,7 @@ class _BootstrapFailureScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   const Text(
                     'Jangan hapus data aplikasi untuk mengatasi masalah ini. '
-                    'Jika percobaan ulang gagal, catat pesan kesalahan dan '
-                    'hubungi dukungan.',
+                    'Jika percobaan ulang gagal, hubungi dukungan.',
                     textAlign: TextAlign.center,
                   ),
                 ],

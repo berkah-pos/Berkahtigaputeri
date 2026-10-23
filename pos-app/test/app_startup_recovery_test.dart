@@ -105,7 +105,14 @@ void main() {
 
       expect(find.text('Data lokal belum siap'), findsOneWidget);
       expect(find.text('Coba lagi'), findsOneWidget);
-      expect(find.textContaining('Startup failed (StateError)'), findsOneWidget);
+      expect(
+        find.text(
+          'Aplikasi tidak dapat menyiapkan data lokal. Data yang sudah tersimpan tidak dihapus. Periksa ruang penyimpanan perangkat, lalu coba lagi.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('StateError'), findsNothing);
+      expect(find.textContaining('simulated database unavailable'), findsNothing);
       expect(attempts, 1);
 
       await tester.tap(find.text('Coba lagi'));
