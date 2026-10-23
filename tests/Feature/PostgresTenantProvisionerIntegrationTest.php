@@ -181,7 +181,7 @@ class PostgresTenantProvisionerIntegrationTest extends TestCase
                     }
                 );
                 $this->fail('Unregistered or non-pending tenants must not be provisioned.');
-            } catch (\\RuntimeException $exception) {
+            } catch (\RuntimeException $exception) {
                 $this->assertSame($expectedMessage, $exception->getMessage());
             }
 
