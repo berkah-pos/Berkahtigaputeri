@@ -13,19 +13,23 @@ No Supabase project, account, key, endpoint, SDK, or service is needed.
 
 1. Copy `.env.example` to `.env`.
 2. For local use only, set distinct values for `POSTGRES_BOOTSTRAP_PASSWORD` and `CENTRAL_DB_PASSWORD`. Keep the bootstrap account name separate from `CENTRAL_DB_USERNAME`. Never reuse these development credentials in staging or production.
-3. Start the local app and private PostgreSQL 17 service:
+3. Start PostgreSQL and the one-shot role bootstrap without starting the application:
 
    ```sh
-   docker compose up --build -d
+   docker compose up --build -d postgres db-bootstrap
    ```
 
-4. Run central migrations through the explicit one-shot migration profile:
+4. Apply central schema migrations through the explicit one-shot migration profile, which alone receives local bootstrap credentials:
 
    ```sh
    docker compose --profile tools run --rm dev-migrate
    ```
 
-5. Check `http://localhost:8000/api/v1/platform-health`.
+5. Start the app with its restricted runtime credentials and check `http://localhost:8000/api/v1/platform-health`:
+
+   ```sh
+   docker compose up --build -d app
+   ```
 
 The `app` service uses only the restricted central runtime role. It does not receive the PostgreSQL bootstrap username/password, `PROVISIONER_DB_*` values, or tenant migrator credentials. PostgreSQL port 5432 and application port 8000 bind to loopback only.
 
