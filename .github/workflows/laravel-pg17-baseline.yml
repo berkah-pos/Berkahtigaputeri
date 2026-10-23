@@ -154,6 +154,8 @@ jobs:
           OPENBAO_PROVISIONER_TOKEN: synthetic-provisioner-token
           PROVISIONER_DB_USERNAME: berkahpos_provisioner_ci
           PROVISIONER_DB_PASSWORD: synthetic-provisioner-password
+          WORKER_CENTRAL_DB_USERNAME: berkahpos_worker_registry_ci
+          WORKER_CENTRAL_DB_PASSWORD: synthetic-worker-central-only-password
           TENANT_ULID: 01ARZ3NDEKTSV4RRFFQ69G5FAV
         run: |
           set -euo pipefail
