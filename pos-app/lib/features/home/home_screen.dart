@@ -13,6 +13,7 @@ import '../pos/checkout/sqlite_sale_repository.dart';
 import '../pos/checkout_screen.dart';
 import '../products/product_screen.dart';
 import '../products/repositories/sqlite_product_repository.dart';
+import 'legacy_import_failure_message.dart';
 import 'reports_screen.dart';
 
 const String _salesWhatsAppNumber = String.fromEnvironment(
@@ -390,9 +391,9 @@ class _DashboardScreenState extends State<_DashboardScreen> {
                 leading: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
                 title: const Text('Impor data trial belum selesai'),
                 subtitle: Text(
-                  'Database lama tidak dihapus. Jangan menghapus data aplikasi. '
-                  'Periksa penyebab lalu coba lagi. Detail: ' +
-                  widget.database.legacyImportError!,
+                  safeLegacyImportFailureMessage(
+                    widget.database.legacyImportError,
+                  ),
                 ),
                 isThreeLine: true,
                 trailing: IconButton(
