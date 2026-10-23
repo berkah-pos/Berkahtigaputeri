@@ -81,10 +81,13 @@ SELECT EXISTS (
 
 SELECT (
     EXISTS (SELECT 1 FROM pg_database WHERE datdba = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role'))
-    OR EXISTS (SELECT 1 FROM pg_class WHERE relowner = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role'))
-    OR EXISTS (SELECT 1 FROM pg_namespace WHERE nspowner = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role'))
-    OR EXISTS (SELECT 1 FROM pg_proc WHERE proowner = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role'))
-    OR EXISTS (SELECT 1 FROM pg_type WHERE typowner = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role'))
+    OR EXISTS (
+        SELECT 1
+        FROM pg_shdepend
+        WHERE refclassid = 'pg_authid'::regclass
+          AND refobjid = (SELECT oid FROM pg_roles WHERE rolname = :'runtime_role')
+          AND deptype = 'o'
+    )
 ) AS runtime_owns_objects
 \gset
 \if :runtime_owns_objects
@@ -106,7 +109,7 @@ GRANT USAGE ON SCHEMA public TO :"runtime_role";
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, :"runtime_role";
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, :"runtime_role";
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"runtime_role";
-GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO :"runtime_role";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"runtime_role";
 
 -- Local developer migrations are run only through the explicit one-shot
 -- dev-migrate profile, not through the web/queue app service.
@@ -117,4 +120,4 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"bootstrap_role" IN SCHEMA public
 ALTER DEFAULT PRIVILEGES FOR ROLE :"bootstrap_role" IN SCHEMA public
     GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"runtime_role";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"bootstrap_role" IN SCHEMA public
-    GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO :"runtime_role";
+    GRANT USAGE, SELECT ON SEQUENCES TO :"runtime_role";
