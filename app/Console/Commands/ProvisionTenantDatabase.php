@@ -119,6 +119,24 @@ final class ProvisionTenantDatabase extends Command
                 throw new RuntimeException('tenant_schema_migration_failed');
             }
 
+            // Close the only intended migrator session and scrub its credentials
+            // before disabling the temporary role and deleting its OpenBao secret.
+            DB::disconnect('tenant');
+            DB::purge('tenant');
+            $tenantBaseConfig['url'] = null;
+            $tenantBaseConfig['database'] = '__tenant_not_configured__';
+            $tenantBaseConfig['username'] = '';
+            $tenantBaseConfig['password'] = '';
+            Config::set('database.connections.tenant', $tenantBaseConfig);
+            unset($migratorPassword, $tenantConfig);
+
+            $provisioner->retireMigratorCredential(
+                $tenantId,
+                function (string $key) use ($secrets): void {
+                    $secrets->deleteCredential($key);
+                }
+            );
+
             $updated = $central->table('tenant_database_registry')
                 ->where('tenant_id', $registryTenantId)
                 ->where('status', 'provisioning')
