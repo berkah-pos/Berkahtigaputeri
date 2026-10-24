@@ -222,7 +222,7 @@ class TenantSyncApiTest extends TestCase
             'is_active' => true,
             'version' => 3,
         ], 'tenant');
-        $this->assertDatabaseCount('product_status_audits', 2, 'tenant');
+        $this->assertSame(2, DB::connection('tenant')->table('product_status_audits')->where('product_id', $productId)->count());
     }
 
     public function test_positive_cost_receipt_without_counter_account_is_rejected_without_server_writes(): void
