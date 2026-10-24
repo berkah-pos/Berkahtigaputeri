@@ -407,8 +407,8 @@ class TenantSyncApiTest extends TestCase
         $productId = 'late-receipt-product-'.Str::lower(Str::ulid());
         $lotId = 'late-receipt-lot-'.Str::lower(Str::ulid());
         $periodId = $db->table('accounting_periods')->insertGetId([
-            'starts_on' => '2004-01-01',
-            'ends_on' => '2004-01-31',
+            'starts_on' => '1980-01-01',
+            'ends_on' => '1980-01-31',
             'status' => 'open',
             'closed_at' => null,
             'closed_by' => null,
@@ -458,7 +458,7 @@ class TenantSyncApiTest extends TestCase
                         'unit_cost' => $unitCost,
                         'counter_account_code' => '2-2020',
                         'batch_no' => 'BATCH-LATE-RECEIPT',
-                        'expiry_date' => '2004-01-20',
+                        'expiry_date' => '1980-01-20',
                         'acquired_at_utc' => $acquiredAtUtc,
                         'timezone' => 'Asia/Jakarta',
                     ],
@@ -471,21 +471,21 @@ class TenantSyncApiTest extends TestCase
             'cost-late-first-'.Str::lower(Str::ulid()),
             1,
             10000,
-            '2004-01-01T03:00:00Z',
+            '1980-01-01T03:00:00Z',
         );
         $second = $makeReceiptEvent(
             'outbox:inventory_receipt:late-'.Str::lower(Str::ulid()),
             'cost-late-second-'.Str::lower(Str::ulid()),
             1,
             11000,
-            '2004-01-02T03:00:00Z',
+            '1980-01-02T03:00:00Z',
         );
         $expiredBeforeReceipt = $makeReceiptEvent(
             'outbox:inventory_receipt:invalid-expiry-'.Str::lower(Str::ulid()),
             'cost-invalid-expiry-'.Str::lower(Str::ulid()),
             1,
             12000,
-            '2004-01-25T03:00:00Z',
+            '1980-01-25T03:00:00Z',
         );
 
         $this->withHeader('Authorization', 'Bearer '.$bearer)
