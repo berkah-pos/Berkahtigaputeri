@@ -214,4 +214,111 @@ void main() {
     expect(indexes, contains('idx_outbox_status'));
     expect(indexes, contains('idx_outbox_retry'));
   });
+
+  
+  test('v1 migration rejects product stock that disagrees with cost layers',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkahtigaputeri-stock-mismatch-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final path = p.join(directory.path, 'legacy-mismatch.db');
+    final legacy = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onConfigure: (database) async {
+          await database.execute('PRAGMA foreign_keys = ON');
+        },
+        onCreate: (database, version) async {
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL UNIQUE,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL CHECK(price >= 0),
+              ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+              stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0)
+            )
+          ''');
+          await database.execute('''
+            CREATE TABLE inventory_lots (
+              id TEXT PRIMARY KEY,
+              product_id TEXT NOT NULL,
+              acquired_at_utc TEXT NOT NULL,
+              remaining_qty INTEGER NOT NULL CHECK(remaining_qty >= 0),
+              unit_cost INTEGER NOT NULL CHECK(unit_cost >= 0),
+              FOREIGN KEY(product_id) REFERENCES products(id)
+            )
+          ''');
+          await database.execute('''
+            CREATE INDEX idx_inventory_lots_fifo
+            ON inventory_lots(product_id, acquired_at_utc, id)
+          ''');
+        },
+      ),
+    );
+
+    await legacy.insert('products', <String, Object?>{
+      'id': 'P-MISMATCH',
+      'sku': 'SKU-MISMATCH',
+      'barcode': null,
+      'name_id': 'Produk Tidak Konsisten',
+      'price': 25000,
+      'ppn_exempt': 0,
+      // The summary says 3 units, but the only cost layer contains 2.
+      'stock_qty': 3,
+    });
+    await legacy.insert('inventory_lots', <String, Object?>{
+      'id': 'LOT-MISMATCH',
+      'product_id': 'P-MISMATCH',
+      'acquired_at_utc': DateTime.utc(2026, 9, 1).toIso8601String(),
+      'remaining_qty': 2,
+      'unit_cost': 10000,
+    });
+    await legacy.close();
+
+    await expectLater(
+      PosDatabase.openAt(path, factory: databaseFactoryFfi),
+      throwsA(isA<StateError>()),
+    );
+
+    // The rejected upgrade must leave the original v1 schema and rows intact
+    // so an owner can reconcile the source before retrying.
+    final original = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        readOnly: true,
+        singleInstance: false,
+      ),
+    );
+    addTearDown(original.close);
+
+    final version = await original.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], 1);
+
+    final product = (await original.query('products')).single;
+    expect(product['id'], 'P-MISMATCH');
+    expect(product['stock_qty'], 3);
+
+    final layer = (await original.query('inventory_lots')).single;
+    expect(layer['id'], 'LOT-MISMATCH');
+    expect(layer['remaining_qty'], 2);
+
+    final columns = (await original.rawQuery(
+      "PRAGMA table_info('inventory_lots')",
+    )).map((column) => column['name'] as String).toSet();
+    expect(columns, contains('remaining_qty'));
+    expect(columns, isNot(contains('on_hand_qty')));
+
+    final migratedCostLayers = await original.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' "
+      "AND name IN ('inventory_cost_layers', 'inventory_cost_layers_v1')",
+    );
+    expect(migratedCostLayers, isEmpty);
+  });
+
 }
