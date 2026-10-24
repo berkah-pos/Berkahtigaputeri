@@ -491,6 +491,10 @@ class SyncController extends Controller
         if (strlen($productId) > 100 || $productId !== $eventEntityId) {
             throw new SyncConflictException('ID master produk tidak valid atau tidak cocok dengan envelope.');
         }
+
+        // Serialize separate event IDs for the same product so concurrent
+        // creates/updates cannot race around the version compare-and-swap.
+        $db->select('SELECT pg_advisory_xact_lock(hashtextextended(?, 0))', ['product:'.$productId]);
         $sku = trim($this->requiredString($product, 'sku'));
         $name = trim($this->requiredString($product, 'name_id'));
         if (strlen($sku) > 100 || strlen($name) > 255) {
