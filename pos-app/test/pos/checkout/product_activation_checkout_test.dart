@@ -58,6 +58,8 @@ void main() {
       'inventory_lots',
       'inventory_cost_layers',
       'inventory_movements',
+      'sale_lot_allocations',
+      'cost_layer_consumptions',
       'stock_movements',
       'sales',
       'sale_items',
