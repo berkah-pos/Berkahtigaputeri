@@ -573,6 +573,25 @@ class SyncController extends Controller
         $hasStatusChange = $existing !== null && $isActive !== $currentIsActive;
         $statusAudit = null;
         if ($hasStatusChange) {
+            // Product lifecycle authorization is evaluated against the current
+            // central membership at acceptance time, not the offline event's
+            // creation time. The durable local event remains pending for review
+            // if this policy rejects it.
+            $membershipRole = DB::connection('central')->table('tenant_memberships')
+                ->join('device_registry', 'device_registry.tenant_id', '=', 'tenant_memberships.tenant_id')
+                ->where('tenant_memberships.user_id', $actorId)
+                ->where('tenant_memberships.tenant_id', $db->getConfig('tenant_id') ?? DB::connection('central')->table('device_registry')->where('device_id', $deviceId)->value('tenant_id'))
+                ->where('tenant_memberships.status', 'active')
+                ->where('device_registry.device_id', $deviceId)
+                ->where('device_registry.owner_user_id', $actorId)
+                ->where('device_registry.status', 'active')
+                ->whereNull('device_registry.revoked_at')
+                ->value('tenant_memberships.role');
+            if (! in_array($membershipRole, ['owner', 'manager'], true)) {
+                throw new SyncConflictException(
+                    'Product status change rejected: active tenant membership role owner or manager is required.'
+                );
+            }
             if (! $versionSpecified) {
                 throw new SyncConflictException('Perubahan status memerlukan versi produk.');
             }
