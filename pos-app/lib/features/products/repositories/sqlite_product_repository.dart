@@ -263,6 +263,12 @@ class SqliteProductRepository {
 
       final receivedAt = acquiredAtUtc.toUtc().toIso8601String();
       final expiry = expiryDate == null ? null : _dateOnly(expiryDate);
+      if (expiryDate != null &&
+          _expiryBeforeReceiptBusinessDate(expiryDate, acquiredAtUtc)) {
+        throw const ProductValidationException(
+          'Tanggal kedaluwarsa tidak boleh sebelum tanggal penerimaan.',
+        );
+      }
 
       await transaction.insert(
         'inventory_lots',
@@ -366,6 +372,16 @@ class SqliteProductRepository {
       }
 
       final lot = lots.first;
+      final lotExpiry = lot['expiry_date'] as String?;
+      if (lotExpiry != null &&
+          _expiryBeforeReceiptBusinessDate(
+            DateTime.parse(lotExpiry),
+            acquiredAtUtc,
+          )) {
+        throw const ProductValidationException(
+          'Tanggal kedaluwarsa tidak boleh sebelum tanggal penerimaan.',
+        );
+      }
       final productId = lot['product_id']! as String;
       final product = await _loadProduct(transaction, productId);
       if (!product.isActive) throw ProductInactiveException(product.nameId);
@@ -674,6 +690,27 @@ class SqliteProductRepository {
       version: row['version']! as int,
       syncStatus: row['sync_status'] as String?,
     );
+  }
+
+  bool _expiryBeforeReceiptBusinessDate(
+    DateTime expiryDate,
+    DateTime acquiredAtUtc,
+  ) {
+    // Inventory receipt events use Asia/Jakarta for their accounting business
+    // date. Compare calendar dates, not UTC instants or the current wall clock,
+    // so a valid offline receipt can still sync after its expiry date passes.
+    final jakartaReceipt = acquiredAtUtc.toUtc().add(const Duration(hours: 7));
+    final receiptDate = DateTime(
+      jakartaReceipt.year,
+      jakartaReceipt.month,
+      jakartaReceipt.day,
+    );
+    final expiryOnly = DateTime(
+      expiryDate.year,
+      expiryDate.month,
+      expiryDate.day,
+    );
+    return expiryOnly.isBefore(receiptDate);
   }
 
   String _dateOnly(DateTime value) {
