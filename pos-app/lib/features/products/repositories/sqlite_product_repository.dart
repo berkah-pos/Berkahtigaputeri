@@ -188,7 +188,8 @@ class SqliteProductRepository {
         (SELECT e.status FROM outbox_events e
          WHERE e.entity_type = 'product' AND e.entity_id = p.id
            AND e.status <> 'acknowledged'
-         ORDER BY e.created_at_utc DESC, e.id DESC LIMIT 1) AS sync_status
+         ORDER BY CASE e.status WHEN 'needs_attention' THEN 0 ELSE 1 END,
+                  e.created_at_utc DESC, e.id DESC LIMIT 1) AS sync_status
       FROM products p
       ORDER BY p.name_id COLLATE NOCASE, p.sku
     ''');
