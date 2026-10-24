@@ -3,6 +3,7 @@
 import 'package:berkahtigaputeri_pos/features/accounting/exceptions/accounting_exceptions.dart';
 import 'package:berkahtigaputeri_pos/core/database/pos_database.dart';
 import 'package:berkahtigaputeri_pos/features/accounting/models/journal_entry.dart';
+import 'package:berkahtigaputeri_pos/features/pos/cart/sale_calculator.dart';
 import 'package:berkahtigaputeri_pos/features/pos/checkout/payment_service.dart';
 import 'package:berkahtigaputeri_pos/features/pos/checkout/sqlite_sale_repository.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
@@ -159,6 +160,74 @@ void main() {
       expect(itemRows[0]['ppn_exempt'], 0);
       expect(itemRows[1]['transaction_discount_amount'], 5000);
       expect(itemRows[1]['ppn_exempt'], 1);
+    });
+
+    test('diskon penuh ditolak tanpa memutasi penjualan, stok, jurnal, atau outbox',
+        () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final products = SqliteProductRepository(database);
+
+      await _seedProduct(
+        products,
+        id: 'P-ZERO-TOTAL',
+        sku: 'SKU-ZERO-TOTAL',
+        name: 'Produk Diskon Penuh',
+        price: 10000,
+        ppnExempt: false,
+        lots: <_LotSeed>[
+          _LotSeed(
+            id: 'LOT-ZERO-TOTAL',
+            quantity: 1,
+            unitCost: 4000,
+            acquiredAtUtc: DateTime.utc(2026, 9, 1),
+          ),
+        ],
+      );
+
+      final service = PaymentService(
+        repository: SqliteSaleRepository(database),
+      );
+
+      await expectLater(
+        service.process(
+          PaymentRequest(
+            transactionId: 'TRX-ZERO-TOTAL-001',
+            method: PaymentMethod.cash,
+            occurredAtUtc: DateTime.utc(2026, 9, 29, 10),
+            lines: const <PaymentLineInput>[
+              PaymentLineInput(
+                productId: 'P-ZERO-TOTAL',
+                quantity: 1,
+                itemDiscountAmount: 10000,
+              ),
+            ],
+          ),
+        ),
+        throwsA(isA<SaleCalculationException>()),
+      );
+
+      expect((await products.findById('P-ZERO-TOTAL'))!.stockQty, 1);
+      expect(
+        (await database.database.query('inventory_lots')).single['on_hand_qty'],
+        1,
+      );
+      expect(
+        (await database.database.query('inventory_cost_layers'))
+            .single['remaining_qty'],
+        1,
+      );
+      expect(await database.database.query('sales'), isEmpty);
+      expect(await database.database.query('sale_items'), isEmpty);
+      expect(await database.database.query('journals'), isEmpty);
+      expect(
+        await database.database.query(
+          'outbox_events',
+          where: 'entity_type = ?',
+          whereArgs: <Object?>['sale'],
+        ),
+        isEmpty,
+      );
     });
 
     test('FIFO mengambil lot tertua dan menghitung COGS otomatis', () async {
