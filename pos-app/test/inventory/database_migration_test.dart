@@ -8,6 +8,53 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('schema v4 adds active status and version without changing products', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp('berkah-pos-v4-lifecycle-');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'legacy-v4.db');
+    final legacy = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (database, version) async {
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL,
+              ppn_exempt INTEGER NOT NULL,
+              stock_qty INTEGER NOT NULL,
+              track_expiry INTEGER NOT NULL DEFAULT 0,
+              min_shelf_life_days INTEGER NOT NULL DEFAULT 0,
+              requires_review INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        },
+      ),
+    );
+    await legacy.insert('products', <String, Object?>{
+      'id': 'P-V4', 'sku': 'SKU-V4', 'barcode': null,
+      'name_id': 'Produk V4', 'price': 25000,
+      'ppn_exempt': 0, 'stock_qty': 3,
+      'track_expiry': 0, 'min_shelf_life_days': 0, 'requires_review': 0,
+    });
+    await legacy.close();
+
+    final migrated = await PosDatabase.openAt(path, factory: databaseFactoryFfi);
+    addTearDown(migrated.close);
+    final product = (await migrated.database.query('products')).single;
+    expect(product['id'], 'P-V4');
+    expect(product['stock_qty'], 3);
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
+    expect(await migrated.database.query('product_status_history'), isEmpty);
+    final version = await migrated.database.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], PosDatabase.schemaVersion);
+  });
+
   test('schema v1 inventory migrates into physical lot and FIFO cost layer',
       () async {
     sqfliteFfiInit();
@@ -92,6 +139,8 @@ void main() {
     expect(product['track_expiry'], 0);
     expect(product['min_shelf_life_days'], 0);
     expect(product['requires_review'], 0);
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
     expect(product['stock_qty'], 2);
 
     final lot = (await migrated.database.query('inventory_lots')).single;
