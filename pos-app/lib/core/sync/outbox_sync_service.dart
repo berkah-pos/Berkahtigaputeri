@@ -156,6 +156,7 @@ class OutboxSyncService {
               where: 'id = ?',
               whereArgs: <Object?>[eventId],
             );
+            await _setStatusAuditEventState(db, eventId, 'acknowledged');
             acknowledged++;
           } else if (status == 'conflict' || status == 'needs_attention') {
             await _markAttention(
@@ -288,6 +289,20 @@ class OutboxSyncService {
       },
       where: 'id = ?',
       whereArgs: <Object?>[id],
+    );
+    await _setStatusAuditEventState(db, id, 'needs_attention');
+  }
+
+  Future<void> _setStatusAuditEventState(
+    DatabaseExecutor db,
+    String eventId,
+    String status,
+  ) async {
+    await db.update(
+      'product_status_history',
+      <String, Object?>{'sync_status': status},
+      where: 'event_id = ?',
+      whereArgs: <Object?>[eventId],
     );
   }
 
