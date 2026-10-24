@@ -197,6 +197,32 @@ class PosDatabase {
   }
 
   static Future<void> _migrateV1ToV2(Database database) async {
+    // Product summary stock and the legacy cost-layer quantities must agree
+    // before those rows are converted into physical inventory lots. Carrying
+    // an inconsistent source forward would make product stock disagree with
+    // the lot ledger after migration.
+    final stockMismatches = await database.rawQuery('''
+      SELECT
+        p.id AS product_id,
+        p.stock_qty AS product_stock_qty,
+        COALESCE(SUM(l.remaining_qty), 0) AS layer_stock_qty
+      FROM products p
+      LEFT JOIN inventory_lots l ON l.product_id = p.id
+      GROUP BY p.id, p.stock_qty
+      HAVING p.stock_qty != COALESCE(SUM(l.remaining_qty), 0)
+      LIMIT 1
+    ''');
+    if (stockMismatches.isNotEmpty) {
+      final mismatch = stockMismatches.single;
+      throw StateError(
+        'Cannot upgrade SQLite schema v1: product '
+        '${mismatch['product_id']} has stock_qty '
+        '${mismatch['product_stock_qty']} but legacy inventory layers total '
+        '${mismatch['layer_stock_qty']}. Reconcile the v1 stock ledger before '
+        'retrying migration.',
+      );
+    }
+
     await database.execute('''
       ALTER TABLE products
       ADD COLUMN track_expiry INTEGER NOT NULL DEFAULT 0
