@@ -41,6 +41,12 @@ void main() {
     );
     expect((await repository.findById('P-STATUS'))!.nameId, 'Nama diperbarui');
     expect((await repository.listAll()).single.isActive, isFalse);
-    expect((await repository.listAll()).single.syncStatus, isNotNull);
+    await database.database.rawUpdate(
+      "UPDATE outbox_events SET status = 'needs_attention' "
+      "WHERE id = (SELECT id FROM outbox_events "
+      "WHERE entity_type = 'product' AND entity_id = 'P-STATUS' "
+      "ORDER BY created_at_utc, id LIMIT 1)",
+    );
+    expect((await repository.listAll()).single.syncStatus, 'needs_attention');
   });
 }
