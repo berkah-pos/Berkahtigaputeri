@@ -95,7 +95,11 @@ Expiry-tracked products use FEFO ordering by expiry date, receipt time and lot I
 
 Expiry-tracked products require both batch number and expiry date. Where a date is recorded for any product, checkout must enforce it even if product-level expiry tracking is disabled.
 
-`addInventoryToExistingLot` adds a new FIFO cost layer into an existing physical batch and increases the physical lot quantity atomically.
+A receipt is invalid if its recorded expiry date precedes the receipt's `Asia/Jakarta` business date. The validity check uses the event's original acquisition/receipt timestamp, not the server's current date. This is required for offline-first sync: a receipt that was valid when recorded must still be accepted if the device reconnects only after that lot's expiry date has passed.
+
+When such a delayed receipt reaches the server after expiry, the server records the inventory/cost/audit event and acknowledges it idempotently, but the lot status is `expired`. Additional delayed receipt layers for the same naturally expired batch may be recorded only when their own receipt date was on or before the batch expiry; the lot remains expired. Expiry-date filtering in checkout remains authoritative even before any status-maintenance task runs. A receipt whose expiry was already before its original receipt business date is rejected without partial stock, cost-layer, movement, journal, or outbox effects.
+
+`addInventoryToExistingLot` adds a new FIFO cost layer into an existing physical batch and increases the physical lot quantity atomically. Its receipt date must satisfy the same expiry rule.
 
 ## Migration
 
