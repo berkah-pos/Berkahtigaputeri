@@ -82,17 +82,36 @@ void main() {
     );
     addTearDown(target.close);
 
-    final result = await LegacyTrialImporter.importIfPresent(
-      target: target.database,
-      legacyPath: legacyPath,
-      factory: databaseFactoryFfi,
-    );
+    // Two callers can pass the initial marker check before either import
+    // transaction starts. The transaction-level recheck must return the
+    // already-completed counts rather than reporting a false zero import.
+    final results = await Future.wait<Map<String, int>?>([
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+    ]);
 
-    expect(result, <String, int>{
-      'products': 1,
-      'sales': 1,
-      'saleItems': 1,
-    });
+    expect(results, hasLength(2));
+    expect(
+      results.every(
+        (result) =>
+            result?['products'] == 1 &&
+            result?['sales'] == 1 &&
+            result?['saleItems'] == 1,
+      ),
+      isTrue,
+    );
+    expect(
+      results.where((result) => result?['alreadyImported'] == 1),
+      hasLength(1),
+    );
 
     final product = (await target.database.query('products')).single;
     expect(product['id'], 'legacy-product-1');
