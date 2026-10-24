@@ -311,6 +311,36 @@ class LaravelAuthService {
     }
   }
 
+
+  /// Fetches tenant-scoped reconciliation totals through the authenticated
+  /// Laravel API. Tenant identity is resolved by server middleware, not query
+  /// parameters supplied by this client.
+  Future<Map<String, dynamic>> fetchReconciliationReport() async {
+    final token = await _vault.read(_tokenKey);
+    if (token == null || token.isEmpty) {
+      throw const AuthFailure(
+        message: 'Sesi cloud tidak tersedia. Masuk kembali untuk melanjutkan.',
+        code: 'session_missing',
+        statusCode: 401,
+      );
+    }
+
+    final response = await _request(
+      'GET',
+      'reports/reconciliation',
+      token: token,
+    );
+    final rawReport = response.data['data'];
+    if (rawReport is! Map) {
+      throw const AuthFailure(
+        message: 'Server tidak mengembalikan laporan rekonsiliasi yang valid.',
+        code: 'invalid_reconciliation_report',
+        statusCode: 502,
+      );
+    }
+    return Map<String, dynamic>.from(rawReport);
+  }
+
   /// Fetches one service configuration through the authenticated Laravel API.
   /// Tenant and device context are derived by the server from the bearer token;
   /// this client deliberately does not send a client-selected tenant identifier.

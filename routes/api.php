@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\IdentityController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\EffectiveConfigController;
+use App\Http\Controllers\Api\V1\ReconciliationReportController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -63,6 +64,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/v1/sync', [SyncController::class, 'sync'])
         ->middleware(['identity.context', 'throttle:30,1'])
         ->name('api.v1.sync');
+
+    Route::get('/v1/reports/reconciliation', [ReconciliationReportController::class, 'show'])
+        ->middleware(['identity.context', 'throttle:60,1'])
+        ->name('api.v1.reports.reconciliation');
 
     Route::middleware(['identity.context', 'central.admin'])->prefix('/v1/admin')->group(function (): void {
         Route::post('/devices/{deviceId}/approve', [IdentityController::class, 'approveDevice'])

@@ -15,7 +15,7 @@ Future<void> enqueueOutboxEvent(
   required String createdAtUtc,
   String? eventId,
 }) async {
-  const allowedTypes = <String>{'product', 'inventory_receipt', 'sale'};
+  const allowedTypes = <String>{'product', 'inventory_receipt', 'sale', 'sale_return', 'stock_adjustment'};
   if (!allowedTypes.contains(entityType)) {
     throw ArgumentError.value(entityType, 'entityType', 'Unsupported event type');
   }
