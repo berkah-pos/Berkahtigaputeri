@@ -131,6 +131,49 @@ void main() {
     final credit = journalLines.fold<int>(0, (sum, row) => sum + (row['credit']! as num).toInt());
     expect(debit, credit);
 
+    final report = (await db.rawQuery('''
+      SELECT
+        COUNT(*) AS sale_count,
+        COALESCE(SUM(grand_total), 0) AS revenue,
+        COALESCE(SUM(cogs_amount), 0) AS cogs,
+        (SELECT COUNT(*) FROM sale_returns) AS return_count,
+        (SELECT COALESCE(SUM(refund_total), 0) FROM sale_returns) AS refund_total,
+        (SELECT COALESCE(SUM(cogs_amount), 0) FROM sale_returns) AS returned_cogs,
+        (SELECT COALESCE(SUM(on_hand_qty), 0) FROM inventory_lots WHERE status = 'saleable') AS saleable_qty,
+        (SELECT COALESCE(SUM(on_hand_qty), 0) FROM inventory_lots WHERE status = 'quarantine') AS quarantine_qty,
+        (SELECT COUNT(*) FROM journals) AS journal_count,
+        (SELECT COUNT(*) FROM (
+          SELECT j.id
+          FROM journals j LEFT JOIN journal_lines jl ON jl.journal_id = j.id
+          GROUP BY j.id
+          HAVING COALESCE(SUM(jl.debit), 0) <> COALESCE(SUM(jl.credit), 0)
+        )) AS unbalanced_journals
+      FROM sales
+    ''')).single;
+    expect((report['revenue']! as num).toInt() - (report['refund_total']! as num).toInt(), 11100);
+    expect((report['cogs']! as num).toInt() - (report['returned_cogs']! as num).toInt(), 5000);
+    expect(report['return_count'], 1);
+    expect(report['saleable_qty'], 0);
+    expect(report['quarantine_qty'], 1);
+    expect(report['journal_count'], 2);
+    expect(report['unbalanced_journals'], 0);
+
+    final aggregateStock = (await db.rawQuery(
+      'SELECT COALESCE(SUM(stock_qty), 0) AS value FROM products WHERE id = ?',
+      <Object?>['P-RETURN'],
+    )).single['value']! as int;
+    final physicalStock = (await db.rawQuery(
+      'SELECT COALESCE(SUM(on_hand_qty), 0) AS value FROM inventory_lots WHERE product_id = ?',
+      <Object?>['P-RETURN'],
+    )).single['value']! as int;
+    final fifoStock = (await db.rawQuery(
+      'SELECT COALESCE(SUM(remaining_qty), 0) AS value FROM inventory_cost_layers WHERE product_id = ?',
+      <Object?>['P-RETURN'],
+    )).single['value']! as int;
+    expect(aggregateStock, 1);
+    expect(physicalStock, aggregateStock);
+    expect(fifoStock, aggregateStock);
+
     final replay = await repository.processReturn(
       saleId: sale.saleId,
       quantities: <String, int>{'sale:sale-return-001:item:0': 1},
