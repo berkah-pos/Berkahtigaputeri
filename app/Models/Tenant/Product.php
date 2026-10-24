@@ -19,6 +19,7 @@ class Product extends Model
             'price' => 'decimal:2',
             'requires_review' => 'boolean',
             'is_active' => 'boolean',
+            'version' => 'integer',
         ];
     }
 }
