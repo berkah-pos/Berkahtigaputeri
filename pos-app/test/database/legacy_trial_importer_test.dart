@@ -488,4 +488,132 @@ void main() {
     );
   });
 
+
+
+  test('rejects conflicting legacy stock archive without completing import',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-stock-collision-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final sourceProductId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Sumber',
+      'sku': 'SRC-STOCK-01',
+      'price': 12000.0,
+      'stock': 3,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 12000.0,
+      'item_count': 1,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': sourceProductId,
+      'name': 'Produk Sumber',
+      'qty': 1,
+      'price': 12000.0,
+      'subtotal': 12000.0,
+    });
+    await oldDb.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await target.database.insert('products', <String, Object?>{
+      'id': 'unrelated-product',
+      'sku': 'TARGET-STOCK-ARCHIVE',
+      'barcode': null,
+      'name_id': 'Arsip Stok yang Sudah Ada',
+      'price': 99000,
+      'ppn_exempt': 1,
+      'stock_qty': 0,
+      'track_expiry': 0,
+      'min_shelf_life_days': 0,
+      'requires_review': 0,
+    });
+    await target.database.insert('legacy_product_stock_archive',
+        <String, Object?>{
+      'product_id': 'unrelated-product',
+      'original_product_id': sourceProductId,
+      'original_quantity': 41,
+      'status': 'needs_review',
+      'imported_at_utc': '2026-10-02T00:00:00.000Z',
+      'reviewed_at_utc': null,
+    });
+
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+
+    // A pre-existing stock archive with this source ID belongs to a different
+    // target product. Do not call the import complete while losing source stock.
+    final products = await target.database.query('products');
+    expect(products, hasLength(1));
+    expect(products.single['id'], 'unrelated-product');
+    expect(products.single['name_id'], 'Arsip Stok yang Sudah Ada');
+    final stockArchive =
+        (await target.database.query('legacy_product_stock_archive')).single;
+    expect(stockArchive['product_id'], 'unrelated-product');
+    expect(stockArchive['original_quantity'], 41);
+    expect(await target.database.query('legacy_sales_archive'), isEmpty);
+    expect(await target.database.query('legacy_sale_items_archive'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), isEmpty);
+    expect(await target.database.query('sales'), isEmpty);
+    expect(await target.database.query('journals'), isEmpty);
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
+  });
+
 }
