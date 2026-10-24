@@ -67,5 +67,39 @@ void main() {
 
       expect(result.allocations.single.lotId, 'OLD');
     });
+
+    test(
+      'non-expiry product excludes known-expired lots and keeps receipt FIFO',
+      () {
+        final result = FefoEngine.allocate(
+          candidates: <FefoLotCandidate>[
+            FefoLotCandidate(
+              id: 'EXPIRED',
+              availableQty: 1,
+              firstReceivedAtUtc: DateTime.utc(2026, 8, 1),
+              expiryDate: DateTime(2026, 9, 29),
+            ),
+            FefoLotCandidate(
+              id: 'RECEIVED-FIRST',
+              availableQty: 1,
+              firstReceivedAtUtc: DateTime.utc(2026, 8, 2),
+              expiryDate: DateTime(2026, 12, 31),
+            ),
+            FefoLotCandidate(
+              id: 'EARLIER-EXPIRY',
+              availableQty: 1,
+              firstReceivedAtUtc: DateTime.utc(2026, 8, 3),
+              expiryDate: DateTime(2026, 10, 1),
+            ),
+          ],
+          requestedQuantity: 1,
+          businessDate: DateTime(2026, 9, 30),
+          trackExpiry: false,
+          minShelfLifeDays: 0,
+        );
+
+        expect(result.allocations.single.lotId, 'RECEIVED-FIRST');
+      },
+    );
   });
 }
