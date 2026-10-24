@@ -214,4 +214,110 @@ void main() {
     expect(indexes, contains('idx_outbox_status'));
     expect(indexes, contains('idx_outbox_retry'));
   });
+
+
+  test('schema v2 upgrades product review and outbox fields without data loss',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkahtigaputeri-v2-upgrade-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final path = p.join(directory.path, 'legacy-v2.db');
+    final versionTwo = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (database, version) async {
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL UNIQUE,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL CHECK(price >= 0),
+              ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+              stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0),
+              track_expiry INTEGER NOT NULL DEFAULT 0
+                CHECK(track_expiry IN (0, 1)),
+              min_shelf_life_days INTEGER NOT NULL DEFAULT 0
+                CHECK(min_shelf_life_days >= 0)
+            )
+          ''');
+          await database.execute('''
+            CREATE TABLE outbox_events (
+              id TEXT PRIMARY KEY,
+              entity_type TEXT NOT NULL,
+              entity_id TEXT NOT NULL,
+              payload TEXT NOT NULL,
+              status TEXT NOT NULL,
+              retry_count INTEGER NOT NULL DEFAULT 0,
+              created_at_utc TEXT NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+
+    await versionTwo.insert('products', <String, Object?>{
+      'id': 'P-V2',
+      'sku': 'SKU-V2',
+      'barcode': '899000000002',
+      'name_id': 'Produk V2',
+      'price': 35000,
+      'ppn_exempt': 0,
+      'stock_qty': 4,
+      'track_expiry': 1,
+      'min_shelf_life_days': 7,
+    });
+    await versionTwo.insert('outbox_events', <String, Object?>{
+      'id': 'outbox:product:P-V2',
+      'entity_type': 'product',
+      'entity_id': 'P-V2',
+      'payload': '{"product":{"id":"P-V2"}}',
+      'status': 'pending',
+      'retry_count': 0,
+      'created_at_utc': '2026-10-21T08:00:00.000Z',
+    });
+    await versionTwo.close();
+
+    final migrated = await PosDatabase.openAt(
+      path,
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(migrated.close);
+
+    final version = await migrated.database.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], PosDatabase.schemaVersion);
+
+    final product = (await migrated.database.query('products')).single;
+    expect(product['id'], 'P-V2');
+    expect(product['sku'], 'SKU-V2');
+    expect(product['price'], 35000);
+    expect(product['stock_qty'], 4);
+    expect(product['track_expiry'], 1);
+    expect(product['min_shelf_life_days'], 7);
+    expect(product['requires_review'], 0);
+
+    final event = (await migrated.database.query('outbox_events')).single;
+    expect(event['id'], 'outbox:product:P-V2');
+    expect(event['payload'], '{"product":{"id":"P-V2"}}');
+    expect(event['status'], 'pending');
+    expect(event['retry_count'], 0);
+    expect(event['last_error'], isNull);
+    expect(event['next_retry_at_utc'], isNull);
+    expect(event['acked_at_utc'], isNull);
+    expect(event['server_receipt_id'], isNull);
+
+    expect(await migrated.database.query('legacy_import_runs'), isEmpty);
+    expect(await migrated.database.query('legacy_sales_archive'), isEmpty);
+
+    final indexes = (await migrated.database.rawQuery(
+      "PRAGMA index_list('outbox_events')",
+    ))
+        .map((index) => index['name'] as String)
+        .toSet();
+    expect(indexes, contains('idx_outbox_status'));
+    expect(indexes, contains('idx_outbox_retry'));
+  });
 }
