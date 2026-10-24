@@ -237,6 +237,72 @@ void main() {
       expect(await _count(database, 'inventory_movements'), 1);
     });
 
+    test('receipt rejects expiry before the receipt business date', () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final products = SqliteProductRepository(database);
+
+      await _createNonExpiryProduct(products, id: 'P-RECEIPT-EXPIRED-ON-ARRIVAL');
+      final outboxBefore = await _count(database, 'outbox_events');
+
+      await expectLater(
+        products.addInventoryLot(
+          id: 'LOT-EXPIRED-ON-ARRIVAL',
+          productId: 'P-RECEIPT-EXPIRED-ON-ARRIVAL',
+          batchNo: 'B-EXPIRED-ON-ARRIVAL',
+          expiryDate: DateTime(2026, 9, 29),
+          quantity: 1,
+          unitCost: 10000,
+          acquiredAtUtc: DateTime.utc(2026, 9, 30, 3),
+        ),
+        throwsA(isA<ProductValidationException>()),
+      );
+
+      expect((await products.findById('P-RECEIPT-EXPIRED-ON-ARRIVAL'))!.stockQty, 0);
+      expect(await _count(database, 'inventory_lots'), 0);
+      expect(await _count(database, 'inventory_cost_layers'), 0);
+      expect(await _count(database, 'inventory_movements'), 0);
+      expect(await _count(database, 'outbox_events'), outboxBefore);
+    });
+
+    test('additional receipt rejects expiry before its recorded receipt date', () async {
+      final database = await openTestDatabase();
+      addTearDown(database.close);
+      final products = SqliteProductRepository(database);
+
+      await _createNonExpiryProduct(products, id: 'P-ADDITIONAL-EXPIRED-ON-ARRIVAL');
+      await products.addInventoryLot(
+        id: 'LOT-ADDITIONAL-EXPIRED',
+        productId: 'P-ADDITIONAL-EXPIRED-ON-ARRIVAL',
+        batchNo: 'B-ADDITIONAL-EXPIRED',
+        expiryDate: DateTime(2026, 9, 30),
+        quantity: 1,
+        unitCost: 10000,
+        acquiredAtUtc: DateTime.utc(2026, 9, 1, 3),
+      );
+
+      final stockBefore = (await products.findById('P-ADDITIONAL-EXPIRED-ON-ARRIVAL'))!.stockQty;
+      final outboxBefore = await _count(database, 'outbox_events');
+
+      await expectLater(
+        products.addInventoryToExistingLot(
+          lotId: 'LOT-ADDITIONAL-EXPIRED',
+          costLayerId: 'cost:LOT-ADDITIONAL-EXPIRED-LATE',
+          quantity: 1,
+          unitCost: 11000,
+          acquiredAtUtc: DateTime.utc(2026, 10, 1, 3),
+        ),
+        throwsA(isA<ProductValidationException>()),
+      );
+
+      expect((await products.findById('P-ADDITIONAL-EXPIRED-ON-ARRIVAL'))!.stockQty, stockBefore);
+      expect(await _count(database, 'inventory_cost_layers'), 1);
+      expect(await _count(database, 'inventory_movements'), 1);
+      expect(await _count(database, 'outbox_events'), outboxBefore);
+      final lot = (await database.database.query('inventory_lots')).single;
+      expect(lot['on_hand_qty'], 1);
+    });
+
     test('expiry-tracked receipt requires batch and expiry date', () async {
       final database = await openTestDatabase();
       addTearDown(database.close);

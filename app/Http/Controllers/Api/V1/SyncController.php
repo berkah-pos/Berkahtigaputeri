@@ -1575,9 +1575,8 @@ class SyncController extends Controller
             } catch (Throwable) {
                 $parsedExpiry = false;
             }
-            if ($parsedExpiry === false || $parsedExpiry->format('Y-m-d') !== $expiryDate
-                || $parsedExpiry->toDateString() < now()->toDateString()) {
-                throw new SyncConflictException('Tanggal kedaluwarsa tidak valid atau sudah lewat.');
+            if ($parsedExpiry === false || $parsedExpiry->format('Y-m-d') !== $expiryDate) {
+                throw new SyncConflictException('Tanggal kedaluwarsa tidak valid.');
             }
         }
 
@@ -1598,6 +1597,9 @@ class SyncController extends Controller
             $businessDate = Carbon::parse($acquiredAtRaw)->setTimezone($timezone)->toDateString();
         } catch (Throwable) {
             throw new SyncConflictException('Zona waktu/tanggal penerimaan tidak valid.');
+        }
+        if ($expiryDate !== null && $expiryDate < $businessDate) {
+            throw new SyncConflictException('Tanggal kedaluwarsa tidak boleh sebelum tanggal penerimaan.');
         }
 
         if ($unitCost > 0 && $quantity > intdiv(PHP_INT_MAX, $unitCost)) {
@@ -1641,6 +1643,7 @@ class SyncController extends Controller
         }
 
         $now = now();
+        $expiredAtSync = $expiryDate !== null && $expiryDate < $now->toDateString();
         $existingLot = $db->table('inventory_lots')->where('id', $lotId)->lockForUpdate()->first();
         $sameBatchQuery = $db->table('inventory_lots')
             ->where('product_id', $productId)
@@ -1663,20 +1666,28 @@ class SyncController extends Controller
                 'unit_cost' => $unitCost,
                 'received_at' => $acquiredAt,
                 'reserved_qty' => 0,
-                'status' => 'saleable',
+                'status' => $expiredAtSync ? 'expired' : 'saleable',
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
         } else {
+            $existingStatus = (string) ($existingLot->status ?? 'saleable');
+            $allowedStatuses = $expiredAtSync ? ['saleable', 'expired'] : ['saleable'];
             if ((string) $existingLot->product_id !== $productId
                 || (string) ($existingLot->batch_code ?? '') !== $batchNo
                 || (($existingLot->expires_at === null) !== ($expiryDate === null))
                 || ($expiryDate !== null && Carbon::parse($existingLot->expires_at)->toDateString() !== $expiryDate)
-                || (string) ($existingLot->status ?? 'saleable') !== 'saleable') {
+                || ! in_array($existingStatus, $allowedStatuses, true)) {
                 throw new SyncConflictException('Penerimaan tidak cocok dengan lot yang ada atau lot tidak lagi saleable.');
             }
             $db->table('inventory_lots')->where('id', $lotId)->increment('quantity_received', $quantity, ['updated_at' => $now]);
             $db->table('inventory_lots')->where('id', $lotId)->increment('quantity_remaining', $quantity, ['updated_at' => $now]);
+            if ($expiredAtSync && $existingStatus === 'saleable') {
+                $db->table('inventory_lots')->where('id', $lotId)->update([
+                    'status' => 'expired',
+                    'updated_at' => $now,
+                ]);
+            }
         }
 
         $db->table('inventory_cost_layers')->insert([

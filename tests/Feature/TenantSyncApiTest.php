@@ -399,6 +399,148 @@ class TenantSyncApiTest extends TestCase
         $this->assertDatabaseMissing('sync_receipts', ['event_id' => $receiptEventId], 'tenant');
     }
 
+    public function test_offline_receipts_synced_after_expiry_are_accepted_but_remain_expired(): void
+    {
+        [, , , $bearer] = $this->identityFixture(true);
+        $db = DB::connection('tenant');
+        $now = now();
+        $productId = 'late-receipt-product-'.Str::lower(Str::ulid());
+        $lotId = 'late-receipt-lot-'.Str::lower(Str::ulid());
+        $periodId = $db->table('accounting_periods')->insertGetId([
+            'starts_on' => '1980-01-01',
+            'ends_on' => '1980-01-31',
+            'status' => 'open',
+            'closed_at' => null,
+            'closed_by' => null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $db->table('products')->insert([
+            'id' => $productId,
+            'sku' => 'SKU-LATE-RECEIPT-'.Str::upper(Str::random(8)),
+            'barcode' => null,
+            'name' => 'Offline late receipt expiry test',
+            'category_id' => null,
+            'price' => 50000,
+            'requires_review' => false,
+            'is_active' => true,
+            'stock_qty' => 0,
+            'ppn_exempt' => false,
+            'track_expiry' => true,
+            'min_shelf_life_days' => 0,
+            'version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $makeReceiptEvent = function (
+            string $eventId,
+            string $costLayerId,
+            int $quantity,
+            int $unitCost,
+            string $acquiredAtUtc
+        ) use ($productId, $lotId): array {
+            return [
+                'event_id' => $eventId,
+                'entity_type' => 'inventory_receipt',
+                'entity_id' => $productId,
+                'payload' => [
+                    'event_id' => $eventId,
+                    'event_type' => 'inventory_receipt',
+                    'payload_version' => 1,
+                    'entity_id' => $productId,
+                    'receipt' => [
+                        'product_id' => $productId,
+                        'lot_id' => $lotId,
+                        'cost_layer_id' => $costLayerId,
+                        'quantity' => $quantity,
+                        'unit_cost' => $unitCost,
+                        'counter_account_code' => '2-2020',
+                        'batch_no' => 'BATCH-LATE-RECEIPT',
+                        'expiry_date' => '1980-01-20',
+                        'acquired_at_utc' => $acquiredAtUtc,
+                        'timezone' => 'Asia/Jakarta',
+                    ],
+                ],
+            ];
+        };
+
+        $first = $makeReceiptEvent(
+            'outbox:inventory_receipt:late-'.Str::lower(Str::ulid()),
+            'cost-late-first-'.Str::lower(Str::ulid()),
+            1,
+            10000,
+            '1980-01-01T03:00:00Z',
+        );
+        $second = $makeReceiptEvent(
+            'outbox:inventory_receipt:late-'.Str::lower(Str::ulid()),
+            'cost-late-second-'.Str::lower(Str::ulid()),
+            1,
+            11000,
+            '1980-01-02T03:00:00Z',
+        );
+        $expiredBeforeReceipt = $makeReceiptEvent(
+            'outbox:inventory_receipt:invalid-expiry-'.Str::lower(Str::ulid()),
+            'cost-invalid-expiry-'.Str::lower(Str::ulid()),
+            1,
+            12000,
+            '1980-01-25T03:00:00Z',
+        );
+
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$first, $second, $expiredBeforeReceipt]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.1.status', 'accepted')
+            ->assertJsonPath('results.2.status', 'conflict')
+            ->assertJsonPath(
+                'results.2.message',
+                'Tanggal kedaluwarsa tidak boleh sebelum tanggal penerimaan.'
+            );
+
+        $lot = $db->table('inventory_lots')->where('id', $lotId)->first();
+        $this->assertNotNull($lot);
+        $this->assertSame('expired', $lot->status);
+        $this->assertSame('2.000', number_format((float) $lot->quantity_received, 3, '.', ''));
+        $this->assertSame('2.000', number_format((float) $lot->quantity_remaining, 3, '.', ''));
+        $this->assertSame(2, $db->table('inventory_cost_layers')->where('lot_id', $lotId)->count());
+        $this->assertSame(2, $db->table('inventory_movements')->whereIn('source_event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->where('movement_type', 'receipt')->count());
+        $this->assertSame(2, $db->table('stock_movements')->whereIn('source_event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->where('movement_type', 'purchase_receipt')->count());
+        $this->assertSame(2, $db->table('sync_receipts')->whereIn('event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->count());
+        $this->assertSame(2, $db->table('journal_entries')->whereIn('source_event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->where('status', 'posted')->count());
+        $this->assertSame(2, (int) $db->table('products')->where('id', $productId)->value('stock_qty'));
+
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$first, $second]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'replayed')
+            ->assertJsonPath('results.1.status', 'replayed');
+        $this->assertSame(2, $db->table('inventory_cost_layers')->where('lot_id', $lotId)->count());
+        $this->assertSame(2, $db->table('inventory_movements')->whereIn('source_event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->where('movement_type', 'receipt')->count());
+        $this->assertSame(2, $db->table('journal_entries')->whereIn('source_event_id', [
+            $first['event_id'], $second['event_id'],
+        ])->count());
+        $this->assertDatabaseMissing('sync_receipts', [
+            'event_id' => $expiredBeforeReceipt['event_id'],
+        ], 'tenant');
+        $this->assertDatabaseMissing('inventory_cost_layers', [
+            'id' => $expiredBeforeReceipt['payload']['receipt']['cost_layer_id'],
+        ], 'tenant');
+        $this->assertSame($periodId, (int) $db->table('journal_entries')
+            ->where('source_event_id', $first['event_id'])->value('period_id'));
+    }
+
     public function test_server_fefo_excludes_known_expired_lots_when_tracking_is_disabled(): void
     {
         $productId = 'known-expiry-'.Str::lower(Str::ulid());
