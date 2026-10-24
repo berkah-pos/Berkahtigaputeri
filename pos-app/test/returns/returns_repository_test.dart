@@ -242,4 +242,98 @@ void main() {
     expect(event['entity_type'], 'stock_adjustment');
     expect(event['status'], 'pending');
   });
+
+
+  test('full void preserves the original journal and posts one exact linked reversal', () async {
+    final database = await seededDatabase();
+    addTearDown(database.close);
+
+    final sale = await PaymentService(
+      repository: SqliteSaleRepository(database),
+    ).process(PaymentRequest(
+      transactionId: 'sale-void-001',
+      method: PaymentMethod.cash,
+      occurredAtUtc: DateTime.utc(2026, 10, 23, 3),
+      lines: const <PaymentLineInput>[
+        PaymentLineInput(productId: 'P-RETURN', quantity: 1),
+      ],
+    ));
+    final db = database.database;
+    final originalJournal = (await db.query(
+      'journals',
+      where: 'transaction_id = ?',
+      whereArgs: <Object?>['sale-void-001'],
+    )).single;
+    final originalLines = await db.query(
+      'journal_lines',
+      where: 'journal_id = ?',
+      whereArgs: <Object?>[originalJournal['id']],
+      orderBy: 'line_no',
+    );
+
+    final repository = ReturnsRepository(
+      database: database,
+      actorId: 'user-void',
+      deviceId: 'device-void',
+    );
+    final result = await repository.processReturn(
+      saleId: sale.saleId,
+      quantities: <String, int>{'sale:sale-void-001:item:0': 1},
+      type: SaleReturnType.voidSale,
+      reason: 'Full transaction void test',
+      returnId: 'void-stable-001',
+    );
+
+    expect(result['refund_total'], 11100);
+    expect(result['cogs_amount'], 5000);
+    expect(result['already_processed'], false);
+    final originalLinesAfter = await db.query(
+      'journal_lines',
+      where: 'journal_id = ?',
+      whereArgs: <Object?>[originalJournal['id']],
+      orderBy: 'line_no',
+    );
+    expect(originalLinesAfter, originalLines);
+
+    final reversal = (await db.query(
+      'journals',
+      where: 'transaction_id = ?',
+      whereArgs: <Object?>['return:void-stable-001'],
+    )).single;
+    expect(reversal['reversal_of_id'], originalJournal['id']);
+    final reversalLines = await db.query(
+      'journal_lines',
+      where: 'journal_id = ?',
+      whereArgs: <Object?>[reversal['id']],
+      orderBy: 'line_no',
+    );
+    expect(reversalLines, hasLength(originalLines.length));
+    for (var index = 0; index < originalLines.length; index++) {
+      expect(reversalLines[index]['account_code'], originalLines[index]['account_code']);
+      expect(reversalLines[index]['debit'], originalLines[index]['credit']);
+      expect(reversalLines[index]['credit'], originalLines[index]['debit']);
+    }
+
+    final returned = (await db.query(
+      'sale_returns',
+      where: 'id = ?',
+      whereArgs: <Object?>['void-stable-001'],
+    )).single;
+    expect(returned['return_type'], 'void');
+    expect(returned['original_journal_entry_id'], originalJournal['id']);
+    expect(returned['journal_entry_id'], reversal['id']);
+    expect((await db.query(
+      'inventory_lots',
+      where: 'source_return_id = ?',
+      whereArgs: <Object?>['void-stable-001'],
+    )).single['status'], 'quarantine');
+    expect((await db.query(
+      'outbox_events',
+      where: 'id = ?',
+      whereArgs: <Object?>['outbox:sale_return:void-stable-001'],
+    )).single['status'], 'pending');
+    expect((await db.query('journals', where: 'reversal_of_id = ?', whereArgs: <Object?>[originalJournal['id']])).length, 1);
+  });
+
+
 }
