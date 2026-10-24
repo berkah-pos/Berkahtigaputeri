@@ -480,12 +480,24 @@ class TenantSyncApiTest extends TestCase
             11000,
             '2004-01-02T03:00:00Z',
         );
+        $expiredBeforeReceipt = $makeReceiptEvent(
+            'outbox:inventory_receipt:invalid-expiry-'.Str::lower(Str::ulid()),
+            'cost-invalid-expiry-'.Str::lower(Str::ulid()),
+            1,
+            12000,
+            '2004-01-25T03:00:00Z',
+        );
 
         $this->withHeader('Authorization', 'Bearer '.$bearer)
-            ->postJson('/api/v1/sync', ['events' => [$first, $second]])
+            ->postJson('/api/v1/sync', ['events' => [$first, $second, $expiredBeforeReceipt]])
             ->assertOk()
             ->assertJsonPath('results.0.status', 'accepted')
-            ->assertJsonPath('results.1.status', 'accepted');
+            ->assertJsonPath('results.1.status', 'accepted')
+            ->assertJsonPath('results.2.status', 'conflict')
+            ->assertJsonPath(
+                'results.2.message',
+                'Tanggal kedaluwarsa tidak boleh sebelum tanggal penerimaan.'
+            );
 
         $lot = $db->table('inventory_lots')->where('id', $lotId)->first();
         $this->assertNotNull($lot);
@@ -519,6 +531,12 @@ class TenantSyncApiTest extends TestCase
         $this->assertSame(2, $db->table('journal_entries')->whereIn('source_event_id', [
             $first['event_id'], $second['event_id'],
         ])->count());
+        $this->assertDatabaseMissing('sync_receipts', [
+            'event_id' => $expiredBeforeReceipt['event_id'],
+        ], 'tenant');
+        $this->assertDatabaseMissing('inventory_cost_layers', [
+            'id' => $expiredBeforeReceipt['payload']['receipt']['cost_layer_id'],
+        ], 'tenant');
         $this->assertSame($periodId, (int) $db->table('journal_entries')
             ->where('source_event_id', $first['event_id'])->value('period_id'));
     }
