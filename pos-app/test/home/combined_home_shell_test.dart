@@ -103,6 +103,6 @@ void main() {
 
     await _tap(tester, find.text('Laporan'), 'tap-6');
     await _settle(tester, 'reports tab');
-    expect(find.text('Transaksi terbaru'), findsOneWidget);
+    expect(find.text('Transaksi lokal'), findsOneWidget);
   }, timeout: const Timeout(Duration(seconds: 60)));
 }
