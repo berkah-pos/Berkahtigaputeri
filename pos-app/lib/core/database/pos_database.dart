@@ -16,7 +16,7 @@ class PosDatabase {
 
   String? get legacyImportError => _legacyImportError;
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 6;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
@@ -103,13 +103,17 @@ class PosDatabase {
         stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0),
         track_expiry INTEGER NOT NULL DEFAULT 0 CHECK(track_expiry IN (0, 1)),
         min_shelf_life_days INTEGER NOT NULL DEFAULT 0 CHECK(min_shelf_life_days >= 0),
-        requires_review INTEGER NOT NULL DEFAULT 0 CHECK(requires_review IN (0, 1))
+        requires_review INTEGER NOT NULL DEFAULT 0 CHECK(requires_review IN (0, 1)),
+        is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0, 1)),
+        version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)
       )
     ''');
 
     await _createInventorySchema(database);
     await _createSalesAndAccountingSchema(database);
     await _createLegacyArchiveTables(database);
+    await _createProductStatusHistoryTable(database);
+    await _createReturnsSchema(database);
   }
 
   static Future<void> _upgradeSchema(
@@ -139,6 +143,57 @@ class PosDatabase {
       current = 4;
     }
 
+    if (current < 5) {
+      // Existing rows remain active by default. This additive migration does
+      // not rewrite sales, inventory, journals, or durable outbox records.
+      await database.execute('''
+        ALTER TABLE products
+        ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1
+        CHECK(is_active IN (0, 1))
+      ''');
+      await database.execute('''
+        ALTER TABLE products
+        ADD COLUMN version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)
+      ''');
+      await _createProductStatusHistoryTable(database);
+      current = 5;
+    }
+
+    if (current < 6) {
+      final existingTables = (await database.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('inventory_lots', 'journals')",
+      )).map((row) => row['name'] as String).toSet();
+
+      // Some previously supported minimal legacy databases did not have the
+      // lot or journal tables. Never fail an otherwise valid upgrade by
+      // altering a table absent from that historical schema.
+      if (existingTables.contains('inventory_lots')) {
+        final lotColumns = (await database.rawQuery(
+          "PRAGMA table_info('inventory_lots')",
+        )).map((row) => row['name'] as String).toSet();
+        if (!lotColumns.contains('origin_lot_id')) {
+          await database.execute('ALTER TABLE inventory_lots ADD COLUMN origin_lot_id TEXT');
+        }
+        if (!lotColumns.contains('source_return_id')) {
+          await database.execute('ALTER TABLE inventory_lots ADD COLUMN source_return_id TEXT');
+        }
+      }
+      if (existingTables.contains('journals')) {
+        final journalColumns = (await database.rawQuery(
+          "PRAGMA table_info('journals')",
+        )).map((row) => row['name'] as String).toSet();
+        if (!journalColumns.contains('reversal_of_id')) {
+          await database.execute('ALTER TABLE journals ADD COLUMN reversal_of_id TEXT');
+        }
+        await database.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_journals_single_full_reversal '
+          'ON journals(reversal_of_id) WHERE reversal_of_id IS NOT NULL',
+        );
+      }
+      await _createReturnsSchema(database);
+      current = 6;
+    }
+
     if (current != newVersion) {
       throw StateError(
         'Unsupported database migration: $oldVersion -> $newVersion.',
@@ -146,6 +201,26 @@ class PosDatabase {
     }
   }
 
+
+  static Future<void> _createProductStatusHistoryTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE product_status_history (
+        event_id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        from_active INTEGER NOT NULL CHECK(from_active IN (0, 1)),
+        to_active INTEGER NOT NULL CHECK(to_active IN (0, 1)),
+        product_version INTEGER NOT NULL CHECK(product_version >= 1),
+        reason TEXT NOT NULL,
+        changed_at_utc TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending'
+          CHECK(sync_status IN ('pending', 'acknowledged', 'needs_attention'))
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX idx_product_status_history_product
+      ON product_status_history(product_id, changed_at_utc, product_version)
+    ''');
+  }
 
   static Future<void> _migrateV3ToV4(Database database) async {
     // Older v1 databases may never have had an outbox table. Create the durable
@@ -303,6 +378,8 @@ class PosDatabase {
         reserved_qty INTEGER NOT NULL DEFAULT 0 CHECK(reserved_qty >= 0),
         status TEXT NOT NULL DEFAULT 'saleable'
           CHECK(status IN ('saleable', 'quarantine', 'damaged', 'expired', 'recall')),
+        origin_lot_id TEXT,
+        source_return_id TEXT,
         CHECK(reserved_qty <= on_hand_qty),
         FOREIGN KEY(product_id) REFERENCES products(id)
       )
@@ -500,7 +577,8 @@ class PosDatabase {
         transaction_id TEXT NOT NULL UNIQUE,
         occurred_at_utc TEXT NOT NULL,
         business_date TEXT NOT NULL,
-        timezone TEXT NOT NULL
+        timezone TEXT NOT NULL,
+        reversal_of_id TEXT
       )
     ''');
 
@@ -625,4 +703,156 @@ class PosDatabase {
       ON legacy_product_stock_archive(status, product_id)
     ''');
   }
+
+  /// Local append-only return history and self-approval audit. Rows are created
+  /// in the same SQLite transaction as stock, cost-layer, journal and outbox effects.
+  static Future<void> _createReturnsSchema(Database database) async {
+    final journalTable = await database.rawQuery(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'journals' LIMIT 1",
+    );
+    if (journalTable.isNotEmpty) {
+      final journalColumns = (await database.rawQuery(
+        "PRAGMA table_info('journals')",
+      )).map((row) => row['name'] as String).toSet();
+      if (journalColumns.contains('reversal_of_id')) {
+        await database.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_journals_single_full_reversal '
+          'ON journals(reversal_of_id) WHERE reversal_of_id IS NOT NULL',
+        );
+      }
+    }
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS sale_returns (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL UNIQUE,
+        original_sale_id TEXT NOT NULL,
+        original_transaction_id TEXT NOT NULL,
+        return_type TEXT NOT NULL CHECK(return_type IN ('return', 'void')),
+        refund_method TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        business_date TEXT NOT NULL,
+        occurred_at_utc TEXT NOT NULL,
+        timezone TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        approved_by_user_id TEXT NOT NULL,
+        approval_mode TEXT NOT NULL CHECK(approval_mode = 'self'),
+        approved_at_utc TEXT NOT NULL,
+        origin_actor_id TEXT NOT NULL,
+        request_fingerprint TEXT NOT NULL,
+        refund_gross INTEGER NOT NULL CHECK(refund_gross >= 0),
+        refund_discount_amount INTEGER NOT NULL CHECK(refund_discount_amount >= 0),
+        refund_dpp INTEGER NOT NULL CHECK(refund_dpp >= 0),
+        refund_taxable_dpp INTEGER NOT NULL CHECK(refund_taxable_dpp >= 0),
+        refund_exempt_dpp INTEGER NOT NULL CHECK(refund_exempt_dpp >= 0),
+        refund_ppn_amount INTEGER NOT NULL CHECK(refund_ppn_amount >= 0),
+        refund_total INTEGER NOT NULL CHECK(refund_total >= 0),
+        cogs_amount INTEGER NOT NULL CHECK(cogs_amount >= 0),
+        journal_entry_id TEXT,
+        original_journal_entry_id TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'accepted' CHECK(status = 'accepted'),
+        FOREIGN KEY(original_sale_id) REFERENCES sales(id),
+        FOREIGN KEY(journal_entry_id) REFERENCES journals(id),
+        FOREIGN KEY(original_journal_entry_id) REFERENCES journals(id)
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sale_returns_original_sale
+      ON sale_returns(original_sale_id, business_date, id)
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS sale_return_items (
+        id TEXT PRIMARY KEY,
+        sale_return_id TEXT NOT NULL,
+        original_sale_id TEXT NOT NULL,
+        sale_item_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK(quantity > 0),
+        refund_gross INTEGER NOT NULL CHECK(refund_gross >= 0),
+        refund_item_discount_amount INTEGER NOT NULL CHECK(refund_item_discount_amount >= 0),
+        refund_transaction_discount_amount INTEGER NOT NULL CHECK(refund_transaction_discount_amount >= 0),
+        refund_discount_amount INTEGER NOT NULL CHECK(refund_discount_amount >= 0),
+        refund_dpp INTEGER NOT NULL CHECK(refund_dpp >= 0),
+        ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+        cogs_amount INTEGER NOT NULL CHECK(cogs_amount >= 0),
+        FOREIGN KEY(sale_return_id) REFERENCES sale_returns(id),
+        FOREIGN KEY(original_sale_id) REFERENCES sales(id),
+        FOREIGN KEY(sale_item_id) REFERENCES sale_items(id),
+        FOREIGN KEY(product_id) REFERENCES products(id),
+        UNIQUE(sale_return_id, sale_item_id)
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sale_return_items_original_line
+      ON sale_return_items(original_sale_id, sale_item_id)
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS sale_return_lot_allocations (
+        id TEXT PRIMARY KEY,
+        sale_return_item_id TEXT NOT NULL,
+        original_sale_id TEXT NOT NULL,
+        original_sale_item_id TEXT NOT NULL,
+        source_lot_id TEXT NOT NULL,
+        quarantine_lot_id TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK(quantity > 0),
+        FOREIGN KEY(sale_return_item_id) REFERENCES sale_return_items(id),
+        FOREIGN KEY(source_lot_id) REFERENCES inventory_lots(id),
+        FOREIGN KEY(quarantine_lot_id) REFERENCES inventory_lots(id)
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sale_return_lot_source
+      ON sale_return_lot_allocations(original_sale_id, original_sale_item_id, source_lot_id)
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS sale_return_cost_layers (
+        id TEXT PRIMARY KEY,
+        sale_return_item_id TEXT NOT NULL,
+        original_sale_id TEXT NOT NULL,
+        original_sale_item_id TEXT NOT NULL,
+        source_cost_layer_id TEXT NOT NULL,
+        returned_cost_layer_id TEXT NOT NULL,
+        quantity INTEGER NOT NULL CHECK(quantity > 0),
+        unit_cost INTEGER NOT NULL CHECK(unit_cost >= 0),
+        total_cost INTEGER NOT NULL CHECK(total_cost >= 0),
+        FOREIGN KEY(sale_return_item_id) REFERENCES sale_return_items(id),
+        FOREIGN KEY(source_cost_layer_id) REFERENCES inventory_cost_layers(id),
+        FOREIGN KEY(returned_cost_layer_id) REFERENCES inventory_cost_layers(id)
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_sale_return_cost_source
+      ON sale_return_cost_layers(original_sale_id, original_sale_item_id, source_cost_layer_id)
+    ''');
+    await database.execute('''
+      CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL UNIQUE,
+        product_id TEXT NOT NULL,
+        lot_id TEXT NOT NULL,
+        action TEXT NOT NULL CHECK(action IN ('quarantine', 'release_quarantine', 'mark_damaged', 'mark_recall', 'mark_expired')),
+        from_status TEXT NOT NULL,
+        to_status TEXT NOT NULL,
+        quantity_delta INTEGER NOT NULL DEFAULT 0 CHECK(quantity_delta = 0),
+        reason TEXT NOT NULL,
+        inspection_note TEXT,
+        inspection_result TEXT,
+        business_date TEXT NOT NULL,
+        occurred_at_utc TEXT NOT NULL,
+        timezone TEXT NOT NULL,
+        actor_id TEXT NOT NULL,
+        approved_by_user_id TEXT NOT NULL,
+        approval_mode TEXT NOT NULL CHECK(approval_mode = 'self'),
+        approved_at_utc TEXT NOT NULL,
+        origin_actor_id TEXT NOT NULL,
+        request_fingerprint TEXT NOT NULL,
+        FOREIGN KEY(product_id) REFERENCES products(id),
+        FOREIGN KEY(lot_id) REFERENCES inventory_lots(id)
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX IF NOT EXISTS idx_stock_adjustments_product_time
+      ON stock_adjustments(product_id, occurred_at_utc)
+    ''');
+  }
+
 }

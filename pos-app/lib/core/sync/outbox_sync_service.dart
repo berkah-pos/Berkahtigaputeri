@@ -53,7 +53,9 @@ class OutboxSyncService {
             WHEN 'product' THEN 0
             WHEN 'inventory_receipt' THEN 1
             WHEN 'sale' THEN 2
-            ELSE 3
+            WHEN 'sale_return' THEN 3
+            WHEN 'stock_adjustment' THEN 4
+            ELSE 5
           END,
           created_at_utc,
           id
@@ -156,6 +158,7 @@ class OutboxSyncService {
               where: 'id = ?',
               whereArgs: <Object?>[eventId],
             );
+            await _setStatusAuditEventState(db, eventId, 'acknowledged');
             acknowledged++;
           } else if (status == 'conflict' || status == 'needs_attention') {
             await _markAttention(
@@ -252,6 +255,39 @@ class OutboxSyncService {
       return predecessors.isNotEmpty && predecessors.first['id'] != eventId;
     }
 
+    if (entityType == 'sale_return') {
+      final rawReturn = payload['return'];
+      if (rawReturn is! Map || rawReturn['original_sale_id'] is! String) return true;
+      final saleRows = await db.query(
+        'sales',
+        columns: <String>['transaction_id'],
+        where: 'id = ?',
+        whereArgs: <Object?>[rawReturn['original_sale_id']],
+        limit: 1,
+      );
+      if (saleRows.isEmpty) return true;
+      final saleEventId = 'outbox:sale:' + (saleRows.single['transaction_id'] as String);
+      final pendingSale = await db.query(
+        'outbox_events',
+        where: 'id = ? AND status <> ?',
+        whereArgs: <Object?>[saleEventId, 'acknowledged'],
+        limit: 1,
+      );
+      return pendingSale.isNotEmpty;
+    }
+
+    if (entityType == 'stock_adjustment') {
+      final rawAdjustment = payload['adjustment'];
+      if (rawAdjustment is! Map || rawAdjustment['product_id'] is! String) return true;
+      final pendingDependencies = await db.query(
+        'outbox_events',
+        where: 'entity_id = ? AND entity_type IN (?, ?) AND status <> ?',
+        whereArgs: <Object?>[rawAdjustment['product_id'], 'product', 'inventory_receipt', 'acknowledged'],
+        limit: 1,
+      );
+      return pendingDependencies.isNotEmpty;
+    }
+
     if (entityType != 'sale') return false;
     final rawItems = payload['items'];
     if (rawItems is! List) return false;
@@ -288,6 +324,20 @@ class OutboxSyncService {
       },
       where: 'id = ?',
       whereArgs: <Object?>[id],
+    );
+    await _setStatusAuditEventState(db, id, 'needs_attention');
+  }
+
+  Future<void> _setStatusAuditEventState(
+    DatabaseExecutor db,
+    String eventId,
+    String status,
+  ) async {
+    await db.update(
+      'product_status_history',
+      <String, Object?>{'sync_status': status},
+      where: 'event_id = ?',
+      whereArgs: <Object?>[eventId],
     );
   }
 

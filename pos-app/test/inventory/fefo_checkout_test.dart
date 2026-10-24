@@ -144,6 +144,57 @@ void main() {
       expect(held.onHandQty, 1);
     });
 
+    test(
+      'checkout rejects a known-expired lot when tracking is disabled and '
+      'the expiry maintenance job has not run',
+      () async {
+        final database = await openTestDatabase();
+        addTearDown(database.close);
+        final products = SqliteProductRepository(database);
+
+        await _createNonExpiryProduct(products, id: 'P-UNTRACKED-EXPIRED');
+        await products.addInventoryLot(
+          id: 'LOT-EXPIRED-UNTRACKED',
+          productId: 'P-UNTRACKED-EXPIRED',
+          batchNo: 'B-EXPIRED',
+          expiryDate: DateTime(2026, 9, 29),
+          quantity: 1,
+          unitCost: 10000,
+          acquiredAtUtc: DateTime.utc(2026, 9, 1),
+        );
+
+        // This proves checkout is safe without relying on markExpiredLots().
+        final before = (await database.database.query('inventory_lots')).single;
+        expect(before['status'], 'saleable');
+        expect(before['on_hand_qty'], 1);
+
+        await expectLater(
+          PaymentService(
+            repository: SqliteSaleRepository(database),
+          ).process(
+            PaymentRequest(
+              transactionId: 'TRX-EXPIRED-UNTRACKED-001',
+              method: PaymentMethod.cash,
+              occurredAtUtc: DateTime.utc(2026, 9, 30, 3),
+              lines: const <PaymentLineInput>[
+                PaymentLineInput(
+                  productId: 'P-UNTRACKED-EXPIRED',
+                  quantity: 1,
+                ),
+              ],
+            ),
+          ),
+          throwsA(isA<InsufficientStockException>()),
+        );
+
+        final after = (await database.database.query('inventory_lots')).single;
+        expect(after['on_hand_qty'], 1);
+        expect(await _count(database, 'sales'), 0);
+        expect(await _count(database, 'sale_lot_allocations'), 0);
+        expect(await _count(database, 'inventory_movements'), 1);
+      },
+    );
+
     test('minimum shelf life excludes near-expiry stock', () async {
       final database = await openTestDatabase();
       addTearDown(database.close);
@@ -227,6 +278,25 @@ Future<void> _createExpiryProduct(
       stockQty: 0,
       trackExpiry: true,
       minShelfLifeDays: minShelfLifeDays,
+    ),
+  );
+}
+
+Future<void> _createNonExpiryProduct(
+  SqliteProductRepository products, {
+  required String id,
+}) {
+  return products.upsert(
+    Product(
+      id: id,
+      sku: 'SKU-$id',
+      barcode: null,
+      nameId: 'Produk $id',
+      price: 50000,
+      ppnExempt: false,
+      stockQty: 0,
+      trackExpiry: false,
+      minShelfLifeDays: 0,
     ),
   );
 }

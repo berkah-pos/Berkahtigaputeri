@@ -200,4 +200,148 @@ void main() {
     expect(row['acked_at_utc'], isNull);
     expect(row['server_receipt_id'], isNull);
   });
+
+
+  test('return outbox waits for its sale acknowledgement and retries offline failures safely', () async {
+    final database = await openTestDatabase();
+    addTearDown(database.close);
+    final vault = _MemoryVault()..values['berkah.auth.laravel.access_token'] = 'test-bearer';
+    var returnFailedOnce = true;
+    var requestCount = 0;
+    final client = MockClient((request) async {
+      requestCount++;
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      final event = (body['events'] as List).single as Map<String, dynamic>;
+      if (event['entity_type'] == 'sale_return' && returnFailedOnce) {
+        return Response(
+          jsonEncode(<String, Object?>{
+            'error': <String, Object?>{
+              'code': 'tenant_database_not_provisioned',
+              'message': 'Tenant database is not registered.',
+            },
+          }),
+          503,
+          headers: <String, String>{'content-type': 'application/json'},
+        );
+      }
+      return Response(
+        jsonEncode(<String, Object?>{
+          'results': <Map<String, Object?>>[
+            <String, Object?>{
+              'event_id': event['event_id'],
+              'status': 'accepted',
+              'receipt_id': event['event_id'],
+            },
+          ],
+        }),
+        200,
+        headers: <String, String>{'content-type': 'application/json'},
+      );
+    });
+    addTearDown(client.close);
+    final auth = LaravelAuthService(
+      baseUrl: 'https://api.example.test',
+      vault: vault,
+      client: client,
+    );
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    const saleId = 'sale:RETURN-OUTBOX';
+    const transactionId = 'RETURN-OUTBOX';
+    const saleEventId = 'outbox:sale:RETURN-OUTBOX';
+    const returnId = 'return:RETURN-OUTBOX';
+    const returnEventId = 'outbox:sale_return:return:RETURN-OUTBOX';
+    await database.database.insert('sales', <String, Object?>{
+      'id': saleId,
+      'transaction_id': transactionId,
+      'request_fingerprint': 'local-fingerprint',
+      'occurred_at_utc': now,
+      'business_date': '2026-10-24',
+      'timezone': 'Asia/Jakarta',
+      'gross_amount': 10000,
+      'item_discount_amount': 0,
+      'transaction_discount_amount': 0,
+      'discount_amount': 0,
+      'taxable_dpp': 10000,
+      'exempt_dpp': 0,
+      'dpp': 10000,
+      'ppn_amount': 1100,
+      'grand_total': 11100,
+      'cogs_amount': 5000,
+      'payment_method': 'cash',
+      'created_at_utc': now,
+    });
+
+    await database.transaction<void>((transaction) async {
+      await enqueueOutboxEvent(
+        transaction,
+        eventId: saleEventId,
+        entityType: 'sale',
+        entityId: saleId,
+        createdAtUtc: now,
+        eventPayload: <String, Object?>{
+          'transaction_id': transactionId,
+          'sale': <String, Object?>{
+            'id': saleId,
+            'transaction_id': transactionId,
+          },
+          'items': <Map<String, Object?>>[],
+        },
+      );
+      await enqueueOutboxEvent(
+        transaction,
+        eventId: returnEventId,
+        entityType: 'sale_return',
+        entityId: returnId,
+        createdAtUtc: now,
+        eventPayload: <String, Object?>{
+          'return': <String, Object?>{
+            'id': returnId,
+            'original_sale_id': saleId,
+          },
+          'items': <Map<String, Object?>>[],
+        },
+      );
+    });
+
+    final service = OutboxSyncService(database: database, authService: auth);
+    final first = await service.syncPending();
+    final saleOutbox = (await database.database.query(
+      'outbox_events',
+      where: 'id = ?',
+      whereArgs: <Object?>[saleEventId],
+    )).single;
+    final returnOutbox = (await database.database.query(
+      'outbox_events',
+      where: 'id = ?',
+      whereArgs: <Object?>[returnEventId],
+    )).single;
+
+    expect(first.acknowledged, 1);
+    expect(first.retryScheduled, 1);
+    expect(saleOutbox['status'], 'acknowledged');
+    expect(returnOutbox['status'], 'retry');
+    expect(returnOutbox['acked_at_utc'], isNull);
+    expect(returnOutbox['server_receipt_id'], isNull);
+
+    returnFailedOnce = false;
+    await database.database.update(
+      'outbox_events',
+      <String, Object?>{'next_retry_at_utc': '2000-01-01T00:00:00.000Z'},
+      where: 'id = ?',
+      whereArgs: <Object?>[returnEventId],
+    );
+    final second = await service.syncPending();
+    final recoveredReturn = (await database.database.query(
+      'outbox_events',
+      where: 'id = ?',
+      whereArgs: <Object?>[returnEventId],
+    )).single;
+
+    expect(second.acknowledged, 1);
+    expect(recoveredReturn['status'], 'acknowledged');
+    expect(recoveredReturn['server_receipt_id'], returnEventId);
+    expect(requestCount, 3);
+  });
+
 }

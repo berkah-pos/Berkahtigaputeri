@@ -447,6 +447,7 @@ class _AppGateState extends State<_AppGate> {
     return HomeScreen(
       database: widget.database,
       identityStore: widget.identityStore,
+      actorId: localOnly ? 'device:' + widget.deviceId : (_session?.userId ?? 'device:' + widget.deviceId),
       authService: localOnly ? null : widget.authService,
       cloudApiConfigured: widget.authService.isConfigured,
       // Cloud sync stays disabled in local-only mode; navigation does not authenticate.

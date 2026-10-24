@@ -8,6 +8,76 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('fresh schema defaults products to active version one', () async {
+    sqfliteFfiInit();
+    final database = await PosDatabase.openAt(
+      inMemoryDatabasePath,
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(database.close);
+
+    await database.database.insert('products', <String, Object?>{
+      'id': 'P-FRESH',
+      'sku': 'SKU-FRESH',
+      'barcode': null,
+      'name_id': 'Produk instalasi baru',
+      'price': 10000,
+      'ppn_exempt': 0,
+      'stock_qty': 0,
+    });
+    final product = (await database.database.query('products')).single;
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
+    expect(await database.database.query('product_status_history'), isEmpty);
+  });
+
+  test('schema v4 adds active status and version without changing products', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp('berkah-pos-v4-lifecycle-');
+    addTearDown(() => directory.delete(recursive: true));
+    final path = p.join(directory.path, 'legacy-v4.db');
+    final legacy = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (database, version) async {
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL,
+              ppn_exempt INTEGER NOT NULL,
+              stock_qty INTEGER NOT NULL,
+              track_expiry INTEGER NOT NULL DEFAULT 0,
+              min_shelf_life_days INTEGER NOT NULL DEFAULT 0,
+              requires_review INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+        },
+      ),
+    );
+    await legacy.insert('products', <String, Object?>{
+      'id': 'P-V4', 'sku': 'SKU-V4', 'barcode': null,
+      'name_id': 'Produk V4', 'price': 25000,
+      'ppn_exempt': 0, 'stock_qty': 3,
+      'track_expiry': 0, 'min_shelf_life_days': 0, 'requires_review': 0,
+    });
+    await legacy.close();
+
+    final migrated = await PosDatabase.openAt(path, factory: databaseFactoryFfi);
+    addTearDown(migrated.close);
+    final product = (await migrated.database.query('products')).single;
+    expect(product['id'], 'P-V4');
+    expect(product['stock_qty'], 3);
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
+    expect(await migrated.database.query('product_status_history'), isEmpty);
+    final version = await migrated.database.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], PosDatabase.schemaVersion);
+  });
+
   test('schema v1 inventory migrates into physical lot and FIFO cost layer',
       () async {
     sqfliteFfiInit();
@@ -92,6 +162,8 @@ void main() {
     expect(product['track_expiry'], 0);
     expect(product['min_shelf_life_days'], 0);
     expect(product['requires_review'], 0);
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
     expect(product['stock_qty'], 2);
 
     final lot = (await migrated.database.query('inventory_lots')).single;
@@ -132,8 +204,26 @@ void main() {
       options: OpenDatabaseOptions(
         version: 3,
         onCreate: (database, version) async {
-          // Version 3's original durable outbox did not yet have the v4
-          // error/retry scheduling and server acknowledgement columns.
+          // Model the version 3 product schema as well as its durable outbox.
+          // Version 3 predates the v4 outbox retry/acknowledgement columns and
+          // the v5 product lifecycle fields.
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL UNIQUE,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL CHECK(price >= 0),
+              ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+              stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0),
+              track_expiry INTEGER NOT NULL DEFAULT 0
+                CHECK(track_expiry IN (0, 1)),
+              min_shelf_life_days INTEGER NOT NULL DEFAULT 0
+                CHECK(min_shelf_life_days >= 0),
+              requires_review INTEGER NOT NULL DEFAULT 0
+                CHECK(requires_review IN (0, 1))
+            )
+          ''');
           await database.execute('''
             CREATE TABLE outbox_events (
               id TEXT PRIMARY KEY,
@@ -148,6 +238,19 @@ void main() {
         },
       ),
     );
+
+    await versionThree.insert('products', <String, Object?>{
+      'id': 'P-V3',
+      'sku': 'SKU-V3',
+      'barcode': null,
+      'name_id': 'Produk V3',
+      'price': 22000,
+      'ppn_exempt': 0,
+      'stock_qty': 5,
+      'track_expiry': 1,
+      'min_shelf_life_days': 3,
+      'requires_review': 1,
+    });
 
     await versionThree.insert('outbox_events', <String, Object?>{
       'id': 'outbox:product:P-V3',
@@ -168,6 +271,17 @@ void main() {
 
     final version = await migrated.database.rawQuery('PRAGMA user_version');
     expect(version.single['user_version'], PosDatabase.schemaVersion);
+
+    final products = await migrated.database.query('products');
+    expect(products, hasLength(1));
+    expect(products.single['id'], 'P-V3');
+    expect(products.single['sku'], 'SKU-V3');
+    expect(products.single['stock_qty'], 5);
+    expect(products.single['track_expiry'], 1);
+    expect(products.single['min_shelf_life_days'], 3);
+    expect(products.single['requires_review'], 1);
+    expect(products.single['is_active'], 1);
+    expect(products.single['version'], 1);
 
     final rows = await migrated.database.query('outbox_events');
     expect(rows, hasLength(1));
