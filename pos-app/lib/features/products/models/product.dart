@@ -2,7 +2,9 @@
 
 /// Product master used by the POS and inventory modules.
 ///
-/// Monetary values use integer Rupiah.
+/// Monetary values use integer Rupiah. Status and version are persisted
+/// product-master fields; lifecycle changes go through the repository's
+/// audited status-transition method.
 class Product {
   const Product({
     required this.id,
@@ -15,6 +17,9 @@ class Product {
     this.trackExpiry = false,
     this.minShelfLifeDays = 0,
     this.requiresReview = false,
+    this.isActive = true,
+    this.version = 1,
+    this.syncStatus,
   });
 
   final String id;
@@ -24,16 +29,12 @@ class Product {
   final int price;
   final bool ppnExempt;
   final int stockQty;
-
-  /// When true, every saleable physical lot must have an expiry date and FEFO
-  /// excludes lots that are too close to expiry.
   final bool trackExpiry;
-
-  /// Minimum remaining shelf life required at checkout.
   final int minShelfLifeDays;
-
-  /// Imported trial products require explicit tax classification review.
   final bool requiresReview;
+  final bool isActive;
+  final int version;
+  final String? syncStatus;
 
   Product copyWith({
     String? id,
@@ -47,6 +48,10 @@ class Product {
     bool? trackExpiry,
     int? minShelfLifeDays,
     bool? requiresReview,
+    bool? isActive,
+    int? version,
+    String? syncStatus,
+    bool clearSyncStatus = false,
   }) {
     return Product(
       id: id ?? this.id,
@@ -59,6 +64,9 @@ class Product {
       trackExpiry: trackExpiry ?? this.trackExpiry,
       minShelfLifeDays: minShelfLifeDays ?? this.minShelfLifeDays,
       requiresReview: requiresReview ?? this.requiresReview,
+      isActive: isActive ?? this.isActive,
+      version: version ?? this.version,
+      syncStatus: clearSyncStatus ? null : (syncStatus ?? this.syncStatus),
     );
   }
 }
