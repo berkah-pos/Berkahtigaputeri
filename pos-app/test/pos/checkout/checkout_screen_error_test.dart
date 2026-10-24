@@ -60,12 +60,14 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: CheckoutScreen(
-            productsRepository: products,
-            paymentService: PaymentService(
-              repository: _UnexpectedFailureSaleRepository(),
+          home: Scaffold(
+            body: CheckoutScreen(
+              productsRepository: products,
+              paymentService: PaymentService(
+                repository: _UnexpectedFailureSaleRepository(),
+              ),
+              onSaleSaved: () {},
             ),
-            onSaleSaved: () {},
           ),
         ),
       );
