@@ -15,16 +15,6 @@ class SqliteProductRepository {
   Future<void> upsert(Product product) async {
     _validate(product);
 
-    if (product.id.trim().isEmpty) {
-      throw const ProductValidationException('ID produk wajib diisi.');
-    }
-    if (product.stockQty < 0) {
-      throw const ProductValidationException('Stok tidak boleh negatif.');
-    }
-
-    // Keep the expiry policy check and product update in one SQLite transaction
-    // so a concurrent stock receipt cannot create a lot between the check and
-    // the update. Stock itself is ledger-owned and is never overwritten here.
     await _database.transaction<void>((transaction) async {
       final existingRows = await transaction.query(
         'products',
@@ -38,8 +28,17 @@ class SqliteProductRepository {
           'penerimaan persediaan agar lot dan biaya HPP tercatat.',
         );
       }
+
+      Product? current;
       if (existingRows.isNotEmpty) {
-        final current = _fromRow(existingRows.single);
+        current = _fromRow(existingRows.single);
+        if (product.version != current.version) {
+          throw ProductConcurrencyException(
+            productId: product.id,
+            expectedVersion: current.version,
+            receivedVersion: product.version,
+          );
+        }
         if (current.trackExpiry != product.trackExpiry) {
           final lotCount = await transaction.rawQuery(
             'SELECT COUNT(*) AS value FROM inventory_lots WHERE product_id = ?',
@@ -54,12 +53,15 @@ class SqliteProductRepository {
         }
       }
 
+      // Ordinary edits preserve activity. Only setActiveStatus() can change it.
+      final isActive = current?.isActive ?? true;
+      final nextVersion = current == null ? 1 : current.version + 1;
       await transaction.rawInsert(
         '''
         INSERT INTO products(
           id, sku, barcode, name_id, price, ppn_exempt, stock_qty,
-          track_expiry, min_shelf_life_days, requires_review
-        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          track_expiry, min_shelf_life_days, requires_review, is_active, version
+        ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           sku = excluded.sku,
           barcode = excluded.barcode,
@@ -68,23 +70,18 @@ class SqliteProductRepository {
           ppn_exempt = excluded.ppn_exempt,
           track_expiry = excluded.track_expiry,
           min_shelf_life_days = excluded.min_shelf_life_days,
-          requires_review = excluded.requires_review
+          requires_review = excluded.requires_review,
+          is_active = excluded.is_active,
+          version = excluded.version
         ''',
         <Object?>[
-          product.id,
-          product.sku,
-          product.barcode,
-          product.nameId,
-          product.price,
-          product.ppnExempt ? 1 : 0,
-          product.stockQty,
-          product.trackExpiry ? 1 : 0,
-          product.minShelfLifeDays,
-          product.requiresReview ? 1 : 0,
+          product.id, product.sku, product.barcode, product.nameId,
+          product.price, product.ppnExempt ? 1 : 0, product.stockQty,
+          product.trackExpiry ? 1 : 0, product.minShelfLifeDays,
+          product.requiresReview ? 1 : 0, isActive ? 1 : 0, nextVersion,
         ],
       );
 
-      // Product masters synchronize without local stock: stock is ledger-owned.
       await enqueueOutboxEvent(
         transaction,
         entityType: 'product',
@@ -92,16 +89,91 @@ class SqliteProductRepository {
         createdAtUtc: DateTime.now().toUtc().toIso8601String(),
         eventPayload: <String, Object?>{
           'product': <String, Object?>{
-            'id': product.id,
-            'sku': product.sku,
-            'barcode': product.barcode,
-            'name_id': product.nameId,
-            'price': product.price,
-            'ppn_exempt': product.ppnExempt,
-            'track_expiry': product.trackExpiry,
+            'id': product.id, 'sku': product.sku, 'barcode': product.barcode,
+            'name_id': product.nameId, 'price': product.price,
+            'ppn_exempt': product.ppnExempt, 'track_expiry': product.trackExpiry,
             'min_shelf_life_days': product.minShelfLifeDays,
             'requires_review': product.requiresReview,
-            'is_active': true,
+            'is_active': isActive, 'version': nextVersion,
+          },
+        },
+      );
+    });
+  }
+
+  /// Changes activity atomically with an audit row and durable product event.
+  /// The transition takes effect locally while offline; outbox state records
+  /// whether server confirmation is pending or requires attention.
+  Future<void> setActiveStatus(
+    Product product, {
+    required bool isActive,
+    required String reason,
+  }) async {
+    final normalizedReason = reason.trim();
+    if (normalizedReason.isEmpty || normalizedReason.length > 500) {
+      throw const ProductValidationException(
+        'Alasan perubahan status wajib diisi (maksimal 500 karakter).',
+      );
+    }
+
+    await _database.transaction<void>((transaction) async {
+      final rows = await transaction.query(
+        'products', where: 'id = ?', whereArgs: <Object?>[product.id], limit: 1,
+      );
+      if (rows.isEmpty) throw ProductNotFoundException(product.id);
+      final current = _fromRow(rows.single);
+      if (current.version != product.version) {
+        throw ProductConcurrencyException(
+          productId: product.id,
+          expectedVersion: current.version,
+          receivedVersion: product.version,
+        );
+      }
+      if (current.isActive == isActive) return;
+
+      final changedAt = DateTime.now().toUtc().toIso8601String();
+      final nextVersion = current.version + 1;
+      final eventId = newOutboxEventId('product');
+      final changed = await transaction.rawUpdate(
+        '''
+        UPDATE products SET is_active = ?, version = ?
+        WHERE id = ? AND version = ?
+        ''',
+        <Object?>[isActive ? 1 : 0, nextVersion, product.id, current.version],
+      );
+      if (changed != 1) {
+        throw ProductConcurrencyException(
+          productId: product.id,
+          expectedVersion: current.version,
+          receivedVersion: product.version,
+        );
+      }
+
+      await transaction.insert('product_status_history', <String, Object?>{
+        'event_id': eventId, 'product_id': product.id,
+        'from_active': current.isActive ? 1 : 0,
+        'to_active': isActive ? 1 : 0,
+        'product_version': nextVersion, 'reason': normalizedReason,
+        'changed_at_utc': changedAt, 'sync_status': 'pending',
+      });
+      await enqueueOutboxEvent(
+        transaction,
+        eventId: eventId,
+        entityType: 'product',
+        entityId: product.id,
+        createdAtUtc: changedAt,
+        eventPayload: <String, Object?>{
+          'product': <String, Object?>{
+            'id': current.id, 'sku': current.sku, 'barcode': current.barcode,
+            'name_id': current.nameId, 'price': current.price,
+            'ppn_exempt': current.ppnExempt, 'track_expiry': current.trackExpiry,
+            'min_shelf_life_days': current.minShelfLifeDays,
+            'requires_review': current.requiresReview,
+            'is_active': isActive, 'version': nextVersion,
+            'status_change': <String, Object?>{
+              'from_active': current.isActive, 'to_active': isActive,
+              'reason': normalizedReason, 'changed_at_utc': changedAt,
+            },
           },
         },
       );
@@ -110,23 +182,32 @@ class SqliteProductRepository {
 
   /// Lists products in deterministic display order.
   Future<List<Product>> listAll() async {
-    final rows = await _database.database.query(
-      'products',
-      orderBy: 'name_id COLLATE NOCASE, sku',
-    );
+    final rows = await _database.database.rawQuery('''
+      SELECT p.*,
+        (SELECT e.status FROM outbox_events e
+         WHERE e.entity_type = 'product' AND e.entity_id = p.id
+           AND e.status <> 'acknowledged'
+         ORDER BY CASE e.status WHEN 'needs_attention' THEN 0 ELSE 1 END,
+                  e.created_at_utc DESC, e.id DESC LIMIT 1) AS sync_status
+      FROM products p
+      ORDER BY p.name_id COLLATE NOCASE, p.sku
+    ''');
     return rows.map(_fromRow).toList(growable: false);
   }
 
   Future<Product?> findById(String id) async {
-    final rows = await _database.database.query(
-      'products',
-      where: 'id = ?',
-      whereArgs: <Object?>[id],
-      limit: 1,
+    final rows = await _database.database.rawQuery(
+      '''
+      SELECT p.*,
+        (SELECT e.status FROM outbox_events e
+         WHERE e.entity_type = 'product' AND e.entity_id = p.id
+           AND e.status <> 'acknowledged'
+         ORDER BY e.created_at_utc DESC, e.id DESC LIMIT 1) AS sync_status
+      FROM products p WHERE p.id = ? LIMIT 1
+      ''',
+      <Object?>[id],
     );
-    if (rows.isEmpty) {
-      return null;
-    }
+    if (rows.isEmpty) return null;
     return _fromRow(rows.first);
   }
 
@@ -163,6 +244,7 @@ class SqliteProductRepository {
 
     await _database.transaction((transaction) async {
       final product = await _loadProduct(transaction, normalizedProductId);
+      if (!product.isActive) throw ProductInactiveException(product.nameId);
       final normalizedBatchNo = (batchNo ?? normalizedLotId).trim();
 
       if (product.trackExpiry && batchNo == null) {
@@ -285,6 +367,8 @@ class SqliteProductRepository {
 
       final lot = lots.first;
       final productId = lot['product_id']! as String;
+      final product = await _loadProduct(transaction, productId);
+      if (!product.isActive) throw ProductInactiveException(product.nameId);
       final receivedAt = acquiredAtUtc.toUtc().toIso8601String();
 
       await transaction.insert(
@@ -477,9 +561,11 @@ class SqliteProductRepository {
           (SELECT COUNT(*) FROM inventory_lots WHERE product_id = ?) AS lot_count,
           (SELECT COUNT(*) FROM stock_movements WHERE product_id = ?) AS movement_count,
           (SELECT COUNT(*) FROM legacy_sale_items_archive WHERE product_id = ?) AS legacy_item_count,
-          (SELECT COUNT(*) FROM legacy_product_stock_archive WHERE product_id = ?) AS legacy_stock_count
+          (SELECT COUNT(*) FROM legacy_product_stock_archive WHERE product_id = ?) AS legacy_stock_count,
+          (SELECT COUNT(*) FROM product_status_history WHERE product_id = ?) AS status_history_count
         ''',
         <Object?>[
+          normalizedId,
           normalizedId,
           normalizedId,
           normalizedId,
@@ -492,7 +578,8 @@ class SqliteProductRepository {
           (row['lot_count']! as int) > 0 ||
           (row['movement_count']! as int) > 0 ||
           (row['legacy_item_count']! as int) > 0 ||
-          (row['legacy_stock_count']! as int) > 0;
+          (row['legacy_stock_count']! as int) > 0 ||
+          (row['status_history_count']! as int) > 0;
       if (used) {
         throw const ProductValidationException(
           'Produk memiliki riwayat transaksi atau persediaan. Nonaktifkan '
@@ -583,6 +670,9 @@ class SqliteProductRepository {
       trackExpiry: (row['track_expiry']! as int) == 1,
       minShelfLifeDays: row['min_shelf_life_days']! as int,
       requiresReview: (row['requires_review']! as int) == 1,
+      isActive: (row['is_active']! as int) == 1,
+      version: row['version']! as int,
+      syncStatus: row['sync_status'] as String?,
     );
   }
 
@@ -610,6 +700,23 @@ class ProductValidationException extends ProductRepositoryException {
 class ProductNotFoundException extends ProductRepositoryException {
   ProductNotFoundException(String productId)
       : super('Produk "$productId" tidak ditemukan.');
+}
+
+class ProductConcurrencyException extends ProductRepositoryException {
+  ProductConcurrencyException({
+    required String productId,
+    required int expectedVersion,
+    required int receivedVersion,
+  }) : super(
+          'Produk "$productId" sudah berubah (versi saat ini '
+          '$expectedVersion, versi dibaca $receivedVersion). Muat ulang '
+          'produk sebelum menyimpan.',
+        );
+}
+
+class ProductInactiveException extends ProductRepositoryException {
+  ProductInactiveException(String productName)
+      : super('Produk "$productName" nonaktif dan tidak dapat diproses untuk transaksi baru.');
 }
 
 class InventoryLotNotFoundException extends ProductRepositoryException {

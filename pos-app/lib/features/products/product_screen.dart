@@ -115,6 +115,86 @@ class _ProductScreenState extends State<ProductScreen> {
     }
   }
 
+  Future<void> _changeActiveStatus(Product product) async {
+    final controller = TextEditingController();
+    try {
+      final reason = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: Text(product.isActive ? 'Nonaktifkan produk?' : 'Aktifkan kembali produk?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  product.isActive
+                      ? 'Produk tidak dapat dipilih untuk penjualan baru. Riwayat dan persediaan tetap disimpan.'
+                      : 'Produk akan tersedia untuk penjualan setelah perubahan status tersinkron.',
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLength: 500,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Alasan perubahan status (wajib)',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Batal'),
+              ),
+              FilledButton(
+                onPressed: controller.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(dialogContext, controller.text.trim()),
+                child: Text(product.isActive ? 'Nonaktifkan' : 'Aktifkan'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (reason == null || reason.trim().isEmpty) return;
+
+      await widget.repository.setActiveStatus(
+        product,
+        isActive: !product.isActive,
+        reason: reason,
+      );
+      await _reload();
+      widget.onChanged();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Status lokal tersimpan. Periksa antrean sinkronisasi untuk konfirmasi server.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            safeProductFailureMessage(
+              error,
+              operation: ProductFailureOperation.save,
+            ),
+          ),
+        ),
+      );
+      await _reload();
+    } finally {
+      controller.dispose();
+    }
+  }
+
   Future<void> _delete(Product product) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -215,6 +295,10 @@ class _ProductScreenState extends State<ProductScreen> {
                           final review = product.requiresReview
                               ? ' · PERLU TINJAU PPN'
                               : '';
+                          final activeLabel = product.isActive ? '' : ' · NONAKTIF';
+                          final syncLabel = product.syncStatus == 'needs_attention'
+                              ? ' · KONFLIK SINKRONISASI'
+                              : (product.syncStatus == null ? '' : ' · SINKRONISASI MENUNGGU');
                           return Card(
                             child: ListTile(
                               leading: CircleAvatar(
@@ -225,19 +309,32 @@ class _ProductScreenState extends State<ProductScreen> {
                               title: Text(product.nameId),
                               subtitle: Text(
                                 product.sku + ' · Stok ' +
-                                product.stockQty.toString() + expiry + review,
+                                product.stockQty.toString() +
+                                    expiry +
+                                    review +
+                                    activeLabel +
+                                    syncLabel,
                               ),
                               trailing: PopupMenuButton<String>(
                                 onSelected: (value) {
                                   if (value == 'edit') _edit(product);
                                   if (value == 'delete') _delete(product);
+                                  if (value == 'toggle-status') {
+                                    _changeActiveStatus(product);
+                                  }
                                 },
-                                itemBuilder: (_) => const <PopupMenuEntry<String>>[
-                                  PopupMenuItem(
+                                itemBuilder: (_) => <PopupMenuEntry<String>>[
+                                  const PopupMenuItem(
                                     value: 'edit',
                                     child: Text('Ubah'),
                                   ),
                                   PopupMenuItem(
+                                    value: 'toggle-status',
+                                    child: Text(
+                                      product.isActive ? 'Nonaktifkan' : 'Aktifkan kembali',
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
                                     value: 'delete',
                                     child: Text('Hapus jika belum digunakan'),
                                   ),
@@ -340,6 +437,8 @@ class _ProductEditorState extends State<_ProductEditor> {
         minShelfLifeDays: _trackExpiry ? shelfLife : 0,
         requiresReview: existing?.requiresReview == true &&
             !_taxReviewConfirmed,
+        isActive: existing?.isActive ?? true,
+        version: existing?.version ?? 1,
       ),
     );
   }
