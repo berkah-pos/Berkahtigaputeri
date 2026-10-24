@@ -154,23 +154,35 @@ class LegacyTrialImporter {
             whereArgs: <Object?>[originalId],
             limit: 1,
           );
-          if (stockRows.isEmpty) {
-            final originalQuantity =
-                _nonNegativeInteger(old['stock'], 'product.stock');
-            await transaction.insert(
-              'legacy_product_stock_archive',
-              <String, Object?>{
-                'product_id': productId,
-                'original_product_id': originalId,
-                'original_quantity': originalQuantity,
-                'status': originalQuantity > 0
-                    ? 'needs_review'
-                    : 'no_opening_stock',
-                'imported_at_utc': importedAt,
-                'reviewed_at_utc': null,
-              },
+          if (stockRows.isNotEmpty) {
+            // The transaction and completed-run marker make a successful
+            // import idempotent. Without that marker, an existing archive row
+            // is a conflict, not proof that this source product was imported:
+            // it may belong to an unrelated target product and must not cause
+            // the source stock snapshot to be silently skipped.
+            throw FormatException(
+              'Legacy import stopped: a stock archive already exists for '
+              'legacy product ID $originalId without a completed import marker. '
+              'Resolve the target archive conflict before retrying; the source '
+              'file was not changed and the import was rolled back.',
             );
           }
+
+          final originalQuantity =
+              _nonNegativeInteger(old['stock'], 'product.stock');
+          await transaction.insert(
+            'legacy_product_stock_archive',
+            <String, Object?>{
+              'product_id': productId,
+              'original_product_id': originalId,
+              'original_quantity': originalQuantity,
+              'status': originalQuantity > 0
+                  ? 'needs_review'
+                  : 'no_opening_stock',
+              'imported_at_utc': importedAt,
+              'reviewed_at_utc': null,
+            },
+          );
         }
 
         final archivedSaleIds = <int>{};
