@@ -133,8 +133,7 @@ class SqliteProductRepository {
 
       final changedAt = DateTime.now().toUtc().toIso8601String();
       final nextVersion = current.version + 1;
-      final eventId =
-          'outbox:product-status:${DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(16)}:$nextVersion';
+      final eventId = newOutboxEventId('product');
       final changed = await transaction.rawUpdate(
         '''
         UPDATE products SET is_active = ?, version = ?
