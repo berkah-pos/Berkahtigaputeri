@@ -580,7 +580,6 @@ class SyncController extends Controller
             $membershipRole = DB::connection('central')->table('tenant_memberships')
                 ->join('device_registry', 'device_registry.tenant_id', '=', 'tenant_memberships.tenant_id')
                 ->where('tenant_memberships.user_id', $actorId)
-                ->where('tenant_memberships.tenant_id', $db->getConfig('tenant_id') ?? DB::connection('central')->table('device_registry')->where('device_id', $deviceId)->value('tenant_id'))
                 ->where('tenant_memberships.status', 'active')
                 ->where('device_registry.device_id', $deviceId)
                 ->where('device_registry.owner_user_id', $actorId)
