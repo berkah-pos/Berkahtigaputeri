@@ -86,6 +86,9 @@ class SqliteSaleRepository implements SaleRepository {
         }
 
         final product = _productFromRow(rows.first);
+        if (!product.isActive) {
+          throw ProductInactiveException(product.nameId);
+        }
         if (product.requiresReview) {
           throw ProductRequiresReviewException(product.nameId);
         }
@@ -867,6 +870,8 @@ class SqliteSaleRepository implements SaleRepository {
       trackExpiry: (row['track_expiry']! as int) == 1,
       minShelfLifeDays: row['min_shelf_life_days']! as int,
       requiresReview: (row['requires_review']! as int) == 1,
+      isActive: (row['is_active']! as int) == 1,
+      version: row['version']! as int,
     );
   }
 
