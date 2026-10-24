@@ -239,6 +239,93 @@ class TenantSyncApiTest extends TestCase
         $this->assertSame(2, DB::connection('tenant')->table('product_status_audits')->where('product_id', $productId)->count());
     }
 
+    public function test_product_status_change_requires_owner_or_manager_membership(): void
+    {
+        [$tenantId, , $user, $bearer] = $this->identityFixture(true);
+        $productId = 'auth-product-'.Str::lower(Str::ulid());
+        $makeEvent = static function (int $version, bool $active, ?array $statusChange = null) use ($productId): array {
+            $eventId = 'outbox:product:'.Str::lower(Str::ulid());
+            $product = [
+                'id' => $productId,
+                'sku' => 'SKU-AUTH-'.Str::upper(Str::random(6)),
+                'name_id' => 'Lifecycle authorization test',
+                'barcode' => null,
+                'price' => 12000,
+                'ppn_exempt' => false,
+                'track_expiry' => false,
+                'min_shelf_life_days' => 0,
+                'requires_review' => false,
+                'is_active' => $active,
+                'version' => $version,
+            ];
+            if ($statusChange !== null) $product['status_change'] = $statusChange;
+            return [
+                'event_id' => $eventId,
+                'entity_type' => 'product',
+                'entity_id' => $productId,
+                'payload' => [
+                    'event_id' => $eventId,
+                    'event_type' => 'product',
+                    'payload_version' => 1,
+                    'entity_id' => $productId,
+                    'product' => $product,
+                ],
+            ];
+        };
+
+        $created = $makeEvent(1, true);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$created]])
+            ->assertOk()->assertJsonPath('results.0.status', 'accepted');
+
+        DB::connection('central')->table('tenant_memberships')
+            ->where('user_id', $user->id)->where('tenant_id', $tenantId)
+            ->update(['role' => 'cashier']);
+
+        $deactivation = $makeEvent(2, false, [
+            'from_active' => true,
+            'to_active' => false,
+            'reason' => 'Authorization regression test',
+            'changed_at_utc' => now()->toIso8601String(),
+        ]);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$deactivation]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'conflict')
+            ->assertJsonPath('results.0.message',
+                'Product status change rejected: active tenant membership role owner or manager is required.');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $productId, 'is_active' => true, 'version' => 1,
+        ], 'tenant');
+        $this->assertDatabaseMissing('product_status_audits', [
+            'event_id' => $deactivation['event_id'],
+        ], 'tenant');
+        $this->assertDatabaseMissing('sync_receipts', [
+            'event_id' => $deactivation['event_id'],
+        ], 'tenant');
+
+        // The same durable event can be retried after an owner changes the
+        // membership role to manager; authorization is re-evaluated at sync.
+        DB::connection('central')->table('tenant_memberships')
+            ->where('user_id', $user->id)->where('tenant_id', $tenantId)
+            ->update(['role' => 'manager']);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$deactivation]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.0.version', 2);
+        $this->assertDatabaseHas('products', [
+            'id' => $productId, 'is_active' => false, 'version' => 2,
+        ], 'tenant');
+        $this->assertDatabaseHas('product_status_audits', [
+            'event_id' => $deactivation['event_id'],
+            'actor_user_id' => $user->id,
+            'previous_is_active' => true,
+            'is_active' => false,
+        ], 'tenant');
+    }
+
     public function test_positive_cost_receipt_without_counter_account_is_rejected_without_server_writes(): void
     {
         [, , , $bearer] = $this->identityFixture(true);
