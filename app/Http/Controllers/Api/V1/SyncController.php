@@ -42,7 +42,7 @@ class SyncController extends Controller
             'app_version' => ['sometimes', 'string', 'max:64'],
             'events' => ['required', 'array', 'min:1', 'max:20'],
             'events.*.event_id' => ['required', 'string', 'max:100'],
-            'events.*.entity_type' => ['required', 'string', 'in:sale,product,inventory_receipt,sale_return,stock_adjustment']
+            'events.*.entity_type' => ['required', 'string', 'in:sale,product,inventory_receipt,sale_return,stock_adjustment'],
             'events.*.entity_id' => ['required', 'string', 'max:150'],
             'events.*.payload' => ['required', 'array'],
             'events.*.payload.items' => ['sometimes', 'array', 'max:100'],

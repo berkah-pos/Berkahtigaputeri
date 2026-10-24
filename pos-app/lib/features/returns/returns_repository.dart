@@ -203,7 +203,6 @@ class ReturnsRepository {
           physicalPrepared.add(<String, Object?>{
             'source_lot_id': sourceLotId,
             'expiry_date': lot['expiry_date'],
-            'unit_cost': (lot['unit_cost']! as num).toInt(),
             'quantity': take,
           });
           unassignedPhysical -= take;
