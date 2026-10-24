@@ -119,6 +119,112 @@ class TenantSyncApiTest extends TestCase
         $mismatch->assertForbidden()->assertJsonPath('error.code', 'device_identity_mismatch');
     }
 
+    public function test_product_status_sync_is_versioned_audited_and_rejects_stale_reactivation(): void
+    {
+        [, , $user, $bearer] = $this->identityFixture(true);
+        $productId = 'status-product-'.Str::lower(Str::ulid());
+        $makeEvent = static function (int $version, bool $active, ?array $statusChange = null) use ($productId): array {
+            $eventId = 'outbox:product:'.Str::lower(Str::ulid());
+            $product = [
+                'id' => $productId,
+                'sku' => 'SKU-STATUS-'.Str::upper(Str::random(6)),
+                'name_id' => 'Lifecycle status test',
+                'barcode' => null,
+                'price' => 12000,
+                'ppn_exempt' => false,
+                'track_expiry' => false,
+                'min_shelf_life_days' => 0,
+                'requires_review' => false,
+                'is_active' => $active,
+                'version' => $version,
+            ];
+            if ($statusChange !== null) {
+                $product['status_change'] = $statusChange;
+            }
+
+            return [
+                'event_id' => $eventId,
+                'entity_type' => 'product',
+                'entity_id' => $productId,
+                'payload' => [
+                    'event_id' => $eventId,
+                    'event_type' => 'product',
+                    'payload_version' => 1,
+                    'entity_id' => $productId,
+                    'product' => $product,
+                ],
+            ];
+        };
+
+        $created = $makeEvent(1, true);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$created]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted');
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_active' => true,
+            'version' => 1,
+        ], 'tenant');
+
+        $deactivated = $makeEvent(2, false, [
+            'from_active' => true,
+            'to_active' => false,
+            'reason' => 'Temporarily discontinued for test',
+            'changed_at_utc' => now()->toIso8601String(),
+        ]);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$deactivated]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.0.version', 2);
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_active' => false,
+            'version' => 2,
+        ], 'tenant');
+        $this->assertDatabaseHas('product_status_audits', [
+            'event_id' => $deactivated['event_id'],
+            'product_id' => $productId,
+            'version' => 2,
+            'previous_is_active' => true,
+            'is_active' => false,
+            'reason' => 'Temporarily discontinued for test',
+            'actor_user_id' => $user->id,
+        ], 'tenant');
+
+        // A distinct event ID carrying an old active revision must conflict,
+        // not silently restore the product after the deactivation commit.
+        $stale = $makeEvent(2, true);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$stale]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'conflict');
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_active' => false,
+            'version' => 2,
+        ], 'tenant');
+
+        $reactivated = $makeEvent(3, true, [
+            'from_active' => false,
+            'to_active' => true,
+            'reason' => 'Approved for sale again in test',
+            'changed_at_utc' => now()->toIso8601String(),
+        ]);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$reactivated]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.0.version', 3);
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_active' => true,
+            'version' => 3,
+        ], 'tenant');
+        $this->assertDatabaseCount('product_status_audits', 2, 'tenant');
+    }
+
     public function test_positive_cost_receipt_without_counter_account_is_rejected_without_server_writes(): void
     {
         [, , , $bearer] = $this->identityFixture(true);
