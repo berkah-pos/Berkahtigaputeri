@@ -16,7 +16,7 @@ class PosDatabase {
 
   String? get legacyImportError => _legacyImportError;
 
-  static const int schemaVersion = 4;
+  static const int schemaVersion = 5;
   static const String fileName = 'berkahtigaputeri_pos.db';
 
   final Database database;
@@ -103,13 +103,16 @@ class PosDatabase {
         stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0),
         track_expiry INTEGER NOT NULL DEFAULT 0 CHECK(track_expiry IN (0, 1)),
         min_shelf_life_days INTEGER NOT NULL DEFAULT 0 CHECK(min_shelf_life_days >= 0),
-        requires_review INTEGER NOT NULL DEFAULT 0 CHECK(requires_review IN (0, 1))
+        requires_review INTEGER NOT NULL DEFAULT 0 CHECK(requires_review IN (0, 1)),
+        is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0, 1)),
+        version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)
       )
     ''');
 
     await _createInventorySchema(database);
     await _createSalesAndAccountingSchema(database);
     await _createLegacyArchiveTables(database);
+    await _createProductStatusHistoryTable(database);
   }
 
   static Future<void> _upgradeSchema(
@@ -139,6 +142,22 @@ class PosDatabase {
       current = 4;
     }
 
+    if (current < 5) {
+      // Existing rows remain active by default. This additive migration does
+      // not rewrite sales, inventory, journals, or durable outbox records.
+      await database.execute('''
+        ALTER TABLE products
+        ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1
+        CHECK(is_active IN (0, 1))
+      ''');
+      await database.execute('''
+        ALTER TABLE products
+        ADD COLUMN version INTEGER NOT NULL DEFAULT 1 CHECK(version >= 1)
+      ''');
+      await _createProductStatusHistoryTable(database);
+      current = 5;
+    }
+
     if (current != newVersion) {
       throw StateError(
         'Unsupported database migration: $oldVersion -> $newVersion.',
@@ -146,6 +165,26 @@ class PosDatabase {
     }
   }
 
+
+  static Future<void> _createProductStatusHistoryTable(Database database) async {
+    await database.execute('''
+      CREATE TABLE product_status_history (
+        event_id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        from_active INTEGER NOT NULL CHECK(from_active IN (0, 1)),
+        to_active INTEGER NOT NULL CHECK(to_active IN (0, 1)),
+        product_version INTEGER NOT NULL CHECK(product_version >= 1),
+        reason TEXT NOT NULL,
+        changed_at_utc TEXT NOT NULL,
+        sync_status TEXT NOT NULL DEFAULT 'pending'
+          CHECK(sync_status IN ('pending', 'acknowledged', 'needs_attention'))
+      )
+    ''');
+    await database.execute('''
+      CREATE INDEX idx_product_status_history_product
+      ON product_status_history(product_id, changed_at_utc, product_version)
+    ''');
+  }
 
   static Future<void> _migrateV3ToV4(Database database) async {
     // Older v1 databases may never have had an outbox table. Create the durable
