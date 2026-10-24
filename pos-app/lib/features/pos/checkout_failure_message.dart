@@ -12,22 +12,20 @@ enum CheckoutFailureOperation {
   processPayment,
 }
 
-/// Maps known local domain errors to their authored guidance and replaces
+/// Maps locally authored domain errors to their guidance and replaces
 /// unexpected SQLite, filesystem, transport, and implementation exceptions
-/// with stable copy. Exception strings from unknown types are never reflected.
+/// with stable copy. Unknown exception strings are never reflected.
 String safeCheckoutFailureMessage(
   Object error, {
   required CheckoutFailureOperation operation,
 }) {
-  if (error is PaymentServiceException ||
-      error is SaleRepositoryException ||
-      error is ProductRepositoryException ||
-      error is AccountingException ||
-      error is FefoException ||
-      error is FifoCostException ||
-      error is SaleCalculationException) {
-    return (error as dynamic).message as String;
-  }
+  if (error is PaymentServiceException) return error.message;
+  if (error is SaleRepositoryException) return error.message;
+  if (error is ProductRepositoryException) return error.message;
+  if (error is AccountingException) return error.message;
+  if (error is FefoException) return error.message;
+  if (error is FifoCostException) return error.message;
+  if (error is SaleCalculationException) return error.message;
 
   switch (operation) {
     case CheckoutFailureOperation.loadProducts:
