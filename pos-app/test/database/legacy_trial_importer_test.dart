@@ -82,17 +82,58 @@ void main() {
     );
     addTearDown(target.close);
 
-    final result = await LegacyTrialImporter.importIfPresent(
-      target: target.database,
-      legacyPath: legacyPath,
-      factory: databaseFactoryFfi,
+    // Two callers can pass the initial marker check before either import
+    // transaction starts. The transaction-level recheck must return the
+    // already-completed counts rather than reporting a false zero import.
+    final results = await Future.wait<Map<String, int>?>([
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+    ]);
+
+    expect(results, hasLength(2));
+    expect(
+      results.every(
+        (result) =>
+            result?['products'] == 1 &&
+            result?['sales'] == 1 &&
+            result?['saleItems'] == 1,
+      ),
+      isTrue,
+    );
+    expect(
+      results.where((result) => result?['alreadyImported'] == 1),
+      hasLength(1),
     );
 
-    expect(result, <String, int>{
-      'products': 1,
-      'sales': 1,
-      'saleItems': 1,
-    });
+    // The one-time marker is tied to the source path, not a blanket success
+    // for every file later presented to this target database.
+    final differentSourcePath =
+        p.join(directory.path, 'different_berkah_pos.db');
+    await File(legacyPath).copy(differentSourcePath);
+    final differentSourceBytes =
+        await File(differentSourcePath).readAsBytes();
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: differentSourcePath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      await File(differentSourcePath).readAsBytes(),
+      orderedEquals(differentSourceBytes),
+    );
+    expect(await target.database.query('products'), hasLength(1));
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
 
     final product = (await target.database.query('products')).single;
     expect(product['id'], 'legacy-product-1');
@@ -136,6 +177,185 @@ void main() {
     expect(rerun?['alreadyImported'], 1);
     expect(await target.database.query('legacy_sales_archive'), hasLength(1));
     expect(await target.database.query('products'), hasLength(1));
+  });
+
+
+  test('concurrent imports from different source paths cannot share success',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-source-race-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final productId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Race',
+      'sku': 'RACE-01',
+      'price': 1000.0,
+      'stock': 2,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 1000.0,
+      'item_count': 1,
+      'email': 'race@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': productId,
+      'name': 'Produk Race',
+      'qty': 1,
+      'price': 1000.0,
+      'subtotal': 1000.0,
+    });
+    await oldDb.close();
+
+    final differentPath = p.join(directory.path, 'different_source.db');
+    await File(legacyPath).copy(differentPath);
+    final originalBytes = await File(legacyPath).readAsBytes();
+    final differentBytes = await File(differentPath).readAsBytes();
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    // Start both calls together so each may pass the pre-transaction marker
+    // check. Exactly one source may win; the other must receive a conflict.
+    final results = await Future.wait<Object?>([
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ).then<Object?>((value) => value).catchError((Object error) => error),
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: differentPath,
+        factory: databaseFactoryFfi,
+      ).then<Object?>((value) => value).catchError((Object error) => error),
+    ]);
+
+    expect(results.whereType<Map<String, int>>(), hasLength(1));
+    expect(results.whereType<FormatException>(), hasLength(1));
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
+    expect(await target.database.query('products'), hasLength(1));
+    expect(await target.database.query('legacy_sales_archive'), hasLength(1));
+    expect(await target.database.query('legacy_sale_items_archive'), hasLength(1));
+    expect(await File(legacyPath).readAsBytes(), orderedEquals(originalBytes));
+    expect(await File(differentPath).readAsBytes(), orderedEquals(differentBytes));
+  });
+
+
+  test('rejects nonpositive legacy primary IDs without partial import',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-invalid-id-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    await oldDb.insert('products', <String, Object?>{
+      'id': 0,
+      'name': 'Invalid ID',
+      'sku': 'INVALID-ID',
+      'price': 1000.0,
+      'stock': 1,
+    });
+    await oldDb.close();
+    final sourceBytes = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(await target.database.query('products'), isEmpty);
+    expect(await target.database.query('legacy_product_stock_archive'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), isEmpty);
+    expect(await File(legacyPath).readAsBytes(), orderedEquals(sourceBytes));
   });
 
   test('rejects fractional legacy amounts without rounding or partial import',
@@ -349,8 +569,275 @@ void main() {
   });
 
   
-  test('rejects an empty legacy database instead of clearing import failure',
+  test('legacy product ID collision does not reuse an unrelated target product',
       () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-id-collision-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final sourceProductId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Sumber',
+      'sku': 'SRC-01',
+      'price': 12000.0,
+      'stock': 3,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 12000.0,
+      'item_count': 1,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': sourceProductId,
+      'name': 'Produk Sumber',
+      'qty': 1,
+      'price': 12000.0,
+      'subtotal': 12000.0,
+    });
+    await oldDb.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await target.database.insert('products', <String, Object?>{
+      'id': 'legacy-product-$sourceProductId',
+      'sku': 'TARGET-COLLISION',
+      'barcode': null,
+      'name_id': 'Produk Target Tidak Terkait',
+      'price': 99000,
+      'ppn_exempt': 1,
+      'stock_qty': 0,
+      'track_expiry': 0,
+      'min_shelf_life_days': 0,
+      'requires_review': 0,
+    });
+
+    final result = await LegacyTrialImporter.importIfPresent(
+      target: target.database,
+      legacyPath: legacyPath,
+      factory: databaseFactoryFfi,
+    );
+    expect(result, <String, int>{
+      'products': 1,
+      'sales': 1,
+      'saleItems': 1,
+    });
+
+    final products = await target.database.query('products', orderBy: 'id');
+    expect(products, hasLength(2));
+    final existingProduct = products.singleWhere(
+      (row) => row['sku'] == 'TARGET-COLLISION',
+    );
+    expect(existingProduct['id'], 'legacy-product-$sourceProductId');
+    expect(existingProduct['name_id'], 'Produk Target Tidak Terkait');
+    expect(existingProduct['price'], 99000);
+    expect(existingProduct['requires_review'], 0);
+
+    final importedProduct = products.singleWhere(
+      (row) => row['sku'] == 'SRC-01',
+    );
+    expect(
+      importedProduct['id'],
+      'legacy-product-$sourceProductId-legacy-1',
+    );
+    expect(importedProduct['name_id'], 'Produk Sumber');
+    expect(importedProduct['price'], 12000);
+    expect(importedProduct['stock_qty'], 0);
+    expect(importedProduct['requires_review'], 1);
+
+    final archivedStock =
+        (await target.database.query('legacy_product_stock_archive')).single;
+    expect(archivedStock['product_id'], importedProduct['id']);
+    expect(archivedStock['original_product_id'], sourceProductId);
+    expect(archivedStock['original_quantity'], 3);
+
+    final archivedItem =
+        (await target.database.query('legacy_sale_items_archive')).single;
+    expect(archivedItem['product_id'], importedProduct['id']);
+    expect(archivedItem['product_name'], 'Produk Sumber');
+    expect(await target.database.query('sales'), isEmpty);
+    expect(await target.database.query('journals'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
+  });
+
+
+
+  test('rejects conflicting legacy stock archive without completing import',
+      () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-stock-collision-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final oldDb = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {
+          await db.execute('''
+            CREATE TABLE products (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              name TEXT NOT NULL,
+              sku TEXT NOT NULL,
+              price REAL NOT NULL,
+              stock INTEGER NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              total REAL NOT NULL,
+              item_count INTEGER NOT NULL,
+              email TEXT NOT NULL,
+              created TEXT NOT NULL
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE sale_items (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              sale_id INTEGER NOT NULL,
+              product_id INTEGER NOT NULL,
+              name TEXT NOT NULL,
+              qty INTEGER NOT NULL,
+              price REAL NOT NULL,
+              subtotal REAL NOT NULL
+            )
+          ''');
+        },
+      ),
+    );
+    final sourceProductId = await oldDb.insert('products', <String, Object?>{
+      'name': 'Produk Sumber',
+      'sku': 'SRC-STOCK-01',
+      'price': 12000.0,
+      'stock': 3,
+    });
+    final saleId = await oldDb.insert('sales', <String, Object?>{
+      'total': 12000.0,
+      'item_count': 1,
+      'email': 'cashier@example.test',
+      'created': '2026-10-01T08:30:00.000Z',
+    });
+    await oldDb.insert('sale_items', <String, Object?>{
+      'sale_id': saleId,
+      'product_id': sourceProductId,
+      'name': 'Produk Sumber',
+      'qty': 1,
+      'price': 12000.0,
+      'subtotal': 12000.0,
+    });
+    await oldDb.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await target.database.insert('products', <String, Object?>{
+      'id': 'unrelated-product',
+      'sku': 'TARGET-STOCK-ARCHIVE',
+      'barcode': null,
+      'name_id': 'Arsip Stok yang Sudah Ada',
+      'price': 99000,
+      'ppn_exempt': 1,
+      'stock_qty': 0,
+      'track_expiry': 0,
+      'min_shelf_life_days': 0,
+      'requires_review': 0,
+    });
+    await target.database.insert('legacy_product_stock_archive',
+        <String, Object?>{
+      'product_id': 'unrelated-product',
+      'original_product_id': sourceProductId,
+      'original_quantity': 41,
+      'status': 'needs_review',
+      'imported_at_utc': '2026-10-02T00:00:00.000Z',
+      'reviewed_at_utc': null,
+    });
+
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+
+    // A pre-existing stock archive with this source ID belongs to a different
+    // target product. Do not call the import complete while losing source stock.
+    final products = await target.database.query('products');
+    expect(products, hasLength(1));
+    expect(products.single['id'], 'unrelated-product');
+    expect(products.single['name_id'], 'Arsip Stok yang Sudah Ada');
+    final stockArchive =
+        (await target.database.query('legacy_product_stock_archive')).single;
+    expect(stockArchive['product_id'], 'unrelated-product');
+    expect(stockArchive['original_quantity'], 41);
+    expect(await target.database.query('legacy_sales_archive'), isEmpty);
+    expect(await target.database.query('legacy_sale_items_archive'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), isEmpty);
+    expect(await target.database.query('sales'), isEmpty);
+    expect(await target.database.query('journals'), isEmpty);
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
+  });
+
+
+  test('rejects an empty legacy database instead of clearing import failure', () async {
     sqfliteFfiInit();
     final directory =
         await Directory.systemTemp.createTemp('berkah-trial-empty-source-');
