@@ -113,6 +113,28 @@ void main() {
       hasLength(1),
     );
 
+    // The one-time marker is tied to the source path, not a blanket success
+    // for every file later presented to this target database.
+    final differentSourcePath =
+        p.join(directory.path, 'different_berkah_pos.db');
+    await File(legacyPath).copy(differentSourcePath);
+    final differentSourceBytes =
+        await File(differentSourcePath).readAsBytes();
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: differentSourcePath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      await File(differentSourcePath).readAsBytes(),
+      orderedEquals(differentSourceBytes),
+    );
+    expect(await target.database.query('products'), hasLength(1));
+    expect(await target.database.query('legacy_import_runs'), hasLength(1));
+
     final product = (await target.database.query('products')).single;
     expect(product['id'], 'legacy-product-1');
     expect(product['sku'], 'KOPI-01');
