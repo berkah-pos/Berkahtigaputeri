@@ -42,7 +42,7 @@ class SyncController extends Controller
             'app_version' => ['sometimes', 'string', 'max:64'],
             'events' => ['required', 'array', 'min:1', 'max:20'],
             'events.*.event_id' => ['required', 'string', 'max:100'],
-            'events.*.entity_type' => ['required', 'string', 'in:sale,product,inventory_receipt'],
+            'events.*.entity_type' => ['required', 'string', 'in:sale,product,inventory_receipt,sale_return,stock_adjustment']
             'events.*.entity_id' => ['required', 'string', 'max:150'],
             'events.*.payload' => ['required', 'array'],
             'events.*.payload.items' => ['sometimes', 'array', 'max:100'],
@@ -151,7 +151,7 @@ class SyncController extends Controller
 
         $entityType = (string) ($event['entity_type'] ?? '');
         $envelopeMismatches = [];
-        if (! in_array($entityType, ['sale', 'product', 'inventory_receipt'], true)) $envelopeMismatches[] = 'entity_type';
+        if (! in_array($entityType, ['sale', 'product', 'inventory_receipt', 'sale_return', 'stock_adjustment'], true)) $envelopeMismatches[] = 'entity_type';
         if (($payload['event_type'] ?? null) !== $entityType) $envelopeMismatches[] = 'event_type';
         if (($payload['payload_version'] ?? null) !== 1) $envelopeMismatches[] = 'payload_version';
         if (($payload['event_id'] ?? null) !== $eventId) $envelopeMismatches[] = 'event_id';
@@ -187,6 +187,13 @@ class SyncController extends Controller
         }
         if ($entityType === 'inventory_receipt') {
             return $this->acceptInventoryReceiptEvent($db, $event, $payload, $deviceId, $payloadHash, $actorId, $appVersion);
+        }
+
+        if ($entityType === 'sale_return') {
+            return $this->acceptSaleReturnEvent($db, $event, $payload, $deviceId, $payloadHash, $actorId, $appVersion);
+        }
+        if ($entityType === 'stock_adjustment') {
+            return $this->acceptStockAdjustmentEvent($db, $event, $payload, $deviceId, $payloadHash, $actorId, $appVersion);
         }
 
         $sale = $payload['sale'] ?? null;
@@ -473,6 +480,860 @@ class SyncController extends Controller
         ]);
 
         return $response;
+    }
+
+    /**
+     * Accepts full/partial customer returns and full voids on the authenticated
+     * tenant DB. All effects and the idempotency receipt commit in the runner's
+     * transaction. Returned goods are always new quarantine lots; the original
+     * physical and financial records remain unchanged.
+     */
+    private function acceptSaleReturnEvent(
+        Connection $db,
+        array $event,
+        array $payload,
+        string $deviceId,
+        string $payloadHash,
+        int $actorId,
+        string $appVersion
+    ): array {
+        $record = $payload['return'] ?? null;
+        $requestedItems = $payload['items'] ?? null;
+        if (! is_array($record) || ! is_array($requestedItems) || count($requestedItems) < 1 || count($requestedItems) > 100) {
+            throw new SyncConflictException('Payload retur tidak lengkap atau melebihi batas.');
+        }
+
+        $returnId = trim($this->requiredString($record, 'id'));
+        if (strlen($returnId) > 100 || (string) $event['entity_id'] !== $returnId
+            || (string) $event['event_id'] !== 'outbox:sale_return:'.$returnId) {
+            throw new SyncConflictException('ID retur tidak cocok dengan envelope idempoten.');
+        }
+        if ($db->table('sale_returns')->where('id', $returnId)->exists()) {
+            throw new SyncConflictException('ID retur telah digunakan oleh event lain.');
+        }
+
+        $returnType = strtolower(trim($this->requiredString($record, 'return_type')));
+        if (! in_array($returnType, ['return', 'void'], true)) {
+            throw new SyncConflictException('Jenis operasi harus return atau void.');
+        }
+        $reason = trim($this->requiredString($record, 'reason'));
+        if ($reason === '' || strlen($reason) > 500) {
+            throw new SyncConflictException('Alasan retur wajib diisi dan maksimal 500 karakter.');
+        }
+        $requestFingerprint = trim($this->requiredString($record, 'request_fingerprint'));
+        if (strlen($requestFingerprint) !== 64 || ! ctype_xdigit($requestFingerprint)) {
+            throw new SyncConflictException('Fingerprint retur tidak valid.');
+        }
+
+        $originalSaleId = trim($this->requiredString($record, 'original_sale_id'));
+        $businessDate = trim($this->requiredString($record, 'business_date'));
+        try {
+            $parsedBusinessDate = Carbon::createFromFormat('!Y-m-d', $businessDate);
+        } catch (Throwable) {
+            $parsedBusinessDate = false;
+        }
+        if ($parsedBusinessDate === false || $parsedBusinessDate->format('Y-m-d') !== $businessDate) {
+            throw new SyncConflictException('Tanggal retur harus berupa YYYY-MM-DD yang valid.');
+        }
+
+        $occurredAtRaw = $this->requiredString($record, 'occurred_at_utc');
+        $timezone = trim($this->requiredString($record, 'timezone'));
+        if (strlen($timezone) > 64) throw new SyncConflictException('Zona waktu retur tidak valid.');
+        try {
+            $occurredAt = Carbon::parse($occurredAtRaw)->utc();
+            $returnBusinessDate = $occurredAt->copy()->setTimezone($timezone)->toDateString();
+        } catch (Throwable) {
+            throw new SyncConflictException('Waktu atau zona waktu retur tidak valid.');
+        }
+        if ($returnBusinessDate !== $businessDate) {
+            throw new SyncConflictException('Tanggal bisnis dan waktu kejadian retur tidak konsisten.');
+        }
+
+        $sale = $db->table('sales')->where('id', $originalSaleId)->lockForUpdate()->first();
+        if ($sale === null || (string) $sale->status !== 'accepted') {
+            throw new SyncConflictException('Penjualan asal tidak ditemukan atau tidak dapat diretur.');
+        }
+        $originalJournal = $db->table('journal_entries')
+            ->where('transaction_id', (string) $sale->transaction_id)
+            ->where('status', 'posted')
+            ->lockForUpdate()
+            ->first();
+        if ($originalJournal === null) {
+            throw new SyncConflictException('Jurnal penjualan asal tidak ditemukan dalam status posted.');
+        }
+
+        $refundMethod = trim($this->requiredString($record, 'refund_method'));
+        if (! isset(self::PAYMENT_ACCOUNTS[(string) $sale->payment_method])
+            || ! isset(self::PAYMENT_ACCOUNTS[$refundMethod])
+            || self::PAYMENT_ACCOUNTS[(string) $sale->payment_method] !== self::PAYMENT_ACCOUNTS[$refundMethod]) {
+            throw new SyncConflictException('Refund wajib memakai metode pembayaran penjualan asal.');
+        }
+
+        $saleItems = $db->table('sale_items')
+            ->where('sale_id', $originalSaleId)
+            ->orderBy('line_no')
+            ->lockForUpdate()
+            ->get();
+        if ($saleItems->isEmpty()) throw new SyncConflictException('Penjualan asal tidak memiliki rincian item.');
+
+        $alreadyReturnedQuery = $db->table('sale_returns')->where('original_sale_id', $originalSaleId);
+        if ($returnType === 'void' && $alreadyReturnedQuery->exists()) {
+            throw new SyncConflictException('Void penuh tidak diizinkan setelah ada retur pada penjualan ini.');
+        }
+        if ($returnType === 'void' && $db->table('journal_entries')
+            ->where('reversal_of_id', (string) $originalJournal->id)->exists()) {
+            throw new SyncConflictException('Jurnal penjualan asal sudah memiliki reversal penuh.');
+        }
+
+        $linesById = [];
+        foreach ($saleItems as $saleItem) {
+            $lineId = trim((string) ($saleItem->client_line_id ?? ''));
+            if ($lineId === '') throw new SyncConflictException('Rincian penjualan tidak memiliki ID baris stabil.');
+            $linesById[$lineId] = $saleItem;
+        }
+
+        $normalizedRequests = [];
+        foreach (array_values($requestedItems) as $row) {
+            if (! is_array($row)) throw new SyncConflictException('Rincian retur tidak valid.');
+            $lineId = trim($this->requiredString($row, 'sale_item_id'));
+            if (isset($normalizedRequests[$lineId]) || ! isset($linesById[$lineId])) {
+                throw new SyncConflictException('ID item retur tidak ada pada penjualan asal atau duplikat.');
+            }
+            $quantity = $this->payloadQuantity($row, 'quantity');
+            $normalizedRequests[$lineId] = $quantity;
+        }
+
+        if ($returnType === 'void' && count($normalizedRequests) !== count($linesById)) {
+            throw new SyncConflictException('Void harus mencakup seluruh baris penjualan.');
+        }
+
+        $prepared = [];
+        $refundGross = 0;
+        $refundItemDiscount = 0;
+        $refundTransactionDiscount = 0;
+        $refundDiscount = 0;
+        $refundDpp = 0;
+        $refundTaxableDpp = 0;
+        $refundExemptDpp = 0;
+        $returnedQuantity = 0;
+        $totalReturnedCogs = 0;
+
+        foreach ($normalizedRequests as $lineId => $quantity) {
+            $line = $linesById[$lineId];
+            $soldQuantity = $this->databaseQuantity($line->quantity);
+            $previousQuantity = $this->databaseQuantity(
+                $db->table('sale_return_items')
+                    ->where('original_sale_id', $originalSaleId)
+                    ->where('sale_item_id', $lineId)
+                    ->sum('quantity')
+            );
+            $cumulativeQuantity = $previousQuantity + $quantity;
+            if ($soldQuantity <= 0 || $cumulativeQuantity > $soldQuantity) {
+                throw new SyncConflictException('Jumlah retur melebihi jumlah yang benar-benar terjual.');
+            }
+            if ($returnType === 'void' && ($previousQuantity !== 0 || $cumulativeQuantity !== $soldQuantity)) {
+                throw new SyncConflictException('Void harus membalik seluruh kuantitas penjualan tanpa retur sebelumnya.');
+            }
+
+            $previousGross = $this->databaseRupiah(
+                $db->table('sale_return_items')->where('original_sale_id', $originalSaleId)
+                    ->where('sale_item_id', $lineId)->sum('refund_gross')
+            );
+            $previousItemDiscount = $this->databaseRupiah(
+                $db->table('sale_return_items')->where('original_sale_id', $originalSaleId)
+                    ->where('sale_item_id', $lineId)->sum('refund_item_discount_amount')
+            );
+            $previousTransactionDiscount = $this->databaseRupiah(
+                $db->table('sale_return_items')->where('original_sale_id', $originalSaleId)
+                    ->where('sale_item_id', $lineId)->sum('refund_transaction_discount_amount')
+            );
+            $previousDpp = $this->databaseRupiah(
+                $db->table('sale_return_items')->where('original_sale_id', $originalSaleId)
+                    ->where('sale_item_id', $lineId)->sum('refund_dpp')
+            );
+
+            $targetGross = $this->proportionalAmount(
+                $this->databaseRupiah($line->gross_amount), $soldQuantity, $cumulativeQuantity
+            );
+            $targetItemDiscount = $this->proportionalAmount(
+                $this->databaseRupiah($line->item_discount_amount), $soldQuantity, $cumulativeQuantity
+            );
+            $targetTransactionDiscount = $this->proportionalAmount(
+                $this->databaseRupiah($line->transaction_discount_amount), $soldQuantity, $cumulativeQuantity
+            );
+            $lineGross = $targetGross - $previousGross;
+            $lineItemDiscount = $targetItemDiscount - $previousItemDiscount;
+            $lineTransactionDiscount = $targetTransactionDiscount - $previousTransactionDiscount;
+            $lineDiscount = $lineItemDiscount + $lineTransactionDiscount;
+            $lineDpp = ($targetGross - $targetItemDiscount - $targetTransactionDiscount) - $previousDpp;
+            if ($lineGross < 0 || $lineDiscount < 0 || $lineDpp < 0
+                || $lineGross - $lineDiscount !== $lineDpp) {
+                throw new SyncConflictException('Alokasi nilai item retur tidak konsisten dengan transaksi asal.');
+            }
+
+            $physicalRows = $db->table('sale_lot_allocations')
+                ->where('sale_item_id', $lineId)
+                ->orderBy('allocation_no')
+                ->get();
+            if ($physicalRows->isEmpty()) throw new SyncConflictException('Asal lot fisik penjualan tidak tersedia.');
+
+            $physicalAllocations = [];
+            $remainingPhysical = $quantity;
+            foreach ($physicalRows as $physical) {
+                if ($remainingPhysical <= 0) break;
+                $soldFromLot = $this->databaseQuantity($physical->quantity);
+                $previousFromLot = $this->databaseQuantity(
+                    $db->table('sale_return_lot_allocations')
+                        ->where('original_sale_id', $originalSaleId)
+                        ->where('original_sale_item_id', $lineId)
+                        ->where('source_lot_id', (string) $physical->lot_id)
+                        ->sum('quantity')
+                );
+                $availableFromLot = max(0, $soldFromLot - $previousFromLot);
+                $take = min($remainingPhysical, $availableFromLot);
+                if ($take <= 0) continue;
+                $sourceLot = $db->table('inventory_lots')
+                    ->where('id', (string) $physical->lot_id)
+                    ->where('product_id', (string) $line->product_id)
+                    ->lockForUpdate()
+                    ->first();
+                if ($sourceLot === null) throw new SyncConflictException('Lot asal penjualan tidak tersedia untuk audit.');
+                $physicalAllocations[] = [
+                    'source_lot_id' => (string) $sourceLot->id,
+                    'batch_code' => (string) ($sourceLot->batch_code ?? ''),
+                    'expires_at' => $sourceLot->expires_at,
+                    'unit_cost' => $this->databaseRupiah($sourceLot->unit_cost),
+                    'quantity' => $take,
+                    'allocation_no' => count($physicalAllocations),
+                ];
+                $remainingPhysical -= $take;
+            }
+            if ($remainingPhysical !== 0) {
+                throw new SyncConflictException('Kuantitas retur tidak dapat ditelusuri ke alokasi lot fisik penjualan.');
+            }
+
+            $costRows = $db->table('cost_layer_consumptions')
+                ->where('sale_item_id', $lineId)
+                ->orderByDesc('consumption_no')
+                ->get();
+            if ($costRows->isEmpty()) throw new SyncConflictException('Asal cost layer FIFO penjualan tidak tersedia.');
+            $costAllocations = [];
+            $remainingCostQuantity = $quantity;
+            $lineCogs = 0;
+            foreach ($costRows as $costRow) {
+                if ($remainingCostQuantity <= 0) break;
+                $soldFromLayer = $this->databaseQuantity($costRow->quantity);
+                $previousFromLayer = $this->databaseQuantity(
+                    $db->table('sale_return_cost_layers')
+                        ->where('original_sale_id', $originalSaleId)
+                        ->where('original_sale_item_id', $lineId)
+                        ->where('source_cost_layer_id', (string) $costRow->cost_layer_id)
+                        ->sum('quantity')
+                );
+                $availableFromLayer = max(0, $soldFromLayer - $previousFromLayer);
+                $take = min($remainingCostQuantity, $availableFromLayer);
+                if ($take <= 0) continue;
+                $unitCost = $this->databaseRupiah($costRow->unit_cost);
+                if ($unitCost < 0 || ($unitCost > 0 && $take > intdiv(PHP_INT_MAX, $unitCost))) {
+                    throw new SyncConflictException('Nilai biaya retur melebihi batas integer rupiah.');
+                }
+                $totalCost = $take * $unitCost;
+                $sourceCostLayer = $db->table('inventory_cost_layers')
+                    ->where('id', (string) $costRow->cost_layer_id)
+                    ->where('product_id', (string) $line->product_id)
+                    ->first();
+                if ($sourceCostLayer === null) {
+                    throw new SyncConflictException('Cost layer FIFO asal retur tidak ditemukan.');
+                }
+                $costAllocations[] = [
+                    'source_cost_layer_id' => (string) $costRow->cost_layer_id,
+                    'financial_lot_id' => $sourceCostLayer->lot_id,
+                    'quantity' => $take,
+                    'unit_cost' => $unitCost,
+                    'total_cost' => $totalCost,
+                    'consumption_no' => count($costAllocations),
+                ];
+                $lineCogs += $totalCost;
+                $remainingCostQuantity -= $take;
+            }
+            if ($remainingCostQuantity !== 0) {
+                throw new SyncConflictException('Kuantitas retur tidak dapat ditelusuri ke cost layer FIFO penjualan.');
+            }
+
+            $taxExempt = $this->databaseBoolean($line->ppn_exempt ?? false);
+            $prepared[] = [
+                'line_id' => $lineId,
+                'line' => $line,
+                'quantity' => $quantity,
+                'returned_quantity' => $returnedQuantity + $quantity,
+                'gross' => $lineGross,
+                'item_discount' => $lineItemDiscount,
+                'transaction_discount' => $lineTransactionDiscount,
+                'discount' => $lineDiscount,
+                'dpp' => $lineDpp,
+                'ppn_exempt' => $taxExempt,
+                'cogs' => $lineCogs,
+                'physical_allocations' => $physicalAllocations,
+                'cost_allocations' => $costAllocations,
+            ];
+            $refundGross += $lineGross;
+            $refundItemDiscount += $lineItemDiscount;
+            $refundTransactionDiscount += $lineTransactionDiscount;
+            $refundDiscount += $lineDiscount;
+            $refundDpp += $lineDpp;
+            if ($taxExempt) $refundExemptDpp += $lineDpp;
+            else $refundTaxableDpp += $lineDpp;
+            $returnedQuantity += $quantity;
+            $totalReturnedCogs += $lineCogs;
+        }
+
+        if ($returnType === 'void' && $returnedQuantity <= 0) {
+            throw new SyncConflictException('Void penuh harus mencakup kuantitas penjualan.');
+        }
+
+        $originalTaxableDpp = $this->databaseRupiah($sale->taxable_dpp);
+        $originalPpn = $this->databaseRupiah($sale->ppn_amount);
+        $previousReturnedTaxableDpp = $this->databaseRupiah(
+            $db->table('sale_returns')->where('original_sale_id', $originalSaleId)->sum('refund_taxable_dpp')
+        );
+        $previousReturnedPpn = $this->databaseRupiah(
+            $db->table('sale_returns')->where('original_sale_id', $originalSaleId)->sum('refund_ppn_amount')
+        );
+        $cumulativeTaxableDpp = $previousReturnedTaxableDpp + $refundTaxableDpp;
+        if ($cumulativeTaxableDpp > $originalTaxableDpp) {
+            throw new SyncConflictException('DPP kena pajak yang diretur melebihi DPP penjualan asal.');
+        }
+        $targetRefundPpn = $originalTaxableDpp === 0 || $cumulativeTaxableDpp === 0
+            ? 0
+            : ($cumulativeTaxableDpp >= $originalTaxableDpp
+                ? $originalPpn
+                : $this->roundProportion($originalPpn, $cumulativeTaxableDpp, $originalTaxableDpp));
+        $refundPpn = $targetRefundPpn - $previousReturnedPpn;
+        if ($refundPpn < 0 || $refundPpn > $originalPpn) {
+            throw new SyncConflictException('Alokasi PPN retur tidak konsisten dengan invoice asal.');
+        }
+        $refundTotal = $refundDpp + $refundPpn;
+        $now = now();
+        $period = $db->table('accounting_periods')
+            ->where('starts_on', '<=', $businessDate)
+            ->where('ends_on', '>=', $businessDate)
+            ->where('status', 'open')
+            ->orderBy('starts_on')
+            ->lockForUpdate()
+            ->first();
+        if ($period === null) {
+            throw new SyncConflictException('Retur/void memerlukan periode akuntansi terbuka untuk tanggal bisnis retur.');
+        }
+        if ($db->table('accounting_periods')
+            ->where('starts_on', '<=', $businessDate)
+            ->where('ends_on', '>=', $businessDate)
+            ->where('status', 'closed')->exists()) {
+            throw new SyncConflictException('Periode akuntansi retur sudah ditutup.');
+        }
+
+        $journalId = 'journal:return:'.substr(hash('sha256', $returnId), 0, 48);
+        $journalTransactionId = 'return:'.$returnId;
+        if ($db->table('journal_entries')->where('id', $journalId)
+            ->orWhere('transaction_id', $journalTransactionId)->exists()) {
+            throw new SyncConflictException('ID jurnal retur telah digunakan tanpa receipt yang cocok.');
+        }
+
+        // Create the parent inside the same DB transaction. A failure in any child,
+        // lot, cost layer, journal or receipt operation rolls this row back too.
+        $db->table('sale_returns')->insert([
+            'id' => $returnId,
+            'event_id' => (string) $event['event_id'],
+            'original_sale_id' => $originalSaleId,
+            'original_transaction_id' => (string) $sale->transaction_id,
+            'return_type' => $returnType,
+            'refund_method' => $refundMethod,
+            'reason' => $reason,
+            'business_date' => $businessDate,
+            'occurred_at' => $occurredAt,
+            'timezone' => $timezone,
+            'actor_id' => (string) $actorId,
+            'origin_actor_id' => isset($record['origin_actor_id']) && is_string($record['origin_actor_id']) ? trim($record['origin_actor_id']) : null,
+            'approved_by_user_id' => (string) $actorId,
+            'approval_mode' => 'self',
+            'approved_at' => $now,
+            'device_id' => $deviceId,
+            'app_version' => $appVersion,
+            'request_fingerprint' => strtolower($requestFingerprint),
+            'refund_gross' => $refundGross,
+            'refund_discount_amount' => $refundDiscount,
+            'refund_dpp' => $refundDpp,
+            'refund_taxable_dpp' => $refundTaxableDpp,
+            'refund_exempt_dpp' => $refundExemptDpp,
+            'refund_ppn_amount' => $refundPpn,
+            'refund_total' => $refundTotal,
+            'cogs_amount' => $totalReturnedCogs,
+            'journal_entry_id' => null,
+            'original_journal_entry_id' => (string) $originalJournal->id,
+            'status' => 'accepted',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $productQuantities = [];
+        foreach ($prepared as $lineIndex => $entry) {
+            $lineId = (string) $entry['line_id'];
+            $returnItemId = 'return-item:'.substr(hash('sha256', $returnId.'|'.$lineId), 0, 48);
+            $quarantineLots = [];
+            foreach ($entry['physical_allocations'] as $allocIndex => $physical) {
+                $quarantineLotId = 'return-lot:'.substr(
+                    hash('sha256', (string) $event['event_id'].'|'.$lineId.'|'.$physical['source_lot_id'].'|'.$allocIndex),
+                    0,
+                    48
+                );
+                if ($db->table('inventory_lots')->where('id', $quarantineLotId)->exists()) {
+                    throw new SyncConflictException('ID lot karantina retur telah digunakan tanpa receipt yang cocok.');
+                }
+                $batchCode = 'RET-'.substr(hash('sha256', $returnId.'|'.$physical['source_lot_id'].'|'.$allocIndex), 0, 32);
+                $db->table('inventory_lots')->insert([
+                    'id' => $quarantineLotId,
+                    'product_id' => (string) $entry['line']->product_id,
+                    'batch_code' => $batchCode,
+                    'expires_at' => $physical['expires_at'],
+                    'quantity_received' => $physical['quantity'],
+                    'quantity_remaining' => $physical['quantity'],
+                    'unit_cost' => $physical['unit_cost'],
+                    'received_at' => $occurredAt,
+                    'reserved_qty' => 0,
+                    'status' => 'quarantine',
+                    'origin_lot_id' => $physical['source_lot_id'],
+                    'source_return_id' => $returnId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $quarantineLots[] = [
+                    'id' => $quarantineLotId,
+                    'source_lot_id' => $physical['source_lot_id'],
+                    'quantity' => $physical['quantity'],
+                    'allocation_no' => $physical['allocation_no'],
+                ];
+            }
+
+            $db->table('sale_return_items')->insert([
+                'id' => $returnItemId,
+                'sale_return_id' => $returnId,
+                'original_sale_id' => $originalSaleId,
+                'sale_item_id' => $lineId,
+                'product_id' => (string) $entry['line']->product_id,
+                'quantity' => $entry['quantity'],
+                'refund_gross' => $entry['gross'],
+                'refund_item_discount_amount' => $entry['item_discount'],
+                'refund_transaction_discount_amount' => $entry['transaction_discount'],
+                'refund_discount_amount' => $entry['discount'],
+                'refund_dpp' => $entry['dpp'],
+                'ppn_exempt' => $entry['ppn_exempt'],
+                'cogs_amount' => $entry['cogs'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            foreach ($quarantineLots as $quarantineLot) {
+                $db->table('sale_return_lot_allocations')->insert([
+                    'sale_return_item_id' => $returnItemId,
+                    'original_sale_id' => $originalSaleId,
+                    'original_sale_item_id' => $lineId,
+                    'source_lot_id' => $quarantineLot['source_lot_id'],
+                    'quarantine_lot_id' => $quarantineLot['id'],
+                    'quantity' => $quarantineLot['quantity'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $db->table('inventory_movements')->insert([
+                    'source_event_id' => (string) $event['event_id'],
+                    'product_id' => (string) $entry['line']->product_id,
+                    'lot_id' => $quarantineLot['id'],
+                    'movement_type' => $returnType === 'void' ? 'void_quarantine' : 'return_quarantine',
+                    'quantity' => $quarantineLot['quantity'],
+                    'reference_id' => $returnId,
+                    'occurred_at' => $occurredAt,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            foreach ($entry['cost_allocations'] as $costIndex => $cost) {
+                $sourceCostLayerId = (string) $cost['source_cost_layer_id'];
+                $sourceCostLayer = $db->table('inventory_cost_layers')
+                    ->where('id', $sourceCostLayerId)
+                    ->where('product_id', (string) $entry['line']->product_id)
+                    ->lockForUpdate()
+                    ->first();
+                if ($sourceCostLayer === null
+                    || $this->databaseRupiah($sourceCostLayer->unit_cost) !== (int) $cost['unit_cost']) {
+                    throw new SyncConflictException('Cost layer FIFO asal berubah; retur perlu rekonsiliasi.');
+                }
+                // Restore quantity to its original FIFO layer so its acquisition
+                // age and approved unit cost remain unchanged. Physical FEFO
+                // disposition is tracked independently in the quarantine lot.
+                $changedLayer = $db->table('inventory_cost_layers')
+                    ->where('id', $sourceCostLayerId)
+                    ->where('product_id', (string) $entry['line']->product_id)
+                    ->increment('remaining_qty', $cost['quantity'], ['updated_at' => $now]);
+                if ($changedLayer !== 1) {
+                    throw new SyncConflictException('Kuantitas layer FIFO asal tidak dapat dipulihkan.');
+                }
+                $returnedCostLayerId = $sourceCostLayerId;
+                $db->table('sale_return_cost_layers')->insert([
+                    'sale_return_item_id' => $returnItemId,
+                    'original_sale_id' => $originalSaleId,
+                    'original_sale_item_id' => $lineId,
+                    'source_cost_layer_id' => $cost['source_cost_layer_id'],
+                    'returned_cost_layer_id' => $returnedCostLayerId,
+                    'quantity' => $cost['quantity'],
+                    'unit_cost' => $cost['unit_cost'],
+                    'total_cost' => $cost['total_cost'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+                $db->table('stock_movements')->insert([
+                    'id' => 'sync:'.substr(hash('sha256', (string) $event['event_id'].'|return|'.$lineId.'|'.$costIndex), 0, 48),
+                    'source_event_id' => (string) $event['event_id'],
+                    'product_id' => (string) $entry['line']->product_id,
+                    'reference_id' => $returnId,
+                    'movement_type' => 'return_fifo_cogs',
+                    'quantity_delta' => $cost['quantity'],
+                    'unit_cost' => $cost['unit_cost'],
+                    'total_cost' => $cost['total_cost'],
+                    'occurred_at' => $occurredAt,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            }
+
+            $productId = (string) $entry['line']->product_id;
+            $productQuantities[$productId] = ($productQuantities[$productId] ?? 0) + (int) $entry['quantity'];
+        }
+
+        foreach ($productQuantities as $productId => $quantity) {
+            if ($db->table('products')->where('id', $productId)
+                ->increment('stock_qty', $quantity, ['updated_at' => $now]) !== 1) {
+                throw new SyncConflictException('Stok agregat produk tidak dapat dikembalikan.');
+            }
+        }
+
+        if ($returnType === 'void') {
+            $originalLines = $db->table('journal_lines')
+                ->where('journal_entry_id', (string) $originalJournal->id)
+                ->orderBy('line_no')
+                ->get();
+            if ($originalLines->count() < 2) {
+                throw new SyncConflictException('Jurnal asal tidak memiliki baris yang dapat dibalik.');
+            }
+            $journalLines = [];
+            foreach ($originalLines as $originalLine) {
+                $debit = $this->databaseRupiah($originalLine->credit);
+                $credit = $this->databaseRupiah($originalLine->debit);
+                if ($debit === 0 && $credit === 0) continue;
+                $journalLines[] = [
+                    'line_no' => count($journalLines),
+                    'account_code' => (string) $originalLine->account_code,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                ];
+            }
+            if (array_sum(array_column($journalLines, 'debit')) !== array_sum(array_column($journalLines, 'credit'))) {
+                throw new SyncConflictException('Jurnal reversal hasil perhitungan tidak seimbang.');
+            }
+        } else {
+            $journalLines = [];
+            $appendLine = static function (array &$lines, string $account, int $debit, int $credit): void {
+                if ($debit === 0 && $credit === 0) return;
+                $lines[] = [
+                    'line_no' => count($lines),
+                    'account_code' => $account,
+                    'debit' => $debit,
+                    'credit' => $credit,
+                ];
+            };
+            $appendLine($journalLines, '4-4030', $refundDpp, 0);
+            $appendLine($journalLines, '2-2010', $refundPpn, 0);
+            $paymentCredit = $refundTotal;
+            $appendLine($journalLines, self::PAYMENT_ACCOUNTS[$refundMethod], 0, $paymentCredit);
+            $appendLine($journalLines, '1-1040', $totalReturnedCogs, 0);
+            $appendLine($journalLines, '5-5010', 0, $totalReturnedCogs);
+
+            if (array_sum(array_column($journalLines, 'debit')) !== array_sum(array_column($journalLines, 'credit'))) {
+                throw new SyncConflictException('Jurnal retur tidak seimbang; tidak ada perubahan yang diterapkan.');
+            }
+        }
+        if (count($journalLines) < 2) {
+            throw new SyncConflictException('Jurnal retur kosong atau tidak memenuhi entri ganda.');
+        }
+
+        $db->table('journal_entries')->insert([
+            'id' => $journalId,
+            'source_event_id' => (string) $event['event_id'],
+            'transaction_id' => $journalTransactionId,
+            'description' => ($returnType === 'void' ? 'POS void ' : 'POS return ').(string) $sale->transaction_id.' / '.$returnId,
+            'journal_date' => $businessDate,
+            'occurred_at' => $occurredAt,
+            'timezone' => $timezone,
+            'period_id' => $period->id,
+            'status' => 'draft',
+            'reversal_of_id' => $returnType === 'void' ? (string) $originalJournal->id : null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        foreach ($journalLines as $journalLine) {
+            $db->table('journal_lines')->insert([
+                'journal_entry_id' => $journalId,
+                'line_no' => $journalLine['line_no'],
+                'account_code' => $journalLine['account_code'],
+                'debit' => $journalLine['debit'],
+                'credit' => $journalLine['credit'],
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+        }
+        $posted = $db->table('journal_entries')->where('id', $journalId)->where('status', 'draft')
+            ->update([
+                'status' => 'posted',
+                'posted_at' => $now,
+                'posted_by' => (string) $actorId,
+                'device_id' => $deviceId,
+                'app_version' => $appVersion,
+                'period_id' => $period->id,
+                'updated_at' => $now,
+            ]);
+        if ($posted !== 1) throw new SyncConflictException('Jurnal retur/reversal tidak dapat diposting.');
+
+        $db->table('sale_returns')->where('id', $returnId)->update([
+            'journal_entry_id' => $journalId,
+            'updated_at' => $now,
+        ]);
+
+        $response = [
+            'event_id' => (string) $event['event_id'],
+            'status' => 'accepted',
+            'receipt_id' => (string) $event['event_id'],
+            'return_id' => $returnId,
+            'original_sale_id' => $originalSaleId,
+            'return_type' => $returnType,
+            'refund_total' => $refundTotal,
+            'cogs_amount' => $totalReturnedCogs,
+            'journal_entry_id' => $journalId,
+            'reversal_of_id' => $returnType === 'void' ? (string) $originalJournal->id : null,
+            'quarantine_required' => true,
+            'approval_mode' => 'self',
+        ];
+        $this->saveSyncReceipt($db, (string) $event['event_id'], $deviceId, $payloadHash, $response, $now);
+        return $response;
+    }
+
+    /**
+     * Stock disposition-only operations are permitted without a new COA mapping.
+     * Quantity adjustments/write-offs are rejected until the owner approves the
+     * existing account mapping for their valuation effect.
+     */
+    private function acceptStockAdjustmentEvent(
+        Connection $db,
+        array $event,
+        array $payload,
+        string $deviceId,
+        string $payloadHash,
+        int $actorId,
+        string $appVersion
+    ): array {
+        $adjustment = $payload['adjustment'] ?? null;
+        if (! is_array($adjustment)) throw new SyncConflictException('Payload penyesuaian stok tidak lengkap.');
+
+        $adjustmentId = trim($this->requiredString($adjustment, 'id'));
+        if (strlen($adjustmentId) > 100 || (string) $event['entity_id'] !== $adjustmentId
+            || (string) $event['event_id'] !== 'outbox:stock_adjustment:'.$adjustmentId) {
+            throw new SyncConflictException('ID penyesuaian stok tidak cocok dengan envelope.');
+        }
+        if ($db->table('stock_adjustments')->where('id', $adjustmentId)->exists()) {
+            throw new SyncConflictException('ID penyesuaian stok telah digunakan oleh event lain.');
+        }
+        $reason = trim($this->requiredString($adjustment, 'reason'));
+        if ($reason === '' || strlen($reason) > 500) {
+            throw new SyncConflictException('Alasan penyesuaian stok wajib diisi dan maksimal 500 karakter.');
+        }
+        $requestFingerprint = trim($this->requiredString($adjustment, 'request_fingerprint'));
+        if (strlen($requestFingerprint) !== 64 || ! ctype_xdigit($requestFingerprint)) {
+            throw new SyncConflictException('Fingerprint penyesuaian stok tidak valid.');
+        }
+        $quantityDelta = $adjustment['quantity_delta'] ?? null;
+        if (! is_int($quantityDelta) || $quantityDelta !== 0) {
+            throw new SyncConflictException(
+                'Koreksi kuantitas/write-off ditolak: akun lawan valuasi stok belum disetujui owner.'
+            );
+        }
+        $businessDate = trim($this->requiredString($adjustment, 'business_date'));
+        try {
+            $parsedBusinessDate = Carbon::createFromFormat('!Y-m-d', $businessDate);
+            $occurredAt = Carbon::parse($this->requiredString($adjustment, 'occurred_at_utc'))->utc();
+            $timezone = trim($this->requiredString($adjustment, 'timezone'));
+            $occurrenceDate = $occurredAt->copy()->setTimezone($timezone)->toDateString();
+        } catch (Throwable) {
+            throw new SyncConflictException('Tanggal, waktu, atau zona waktu penyesuaian stok tidak valid.');
+        }
+        if ($parsedBusinessDate === false || $parsedBusinessDate->format('Y-m-d') !== $businessDate
+            || $occurrenceDate !== $businessDate || strlen($timezone) > 64) {
+            throw new SyncConflictException('Tanggal bisnis dan waktu penyesuaian stok tidak konsisten.');
+        }
+
+        $productId = trim($this->requiredString($adjustment, 'product_id'));
+        $lotId = trim($this->requiredString($adjustment, 'lot_id'));
+        $action = trim($this->requiredString($adjustment, 'action'));
+        $fromStatus = trim($this->requiredString($adjustment, 'from_status'));
+        $toStatus = trim($this->requiredString($adjustment, 'to_status'));
+        $allowed = [
+            'quarantine' => ['saleable', 'quarantine'],
+            'release_quarantine' => ['quarantine', 'saleable'],
+            'mark_damaged' => ['saleable', 'damaged'],
+            'mark_recall' => ['saleable', 'recall'],
+            'mark_expired' => ['saleable', 'expired'],
+        ];
+        if (! isset($allowed[$action]) || $allowed[$action] !== [$fromStatus, $toStatus]) {
+            // Also allow the documented status-to-damage/recall/expiry transition from quarantine.
+            $secondaryAllowed = [
+                'mark_damaged' => ['quarantine', 'damaged'],
+                'mark_recall' => ['quarantine', 'recall'],
+                'mark_expired' => ['quarantine', 'expired'],
+            ];
+            if (! isset($secondaryAllowed[$action]) || $secondaryAllowed[$action] !== [$fromStatus, $toStatus]) {
+                throw new SyncConflictException('Transisi status stok tidak diizinkan.');
+            }
+        }
+        if ($action === 'release_quarantine') {
+            if (strtolower(trim((string) ($adjustment['inspection_result'] ?? ''))) !== 'passed'
+                || trim((string) ($adjustment['inspection_note'] ?? '')) === '') {
+                throw new SyncConflictException('Pelepasan karantina wajib memiliki hasil lulus dan catatan inspeksi.');
+            }
+        }
+        if ($db->table('stock_adjustments')->where('id', $adjustmentId)->exists()) {
+            throw new SyncConflictException('ID penyesuaian stok sudah pernah digunakan.');
+        }
+        $product = $db->table('products')->where('id', $productId)->lockForUpdate()->first();
+        $lot = $db->table('inventory_lots')->where('id', $lotId)->where('product_id', $productId)->lockForUpdate()->first();
+        if ($product === null || $lot === null) throw new SyncConflictException('Produk/lot tidak ditemukan untuk penyesuaian stok.');
+        if ((string) ($lot->status ?? 'saleable') !== $fromStatus) {
+            throw new SyncConflictException('Status lot berubah; penyesuaian harus diperiksa ulang.');
+        }
+        if ($this->databaseScaledInteger($lot->reserved_qty ?? 0, 3) > 0) {
+            throw new SyncConflictException('Lot memiliki reservasi aktif dan tidak dapat diubah statusnya.');
+        }
+        if ($action === 'mark_expired') {
+            if ($lot->expires_at === null || Carbon::parse($lot->expires_at)->toDateString() >= $businessDate) {
+                throw new SyncConflictException('Lot hanya dapat ditandai expired setelah tanggal kedaluwarsanya.');
+            }
+        }
+        if ($action === 'release_quarantine') {
+            if ($lot->expires_at !== null && Carbon::parse($lot->expires_at)->toDateString() < $businessDate) {
+                throw new SyncConflictException('Lot kedaluwarsa tidak boleh dilepas dari karantina.');
+            }
+            if ($this->databaseBoolean($product->track_expiry ?? false)) {
+                if ($lot->expires_at === null) throw new SyncConflictException('Produk terlacak kedaluwarsa wajib memiliki tanggal lot.');
+                $minimumDate = Carbon::parse($businessDate)
+                    ->addDays((int) ($product->min_shelf_life_days ?? 0))->toDateString();
+                if (Carbon::parse($lot->expires_at)->toDateString() < $minimumDate) {
+                    throw new SyncConflictException('Lot tidak memenuhi minimum sisa umur simpan untuk kembali saleable.');
+                }
+            }
+        }
+
+        $now = now();
+        $updated = $db->table('inventory_lots')->where('id', $lotId)
+            ->where('product_id', $productId)
+            ->where('status', $fromStatus)
+            ->update(['status' => $toStatus, 'updated_at' => $now]);
+        if ($updated !== 1) throw new SyncConflictException('Status lot berubah saat penyesuaian diterapkan.');
+
+        $db->table('stock_adjustments')->insert([
+            'id' => $adjustmentId,
+            'event_id' => (string) $event['event_id'],
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+            'action' => $action,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'quantity_delta' => 0,
+            'reason' => $reason,
+            'inspection_note' => isset($adjustment['inspection_note']) ? trim((string) $adjustment['inspection_note']) : null,
+            'inspection_result' => isset($adjustment['inspection_result']) ? trim((string) $adjustment['inspection_result']) : null,
+            'business_date' => $businessDate,
+            'occurred_at' => $occurredAt,
+            'timezone' => $timezone,
+            'actor_id' => (string) $actorId,
+            'origin_actor_id' => isset($adjustment['origin_actor_id']) && is_string($adjustment['origin_actor_id']) ? trim($adjustment['origin_actor_id']) : null,
+            'approved_by_user_id' => (string) $actorId,
+            'approval_mode' => 'self',
+            'approved_at' => $now,
+            'device_id' => $deviceId,
+            'app_version' => $appVersion,
+            'request_fingerprint' => strtolower($requestFingerprint),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $response = [
+            'event_id' => (string) $event['event_id'],
+            'status' => 'accepted',
+            'receipt_id' => (string) $event['event_id'],
+            'adjustment_id' => $adjustmentId,
+            'product_id' => $productId,
+            'lot_id' => $lotId,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'quantity_delta' => 0,
+            'actor_id' => (string) $actorId,
+            'approved_by_user_id' => (string) $actorId,
+            'approval_mode' => 'self',
+        ];
+        $this->saveSyncReceipt($db, (string) $event['event_id'], $deviceId, $payloadHash, $response, $now);
+        return $response;
+    }
+
+    private function databaseRupiah(mixed $value): int
+    {
+        $scaled = $this->databaseScaledInteger($value ?? 0, 2);
+        if ($scaled === null || $scaled % 100 !== 0) {
+            throw new SyncConflictException('Nominal database harus berupa integer rupiah.');
+        }
+        return intdiv($scaled, 100);
+    }
+
+    private function databaseQuantity(mixed $value): int
+    {
+        $scaled = $this->databaseScaledInteger($value ?? 0, 3);
+        if ($scaled === null || $scaled % 1000 !== 0) {
+            throw new SyncConflictException('Kuantitas retur harus berupa unit utuh sesuai transaksi asal.');
+        }
+        return intdiv($scaled, 1000);
+    }
+
+    private function proportionalAmount(int $total, int $quantity, int $cumulativeQuantity): int
+    {
+        if ($total < 0 || $quantity <= 0 || $cumulativeQuantity < 0 || $cumulativeQuantity > $quantity) {
+            throw new SyncConflictException('Proporsi nilai retur tidak valid.');
+        }
+        if ($cumulativeQuantity === $quantity) return $total;
+        if ($cumulativeQuantity > 0 && $total > intdiv(PHP_INT_MAX, $cumulativeQuantity)) {
+            throw new SyncConflictException('Nilai retur melebihi batas integer rupiah.');
+        }
+        return intdiv($total * $cumulativeQuantity, $quantity);
+    }
+
+    private function roundProportion(int $total, int $part, int $whole): int
+    {
+        if ($total < 0 || $part < 0 || $whole <= 0 || $part > $whole) {
+            throw new SyncConflictException('Proporsi PPN retur tidak valid.');
+        }
+        if ($part === $whole) return $total;
+        if ($part > 0 && $total > intdiv(PHP_INT_MAX, $part)) {
+            throw new SyncConflictException('Alokasi PPN retur melebihi batas integer rupiah.');
+        }
+        $numerator = $total * $part;
+        $half = intdiv($whole, 2);
+        if ($numerator > PHP_INT_MAX - $half) {
+            throw new SyncConflictException('Alokasi PPN retur melebihi batas integer rupiah.');
+        }
+        return intdiv($numerator + $half, $whole);
     }
 
     private function acceptProductEvent(

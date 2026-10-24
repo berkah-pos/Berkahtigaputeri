@@ -40,7 +40,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
         SELECT
           COUNT(*) AS sale_count,
           COALESCE(SUM(grand_total), 0) AS revenue,
-          COALESCE(SUM(cogs_amount), 0) AS cogs
+          COALESCE(SUM(cogs_amount), 0) AS cogs,
+          (SELECT COUNT(*) FROM sale_returns) AS return_count,
+          (SELECT COALESCE(SUM(refund_total), 0) FROM sale_returns) AS refund_total,
+          (SELECT COALESCE(SUM(cogs_amount), 0) FROM sale_returns) AS returned_cogs,
+          (SELECT COALESCE(SUM(on_hand_qty), 0) FROM inventory_lots WHERE status = 'saleable') AS saleable_qty,
+          (SELECT COALESCE(SUM(on_hand_qty), 0) FROM inventory_lots WHERE status = 'quarantine') AS quarantine_qty,
+          (SELECT COUNT(*) FROM journals) AS journal_count,
+          (SELECT COUNT(*) FROM (
+            SELECT j.id
+            FROM journals j LEFT JOIN journal_lines jl ON jl.journal_id = j.id
+            GROUP BY j.id HAVING COALESCE(SUM(jl.debit), 0) <> COALESCE(SUM(jl.credit), 0)
+          )) AS unbalanced_journals
         FROM sales
         ''',
       )).single;
@@ -142,14 +153,40 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 icon: Icons.receipt_long,
               ),
               _MetricCard(
-                label: 'Penjualan lokal',
-                value: _money(_intValue('revenue')),
+                label: 'Penjualan bersih lokal',
+                value: _money(_intValue('revenue') - _intValue('refund_total')),
                 icon: Icons.payments_outlined,
               ),
               _MetricCard(
-                label: 'HPP lokal',
-                value: _money(_intValue('cogs')),
+                label: 'HPP bersih lokal',
+                value: _money(_intValue('cogs') - _intValue('returned_cogs')),
                 icon: Icons.inventory_2_outlined,
+              ),
+              _MetricCard(
+                label: 'Retur / void',
+                value: _intValue('return_count').toString(),
+                icon: Icons.assignment_return_outlined,
+              ),
+              _MetricCard(
+                label: 'Refund dicatat',
+                value: _money(_intValue('refund_total')),
+                icon: Icons.currency_exchange,
+              ),
+              _MetricCard(
+                label: 'Stok saleable',
+                value: _intValue('saleable_qty').toString(),
+                icon: Icons.inventory_2_outlined,
+              ),
+              _MetricCard(
+                label: 'Stok karantina',
+                value: _intValue('quarantine_qty').toString(),
+                icon: Icons.health_and_safety_outlined,
+              ),
+              _MetricCard(
+                label: 'Jurnal tidak seimbang',
+                value: _intValue('unbalanced_journals').toString(),
+                icon: Icons.balance_outlined,
+                warning: _intValue('unbalanced_journals') > 0,
               ),
               _MetricCard(
                 label: 'Belum sinkron',
