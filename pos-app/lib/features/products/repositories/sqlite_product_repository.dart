@@ -245,6 +245,7 @@ class SqliteProductRepository {
 
     await _database.transaction((transaction) async {
       final product = await _loadProduct(transaction, normalizedProductId);
+      if (!product.isActive) throw ProductInactiveException(product.nameId);
       final normalizedBatchNo = (batchNo ?? normalizedLotId).trim();
 
       if (product.trackExpiry && batchNo == null) {
@@ -367,6 +368,8 @@ class SqliteProductRepository {
 
       final lot = lots.first;
       final productId = lot['product_id']! as String;
+      final product = await _loadProduct(transaction, productId);
+      if (!product.isActive) throw ProductInactiveException(product.nameId);
       final receivedAt = acquiredAtUtc.toUtc().toIso8601String();
 
       await transaction.insert(
@@ -714,7 +717,7 @@ class ProductConcurrencyException extends ProductRepositoryException {
 
 class ProductInactiveException extends ProductRepositoryException {
   ProductInactiveException(String productName)
-      : super('Produk "$productName" nonaktif dan tidak dapat dijual.');
+      : super('Produk "$productName" nonaktif dan tidak dapat diproses untuk transaksi baru.');
 }
 
 class InventoryLotNotFoundException extends ProductRepositoryException {
