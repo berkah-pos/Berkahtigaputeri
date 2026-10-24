@@ -24,6 +24,16 @@ class LegacyTrialImporter {
       limit: 1,
     );
     if (runs.isNotEmpty) {
+      final importedSource = File(
+        runs.single['source_file']?.toString() ?? '',
+      ).absolute.path;
+      if (importedSource != file.absolute.path) {
+        throw const FormatException(
+          'Legacy import stopped: a different source file was already imported '
+          'into this database. The existing import was left unchanged; choose '
+          'the original source file or review the existing import before retrying.',
+        );
+      }
       return _countsFromCompletedRun(runs.single);
     }
 
