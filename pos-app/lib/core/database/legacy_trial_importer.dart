@@ -24,12 +24,17 @@ class LegacyTrialImporter {
       limit: 1,
     );
     if (runs.isNotEmpty) {
-      return <String, int>{
-        'products': runs.single['imported_products']! as int,
-        'sales': runs.single['archived_sales']! as int,
-        'saleItems': runs.single['archived_sale_items']! as int,
-        'alreadyImported': 1,
-      };
+      final importedSource = File(
+        runs.single['source_file']?.toString() ?? '',
+      ).absolute.path;
+      if (importedSource != file.absolute.path) {
+        throw const FormatException(
+          'Legacy import stopped: a different source file was already imported '
+          'into this database. The existing import was left unchanged; choose '
+          'the original source file or review the existing import before retrying.',
+        );
+      }
+      return _countsFromCompletedRun(runs.single);
     }
 
     final selectedFactory = factory ?? databaseFactory;
@@ -75,6 +80,7 @@ class LegacyTrialImporter {
         'sales': 0,
         'saleItems': 0,
       };
+      var resultCounts = counts;
 
       await target.transaction<void>((transaction) async {
         final existingRun = await transaction.query(
@@ -83,7 +89,24 @@ class LegacyTrialImporter {
           whereArgs: <Object?>[migrationKey],
           limit: 1,
         );
-        if (existingRun.isNotEmpty) return;
+        if (existingRun.isNotEmpty) {
+          // Another caller may have completed an import after our pre-check.
+          // Revalidate the source identity inside the serialized transaction:
+          // otherwise a concurrent request for a different file could inherit
+          // this run's counts and be reported as successfully imported.
+          final importedSource = File(
+            existingRun.single['source_file']?.toString() ?? '',
+          ).absolute.path;
+          if (importedSource != file.absolute.path) {
+            throw const FormatException(
+              'Legacy import stopped: a different source file was already imported '
+              'into this database. The existing import was left unchanged; choose '
+              'the original source file or review the existing import before retrying.',
+            );
+          }
+          resultCounts = _countsFromCompletedRun(existingRun.single);
+          return;
+        }
 
         final skuRows = await transaction.query(
           'products',
@@ -96,51 +119,60 @@ class LegacyTrialImporter {
         final mappedProductIds = <int, String>{};
 
         for (final old in oldProducts) {
-          final originalId = _requiredInteger(old['id'], 'product.id');
-          final productId = 'legacy-product-$originalId';
-          mappedProductIds[originalId] = productId;
+          final originalId = _positiveInteger(old['id'], 'product.id');
+          final baseProductId = 'legacy-product-$originalId';
+          var productId = baseProductId;
+          var productIdSuffix = 1;
 
-          final exists = await transaction.query(
+          // Never reuse an existing active product merely because its ID
+          // matches our legacy namespace. It may be an unrelated catalog row.
+          // Choose a deterministic free ID so all archive references point to
+          // the product created for this source record.
+          while ((await transaction.query(
             'products',
+            columns: <String>['id'],
             where: 'id = ?',
             whereArgs: <Object?>[productId],
             limit: 1,
-          );
-          if (exists.isEmpty) {
-            final originalSku = old['sku']?.toString().trim() ?? '';
-            final baseSku = originalSku.isEmpty
-                ? 'LEGACY-$originalId'
-                : originalSku;
-            var sku = baseSku;
-            var suffix = 1;
-            while (usedSkus.contains(sku)) {
-              sku = '$baseSku-LEGACY-$originalId-$suffix';
-              suffix++;
-            }
-            usedSkus.add(sku);
-
-            final originalName = old['name']?.toString().trim() ?? '';
-            await transaction.insert(
-              'products',
-              <String, Object?>{
-                'id': productId,
-                'sku': sku,
-                'barcode': null,
-                'name_id': originalName.isEmpty
-                    ? 'Produk trial $originalId'
-                    : originalName,
-                'price': _nonNegativeInteger(old['price'], 'product.price'),
-                // Legacy records did not carry tax classification. Keep the
-                // product blocked until the owner explicitly reviews it.
-                'ppn_exempt': 0,
-                'stock_qty': 0,
-                'track_expiry': 0,
-                'min_shelf_life_days': 0,
-                'requires_review': 1,
-              },
-            );
-            counts['products'] = counts['products']! + 1;
+          )).isNotEmpty) {
+            productId = '$baseProductId-legacy-$productIdSuffix';
+            productIdSuffix++;
           }
+          mappedProductIds[originalId] = productId;
+
+          final originalSku = old['sku']?.toString().trim() ?? '';
+          final baseSku = originalSku.isEmpty
+              ? 'LEGACY-$originalId'
+              : originalSku;
+          var sku = baseSku;
+          var suffix = 1;
+          while (usedSkus.contains(sku)) {
+            sku = '$baseSku-LEGACY-$originalId-$suffix';
+            suffix++;
+          }
+          usedSkus.add(sku);
+
+          final originalName = old['name']?.toString().trim() ?? '';
+          await transaction.insert(
+            'products',
+            <String, Object?>{
+              'id': productId,
+              'sku': sku,
+              'barcode': null,
+              'name_id': originalName.isEmpty
+                  ? 'Produk trial $originalId'
+                  : originalName,
+              'price': _nonNegativeInteger(old['price'], 'product.price'),
+              // Legacy records did not carry tax classification. Keep the
+              // product blocked until the owner explicitly reviews it.
+              'ppn_exempt': 0,
+              'stock_qty': 0,
+              'track_expiry': 0,
+              'min_shelf_life_days': 0,
+              'requires_review': 1,
+            },
+          );
+          counts['products'] = counts['products']! + 1;
 
           final stockRows = await transaction.query(
             'legacy_product_stock_archive',
@@ -148,28 +180,40 @@ class LegacyTrialImporter {
             whereArgs: <Object?>[originalId],
             limit: 1,
           );
-          if (stockRows.isEmpty) {
-            final originalQuantity =
-                _nonNegativeInteger(old['stock'], 'product.stock');
-            await transaction.insert(
-              'legacy_product_stock_archive',
-              <String, Object?>{
-                'product_id': productId,
-                'original_product_id': originalId,
-                'original_quantity': originalQuantity,
-                'status': originalQuantity > 0
-                    ? 'needs_review'
-                    : 'no_opening_stock',
-                'imported_at_utc': importedAt,
-                'reviewed_at_utc': null,
-              },
+          if (stockRows.isNotEmpty) {
+            // The transaction and completed-run marker make a successful
+            // import idempotent. Without that marker, an existing archive row
+            // is a conflict, not proof that this source product was imported:
+            // it may belong to an unrelated target product and must not cause
+            // the source stock snapshot to be silently skipped.
+            throw FormatException(
+              'Legacy import stopped: a stock archive already exists for '
+              'legacy product ID $originalId without a completed import marker. '
+              'Resolve the target archive conflict before retrying; the source '
+              'file was not changed and the import was rolled back.',
             );
           }
+
+          final originalQuantity =
+              _nonNegativeInteger(old['stock'], 'product.stock');
+          await transaction.insert(
+            'legacy_product_stock_archive',
+            <String, Object?>{
+              'product_id': productId,
+              'original_product_id': originalId,
+              'original_quantity': originalQuantity,
+              'status': originalQuantity > 0
+                  ? 'needs_review'
+                  : 'no_opening_stock',
+              'imported_at_utc': importedAt,
+              'reviewed_at_utc': null,
+            },
+          );
         }
 
         final archivedSaleIds = <int>{};
         for (final old in oldSales) {
-          final saleId = _requiredInteger(old['id'], 'sale.id');
+          final saleId = _positiveInteger(old['id'], 'sale.id');
           final created = old['created']?.toString().trim() ?? '';
           await transaction.insert(
             'legacy_sales_archive',
@@ -187,8 +231,8 @@ class LegacyTrialImporter {
         }
 
         for (final old in oldSaleItems) {
-          final itemId = _requiredInteger(old['id'], 'sale_item.id');
-          final saleId = _requiredInteger(old['sale_id'], 'sale_item.sale_id');
+          final itemId = _positiveInteger(old['id'], 'sale_item.id');
+          final saleId = _positiveInteger(old['sale_id'], 'sale_item.sale_id');
           if (!archivedSaleIds.contains(saleId)) {
             throw const FormatException(
               'Legacy import stopped: a sale item has no matching legacy sale. '
@@ -197,7 +241,7 @@ class LegacyTrialImporter {
           }
 
           final oldProductId =
-              _requiredInteger(old['product_id'], 'sale_item.product_id');
+              _positiveInteger(old['product_id'], 'sale_item.product_id');
           final productId = mappedProductIds[oldProductId];
           await transaction.insert(
             'legacy_sale_items_archive',
@@ -228,10 +272,21 @@ class LegacyTrialImporter {
         );
       });
 
-      return counts;
+      return resultCounts;
     } finally {
       await legacy.close();
     }
+  }
+
+  static Map<String, int> _countsFromCompletedRun(
+    Map<String, Object?> run,
+  ) {
+    return <String, int>{
+      'products': run['imported_products']! as int,
+      'sales': run['archived_sales']! as int,
+      'saleItems': run['archived_sale_items']! as int,
+      'alreadyImported': 1,
+    };
   }
 
   /// Converts only exact whole-number values. The source trial schema uses
