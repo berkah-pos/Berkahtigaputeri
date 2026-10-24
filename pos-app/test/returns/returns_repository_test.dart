@@ -320,6 +320,10 @@ void main() {
       whereArgs: <Object?>['void-stable-001'],
     )).single;
     expect(returned['return_type'], 'void');
+    expect(returned['origin_actor_id'], 'user-void');
+    expect(returned['actor_id'], 'user-void');
+    expect(returned['approved_by_user_id'], 'user-void');
+    expect(returned['approval_mode'], 'self');
     expect(returned['original_journal_entry_id'], originalJournal['id']);
     expect(returned['journal_entry_id'], reversal['id']);
     expect((await db.query(

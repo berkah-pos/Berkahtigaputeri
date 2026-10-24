@@ -590,6 +590,7 @@ class TenantSyncApiTest extends TestCase
         $fixture = $this->createPostedSaleFixture($deviceId, '2001-10-10', '2001-01-01', '2001-12-31');
         $returnId = 'return-test-'.Str::lower(Str::ulid());
         $event = $this->makeSaleReturnEvent($returnId, $fixture, 'return', '2001-10-12', 1);
+        $event['payload']['return']['origin_actor_id'] = 'offline-origin-actor';
 
         $accepted = $this->withHeader('Authorization', 'Bearer '.$bearer)
             ->postJson('/api/v1/sync', ['events' => [$event]])
@@ -602,6 +603,7 @@ class TenantSyncApiTest extends TestCase
         $returnRow = DB::connection('tenant')->table('sale_returns')->where('id', $returnId)->first();
         $this->assertNotNull($returnRow);
         $this->assertSame((string) $user->id, (string) $returnRow->actor_id);
+        $this->assertSame('offline-origin-actor', (string) $returnRow->origin_actor_id);
         $this->assertSame((string) $user->id, (string) $returnRow->approved_by_user_id);
         $this->assertSame('self', $returnRow->approval_mode);
         $this->assertSame((string) $fixture['journal_id'], (string) $returnRow->original_journal_entry_id);
