@@ -540,4 +540,94 @@ void main() {
     expect(migratedCostLayers, isEmpty);
   });
 
+  
+  test('v1 migration rejects inventory layers that reference missing products', () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkahtigaputeri-orphan-layer-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final path = p.join(directory.path, 'legacy-orphan.db');
+    // Deliberately create the historical v1 fixture without enabling FK
+    // enforcement so it represents an existing database with a dangling row.
+    final legacy = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (database, version) async {
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL UNIQUE,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL CHECK(price >= 0),
+              ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+              stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0)
+            )
+          ''');
+          await database.execute('''
+            CREATE TABLE inventory_lots (
+              id TEXT PRIMARY KEY,
+              product_id TEXT NOT NULL,
+              acquired_at_utc TEXT NOT NULL,
+              remaining_qty INTEGER NOT NULL CHECK(remaining_qty >= 0),
+              unit_cost INTEGER NOT NULL CHECK(unit_cost >= 0),
+              FOREIGN KEY(product_id) REFERENCES products(id)
+            )
+          ''');
+          await database.execute('''
+            CREATE INDEX idx_inventory_lots_fifo
+            ON inventory_lots(product_id, acquired_at_utc, id)
+          ''');
+        },
+      ),
+    );
+    await legacy.insert('inventory_lots', <String, Object?>{
+      'id': 'LOT-ORPHAN',
+      'product_id': 'P-MISSING',
+      'acquired_at_utc': DateTime.utc(2026, 9, 1).toIso8601String(),
+      'remaining_qty': 2,
+      'unit_cost': 10000,
+    });
+    await legacy.close();
+
+    await expectLater(
+      PosDatabase.openAt(path, factory: databaseFactoryFfi),
+      throwsA(isA<StateError>()),
+    );
+
+    // Failed upgrade must preserve the original v1 tables and dangling row so
+    // the source can be repaired explicitly rather than partially converted.
+    final original = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        readOnly: true,
+        singleInstance: false,
+      ),
+    );
+    addTearDown(original.close);
+
+    final version = await original.rawQuery('PRAGMA user_version');
+    expect(version.single['user_version'], 1);
+    expect(await original.query('products'), isEmpty);
+
+    final layer = (await original.query('inventory_lots')).single;
+    expect(layer['id'], 'LOT-ORPHAN');
+    expect(layer['product_id'], 'P-MISSING');
+    expect(layer['remaining_qty'], 2);
+
+    final columns = (await original.rawQuery(
+      "PRAGMA table_info('inventory_lots')",
+    )).map((column) => column['name'] as String).toSet();
+    expect(columns, contains('remaining_qty'));
+    expect(columns, isNot(contains('on_hand_qty')));
+    final newLedger = await original.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type = 'table' "
+      "AND name IN ('inventory_cost_layers', 'inventory_movements')",
+    );
+    expect(newLedger, isEmpty);
+  });
+
 }
