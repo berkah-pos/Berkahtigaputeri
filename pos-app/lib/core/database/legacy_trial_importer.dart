@@ -87,9 +87,20 @@ class LegacyTrialImporter {
           limit: 1,
         );
         if (existingRun.isNotEmpty) {
-          // A concurrent caller may have completed the import after our
-          // pre-transaction check. Return the stored counts, not the empty
-          // local counters, so retry callers never see a false zero import.
+          // Another caller may have completed an import after our pre-check.
+          // Revalidate the source identity inside the serialized transaction:
+          // otherwise a concurrent request for a different file could inherit
+          // this run's counts and be reported as successfully imported.
+          final importedSource = File(
+            existingRun.single['source_file']?.toString() ?? '',
+          ).absolute.path;
+          if (importedSource != file.absolute.path) {
+            throw const FormatException(
+              'Legacy import stopped: a different source file was already imported '
+              'into this database. The existing import was left unchanged; choose '
+              'the original source file or review the existing import before retrying.',
+            );
+          }
           resultCounts = _countsFromCompletedRun(existingRun.single);
           return;
         }
