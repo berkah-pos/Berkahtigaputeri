@@ -8,6 +8,29 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('fresh schema defaults products to active version one', () async {
+    sqfliteFfiInit();
+    final database = await PosDatabase.openAt(
+      inMemoryDatabasePath,
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(database.close);
+
+    await database.database.insert('products', <String, Object?>{
+      'id': 'P-FRESH',
+      'sku': 'SKU-FRESH',
+      'barcode': null,
+      'name_id': 'Produk instalasi baru',
+      'price': 10000,
+      'ppn_exempt': 0,
+      'stock_qty': 0,
+    });
+    final product = (await database.database.query('products')).single;
+    expect(product['is_active'], 1);
+    expect(product['version'], 1);
+    expect(await database.database.query('product_status_history'), isEmpty);
+  });
+
   test('schema v4 adds active status and version without changing products', () async {
     sqfliteFfiInit();
     final directory = await Directory.systemTemp.createTemp('berkah-pos-v4-lifecycle-');
