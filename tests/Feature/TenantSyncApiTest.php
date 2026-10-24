@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Api\V1\SyncController;
 use App\Models\Central\User;
 use App\Services\TenantDatabaseRunner;
 use App\Services\TenantRuntimeCredentialResolver;
@@ -309,6 +310,76 @@ class TenantSyncApiTest extends TestCase
         $this->assertDatabaseMissing('inventory_lots', ['id' => $receiptPayload['receipt']['lot_id']], 'tenant');
         $this->assertDatabaseMissing('journal_entries', ['source_event_id' => $receiptEventId], 'tenant');
         $this->assertDatabaseMissing('sync_receipts', ['event_id' => $receiptEventId], 'tenant');
+    }
+
+    public function test_server_fefo_excludes_known_expired_lots_when_tracking_is_disabled(): void
+    {
+        $productId = 'known-expiry-'.Str::lower(Str::ulid());
+        $now = now();
+
+        DB::connection('tenant')->table('inventory_lots')->insert([
+            [
+                'id' => 'LOT-EXPIRED-'.Str::lower(Str::ulid()),
+                'product_id' => $productId,
+                'batch_code' => 'B-EXPIRED',
+                'expires_at' => '2026-09-29',
+                'quantity_received' => 1,
+                'quantity_remaining' => 1,
+                'unit_cost' => 10000,
+                'received_at' => '2026-09-01 00:00:00+00:00',
+                'reserved_qty' => 0,
+                'status' => 'saleable',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'id' => 'LOT-VALID-'.Str::lower(Str::ulid()),
+                'product_id' => $productId,
+                'batch_code' => 'B-VALID',
+                'expires_at' => '2026-12-31',
+                'quantity_received' => 1,
+                'quantity_remaining' => 1,
+                'unit_cost' => 20000,
+                'received_at' => '2026-09-02 00:00:00+00:00',
+                'reserved_qty' => 0,
+                'status' => 'saleable',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+        ]);
+
+        $controller = app(SyncController::class);
+        $method = new \ReflectionMethod(SyncController::class, 'expectedFefoAllocations');
+        $method->setAccessible(true);
+
+        try {
+            $actual = $method->invoke(
+                $controller,
+                DB::connection('tenant'),
+                (object) [
+                    'id' => $productId,
+                    'track_expiry' => false,
+                    'min_shelf_life_days' => 0,
+                ],
+                1,
+                '2026-09-30',
+            );
+
+            $this->assertSame([
+                [
+                    'allocation_no' => 0,
+                    'lot_id' => DB::connection('tenant')->table('inventory_lots')
+                        ->where('product_id', $productId)
+                        ->where('batch_code', 'B-VALID')
+                        ->value('id'),
+                    'quantity' => 1,
+                ],
+            ], $actual);
+        } finally {
+            DB::connection('tenant')->table('inventory_lots')
+                ->where('product_id', $productId)
+                ->delete();
+        }
     }
 
     public function test_registry_cannot_redirect_a_tenant_to_another_tenants_database_or_role(): void
