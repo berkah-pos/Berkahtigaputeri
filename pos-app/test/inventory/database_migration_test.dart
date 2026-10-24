@@ -204,8 +204,26 @@ void main() {
       options: OpenDatabaseOptions(
         version: 3,
         onCreate: (database, version) async {
-          // Version 3's original durable outbox did not yet have the v4
-          // error/retry scheduling and server acknowledgement columns.
+          // Model the version 3 product schema as well as its durable outbox.
+          // Version 3 predates the v4 outbox retry/acknowledgement columns and
+          // the v5 product lifecycle fields.
+          await database.execute('''
+            CREATE TABLE products (
+              id TEXT PRIMARY KEY,
+              sku TEXT NOT NULL UNIQUE,
+              barcode TEXT,
+              name_id TEXT NOT NULL,
+              price INTEGER NOT NULL CHECK(price >= 0),
+              ppn_exempt INTEGER NOT NULL CHECK(ppn_exempt IN (0, 1)),
+              stock_qty INTEGER NOT NULL CHECK(stock_qty >= 0),
+              track_expiry INTEGER NOT NULL DEFAULT 0
+                CHECK(track_expiry IN (0, 1)),
+              min_shelf_life_days INTEGER NOT NULL DEFAULT 0
+                CHECK(min_shelf_life_days >= 0),
+              requires_review INTEGER NOT NULL DEFAULT 0
+                CHECK(requires_review IN (0, 1))
+            )
+          ''');
           await database.execute('''
             CREATE TABLE outbox_events (
               id TEXT PRIMARY KEY,
@@ -220,6 +238,19 @@ void main() {
         },
       ),
     );
+
+    await versionThree.insert('products', <String, Object?>{
+      'id': 'P-V3',
+      'sku': 'SKU-V3',
+      'barcode': null,
+      'name_id': 'Produk V3',
+      'price': 22000,
+      'ppn_exempt': 0,
+      'stock_qty': 5,
+      'track_expiry': 1,
+      'min_shelf_life_days': 3,
+      'requires_review': 1,
+    });
 
     await versionThree.insert('outbox_events', <String, Object?>{
       'id': 'outbox:product:P-V3',
@@ -240,6 +271,17 @@ void main() {
 
     final version = await migrated.database.rawQuery('PRAGMA user_version');
     expect(version.single['user_version'], PosDatabase.schemaVersion);
+
+    final products = await migrated.database.query('products');
+    expect(products, hasLength(1));
+    expect(products.single['id'], 'P-V3');
+    expect(products.single['sku'], 'SKU-V3');
+    expect(products.single['stock_qty'], 5);
+    expect(products.single['track_expiry'], 1);
+    expect(products.single['min_shelf_life_days'], 3);
+    expect(products.single['requires_review'], 1);
+    expect(products.single['is_active'], 1);
+    expect(products.single['version'], 1);
 
     final rows = await migrated.database.query('outbox_events');
     expect(rows, hasLength(1));
