@@ -15,6 +15,8 @@ import '../products/product_screen.dart';
 import '../products/repositories/sqlite_product_repository.dart';
 import 'legacy_import_failure_message.dart';
 import 'reports_screen.dart';
+import '../returns/returns_repository.dart';
+import '../returns/returns_screen.dart';
 
 const String _salesWhatsAppNumber = String.fromEnvironment(
   'BERKAH_WHATSAPP_NUMBER',
@@ -34,6 +36,7 @@ class HomeScreen extends StatefulWidget {
     this.onSignOut,
     this.onReturnToCloudLogin,
     this.cloudApiConfigured = false,
+    this.actorId = '',
   });
 
   final PosDatabase database;
@@ -42,6 +45,7 @@ class HomeScreen extends StatefulWidget {
   final Future<void> Function()? onSignOut;
   final VoidCallback? onReturnToCloudLogin;
   final bool cloudApiConfigured;
+  final String actorId;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -58,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _syncMessage;
 
   static const _titles = <String>[
-    'Beranda', 'Produk', 'Kasir', 'Stok', 'Laporan',
+    'Beranda', 'Produk', 'Kasir', 'Stok', 'Laporan', 'Retur',
   ];
 
   @override
@@ -157,6 +161,16 @@ class _HomeScreenState extends State<HomeScreen> {
           return ReportsScreen(
             key: ValueKey<String>('reports-$_refreshCounter'),
             database: widget.database,
+            authService: widget.authService,
+          );
+        case 5:
+          return ReturnsScreen(
+            key: ValueKey<String>('returns-$_refreshCounter'),
+            repository: ReturnsRepository(
+              database: widget.database,
+              actorId: widget.actorId,
+              deviceId: widget.identityStore.deviceId,
+            ),
           );
         default:
           return const SizedBox.shrink();
@@ -230,6 +244,11 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.assessment_outlined),
             selectedIcon: Icon(Icons.assessment),
             label: 'Laporan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_return_outlined),
+            selectedIcon: Icon(Icons.assignment_return),
+            label: 'Retur',
           ),
         ],
       ),
