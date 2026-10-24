@@ -183,7 +183,7 @@ class SyncController extends Controller
         }
 
         if ($entityType === 'product') {
-            return $this->acceptProductEvent($db, $event, $payload, $deviceId, $payloadHash);
+            return $this->acceptProductEvent($db, $event, $payload, $deviceId, $payloadHash, $actorId);
         }
         if ($entityType === 'inventory_receipt') {
             return $this->acceptInventoryReceiptEvent($db, $event, $payload, $deviceId, $payloadHash, $actorId, $appVersion);
@@ -475,8 +475,14 @@ class SyncController extends Controller
         return $response;
     }
 
-    private function acceptProductEvent(Connection $db, array $event, array $payload, string $deviceId, string $payloadHash): array
-    {
+    private function acceptProductEvent(
+        Connection $db,
+        array $event,
+        array $payload,
+        string $deviceId,
+        string $payloadHash,
+        int $actorId
+    ): array {
         $product = $payload['product'] ?? null;
         if (! is_array($product)) throw new SyncConflictException('Payload master produk tidak lengkap.');
 
@@ -487,7 +493,9 @@ class SyncController extends Controller
         }
         $sku = trim($this->requiredString($product, 'sku'));
         $name = trim($this->requiredString($product, 'name_id'));
-        if (strlen($sku) > 100 || strlen($name) > 255) throw new SyncConflictException('SKU atau nama produk melebihi batas.');
+        if (strlen($sku) > 100 || strlen($name) > 255) {
+            throw new SyncConflictException('SKU atau nama produk melebihi batas.');
+        }
         $barcode = $product['barcode'] ?? null;
         if ($barcode !== null && (! is_string($barcode) || trim($barcode) === '' || strlen($barcode) > 100)) {
             throw new SyncConflictException('Barcode produk tidak valid.');
@@ -496,7 +504,12 @@ class SyncController extends Controller
         $ppnExempt = $this->payloadBoolean($product['ppn_exempt'] ?? null);
         $trackExpiry = $this->payloadBoolean($product['track_expiry'] ?? false);
         $requiresReview = $this->payloadBoolean($product['requires_review'] ?? false);
-        $isActive = $this->payloadBoolean($product['is_active'] ?? true);
+        $statusSpecified = array_key_exists('is_active', $product);
+        $versionSpecified = array_key_exists('version', $product);
+        $incomingVersion = $product['version'] ?? null;
+        if ($versionSpecified && (! is_int($incomingVersion) || $incomingVersion < 1)) {
+            throw new SyncConflictException('Versi produk tidak valid.');
+        }
         $minShelfLifeDays = $product['min_shelf_life_days'] ?? 0;
         if (! is_int($minShelfLifeDays) || $minShelfLifeDays < 0 || $minShelfLifeDays > 3650) {
             throw new SyncConflictException('Minimum shelf life produk tidak valid.');
@@ -517,6 +530,85 @@ class SyncController extends Controller
             throw new SyncConflictException('Kebijakan kedaluwarsa tidak dapat diubah setelah lot persediaan tercatat.');
         }
 
+        $currentIsActive = $existing === null
+            ? true
+            : $this->databaseBoolean($existing->is_active ?? true);
+        $isActive = $statusSpecified
+            ? $this->payloadBoolean($product['is_active'])
+            : $currentIsActive;
+
+        if ($existing === null) {
+            if ($versionSpecified && $incomingVersion !== 1) {
+                throw new SyncConflictException('Produk baru harus dimulai dari versi 1.');
+            }
+            if (! $isActive) {
+                throw new SyncConflictException('Produk baru harus dibuat aktif; gunakan transisi status yang diaudit.');
+            }
+            $persistedVersion = 1;
+        } else {
+            $currentVersion = (int) ($existing->version ?? 1);
+            if ($versionSpecified) {
+                if ($incomingVersion !== $currentVersion + 1) {
+                    throw new SyncConflictException(
+                        'Versi produk usang atau melompati revisi; muat ulang status dan sinkronkan ulang.'
+                    );
+                }
+                $persistedVersion = $incomingVersion;
+            } else {
+                // Backward compatibility for old clients only permits master
+                // edits that do not change activity. In particular, a delayed
+                // legacy event cannot reactivate an inactive product.
+                if ($statusSpecified && $isActive !== $currentIsActive) {
+                    throw new SyncConflictException('Perubahan status memerlukan versi produk dan audit transisi.');
+                }
+                $isActive = $currentIsActive;
+                $persistedVersion = $currentVersion;
+            }
+        }
+
+        $hasStatusChange = $existing !== null && $isActive !== $currentIsActive;
+        $statusAudit = null;
+        if ($hasStatusChange) {
+            if (! $versionSpecified) {
+                throw new SyncConflictException('Perubahan status memerlukan versi produk.');
+            }
+            $transition = $product['status_change'] ?? null;
+            if (! is_array($transition)) {
+                throw new SyncConflictException('Alasan dan metadata audit perubahan status wajib dilampirkan.');
+            }
+            $fromActive = $this->payloadBoolean($transition['from_active'] ?? null);
+            $toActive = $this->payloadBoolean($transition['to_active'] ?? null);
+            $reason = $transition['reason'] ?? null;
+            $changedAtRaw = $transition['changed_at_utc'] ?? null;
+            if (! is_string($reason) || trim($reason) === '' || strlen(trim($reason)) > 500) {
+                throw new SyncConflictException('Alasan perubahan status wajib diisi maksimal 500 karakter.');
+            }
+            if ($fromActive !== $currentIsActive || $toActive !== $isActive) {
+                throw new SyncConflictException('Transisi status tidak sesuai dengan versi aktif yang tersimpan.');
+            }
+            if (! is_string($changedAtRaw) || trim($changedAtRaw) === '') {
+                throw new SyncConflictException('Waktu perubahan status tidak valid.');
+            }
+            try {
+                $changedAt = Carbon::parse($changedAtRaw);
+            } catch (Throwable) {
+                throw new SyncConflictException('Waktu perubahan status tidak valid.');
+            }
+            $statusAudit = [
+                'event_id' => (string) $event['event_id'],
+                'product_id' => $productId,
+                'version' => $persistedVersion,
+                'previous_is_active' => $currentIsActive,
+                'is_active' => $isActive,
+                'reason' => trim($reason),
+                'actor_user_id' => $actorId,
+                'device_id' => $deviceId,
+                'changed_at' => $changedAt,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
         $values = [
             'sku' => $sku,
             'barcode' => $barcode === null ? null : trim($barcode),
@@ -527,6 +619,7 @@ class SyncController extends Controller
             'min_shelf_life_days' => $minShelfLifeDays,
             'requires_review' => $requiresReview,
             'is_active' => $isActive,
+            'version' => $persistedVersion,
             'updated_at' => $now,
         ];
         if ($existing === null) {
@@ -541,12 +634,16 @@ class SyncController extends Controller
             // Update only the product master; never trust client stock_qty.
             $db->table('products')->where('id', $productId)->update($values);
         }
+        if ($statusAudit !== null) {
+            $db->table('product_status_audits')->insert($statusAudit);
+        }
 
         $response = [
             'event_id' => (string) $event['event_id'],
             'status' => 'accepted',
             'receipt_id' => (string) $event['event_id'],
             'entity_id' => $productId,
+            'version' => $persistedVersion,
         ];
         $this->saveSyncReceipt($db, (string) $event['event_id'], $deviceId, $payloadHash, $response, $now);
         return $response;
