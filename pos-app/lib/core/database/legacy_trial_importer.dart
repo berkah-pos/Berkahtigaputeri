@@ -24,12 +24,7 @@ class LegacyTrialImporter {
       limit: 1,
     );
     if (runs.isNotEmpty) {
-      return <String, int>{
-        'products': runs.single['imported_products']! as int,
-        'sales': runs.single['archived_sales']! as int,
-        'saleItems': runs.single['archived_sale_items']! as int,
-        'alreadyImported': 1,
-      };
+      return _countsFromCompletedRun(runs.single);
     }
 
     final selectedFactory = factory ?? databaseFactory;
@@ -72,6 +67,7 @@ class LegacyTrialImporter {
         'sales': 0,
         'saleItems': 0,
       };
+      var resultCounts = counts;
 
       await target.transaction<void>((transaction) async {
         final existingRun = await transaction.query(
@@ -80,7 +76,13 @@ class LegacyTrialImporter {
           whereArgs: <Object?>[migrationKey],
           limit: 1,
         );
-        if (existingRun.isNotEmpty) return;
+        if (existingRun.isNotEmpty) {
+          // A concurrent caller may have completed the import after our
+          // pre-transaction check. Return the stored counts, not the empty
+          // local counters, so retry callers never see a false zero import.
+          resultCounts = _countsFromCompletedRun(existingRun.single);
+          return;
+        }
 
         final skuRows = await transaction.query(
           'products',
@@ -246,10 +248,21 @@ class LegacyTrialImporter {
         );
       });
 
-      return counts;
+      return resultCounts;
     } finally {
       await legacy.close();
     }
+  }
+
+  static Map<String, int> _countsFromCompletedRun(
+    Map<String, Object?> run,
+  ) {
+    return <String, int>{
+      'products': run['imported_products']! as int,
+      'sales': run['archived_sales']! as int,
+      'saleItems': run['archived_sale_items']! as int,
+      'alreadyImported': 1,
+    };
   }
 
   /// Converts only exact whole-number values. The source trial schema uses
