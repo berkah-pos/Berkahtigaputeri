@@ -272,6 +272,26 @@ class PosDatabase {
   }
 
   static Future<void> _migrateV1ToV2(Database database) async {
+    // A LEFT JOIN from products cannot detect inventory layers whose
+    // product row is missing. Reject those orphaned rows explicitly before
+    // renaming tables or creating the new physical-lot ledger.
+    final orphanedLayers = await database.rawQuery('''
+      SELECT l.id AS layer_id, l.product_id AS product_id
+      FROM inventory_lots l
+      LEFT JOIN products p ON p.id = l.product_id
+      WHERE p.id IS NULL
+      LIMIT 1
+    ''');
+    if (orphanedLayers.isNotEmpty) {
+      final orphan = orphanedLayers.single;
+      throw StateError(
+        'Cannot upgrade SQLite schema v1: inventory layer '
+        '${orphan['layer_id']} references missing product '
+        '${orphan['product_id']}. Restore or reconcile the product row before '
+        'retrying migration.',
+      );
+    }
+
     // Product summary stock and the legacy cost-layer quantities must agree
     // before those rows are converted into physical inventory lots. Carrying
     // an inconsistent source forward would make product stock disagree with
