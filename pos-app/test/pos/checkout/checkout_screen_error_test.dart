@@ -1,5 +1,4 @@
 import 'package:berkahtigaputeri_pos/features/pos/checkout/payment_service.dart';
-import 'package:berkahtigaputeri_pos/features/pos/checkout/sqlite_sale_repository.dart';
 import 'package:berkahtigaputeri_pos/features/pos/checkout_screen.dart';
 import 'package:berkahtigaputeri_pos/features/products/models/product.dart';
 import 'package:berkahtigaputeri_pos/features/products/repositories/sqlite_product_repository.dart';
