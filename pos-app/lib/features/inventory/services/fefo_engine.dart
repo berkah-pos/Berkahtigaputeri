@@ -75,19 +75,40 @@ class FefoEngine {
       if (candidate.availableQty <= 0) {
         return false;
       }
+
+      final expiry = candidate.expiryDate;
+      final expiryOnly = expiry == null
+          ? null
+          : DateTime(expiry.year, expiry.month, expiry.day);
+
+      // A stored expiry date is authoritative even when product-level expiry
+      // tracking is disabled. Maintenance jobs update lot status for inventory
+      // visibility; checkout must remain safe if such a job has not run.
+      if (expiryOnly != null && expiryOnly.isBefore(dateOnly)) {
+        return false;
+      }
+
       if (!trackExpiry) {
         return true;
       }
-      final expiry = candidate.expiryDate;
-      if (expiry == null) {
+      if (expiryOnly == null) {
         return false;
       }
-      final expiryOnly = DateTime(expiry.year, expiry.month, expiry.day);
       return !expiryOnly.isBefore(minimumExpiry);
     }).toList(growable: false)
       ..sort((left, right) {
         if (trackExpiry) {
-          final expiryCompare = left.expiryDate!.compareTo(right.expiryDate!);
+          final leftExpiry = left.expiryDate!;
+          final rightExpiry = right.expiryDate!;
+          final expiryCompare = DateTime(
+            leftExpiry.year,
+            leftExpiry.month,
+            leftExpiry.day,
+          ).compareTo(DateTime(
+            rightExpiry.year,
+            rightExpiry.month,
+            rightExpiry.day,
+          ));
           if (expiryCompare != 0) {
             return expiryCompare;
           }
