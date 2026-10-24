@@ -161,6 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return ReportsScreen(
             key: ValueKey<String>('reports-$_refreshCounter'),
             database: widget.database,
+            authService: widget.authService,
           );
         case 5:
           return ReturnsScreen(

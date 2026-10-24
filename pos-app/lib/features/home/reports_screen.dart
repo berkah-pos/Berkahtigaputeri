@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../core/auth/laravel_auth_service.dart';
 import '../../core/database/pos_database.dart';
 
 /// Local sales report. Values are device-local until a cloud sync service
 /// acknowledges the pending outbox events.
 class ReportsScreen extends StatefulWidget {
-  const ReportsScreen({super.key, required this.database});
+  const ReportsScreen({super.key, required this.database, this.authService});
 
   final PosDatabase database;
+  final LaravelAuthService? authService;
 
   @override
   State<ReportsScreen> createState() => _ReportsScreenState();
@@ -21,6 +25,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   int _pendingSync = 0;
   bool _loading = true;
   String? _error;
+  Map<String, dynamic>? _serverReport;
+  bool _serverLoading = false;
+  String? _serverError;
 
   @override
   void initState() {
@@ -99,6 +106,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
         _pendingSync = pending;
         _loading = false;
       });
+
+      final authService = widget.authService;
+      if (authService != null) {
+        unawaited(_reloadServerReport(authService));
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -122,6 +134,154 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     return 'Rp ' + buffer.toString();
   }
+
+  int _serverInt(String key) {
+    return num.tryParse((_serverReport?[key] ?? 0).toString())?.toInt() ?? 0;
+  }
+
+  String _serverQuantity(String key) => (_serverReport?[key] ?? '0').toString();
+
+  Future<void> _reloadServerReport(LaravelAuthService authService) async {
+    if (!mounted) return;
+    setState(() {
+      _serverLoading = true;
+      _serverError = null;
+    });
+    try {
+      final report = await authService.fetchReconciliationReport();
+      if (!mounted) return;
+      setState(() {
+        _serverReport = report;
+        _serverLoading = false;
+        _serverError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _serverReport = null;
+        _serverLoading = false;
+        _serverError = 'Laporan server belum tersedia. Data lokal tetap ditampilkan.';
+      });
+    }
+  }
+
+  Widget _serverReconciliationCard() {
+    final authService = widget.authService!;
+    final report = _serverReport;
+    final isReconciled = report?['is_reconciled'] == true;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.cloud_sync_outlined),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Rekonsiliasi server PostgreSQL',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Muat ulang laporan server',
+                  onPressed: _serverLoading
+                      ? null
+                      : () => unawaited(_reloadServerReport(authService)),
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const Text(
+              'Agregat tenant dari server. Berbeda dari laporan lokal perangkat yang juga dapat berisi event tertunda.',
+            ),
+            if (_serverLoading) ...<Widget>[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(),
+            ] else if (_serverError != null) ...<Widget>[
+              const SizedBox(height: 8),
+              Text(_serverError!),
+            ] else if (report != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  _MetricCard(
+                    label: 'Penjualan bersih server',
+                    value: _money(_serverInt('net_revenue')),
+                    icon: Icons.payments_outlined,
+                  ),
+                  _MetricCard(
+                    label: 'HPP bersih server',
+                    value: _money(_serverInt('net_cogs')),
+                    icon: Icons.inventory_2_outlined,
+                  ),
+                  _MetricCard(
+                    label: 'Retur / void server',
+                    value: _serverInt('return_count').toString(),
+                    icon: Icons.assignment_return_outlined,
+                  ),
+                  _MetricCard(
+                    label: 'Refund server',
+                    value: _money(_serverInt('refund_total')),
+                    icon: Icons.currency_exchange,
+                  ),
+                  _MetricCard(
+                    label: 'Nilai persediaan FIFO',
+                    value: _money(_serverInt('inventory_value')),
+                    icon: Icons.account_balance_outlined,
+                  ),
+                  _MetricCard(
+                    label: 'Jurnal posted tidak seimbang',
+                    value: _serverInt('unbalanced_posted_journal_count').toString(),
+                    icon: Icons.balance_outlined,
+                    warning: _serverInt('unbalanced_posted_journal_count') > 0,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Stok agregat produk: ${_serverQuantity('aggregate_stock_qty')} · '
+                'lot fisik: ${_serverQuantity('physical_stock_qty')} · '
+                'layer FIFO: ${_serverQuantity('fifo_stock_qty')}',
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isReconciled
+                    ? 'Hasil rekonsiliasi: konsisten'
+                    : 'Hasil rekonsiliasi: perlu ditinjau; periksa selisih stok, jurnal, periode, retur atau receipt sync.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selisih produk/lot: ${_serverInt('product_lot_mismatch_count')} · '
+                'lot/layer biaya: ${_serverInt('lot_cost_layer_mismatch_count')} · '
+                'posted di periode tertutup: ${_serverInt('posted_in_closed_period_count')} · '
+                'retur tanpa jurnal/receipt: ${_serverInt('missing_return_journal_count')}/'
+                '${_serverInt('missing_return_receipt_count')} · '
+                'retur kuantitas berlebih: ${_serverInt('over_returned_line_count')}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Dibuat ${(_serverReport?['generated_at_utc'] ?? '').toString()} UTC',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ] else ...<Widget>[
+              const SizedBox(height: 8),
+              const Text('Laporan server belum dimuat.'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -196,6 +356,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
             ],
           ),
+          if (widget.authService != null) ...<Widget>[
+            const SizedBox(height: 12),
+            _serverReconciliationCard(),
+          ],
           const SizedBox(height: 12),
           Card(
             child: ListTile(

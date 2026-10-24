@@ -1075,4 +1075,56 @@ class TenantSyncApiTest extends TestCase
     }
 
 
+
+
+    public function test_authenticated_reconciliation_report_tracks_return_and_stock_cost_links(): void
+    {
+        [, $deviceId, , $bearer] = $this->identityFixture(true);
+        $fixture = $this->createPostedSaleFixture(
+            $deviceId,
+            '2004-10-10',
+            '2004-01-01',
+            '2004-12-31'
+        );
+
+        $beforeResponse = $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->getJson('/api/v1/reports/reconciliation');
+        $beforeResponse->assertOk()
+            ->assertJsonPath('data.source', 'tenant_postgresql');
+        $before = $beforeResponse->json('data');
+
+        $returnId = 'report-return-'.Str::lower(Str::ulid());
+        $event = $this->makeSaleReturnEvent(
+            $returnId,
+            $fixture,
+            'return',
+            '2004-10-12',
+            1
+        );
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$event]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'accepted')
+            ->assertJsonPath('results.0.refund_total', 11100);
+
+        $afterResponse = $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->getJson('/api/v1/reports/reconciliation?tenant_id=untrusted-caller-value');
+        $afterResponse->assertOk()
+            ->assertJsonPath('data.source', 'tenant_postgresql');
+        $after = $afterResponse->json('data');
+
+        $this->assertSame((int) $before['return_count'] + 1, (int) $after['return_count']);
+        $this->assertSame(11100, (int) $after['refund_total'] - (int) $before['refund_total']);
+        $this->assertSame(11100, (int) $before['net_revenue'] - (int) $after['net_revenue']);
+        $this->assertSame(10000, (int) $before['net_cogs'] - (int) $after['net_cogs']);
+        $this->assertSame(0, (int) $after['product_lot_mismatch_count']);
+        $this->assertSame(0, (int) $after['lot_cost_layer_mismatch_count']);
+        $this->assertSame(0, (int) $after['unbalanced_posted_journal_count']);
+        $this->assertSame(0, (int) $after['missing_return_journal_count']);
+        $this->assertSame(0, (int) $after['missing_return_receipt_count']);
+        $this->assertSame(0, (int) $after['over_returned_line_count']);
+        $this->assertTrue((bool) $after['is_reconciled']);
+    }
+
+
 }
