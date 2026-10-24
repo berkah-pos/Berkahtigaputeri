@@ -56,8 +56,11 @@ class LegacyTrialImporter {
           .map((row) => row['name']?.toString() ?? '')
           .toSet();
       if (!tableNames.contains('products')) {
-        // A blank file is not treated as a completed migration.
-        return null;
+        throw const FormatException(
+          'The old berkah_pos.db file has no products table and does not '
+          'match the expected trial schema; it was left unchanged for manual '
+          'recovery.',
+        );
       }
       if (!tableNames.contains('sales') ||
           !tableNames.contains('sale_items')) {
