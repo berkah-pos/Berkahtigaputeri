@@ -206,6 +206,20 @@ class TenantSyncApiTest extends TestCase
             'version' => 2,
         ], 'tenant');
 
+        // Older clients may omit version on ordinary edits, but a legacy
+        // payload that explicitly restores active=true is rejected.
+        $legacyStale = $makeEvent(2, true);
+        unset($legacyStale['payload']['product']['version']);
+        $this->withHeader('Authorization', 'Bearer '.$bearer)
+            ->postJson('/api/v1/sync', ['events' => [$legacyStale]])
+            ->assertOk()
+            ->assertJsonPath('results.0.status', 'conflict');
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_active' => false,
+            'version' => 2,
+        ], 'tenant');
+
         $reactivated = $makeEvent(3, true, [
             'from_active' => false,
             'to_active' => true,
