@@ -23,7 +23,7 @@ Future<void> enqueueOutboxEvent(
     throw ArgumentError.value(entityId, 'entityId', 'Invalid entity ID');
   }
 
-  final resolvedEventId = eventId ?? _newOutboxEventId(entityType);
+  final resolvedEventId = eventId ?? newOutboxEventId(entityType);
   if (resolvedEventId.trim().isEmpty || resolvedEventId.length > 100) {
     throw ArgumentError.value(resolvedEventId, 'eventId', 'Invalid event ID');
   }
@@ -55,7 +55,7 @@ Future<void> enqueueOutboxEvent(
   );
 }
 
-String _newOutboxEventId(String entityType) {
+String newOutboxEventId(String entityType) {
   final time = DateTime.now().toUtc().microsecondsSinceEpoch.toRadixString(16);
   final random = List<int>.generate(16, (_) => _outboxRandom.nextInt(256))
       .map((value) => value.toRadixString(16).padLeft(2, '0'))
