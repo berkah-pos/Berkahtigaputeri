@@ -1806,6 +1806,15 @@ class SyncController extends Controller
             ->where('status', 'saleable')
             ->whereRaw('(quantity_remaining - reserved_qty) > 0');
 
+        // The server must enforce any recorded expiry date against the sale's
+        // business date, even when product-level expiry tracking is disabled.
+        // This mirrors the offline FEFO contract and prevents stale maintenance
+        // status from making an expired lot appear eligible.
+        $query->where(function ($expiry) use ($businessDate): void {
+            $expiry->whereNull('expires_at')
+                ->orWhereDate('expires_at', '>=', $businessDate);
+        });
+
         $minimumExpiry = Carbon::parse($businessDate)
             ->addDays((int) ($product->min_shelf_life_days ?? 0))->toDateString();
         $now = now();
