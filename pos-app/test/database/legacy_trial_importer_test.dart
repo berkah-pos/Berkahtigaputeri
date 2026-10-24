@@ -836,4 +836,48 @@ void main() {
     );
   });
 
+
+  test('rejects an empty legacy database instead of clearing import failure', () async {
+    sqfliteFfiInit();
+    final directory =
+        await Directory.systemTemp.createTemp('berkah-trial-empty-source-');
+    addTearDown(() => directory.delete(recursive: true));
+
+    final legacyPath = p.join(directory.path, 'berkah_pos.db');
+    final emptySource = await databaseFactoryFfi.openDatabase(
+      legacyPath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, version) async {},
+      ),
+    );
+    await emptySource.close();
+    final sourceBytesBeforeImport = await File(legacyPath).readAsBytes();
+
+    final target = await PosDatabase.openAt(
+      p.join(directory.path, 'berkahtigaputeri_pos.db'),
+      factory: databaseFactoryFfi,
+    );
+    addTearDown(target.close);
+
+    await expectLater(
+      LegacyTrialImporter.importIfPresent(
+        target: target.database,
+        legacyPath: legacyPath,
+        factory: databaseFactoryFfi,
+      ),
+      throwsA(isA<FormatException>()),
+    );
+
+    expect(await target.database.query('products'), isEmpty);
+    expect(await target.database.query('legacy_product_stock_archive'), isEmpty);
+    expect(await target.database.query('legacy_sales_archive'), isEmpty);
+    expect(await target.database.query('legacy_sale_items_archive'), isEmpty);
+    expect(await target.database.query('legacy_import_runs'), isEmpty);
+    expect(
+      await File(legacyPath).readAsBytes(),
+      orderedEquals(sourceBytesBeforeImport),
+    );
+  });
+
 }
