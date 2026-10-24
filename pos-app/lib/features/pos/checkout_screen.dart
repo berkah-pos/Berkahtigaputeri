@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../products/models/product.dart';
 import '../products/repositories/sqlite_product_repository.dart';
+import 'checkout_failure_message.dart';
 import 'cart/sale_calculator.dart';
 import 'checkout/payment_service.dart';
 
@@ -49,7 +50,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() {
-        _error = error.toString();
+        _error = safeCheckoutFailureMessage(
+          error,
+          operation: CheckoutFailureOperation.loadProducts,
+        );
         _loading = false;
       });
     }
@@ -180,7 +184,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() => _processing = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Checkout gagal; transaksi tidak dikonfirmasi: $error')),
+        SnackBar(
+          content: Text(
+            safeCheckoutFailureMessage(
+              error,
+              operation: CheckoutFailureOperation.processPayment,
+            ),
+          ),
+        ),
       );
     }
   }
@@ -213,7 +224,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ? ListView(
                   padding: const EdgeInsets.all(24),
                   children: <Widget>[
-                    Text('Produk gagal dimuat: ' + _error!),
+                    Text(_error!),
                     TextButton(
                       onPressed: _reload,
                       child: const Text('Coba lagi'),
