@@ -104,6 +104,41 @@ void main() {
       expect(SaleCalculator.calculatePpn(1000), 110);
     });
 
+    test('diskon item penuh ditolak jika total yang harus dibayar nol', () {
+      expect(
+        () => SaleCalculator.calculate(
+          lines: const <SalePricingLine>[
+            SalePricingLine(
+              productId: 'P-FREE',
+              quantity: 1,
+              unitPrice: 10000,
+              itemDiscountAmount: 10000,
+              ppnExempt: false,
+            ),
+          ],
+        ),
+        throwsA(isA<SaleCalculationException>()),
+      );
+    });
+
+    test('diskon transaksi penuh ditolak jika total yang harus dibayar nol', () {
+      expect(
+        () => SaleCalculator.calculate(
+          lines: const <SalePricingLine>[
+            SalePricingLine(
+              productId: 'P-001',
+              quantity: 1,
+              unitPrice: 10000,
+              itemDiscountAmount: 2000,
+              ppnExempt: false,
+            ),
+          ],
+          transactionDiscountAmount: 8000,
+        ),
+        throwsA(isA<SaleCalculationException>()),
+      );
+    });
+
     test('diskon transaksi tidak boleh melebihi nilai net', () {
       expect(
         () => SaleCalculator.calculate(

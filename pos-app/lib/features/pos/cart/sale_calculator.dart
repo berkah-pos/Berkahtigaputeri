@@ -146,6 +146,15 @@ class SaleCalculator {
       }
     }
 
+    final ppnAmount = calculatePpn(taxableDpp);
+    final grandTotal = taxableDpp + exemptDpp + ppnAmount;
+    if (grandTotal <= 0) {
+      throw const SaleCalculationException(
+        'Total transaksi harus lebih dari nol. Diskon penuh memerlukan '
+        'alur kompensasi yang disetujui.',
+      );
+    }
+
     return SaleCalculation(
       lines: calculated,
       grossAmount: grossAmount,
@@ -153,7 +162,7 @@ class SaleCalculator {
       transactionDiscountAmount: transactionDiscountAmount,
       taxableDpp: taxableDpp,
       exemptDpp: exemptDpp,
-      ppnAmount: calculatePpn(taxableDpp),
+      ppnAmount: ppnAmount,
     );
   }
 
