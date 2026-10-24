@@ -317,6 +317,24 @@ class TenantSyncApiTest extends TestCase
         $productId = 'known-expiry-'.Str::lower(Str::ulid());
         $now = now();
 
+        DB::connection('tenant')->table('products')->insert([
+            'id' => $productId,
+            'sku' => 'SKU-KNOWN-EXPIRY-'.Str::upper(Str::random(8)),
+            'barcode' => null,
+            'name' => 'Known expiry FEFO test',
+            'category_id' => null,
+            'price' => 50000,
+            'requires_review' => false,
+            'is_active' => true,
+            'stock_qty' => 2,
+            'ppn_exempt' => false,
+            'track_expiry' => false,
+            'min_shelf_life_days' => 0,
+            'version' => 1,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
         DB::connection('tenant')->table('inventory_lots')->insert([
             [
                 'id' => 'LOT-EXPIRED-'.Str::lower(Str::ulid()),
@@ -378,6 +396,9 @@ class TenantSyncApiTest extends TestCase
         } finally {
             DB::connection('tenant')->table('inventory_lots')
                 ->where('product_id', $productId)
+                ->delete();
+            DB::connection('tenant')->table('products')
+                ->where('id', $productId)
                 ->delete();
         }
     }
