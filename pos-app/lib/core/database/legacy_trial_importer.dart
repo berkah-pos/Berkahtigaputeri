@@ -116,7 +116,7 @@ class LegacyTrialImporter {
         final mappedProductIds = <int, String>{};
 
         for (final old in oldProducts) {
-          final originalId = _requiredInteger(old['id'], 'product.id');
+          final originalId = _positiveInteger(old['id'], 'product.id');
           final baseProductId = 'legacy-product-$originalId';
           var productId = baseProductId;
           var productIdSuffix = 1;
@@ -210,7 +210,7 @@ class LegacyTrialImporter {
 
         final archivedSaleIds = <int>{};
         for (final old in oldSales) {
-          final saleId = _requiredInteger(old['id'], 'sale.id');
+          final saleId = _positiveInteger(old['id'], 'sale.id');
           final created = old['created']?.toString().trim() ?? '';
           await transaction.insert(
             'legacy_sales_archive',
@@ -228,8 +228,8 @@ class LegacyTrialImporter {
         }
 
         for (final old in oldSaleItems) {
-          final itemId = _requiredInteger(old['id'], 'sale_item.id');
-          final saleId = _requiredInteger(old['sale_id'], 'sale_item.sale_id');
+          final itemId = _positiveInteger(old['id'], 'sale_item.id');
+          final saleId = _positiveInteger(old['sale_id'], 'sale_item.sale_id');
           if (!archivedSaleIds.contains(saleId)) {
             throw const FormatException(
               'Legacy import stopped: a sale item has no matching legacy sale. '
@@ -238,7 +238,7 @@ class LegacyTrialImporter {
           }
 
           final oldProductId =
-              _requiredInteger(old['product_id'], 'sale_item.product_id');
+              _positiveInteger(old['product_id'], 'sale_item.product_id');
           final productId = mappedProductIds[oldProductId];
           await transaction.insert(
             'legacy_sale_items_archive',
